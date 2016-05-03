@@ -4,8 +4,7 @@ import (
 	"net/http"
 )
 
-// RequestGate provides the standard behavior for gated requests.  Clients may supply
-// an implementation of this interface.
+// RequestGate provides the standard behavior for gated requests.
 type RequestGate interface {
 	// ShouldRequestProceed determines if the given request should be allowed to continue.
 	// The first return value is an error that describes why the the error should not proceed.
