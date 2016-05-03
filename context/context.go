@@ -14,20 +14,12 @@ type Context interface {
 
 	// DeviceId returns the canonical device id associated with the request.
 	DeviceId() canonical.Id
-
-	// Get returns the value of a specific attribute.
-	Get(attributeName string) interface{}
-
-	// GetOk is like Get, but it returns a second parameter indicating whether
-	// the attribute exists.
-	GetOk(attributeName string) (interface{}, bool)
 }
 
 // defaultContext is the default implementation of Context
 type defaultContext struct {
-	logger     Logger
-	deviceId   canonical.Id
-	attributes map[string]interface{}
+	logger   Logger
+	deviceId canonical.Id
 }
 
 func (c *defaultContext) Logger() Logger {
@@ -36,15 +28,6 @@ func (c *defaultContext) Logger() Logger {
 
 func (c *defaultContext) DeviceId() canonical.Id {
 	return c.deviceId
-}
-
-func (c *defaultContext) Get(attributeName string) interface{} {
-	return c.attributes[attributeName]
-}
-
-func (c *defaultContext) Get(attributeName string) (interface{}, bool) {
-	value, ok := c.attributes[attributeName]
-	return value, ok
 }
 
 // NewContext creates a new Context object from an HTTP request
@@ -63,8 +46,7 @@ func NewContext(logger Logger, request *http.Request) (Context, error) {
 	}
 
 	return &defaultContext{
-		logger:     logger,
-		deviceId:   deviceId,
-		attributes: make(map[string]interface{}, 10),
+		logger:   logger,
+		deviceId: deviceId,
 	}, nil
 }
