@@ -8,8 +8,8 @@ import (
 type ContextHandlerFunc func(Context, http.ResponseWriter, *http.Request)
 
 // NewHttpHandler creates a new http.HandlerFunc which creates a new WebPA Context
-// with each request.
-func NewHttpHandler(logger Logger, contextHandler ContextHandlerFunc) http.HandlerFunc {
+// with each request.  This function is the primary entrypoint to this package for client code.
+func NewHttpHandler(logger Logger, requestGate RequestGate, contextHandler ContextHandlerFunc) http.HandlerFunc {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		defer func() {
 			if recovered := recover(); recovered != nil {
@@ -18,6 +18,11 @@ func NewHttpHandler(logger Logger, contextHandler ContextHandlerFunc) http.Handl
 				}
 			}
 		}()
+
+		if !CheckRequest(requestGate, response, request) {
+			logger.Warn("Request denied")
+			return
+		}
 
 		context, err := NewContext(logger, request)
 		if err != nil {
