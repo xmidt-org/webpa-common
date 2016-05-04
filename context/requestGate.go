@@ -52,3 +52,15 @@ func CheckRequest(requestGate RequestGate, response http.ResponseWriter, request
 
 	return allow
 }
+
+// NewRequestGateHttpHandler returns an http.Handler whose requests are gated by the given RequestGate
+func NewRequestGateHttpHandler(logger Logger, requestGate RequestGate, delegate http.Handler) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		if !CheckRequest(requestGate, response, request) {
+			logger.Warn("Request denied")
+			return
+		}
+
+		delegate.ServeHTTP(response, request)
+	})
+}
