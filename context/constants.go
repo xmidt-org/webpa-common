@@ -1,5 +1,9 @@
 package context
 
+import (
+	"net/http"
+)
+
 const (
 	// The Content-Type value for JSON
 	JsonContentType string = "application/json; charset=UTF-8"

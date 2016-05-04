@@ -38,11 +38,13 @@ func NewHttpError(code int, message string) *HttpError {
 func WriteJsonError(response http.ResponseWriter, code int, message string) error {
 	response.Header().Add(ContentTypeHeader, JsonContentType)
 	response.WriteHeader(code)
-	return response.Write(
+	_, err := response.Write(
 		[]byte(
 			fmt.Sprintf(`{"message": "%s"}`, message),
 		),
 	)
+
+	return err
 }
 
 // WriteError handles writing errors, possibly from panic, in a standard way.
