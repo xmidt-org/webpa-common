@@ -33,7 +33,7 @@ func (d *Descriptor) NewServer(handler http.Handler) *http.Server {
 // RunServer creates and runs a server in a separate goroutine.  Whether
 // the server is HTTP or HTTPS is dependent on the CertificateFile and KeyFile
 // attributes.
-func (d *Descriptor) RunServer(logger context.Logger, waitGroup sync.WaitGroup, server *http.Server) {
+func (d *Descriptor) RunServer(logger context.Logger, waitGroup *sync.WaitGroup, server *http.Server) {
 	waitGroup.Add(1)
 	go func() {
 		var err error
