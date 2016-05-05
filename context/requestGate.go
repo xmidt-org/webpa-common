@@ -36,8 +36,8 @@ func CheckRequest(requestGate RequestGate, response http.ResponseWriter, request
 	err, allow := requestGate.ShouldRequestProceed(request)
 	if !allow {
 		switch value := err.(type) {
-		case *HttpError:
-			WriteJsonError(response, value.code, value.message)
+		case HttpError:
+			WriteJsonError(response, value.Code(), value.Error())
 
 		case error:
 			WriteJsonError(response, http.StatusServiceUnavailable, value.Error())

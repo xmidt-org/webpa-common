@@ -7,31 +7,33 @@ import (
 )
 
 // HttpError extends the error interface to include error information for HTTP responses
-type HttpError struct {
+type HttpError interface {
+	error
+	Code() int
+}
+
+// httpError is the default, internal HttpError implementation
+type httpError struct {
 	code    int
 	message string
 }
 
-func (err *HttpError) Error() string {
-	return err.String()
+func (err *httpError) Error() string {
+	return err.message
 }
 
-func (err *HttpError) String() string {
+func (err *httpError) String() string {
 	return strconv.Itoa(err.code) + ":" + err.message
 }
 
-func (err *HttpError) Code() int {
+func (err *httpError) Code() int {
 	return err.code
-}
-
-func (err *HttpError) Message() string {
-	return err.message
 }
 
 // NewHttpError creates a new HttpError object.  This object implements
 // go's builtin error interface.
-func NewHttpError(code int, message string) *HttpError {
-	return &HttpError{code, message}
+func NewHttpError(code int, message string) HttpError {
+	return &httpError{code, message}
 }
 
 // WriteJsonError writes a standard JSON error to the response
@@ -52,10 +54,7 @@ func WriteJsonError(response http.ResponseWriter, code int, message string) erro
 func WriteError(response http.ResponseWriter, err interface{}) error {
 	switch value := err.(type) {
 	case HttpError:
-		return WriteJsonError(response, value.code, value.message)
-
-	case *HttpError:
-		return WriteJsonError(response, value.code, value.message)
+		return WriteJsonError(response, value.Code(), value.Error())
 
 	case error:
 		return WriteJsonError(response, http.StatusInternalServerError, value.Error())
