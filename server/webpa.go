@@ -59,7 +59,7 @@ func New(name string, server *http.Server, logger context.Logger) *WebPA {
 }
 
 // NewSecure creates a new, secure WebPA instance.  If no ErrorLog is associated with the given http.Server,
-// this method creates an ErrorLog that delegates to the configured context.Logger.
+// this method attaches an ErrorLog that delegates to the configured context.Logger.
 func NewSecure(name string, server *http.Server, certificateFile, keyFile string, logger context.Logger) *WebPA {
 	if server.ErrorLog == nil {
 		server.ErrorLog = log.New(
