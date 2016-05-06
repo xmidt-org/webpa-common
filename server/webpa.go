@@ -37,6 +37,10 @@ func (w *WebPA) Https() bool {
 // an HTTPS server using the configured certificate and key.  Otherwise, it will
 // start an HTTP server.
 //
+// This method spawns a goroutine that actually executes the appropriate http.Server.ListenXXX method.
+// The supplied sync.WaitGroup is incremented, and sync.WaitGroup.Done() is called when the
+// spawned goroutine exits.
+//
 // Run is idemptotent.  It can only be execute once, and subsequent invocations have
 // no effect.  Once this method is invoked, this WebPA instance is considered immutable.
 func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
