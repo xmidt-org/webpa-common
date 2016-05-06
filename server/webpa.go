@@ -15,6 +15,7 @@ type WebPA struct {
 	certificateFile string
 	keyFile         string
 	logger          context.Logger
+	once            sync.Once
 }
 
 // Name returns the human-readable identifier for this WebPA instance
@@ -35,21 +36,26 @@ func (w *WebPA) Https() bool {
 // Run executes this WebPA server.  If Https() returns true, this method will start
 // an HTTPS server using the configured certificate and key.  Otherwise, it will
 // start an HTTP server.
+//
+// Run is idemptotent.  It can only be execute once, and subsequent invocations have
+// no effect.  Once this method is invoked, this WebPA instance is considered immutable.
 func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
-	waitGroup.Add(1)
-	go func() {
-		defer waitGroup.Done()
-		var err error
-		if w.Https() {
-			w.logger.Info("Starting [%s] as HTTPS on %s", w.name, w.server.Addr)
-			err = w.server.ListenAndServeTLS(w.certificateFile, w.keyFile)
-		} else {
-			w.logger.Info("Starting [%s] as HTTP on %s", w.name, w.server.Addr)
-			err = w.server.ListenAndServe()
-		}
+	w.once.Do(func() {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			var err error
+			if w.Https() {
+				w.logger.Info("Starting [%s] as HTTPS on %s", w.name, w.server.Addr)
+				err = w.server.ListenAndServeTLS(w.certificateFile, w.keyFile)
+			} else {
+				w.logger.Info("Starting [%s] as HTTP on %s", w.name, w.server.Addr)
+				err = w.server.ListenAndServe()
+			}
 
-		w.logger.Error("%v", err)
-	}()
+			w.logger.Error("%v", err)
+		}()
+	})
 }
 
 // New creates a new, nonsecure WebPA instance.  It delegates to NewSecure(), with empty strings
