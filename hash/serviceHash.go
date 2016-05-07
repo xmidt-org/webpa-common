@@ -24,6 +24,8 @@ type ServiceHashHolder struct {
 	current unsafe.Pointer
 }
 
+var _ ServiceHash = (*ServiceHashHolder)(nil)
+
 func (holder *ServiceHashHolder) Get(key []byte) (string, error) {
 	reference := (*ServiceHash)(atomic.LoadPointer(&holder.current))
 	if reference == nil {
