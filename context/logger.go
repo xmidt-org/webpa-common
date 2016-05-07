@@ -3,6 +3,8 @@ package context
 import (
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 )
 
 // Logger defines the expected methods to be provided by logging infrastructure
@@ -78,4 +80,12 @@ func (logger DefaultLogger) Warn(parameters ...interface{}) {
 
 func (logger DefaultLogger) Error(parameters ...interface{}) {
 	logger.doWrite("ERROR", parameters...)
+}
+
+// NewConnectionStateLogger produces a function appropriate for http.Server.ConnState.
+// The returned function will log debug statements for each state change.
+func NewConnectionStateLogger(serverName string, logger Logger) func(net.Conn, http.ConnState) {
+	return func(connection net.Conn, connectionState http.ConnState) {
+		logger.Debug("[%s] [%s] -> %s", serverName, connection.LocalAddr().String, connectionState)
+	}
 }
