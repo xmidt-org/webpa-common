@@ -14,6 +14,9 @@ const (
 	// The X-Content-Type-Options header
 	ContentTypeOptionsHeader string = "X-Content-Type-Options"
 
+	// The X-Webpa-Convey header
+	ConveyHeader string = "X-Webpa-Convey"
+
 	// DeviceNameHeader is the standard name of the header which carries the WebPA device
 	DeviceNameHeader string = "X-Webpa-Device-Name"
 
@@ -24,6 +27,10 @@ const (
 	// InvalidDeviceNameHeaderPattern is the format pattern used to create an error message indicating
 	// that a device name was improperly formatted.
 	InvalidDeviceNameHeaderPattern string = "Invalid " + DeviceNameHeader + " header: %s"
+
+	// InvalidConveyPattern is the format pattern used to create an error message indicating that
+	// a convey payload was invalid.
+	InvalidConveyPattern string = "Invalid " + ConveyHeader + " header: %s"
 
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
