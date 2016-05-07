@@ -2,7 +2,6 @@ package server
 
 import (
 	"github.com/Comcast/webpa-common/context"
-	"net/http"
 	"sync"
 )
 
@@ -17,7 +16,7 @@ type Server interface {
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
 type WebPA struct {
 	name            string
-	server          *http.Server
+	server          Server
 	certificateFile string
 	keyFile         string
 	logger          context.Logger
@@ -55,11 +54,10 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
 		go func() {
 			defer waitGroup.Done()
 			var err error
+			w.logger.Info("Starting [%s]", w.name)
 			if w.Https() {
-				w.logger.Info("Starting [%s] as HTTPS on %s", w.name, w.server.Addr)
 				err = w.server.ListenAndServeTLS(w.certificateFile, w.keyFile)
 			} else {
-				w.logger.Info("Starting [%s] as HTTP on %s", w.name, w.server.Addr)
 				err = w.server.ListenAndServe()
 			}
 
@@ -70,13 +68,13 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
 
 // New creates a new, nonsecure WebPA instance.  It delegates to NewSecure(), with empty strings
 // for certificateFile and keyFile.
-func New(name string, server *http.Server, logger context.Logger) *WebPA {
-	return NewSecure(name, server, "", "", logger)
+func New(logger context.Logger, name string, server Server) *WebPA {
+	return NewSecure(logger, name, server, "", "")
 }
 
 // NewSecure creates a new, optionally secure WebPA instance.  The certificateFile and keyFile parameters
 // may be empty strings, in which case the returned instance will start an HTTP server.
-func NewSecure(name string, server *http.Server, certificateFile, keyFile string, logger context.Logger) *WebPA {
+func NewSecure(logger context.Logger, name string, server Server, certificateFile, keyFile string) *WebPA {
 	return &WebPA{
 		name:            name,
 		server:          server,
