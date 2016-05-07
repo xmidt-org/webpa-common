@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/context"
-	"os"
-	"net/http"
 	"fmt"
+	"github.com/Comcast/webpa-common/context"
+	"net/http"
+	"os"
 )
 
 func sampleContextHandler(requestContext context.Context, response http.ResponseWriter, request *http.Request) {
@@ -13,7 +13,6 @@ func sampleContextHandler(requestContext context.Context, response http.Response
 }
 
 type remoteSystem struct {
-	
 }
 
 func (r remoteSystem) Connected() bool {
@@ -27,6 +26,6 @@ func ExampleBasicChain() {
 		Recovery(),
 		RemoteGate(remoteSystem{}, http.StatusServiceUnavailable, "Service Unavailable"),
 	}.DecorateContext(logger, ContextHandlerFunc(sampleContextHandler))
-	
+
 	fmt.Println(handler)
 }

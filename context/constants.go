@@ -10,7 +10,7 @@ const (
 
 	// The Content-Type header
 	ContentTypeHeader string = "Content-Type"
-	
+
 	// The X-Content-Type-Options header
 	ContentTypeOptionsHeader string = "X-Content-Type-Options"
 
@@ -24,7 +24,7 @@ const (
 	// InvalidDeviceNameHeaderPattern is the format pattern used to create an error message indicating
 	// that a device name was improperly formatted.
 	InvalidDeviceNameHeaderPattern string = "Invalid " + DeviceNameHeader + " header: %s"
-	
+
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
 )
