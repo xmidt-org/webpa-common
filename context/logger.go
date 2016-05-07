@@ -86,6 +86,11 @@ func (logger DefaultLogger) Error(parameters ...interface{}) {
 // The returned function will log debug statements for each state change.
 func NewConnectionStateLogger(serverName string, logger Logger) func(net.Conn, http.ConnState) {
 	return func(connection net.Conn, connectionState http.ConnState) {
-		logger.Debug("[%s] [%s] -> %s", serverName, connection.LocalAddr().String, connectionState)
+		logger.Debug(
+			"[%s] [%s] -> %s",
+			serverName,
+			connection.LocalAddr().String(),
+			connectionState,
+		)
 	}
 }
