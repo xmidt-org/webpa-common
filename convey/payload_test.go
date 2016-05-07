@@ -9,35 +9,34 @@ import (
 	"testing"
 )
 
-func TestEncoding(t *testing.T) {
-	assertions := assert.New(t)
-
-	var testData = []struct {
-		encoding *base64.Encoding
-		value    string
-		expected Payload
-	}{
-		{
-			encoding: base64.StdEncoding,
-			value:    "eyAicGFyYW1ldGVycyI6IFsgeyAibmFtZSI6ICJEZXZpY2UuRGV2aWNlSW5mby5XZWJwYS5YX0NPTUNBU1QtQ09NX0NJRCIsICJ2YWx1ZSI6ICIwIiwgImRhdGFUeXBlIjogMCB9LCB7ICJuYW1lIjogIkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwgInZhbHVlIjogIjI2OSIsICJkYXRhVHlwZSI6IDIgfSBdIH0K",
-			expected: Payload{
-				"parameters": []Payload{
-					Payload{
-						"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CID",
-						"value":    "0",
-						"dataType": 0,
-					},
-					Payload{
-						"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CMC",
-						"value":    "269",
-						"dataType": 2,
-					},
+var payloadTestData = []struct {
+	encoding *base64.Encoding
+	value    string
+	expected Payload
+}{
+	{
+		encoding: base64.StdEncoding,
+		value:    "eyAicGFyYW1ldGVycyI6IFsgeyAibmFtZSI6ICJEZXZpY2UuRGV2aWNlSW5mby5XZWJwYS5YX0NPTUNBU1QtQ09NX0NJRCIsICJ2YWx1ZSI6ICIwIiwgImRhdGFUeXBlIjogMCB9LCB7ICJuYW1lIjogIkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwgInZhbHVlIjogIjI2OSIsICJkYXRhVHlwZSI6IDIgfSBdIH0K",
+		expected: Payload{
+			"parameters": []Payload{
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CID",
+					"value":    "0",
+					"dataType": 0,
+				},
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CMC",
+					"value":    "269",
+					"dataType": 2,
 				},
 			},
 		},
-	}
+	},
+}
 
-	for _, record := range testData {
+func TestDecodeBase64(t *testing.T) {
+	assertions := assert.New(t)
+	for _, record := range payloadTestData {
 		var actual Payload
 		if err := actual.DecodeBase64(record.encoding, record.value); err != nil {
 			t.Errorf("DecodeBase64 failed: %v", err)
@@ -55,28 +54,54 @@ func TestEncoding(t *testing.T) {
 
 		assertions.JSONEq(string(expectedJson), string(actualJson))
 	}
+}
 
-	for _, record := range testData {
+func TestEncodeBase64(t *testing.T) {
+	assertions := assert.New(t)
+	for _, record := range payloadTestData {
 		// perform the reverse test: use the expected as our actual JSON
 		actualEncoded, err := record.expected.EncodeBase64(record.encoding)
 		if err != nil {
 			t.Fatalf("Unable to encode: %v", err)
 		}
 
+		// decode the actual value, to get JSON that was can compare against
 		actualInput := bytes.NewBufferString(actualEncoded)
 		actualDecoder := base64.NewDecoder(record.encoding, actualInput)
-		actualDecoded, err := ioutil.ReadAll(actualDecoder)
+		actualJson, err := ioutil.ReadAll(actualDecoder)
 		if err != nil {
 			t.Fatalf("Unable to decode the output of EncodeBase64: %v", err)
 		}
 
 		expectedInput := bytes.NewBufferString(record.value)
 		expectedDecoder := base64.NewDecoder(record.encoding, expectedInput)
-		expectedDecoded, err := ioutil.ReadAll(expectedDecoder)
+		expectedJson, err := ioutil.ReadAll(expectedDecoder)
 		if err != nil {
 			t.Fatalf("Unable to decode expected value: %v", err)
 		}
 
-		assertions.JSONEq(string(expectedDecoded), string(actualDecoded))
+		assertions.JSONEq(string(expectedJson), string(actualJson))
+	}
+}
+
+func TestParsePayload(t *testing.T) {
+	assertions := assert.New(t)
+	for _, record := range payloadTestData {
+		actualPayload, err := ParsePayload(record.encoding, record.value)
+		if err != nil {
+			t.Fatalf("ParsePayload failed: %v", err)
+		}
+
+		actualJson, err := json.Marshal(actualPayload)
+		if err != nil {
+			t.Fatalf("Failed to marshal actual payload: %v", err)
+		}
+
+		expectedJson, err := json.Marshal(record.expected)
+		if err != nil {
+			t.Fatalf("Failed to marshal expected JSON: %v", err)
+		}
+
+		assertions.JSONEq(string(expectedJson), string(actualJson))
 	}
 }

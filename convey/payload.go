@@ -42,3 +42,11 @@ func (payload *Payload) EncodeBase64(encoding *base64.Encoding) (encoded string,
 	encoded = output.String()
 	return
 }
+
+// ParsePayload leverages DecodeBase64 to produce a fully initialized Payload.
+// The value parameter is expected to be Base64-encoded JSON, exactly as would come
+// from a convey header.
+func ParsePayload(encoding *base64.Encoding, value string) (payload Payload, err error) {
+	err = payload.DecodeBase64(encoding, value)
+	return
+}
