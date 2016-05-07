@@ -7,11 +7,11 @@ import (
 	"io/ioutil"
 )
 
-// ConveyPayload represents the decoded payload of the convey header
-type ConveyPayload map[string]interface{}
+// Payload represents the decoded payload of the convey header
+type Payload map[string]interface{}
 
 // DecodeBase64 assumes that the value parameter is Base64-encoded JSON
-func (payload *ConveyPayload) DecodeBase64(encoding *base64.Encoding, value string) error {
+func (payload *Payload) DecodeBase64(encoding *base64.Encoding, value string) error {
 	input := bytes.NewBufferString(value)
 	decoder := base64.NewDecoder(encoding, input)
 	decodedValue, err := ioutil.ReadAll(decoder)
@@ -26,7 +26,7 @@ func (payload *ConveyPayload) DecodeBase64(encoding *base64.Encoding, value stri
 // This method is the inverse of DecodeBase64, but will not necessarily yield the
 // same value.  The act of unmarshalling followed by marshalling will most often
 // result in the same JSON structure but with different field ordering.
-func (payload *ConveyPayload) EncodeBase64(encoding *base64.Encoding) (encoded string, err error) {
+func (payload *Payload) EncodeBase64(encoding *base64.Encoding) (encoded string, err error) {
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
 		return

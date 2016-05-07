@@ -15,19 +15,19 @@ func TestEncoding(t *testing.T) {
 	var testData = []struct {
 		encoding *base64.Encoding
 		value    string
-		expected ConveyPayload
+		expected Payload
 	}{
 		{
 			encoding: base64.StdEncoding,
 			value:    "eyAicGFyYW1ldGVycyI6IFsgeyAibmFtZSI6ICJEZXZpY2UuRGV2aWNlSW5mby5XZWJwYS5YX0NPTUNBU1QtQ09NX0NJRCIsICJ2YWx1ZSI6ICIwIiwgImRhdGFUeXBlIjogMCB9LCB7ICJuYW1lIjogIkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwgInZhbHVlIjogIjI2OSIsICJkYXRhVHlwZSI6IDIgfSBdIH0K",
-			expected: ConveyPayload{
-				"parameters": []ConveyPayload{
-					ConveyPayload{
+			expected: Payload{
+				"parameters": []Payload{
+					Payload{
 						"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CID",
 						"value":    "0",
 						"dataType": 0,
 					},
-					ConveyPayload{
+					Payload{
 						"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CMC",
 						"value":    "269",
 						"dataType": 2,
@@ -38,7 +38,7 @@ func TestEncoding(t *testing.T) {
 	}
 
 	for _, record := range testData {
-		var actual ConveyPayload
+		var actual Payload
 		if err := actual.DecodeBase64(record.encoding, record.value); err != nil {
 			t.Errorf("DecodeBase64 failed: %v", err)
 		}
