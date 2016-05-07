@@ -2,10 +2,16 @@ package server
 
 import (
 	"github.com/Comcast/webpa-common/context"
-	"log"
 	"net/http"
 	"sync"
 )
+
+// Server is a local interface describing the set of methods the underlying
+// server object must implement.
+type Server interface {
+	ListenAndServe() error
+	ListenAndServeTLS(certificateFile, keyFile string) error
+}
 
 // WebPA represents a server within the WebPA cluster.  It is used for both
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
@@ -68,17 +74,9 @@ func New(name string, server *http.Server, logger context.Logger) *WebPA {
 	return NewSecure(name, server, "", "", logger)
 }
 
-// NewSecure creates a new, secure WebPA instance.  If no ErrorLog is associated with the given http.Server,
-// this method attaches an ErrorLog that delegates to the configured context.Logger.
+// NewSecure creates a new, optionally secure WebPA instance.  The certificateFile and keyFile parameters
+// may be empty strings, in which case the returned instance will start an HTTP server.
 func NewSecure(name string, server *http.Server, certificateFile, keyFile string, logger context.Logger) *WebPA {
-	if server.ErrorLog == nil {
-		server.ErrorLog = log.New(
-			&context.ErrorWriter{logger},
-			name,
-			log.LUTC|log.LstdFlags,
-		)
-	}
-
 	return &WebPA{
 		name:            name,
 		server:          server,

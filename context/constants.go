@@ -21,9 +21,6 @@ const (
 	// InvalidDeviceNameHeaderPattern is the format pattern used to create an error message indicating
 	// that a device name was improperly formatted.
 	InvalidDeviceNameHeaderPattern string = "Invalid " + DeviceNameHeader + " header: %s"
-
-	// ServiceUnavailableMessage is the default message sent when a RequestGate denies a request
-	ServiceUnavailableMessage string = "This service is unavailable"
 )
 
 var (

@@ -68,14 +68,3 @@ func WriteError(response http.ResponseWriter, err interface{}) error {
 
 	return nil
 }
-
-// RecoverError handles recovery during request processing.  This function must be
-// invoked as a deferred function.  It handles writing an appropriate error response
-// after a panic.
-func RecoverError(logger Logger, response http.ResponseWriter) {
-	if recovered := recover(); recovered != nil {
-		if err := WriteError(response, recovered); err != nil {
-			logger.Error("Unable to write error to response: %v", err)
-		}
-	}
-}
