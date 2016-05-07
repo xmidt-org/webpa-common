@@ -38,7 +38,8 @@ func NewHttpError(code int, message string) HttpError {
 
 // WriteJsonError writes a standard JSON error to the response
 func WriteJsonError(response http.ResponseWriter, code int, message string) error {
-	response.Header().Add(ContentTypeHeader, JsonContentType)
+	response.Header().Set(ContentTypeHeader, JsonContentType)
+	response.Header().Set(ContentTypeOptionsHeader, NoSniff)
 	response.WriteHeader(code)
 	_, err := response.Write(
 		[]byte(
@@ -60,9 +61,11 @@ func WriteError(response http.ResponseWriter, err interface{}) error {
 		return WriteJsonError(response, http.StatusInternalServerError, value.Error())
 
 	case int:
+		response.Header().Set(ContentTypeOptionsHeader, NoSniff)
 		response.WriteHeader(value)
 
 	default:
+		response.Header().Set(ContentTypeOptionsHeader, NoSniff)
 		response.WriteHeader(http.StatusInternalServerError)
 	}
 
