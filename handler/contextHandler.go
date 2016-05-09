@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Comcast/webpa-common/context"
+	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 )
 
@@ -20,7 +21,7 @@ func (f ContextHandlerFunc) ServeHTTP(requestContext context.Context, response h
 
 // contextHttpHandler is an internal type that adapts http.Handler onto ContextHandler
 type contextHttpHandler struct {
-	logger   context.Logger
+	logger   logging.Logger
 	delegate ContextHandler
 }
 
@@ -37,7 +38,7 @@ func (c *contextHttpHandler) ServeHTTP(response http.ResponseWriter, request *ht
 
 // NewContextHttpHandler returns a new http.Handler that passes a distinct WebPA context object
 // for each request to the delegate function.
-func NewContextHttpHandler(logger context.Logger, delegate ContextHandler) http.Handler {
+func NewContextHttpHandler(logger logging.Logger, delegate ContextHandler) http.Handler {
 	return &contextHttpHandler{
 		logger:   logger,
 		delegate: delegate,
