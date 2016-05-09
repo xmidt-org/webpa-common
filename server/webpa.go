@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/Comcast/webpa-common/context"
+	"github.com/Comcast/webpa-common/logging"
 	"sync"
 )
 
@@ -19,7 +19,7 @@ type WebPA struct {
 	server          Server
 	certificateFile string
 	keyFile         string
-	logger          context.Logger
+	logger          logging.Logger
 	once            sync.Once
 }
 
@@ -28,8 +28,8 @@ func (w *WebPA) Name() string {
 	return w.name
 }
 
-// Logger returns the context.Logger associated with this WebPA instance
-func (w *WebPA) Logger() context.Logger {
+// Logger returns the logging.Logger associated with this WebPA instance
+func (w *WebPA) Logger() logging.Logger {
 	return w.logger
 }
 
@@ -68,13 +68,13 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
 
 // New creates a new, nonsecure WebPA instance.  It delegates to NewSecure(), with empty strings
 // for certificateFile and keyFile.
-func New(logger context.Logger, name string, server Server) *WebPA {
+func New(logger logging.Logger, name string, server Server) *WebPA {
 	return NewSecure(logger, name, server, "", "")
 }
 
 // NewSecure creates a new, optionally secure WebPA instance.  The certificateFile and keyFile parameters
 // may be empty strings, in which case the returned instance will start an HTTP server.
-func NewSecure(logger context.Logger, name string, server Server, certificateFile, keyFile string) *WebPA {
+func NewSecure(logger logging.Logger, name string, server Server, certificateFile, keyFile string) *WebPA {
 	return &WebPA{
 		name:            name,
 		server:          server,

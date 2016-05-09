@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Comcast/webpa-common/context"
+	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 )
 
@@ -69,7 +70,7 @@ func CheckRequest(gate Gate, response http.ResponseWriter, request *http.Request
 
 // RequestGate returns an http.Handler whose requests are gated by the given RequestGate
 func RequestGate(gate Gate) ChainHandler {
-	return ChainHandlerFunc(func(logger context.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
+	return ChainHandlerFunc(func(logger logging.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
 		if !CheckRequest(gate, response, request) {
 			logger.Warn("Request denied")
 			return

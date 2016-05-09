@@ -1,19 +1,19 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/context"
+	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 )
 
 // ChainHandler represents an HTTP handler type that is one part of a chain of handlers.
 type ChainHandler interface {
-	ServeHTTP(context.Logger, http.ResponseWriter, *http.Request, http.Handler)
+	ServeHTTP(logging.Logger, http.ResponseWriter, *http.Request, http.Handler)
 }
 
 // ChainHandlerFunc is a function type that implements ChainHandler
-type ChainHandlerFunc func(context.Logger, http.ResponseWriter, *http.Request, http.Handler)
+type ChainHandlerFunc func(logging.Logger, http.ResponseWriter, *http.Request, http.Handler)
 
-func (f ChainHandlerFunc) ServeHTTP(logger context.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
+func (f ChainHandlerFunc) ServeHTTP(logger logging.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
 	f(logger, response, request, next)
 }
 
@@ -22,7 +22,7 @@ func (f ChainHandlerFunc) ServeHTTP(logger context.Logger, response http.Respons
 // which in turn can be another chainedHandler.
 type chainLink struct {
 	handler ChainHandler
-	logger  context.Logger
+	logger  logging.Logger
 	next    http.Handler
 }
 
@@ -35,7 +35,7 @@ type Chain []ChainHandler
 
 // Decorate applies the chain of handlers to the given delegate.  The order in which each handler
 // is executed is the same as the order within the Chain slice.
-func (chain Chain) Decorate(logger context.Logger, delegate http.Handler) http.Handler {
+func (chain Chain) Decorate(logger logging.Logger, delegate http.Handler) http.Handler {
 	decorated := delegate
 	for index := len(chain) - 1; index >= 0; index-- {
 		decorated = &chainLink{
@@ -49,6 +49,6 @@ func (chain Chain) Decorate(logger context.Logger, delegate http.Handler) http.H
 }
 
 // DecorateContext is a variant of Decorate that uses a ContextHandler as the delegate.
-func (chain Chain) DecorateContext(logger context.Logger, delegate ContextHandler) http.Handler {
+func (chain Chain) DecorateContext(logger logging.Logger, delegate ContextHandler) http.Handler {
 	return chain.Decorate(logger, NewContextHttpHandler(logger, delegate))
 }

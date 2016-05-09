@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/context"
+	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 )
 
@@ -30,7 +30,7 @@ func (writer *listenableResponseWriter) WriteHeader(statusCode int) {
 // Listen produces a ChainHandler that notifies the given list of listeners
 // of request events.
 func Listen(listeners ...RequestListener) ChainHandler {
-	return ChainHandlerFunc(func(logger context.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
+	return ChainHandlerFunc(func(logger logging.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
 		for _, listener := range listeners {
 			listener.RequestReceived(request)
 		}
