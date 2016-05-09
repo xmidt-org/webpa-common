@@ -1,11 +1,16 @@
 package logging
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
+)
+
+const (
+	cannotFormatErrorPattern string = "Cannot format log statement: unrecognized parameter %#v"
 )
 
 // Logger defines the expected methods to be provided by logging infrastructure
@@ -14,12 +19,6 @@ type Logger interface {
 	Info(parameters ...interface{})
 	Warn(parameters ...interface{})
 	Error(parameters ...interface{})
-}
-
-// LoggerFactory represents the behavior of a type which can create a Logger
-type LoggerFactory interface {
-	// Returns a new, distinct Logger instance using this factory's configuration
-	NewLogger() (Logger, error)
 }
 
 // ErrorWriter adapts a context.Logger so that all output from Write() goes
@@ -61,6 +60,12 @@ func (logger DefaultLogger) doWrite(level string, parameters ...interface{}) {
 		case string:
 			_, err = logger.Write(
 				[]byte(fmt.Sprintf(head, parameters[1:]...)),
+			)
+		default:
+			panic(
+				errors.New(
+					fmt.Sprintf(cannotFormatErrorPattern, parameters[0]),
+				),
 			)
 		}
 
