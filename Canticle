@@ -1,0 +1,26 @@
+[
+    {
+        "Root": "github.com/ian-kent/go-log",
+        "Revision": "5731446c36ab9f716106ce0731f484c50fdf1ad1"
+    },
+    {
+        "Root": "github.com/philhofer/fwd",
+        "Revision": "98c11a7a6ec829d672b03833c3d69a7fae1ca972"
+    },
+    {
+        "Root": "github.com/t-k/fluent-logger-golang",
+        "Revision": "0f8ec08f2057a61574b6943e75045fffbeae894e"
+    },
+    {
+        "Root": "github.com/tinylib/msgp",
+        "Revision": "cf4d6d402b01d9b359f52fc88be0f582402177c0"
+    },
+    {
+        "Root": "github.com/tinylib/msgp",
+        "Revision": "cf4d6d402b01d9b359f52fc88be0f582402177c0"
+    },
+    {
+        "Root": "github.com/stretchr/testify",
+        "Revision": "6cb3b85ef5a0efef77caef88363ec4d4b5c0976d"
+    }
+]
