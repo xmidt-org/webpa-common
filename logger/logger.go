@@ -1,4 +1,4 @@
-package context
+package logger
 
 import (
 	"fmt"
@@ -26,6 +26,8 @@ func (e *ErrorWriter) Write(data []byte) (int, error) {
 	e.Error(string(data))
 	return len(data), nil
 }
+
+var _ io.Writer = (*ErrorWriter)(nil)
 
 // DefaultLogger embeds an io.Writer and sends all output to that writer.  This type
 // is primarily intended for testing.
