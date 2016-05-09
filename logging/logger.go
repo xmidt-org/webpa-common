@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import (
 	"fmt"
@@ -14,6 +14,12 @@ type Logger interface {
 	Info(parameters ...interface{})
 	Warn(parameters ...interface{})
 	Error(parameters ...interface{})
+}
+
+// LoggerFactory represents the behavior of a type which can create a Logger
+type LoggerFactory interface {
+	// Returns a new, distinct Logger instance using this factory's configuration
+	NewLogger() (Logger, error)
 }
 
 // ErrorWriter adapts a context.Logger so that all output from Write() goes

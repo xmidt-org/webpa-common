@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/canonical"
 	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 )
 
@@ -13,8 +14,8 @@ type ConveyPayload map[string]interface{}
 
 // Context is the core type of this package.
 type Context interface {
-	// Logger returns the contextual Logger.  It is never nil.
-	Logger() Logger
+	// logging.Logger returns the contextual logging.Logger.  It is never nil.
+	Logger() logging.Logger
 
 	// DeviceId returns the canonical device id associated with the request.
 	DeviceId() canonical.Id
@@ -25,12 +26,12 @@ type Context interface {
 
 // defaultContext is the default implementation of Context
 type defaultContext struct {
-	logger        Logger
+	logger        logging.Logger
 	deviceId      canonical.Id
 	conveyPayload convey.Payload
 }
 
-func (c *defaultContext) Logger() Logger {
+func (c *defaultContext) Logger() logging.Logger {
 	return c.logger
 }
 
@@ -43,7 +44,7 @@ func (c *defaultContext) ConveyPayload() convey.Payload {
 }
 
 // NewContext creates a new Context object from an HTTP request
-func NewContext(logger Logger, request *http.Request) (Context, error) {
+func NewContext(logger logging.Logger, request *http.Request) (Context, error) {
 	deviceName := request.Header.Get(DeviceNameHeader)
 	if len(deviceName) == 0 {
 		return nil, missingDeviceNameError
