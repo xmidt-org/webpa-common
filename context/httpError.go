@@ -40,13 +40,9 @@ func NewHttpError(code int, message string) HttpError {
 func WriteJsonError(response http.ResponseWriter, code int, message string) error {
 	response.Header().Set(ContentTypeHeader, JsonContentType)
 	response.Header().Set(ContentTypeOptionsHeader, NoSniff)
-	response.WriteHeader(code)
-	_, err := response.Write(
-		[]byte(
-			fmt.Sprintf(`{"message": "%s"}`, message),
-		),
-	)
 
+	response.WriteHeader(code)
+	_, err := fmt.Fprintf(response, `{"message": "%s"}`, message)
 	return err
 }
 
