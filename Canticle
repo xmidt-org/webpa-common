@@ -22,5 +22,9 @@
     {
         "Root": "github.com/stretchr/testify",
         "Revision": "6cb3b85ef5a0efef77caef88363ec4d4b5c0976d"
+    },
+    {
+        "Root": "github.com/c9s/goprocinfo",
+        "Revision": "19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c"
     }
 ]
