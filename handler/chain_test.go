@@ -2,7 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/context"
+	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 	"os"
 )
@@ -21,7 +21,7 @@ func (r remoteSystem) Connected() bool {
 
 // ExampleBasicChain shows the typical usage pattern for chained handlers
 func ExampleBasicChain() {
-	logger := context.DefaultLogger{os.Stdout}
+	logger := logging.DefaultLogger{os.Stdout}
 	handler := Chain{
 		Recovery(),
 		RemoteGate(remoteSystem{}, http.StatusServiceUnavailable, "Service Unavailable"),

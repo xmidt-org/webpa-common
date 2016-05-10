@@ -12,7 +12,7 @@ func HashRedirector(serviceHash hash.ServiceHash) ContextHandler {
 	return ContextHandlerFunc(func(requestContext context.Context, response http.ResponseWriter, request *http.Request) {
 		address, err := serviceHash.Get(requestContext.DeviceId().Bytes())
 		if err != nil {
-			message := fmt.Sprintf("No nodes avaiable: %s", err.Error())
+			message := fmt.Sprintf("No nodes available: %s", err.Error())
 			requestContext.Logger().Warn(message)
 
 			// service hash errors should be http.StatusServiceUnavailable, since
