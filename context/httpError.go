@@ -3,7 +3,6 @@ package context
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 )
 
 // HttpError extends the error interface to include error information for HTTP responses
@@ -20,10 +19,6 @@ type httpError struct {
 
 func (err *httpError) Error() string {
 	return err.message
-}
-
-func (err *httpError) String() string {
-	return strconv.Itoa(err.code) + ":" + err.message
 }
 
 func (err *httpError) Code() int {
@@ -59,6 +54,12 @@ func WriteError(response http.ResponseWriter, err interface{}) error {
 	case int:
 		response.Header().Set(ContentTypeOptionsHeader, NoSniff)
 		response.WriteHeader(value)
+
+	case string:
+		return WriteJsonError(response, http.StatusInternalServerError, value)
+
+	case fmt.Stringer:
+		return WriteJsonError(response, http.StatusInternalServerError, value.String())
 
 	default:
 		response.Header().Set(ContentTypeOptionsHeader, NoSniff)
