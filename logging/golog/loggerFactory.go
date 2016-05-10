@@ -32,7 +32,11 @@ func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
 		return appenders.Console(), nil
 	}
 
-	if _, err := os.Stat(factory.File); os.IsNotExist(err) {
+	if _, err := os.Stat(factory.File); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, err
+		}
+
 		if _, err = os.Create(factory.File); err != nil {
 			return nil, err
 		}
