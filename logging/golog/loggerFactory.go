@@ -28,29 +28,32 @@ var _ logging.LoggerFactory = (*LoggerFactory)(nil)
 
 // NewAppender creates a golog Appender from this LoggerFactory's configuration
 func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
+	var appender appenders.Appender
 	if factory.File == ConsoleFileName {
-		return appenders.Console(), nil
-	}
+		appender = appenders.Console()
+	} else {
+		if _, err := os.Stat(factory.File); err != nil {
+			if !os.IsNotExist(err) {
+				return nil, err
+			}
 
-	if _, err := os.Stat(factory.File); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
+			if _, err = os.Create(factory.File); err != nil {
+				return nil, err
+			}
 		}
 
-		if _, err = os.Create(factory.File); err != nil {
-			return nil, err
-		}
+		rollingFileAppender := appenders.RollingFile(factory.File, true)
+		rollingFileAppender.MaxFileSize = factory.MaxSize
+		rollingFileAppender.MaxBackupIndex = factory.MaxBackup
+		appender = rollingFileAppender
 	}
 
-	appender := appenders.RollingFile(factory.File, true)
 	if len(factory.Pattern) > 0 {
 		appender.SetLayout(factory.Pattern.ToLayout())
 	} else {
 		appender.SetLayout(DefaultPattern.ToLayout())
 	}
 
-	appender.MaxFileSize = factory.MaxSize
-	appender.MaxBackupIndex = factory.MaxBackup
 	return appender, nil
 }
 
