@@ -1,7 +1,7 @@
 language: go
 go: 
- - 1.5.1
- 
+    - 1.5.1
+
 env:
     - TEST_DIR=canonical
     - TEST_DIR=context
@@ -9,7 +9,7 @@ env:
     - TEST_DIR=handler
     - TEST_DIR=hash
     - TEST_DIR=health
-    - TEST_DIR=jwt
+    - TEST_DIR=jwt/key
     - TEST_DIR=logging
     - TEST_DIR=server
     - TEST_DIR=types
@@ -18,7 +18,7 @@ before_install:
     - sudo pip install --user codecov
 
 script:
- - cd $TEST_DIR && go test -coverprofile=coverage.txt
+    - cd $TEST_DIR && go test -coverprofile=coverage.txt
 
 after_success:
     - bash <(curl -s https://codecov.io/bash)
