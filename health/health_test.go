@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -221,11 +220,7 @@ func TestCommonStats(t *testing.T) {
 func TestOscheck(t *testing.T) {
 	h := setupHealth()
 	result := h.oscheck()
-
 	expected := false
-	if runtime.GOOS == "linux" {
-		expected = true
-	}
 
 	if result != expected {
 		t.Error("operating system verification failed. Got: %v, Expected: %v", result, expected)
