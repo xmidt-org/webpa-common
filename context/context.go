@@ -61,9 +61,15 @@ func NewContext(logger logging.Logger, request *http.Request) (Context, error) {
 	var conveyPayload convey.Payload
 	rawConveyValue := request.Header.Get(ConveyHeader)
 	if len(rawConveyValue) > 0 {
-		conveyPayload, err = convey.ParsePayload(base64.StdEncoding, rawConveyValue)
-		if err != nil {
-			logger.Error("Invalid convey header: %v.  FIX ME: https://www.teamccp.com/jira/browse/WEBPA-787", err)
+		// BUG: https://www.teamccp.com/jira/browse/WEBPA-787
+		const notAvailable string = "not-available"
+		if rawConveyValue == notAvailable {
+			logger.Error("Invalid convey header: %s.  FIX ME: https://www.teamccp.com/jira/browse/WEBPA-787", notAvailable)
+		} else if conveyPayload, err = convey.ParsePayload(base64.StdEncoding, rawConveyValue); err != nil {
+			return nil, &httpError{
+				http.StatusBadRequest,
+				fmt.Sprintf(InvalidConveyPattern, rawConveyValue, err),
+			}
 		}
 	}
 
