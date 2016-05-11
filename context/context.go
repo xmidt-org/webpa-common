@@ -63,10 +63,7 @@ func NewContext(logger logging.Logger, request *http.Request) (Context, error) {
 	if len(rawConveyValue) > 0 {
 		conveyPayload, err = convey.ParsePayload(base64.StdEncoding, rawConveyValue)
 		if err != nil {
-			return nil, NewHttpError(
-				http.StatusBadRequest,
-				fmt.Sprintf(InvalidConveyPattern, rawConveyValue),
-			)
+			logger.Error("Invalid convey header: %v.  FIX ME: https://www.teamccp.com/jira/browse/WEBPA-787", err)
 		}
 	}
 
