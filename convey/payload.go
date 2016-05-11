@@ -38,7 +38,10 @@ func (payload *Payload) EncodeBase64(encoding *base64.Encoding) (encoded string,
 		return
 	}
 
-	encoder.Close()
+	if err = encoder.Close(); err != nil {
+		return
+	}
+	
 	encoded = output.String()
 	return
 }
