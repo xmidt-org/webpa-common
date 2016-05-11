@@ -26,7 +26,7 @@ const (
 
 	// InvalidDeviceNameHeaderPattern is the format pattern used to create an error message indicating
 	// that a device name was improperly formatted.
-	InvalidDeviceNameHeaderPattern string = "Invalid " + DeviceNameHeader + " header: %s"
+	InvalidDeviceNameHeaderPattern string = "Invalid " + DeviceNameHeader + " header [%s]: %s"
 
 	// InvalidConveyPattern is the format pattern used to create an error message indicating that
 	// a convey payload was invalid.
