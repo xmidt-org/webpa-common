@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-// Server is a local interface describing the set of methods the underlying
+// Executor is a local interface describing the set of methods the underlying
 // server object must implement.
-type Server interface {
+type Executor interface {
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
 }
@@ -16,7 +16,7 @@ type Server interface {
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
 type WebPA struct {
 	name            string
-	server          Server
+	executor        Executor
 	certificateFile string
 	keyFile         string
 	logger          logging.Logger
@@ -56,9 +56,9 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
 			var err error
 			w.logger.Info("Starting [%s]", w.name)
 			if w.Https() {
-				err = w.server.ListenAndServeTLS(w.certificateFile, w.keyFile)
+				err = w.executor.ListenAndServeTLS(w.certificateFile, w.keyFile)
 			} else {
-				err = w.server.ListenAndServe()
+				err = w.executor.ListenAndServe()
 			}
 
 			w.logger.Error("%v", err)
@@ -68,16 +68,16 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
 
 // New creates a new, nonsecure WebPA instance.  It delegates to NewSecure(), with empty strings
 // for certificateFile and keyFile.
-func New(logger logging.Logger, name string, server Server) *WebPA {
-	return NewSecure(logger, name, server, "", "")
+func New(logger logging.Logger, name string, executor Executor) *WebPA {
+	return NewSecure(logger, name, executor, "", "")
 }
 
 // NewSecure creates a new, optionally secure WebPA instance.  The certificateFile and keyFile parameters
 // may be empty strings, in which case the returned instance will start an HTTP server.
-func NewSecure(logger logging.Logger, name string, server Server, certificateFile, keyFile string) *WebPA {
+func NewSecure(logger logging.Logger, name string, executor Executor, certificateFile, keyFile string) *WebPA {
 	return &WebPA{
 		name:            name,
-		server:          server,
+		executor:        executor,
 		certificateFile: certificateFile,
 		keyFile:         keyFile,
 		logger:          logger,

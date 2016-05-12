@@ -1,0 +1,6 @@
+{
+	"port": 2020,
+	"hcport": 2121,
+	"hcInterval": "1h5m",
+	"pprofport": 2222
+}
