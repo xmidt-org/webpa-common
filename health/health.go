@@ -11,12 +11,24 @@ import (
 	"time"
 )
 
-const CurrentMemoryUtilizationAlloc Stat = "CurrentMemoryUtilizationAlloc"
-const CurrentMemoryUtilizationHeapSys Stat = "CurrentMemoryUtilizationHeapSys"
-const CurrentMemoryUtilizationActive Stat = "CurrentMemoryUtilizationActive"
-const MaxMemoryUtilizationAlloc Stat = "MaxMemoryUtilizationAlloc"
-const MaxMemoryUtilizationHeapSys Stat = "MaxMemoryUtilizationHeapSys"
-const MaxMemoryUtilizationActive Stat = "MaxMemoryUtilizationActive"
+const (
+	CurrentMemoryUtilizationAlloc   Stat = "CurrentMemoryUtilizationAlloc"
+	CurrentMemoryUtilizationHeapSys Stat = "CurrentMemoryUtilizationHeapSys"
+	CurrentMemoryUtilizationActive  Stat = "CurrentMemoryUtilizationActive"
+	MaxMemoryUtilizationAlloc       Stat = "MaxMemoryUtilizationAlloc"
+	MaxMemoryUtilizationHeapSys     Stat = "MaxMemoryUtilizationHeapSys"
+	MaxMemoryUtilizationActive      Stat = "MaxMemoryUtilizationActive"
+)
+
+// commonStats is the Stats used to seed the initial set of stats
+var commonStats = Stats{
+	CurrentMemoryUtilizationAlloc:   0,
+	CurrentMemoryUtilizationHeapSys: 0,
+	CurrentMemoryUtilizationActive:  0,
+	MaxMemoryUtilizationAlloc:       0,
+	MaxMemoryUtilizationHeapSys:     0,
+	MaxMemoryUtilizationActive:      0,
+}
 
 // production code:
 type OsChecker interface {
@@ -30,33 +42,32 @@ func (d defaultOsChecker) OsName() string {
 	return runtime.GOOS
 }
 
-// *_test.go code:
-type testOsChecker struct {
-	osName string
-}
-
-func (t testOsChecker) OsName() string {
-	return t.osName
-}
-
+// StatsListener receives Stats on regular intervals.
 type StatsListener interface {
+	// OnStats is called with a copy of the health's stats map
+	// at regular intervals.
 	OnStats(Stats)
 }
 
-// use for monitoring the stat data
-// pass in a StatListenerFunc to SendEvent
+// StatsListenerFunc is a function type that implements StatsListener.
 type StatsListenerFunc func(Stats)
 
-// use to modify the stat data
-// pass in a HealthFunc to SendEvent
+func (f StatsListenerFunc) OnStats(stats Stats) {
+	f(stats)
+}
+
+// HealthFunc functions are allowed to modify the passed-in stats.
 type HealthFunc func(Stats)
 
-// a named piece of data to be tracked
+// Stat is a named piece of data to be tracked
 type Stat string
 
-// a map of named Stats with corresponding values
+// Stats is mapping of Stat to value
 type Stats map[Stat]int
 
+// Health is the central type of this package.  It defines and endpoint for tracking
+// and updating various statistics.  It also dispatches events to one or more StatsListeners
+// at regular intervals.
 type Health struct {
 	stats            Stats
 	statDumpInterval time.Duration
@@ -67,21 +78,21 @@ type Health struct {
 	statsListeners   []StatsListener
 }
 
+// AddStatsListener adds a new listener to this Health.  This method
+// is asynchronous.  The listener will eventually receive events, but callers
+// should not assume events will be dispatched immediately after this method call.
 func (h *Health) AddStatsListener(listener StatsListener) {
 	h.SendEvent(func(stat Stats) {
 		h.statsListeners = append(h.statsListeners, listener)
 	})
 }
 
-func (f StatsListenerFunc) OnStats(stats Stats) {
-	f(stats)
+// SendEvent dispatches a HealthFunc to the internal event queue
+func (h *Health) SendEvent(healthFunc HealthFunc) {
+	h.event <- healthFunc
 }
 
-// Send types with func(Stats) signatures through here to execute and prevent race conditions
-func (h *Health) SendEvent(fn func(Stats)) {
-	h.event <- fn
-}
-
+// Bundle produces an aggregate HealthFunc from a number of others
 func Bundle(hfs ...HealthFunc) HealthFunc {
 	return func(stats Stats) {
 		for _, hf := range hfs {
@@ -90,47 +101,60 @@ func Bundle(hfs ...HealthFunc) HealthFunc {
 	}
 }
 
+// Ensure makes certain the given stat is defined.  If it does not exist,
+// it is initialized to 0.  Otherwise, the existing stat value is left intact.
+func Ensure(stat Stat) HealthFunc {
+	return func(stats Stats) {
+		if _, ok := stats[stat]; !ok {
+			stats[stat] = 0
+		}
+	}
+}
+
+// Inc increments the given stat by a certain amount
 func Inc(stat Stat, value int) HealthFunc {
 	return func(stats Stats) {
 		stats[stat] += value
 	}
 }
 
+// Set changes (or, initializes) the stat to the given value
 func Set(stat Stat, value int) HealthFunc {
 	return func(stats Stats) {
 		stats[stat] = value
 	}
 }
 
-func (h *Health) Close() {
+// Close shuts down the health event monitoring
+func (h *Health) Close() error {
 	close(h.event)
+	return nil
 }
 
-func New(interval time.Duration, log logging.Logger, wg *sync.WaitGroup) *Health {
-	h := new(Health)
-	h.event = make(chan HealthFunc, 100)
-	h.stats = make(Stats)
-	h.statDumpInterval = interval
-	h.log = log
-	h.wg = wg
-	h.osChecker = new(defaultOsChecker)
+// New creates a Health object with the given statistics.  This function starts the internal
+// monitor goroutine, which will invoke Add(1) on startup and Done() when the returned Health
+// is closed.
+func New(interval time.Duration, log logging.Logger, wg *sync.WaitGroup, options ...HealthFunc) *Health {
+	initialStats := make(Stats, len(commonStats)+len(options))
+	for stat, value := range commonStats {
+		initialStats[stat] = value
+	}
+
+	for _, option := range options {
+		option(initialStats)
+	}
+
+	h := &Health{
+		event:            make(chan HealthFunc, 100),
+		stats:            initialStats,
+		statDumpInterval: interval,
+		log:              log,
+		wg:               wg,
+		osChecker:        &defaultOsChecker{},
+	}
+
 	h.monitor()
-	h.commonStats()
-
 	return h
-}
-
-func (h *Health) commonStats() {
-	h.SendEvent(
-		Bundle(
-			Set(CurrentMemoryUtilizationAlloc, 0),
-			Set(CurrentMemoryUtilizationHeapSys, 0),
-			Set(CurrentMemoryUtilizationActive, 0),
-			Set(MaxMemoryUtilizationAlloc, 0),
-			Set(MaxMemoryUtilizationHeapSys, 0),
-			Set(MaxMemoryUtilizationActive, 0),
-		),
-	)
 }
 
 func (h *Health) oscheck() bool {
@@ -213,12 +237,6 @@ func (h *Health) getStats() Stats {
 	}
 
 	return statsCopy
-}
-
-func (h *Health) Share(fs ...func(*Health)) {
-	for _, f := range fs {
-		f(h)
-	}
 }
 
 func (h *Health) ServeHTTP(rw http.ResponseWriter, req *http.Request) {

@@ -12,223 +12,272 @@ import (
 	"time"
 )
 
+// setupHealth supplies a Health object with useful test configuration
 func setupHealth() *Health {
-	h := new(Health)
-	h.event = make(chan HealthFunc, 100)
-	h.stats = make(Stats)
-	h.statDumpInterval = time.Duration(69) * time.Second
-
-	h.log = logging.DefaultLogger{os.Stdout}
-	h.wg = &sync.WaitGroup{}
-	h.osChecker = testOsChecker{"testOS"}
-
-	h.monitor()
-	time.Sleep(time.Duration(1) * time.Second)
-
-	h.commonStats()
-	time.Sleep(time.Duration(1) * time.Second)
-
-	return h
+	return New(
+		time.Duration(69)*time.Second,
+		logging.DefaultLogger{os.Stdout},
+		&sync.WaitGroup{},
+	)
 }
 
-func setupStats() Stats {
-	result := make(Stats)
-	result[CurrentMemoryUtilizationActive] = 0
-	result[CurrentMemoryUtilizationAlloc] = 0
-	result[CurrentMemoryUtilizationHeapSys] = 0
-	result[MaxMemoryUtilizationActive] = 0
-	result[MaxMemoryUtilizationAlloc] = 0
-	result[MaxMemoryUtilizationHeapSys] = 0
-
-	return result
+// testOsChecker is the test implementation of OsChecker
+type testOsChecker struct {
+	osName string
 }
 
-func TestAddStatsListener(t *testing.T) {
+func (t testOsChecker) OsName() string {
+	return t.osName
+}
+
+func TestLifecycle(t *testing.T) {
+	t.Log("starting TestLifecycle")
+	defer t.Log("TestLifecycle complete")
 	h := setupHealth()
-	noOfListenersAtStart := len(h.statsListeners)
 
-	h.AddStatsListener(*new(StatsListener))
-
+	// verify initial state
+	var initialListenerCount int
+	testWaitGroup := &sync.WaitGroup{}
+	testWaitGroup.Add(1)
 	h.SendEvent(func(stats Stats) {
-		expected := noOfListenersAtStart + 1
-		noOfListenersAtEnd := len(h.statsListeners)
-		if noOfListenersAtEnd != expected {
-			t.Errorf("Failed to correctly add stat listener: Got: %v, Expected: %v", noOfListenersAtEnd, expected)
+		defer testWaitGroup.Done()
+		t.Log("verifying initial state")
+		initialListenerCount = len(h.statsListeners)
+		if !reflect.DeepEqual(commonStats, h.stats) {
+			t.Errorf("Initial stats not set properly.  Expected %v, but got %v", commonStats, h.stats)
+		}
+
+		if !reflect.DeepEqual(commonStats, stats) {
+			t.Errorf("Stats not copied properly.  Expected %v, but got %v", commonStats, h.stats)
+		}
+
+		if !reflect.DeepEqual(commonStats, h.getStats()) {
+			t.Errorf("getStats() did not copy the stats properly.  Expected %v, but got %v", commonStats, h.stats)
 		}
 	})
-}
 
-func TestSendEvent(t *testing.T) {
-	h := setupHealth()
+	h.AddStatsListener(StatsListenerFunc(func(Stats) {}))
+
+	testWaitGroup.Add(1)
+	h.SendEvent(func(Stats) {
+		defer testWaitGroup.Done()
+		t.Log("verifying AddStatsListener")
+		if len(h.statsListeners) != (initialListenerCount + 1) {
+			t.Errorf("Listeners were not updated properly")
+		}
+	})
 
 	done := make(chan bool)
-	timer := time.NewTimer(time.Second * 5)
-	defer timer.Stop()
+	timer := time.NewTimer(time.Second * 10)
 
-	hf := func(s Stats) {
+	go func() {
+		testWaitGroup.Wait()
 		close(done)
-	}
-
-	h.SendEvent(hf)
+	}()
 
 	select {
 	case <-done:
-		// test passed
+		t.Log("Initial state verified")
 	case <-timer.C:
-		// test failed
-		close(done) // this might panic, but it's a test failure anyway
-		t.Errorf("HealthFunc (hf) was not called")
+		t.Errorf("Failed to verify initial state within the timeout")
+		close(done)
+	}
+
+	// verify that the channel has been closed
+	h.Close()
+	if _, ok := <-h.event; ok {
+		t.Errorf("Close() did not close the event channel")
+	}
+
+	done = make(chan bool)
+	timer.Stop()
+	timer = time.NewTimer(time.Second * 10)
+	defer timer.Stop()
+	go func() {
+		h.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Log("Final state verified")
+	case <-timer.C:
+		t.Errorf("Failed to verify final state within the timeout")
+		close(done)
 	}
 }
 
 func TestBundle(t *testing.T) {
-	done := make(chan bool)
-	defer close(done)
-
-	h := setupHealth()
-
-	hf1 := Set("BundleTest1", 111)
-	hf2 := Set("BundleTest2", 222)
-	hf3 := func(s Stats) {
-		done <- true
-	}
-	h.SendEvent(Bundle(hf1, hf2, hf3))
-
-	select {
-	case <-done:
+	expected := Stats{
+		CurrentMemoryUtilizationHeapSys: 0,
+		CurrentMemoryUtilizationAlloc:   1,
+		CurrentMemoryUtilizationActive:  12,
 	}
 
-	v1, ok1 := h.stats["BundleTest1"]
-	v2, ok2 := h.stats["BundleTest2"]
+	actual := Stats{
+		CurrentMemoryUtilizationAlloc: 0,
+	}
 
-	if !ok1 ||
-		!ok2 ||
-		v1 != 111 ||
-		v2 != 222 {
-		t.Errorf("Bundle test failed. Got: %v, %v, %v, %v.  Expected: true, true, 111, 222", ok1, ok2, v1, v2)
+	bundle := Bundle(
+		Ensure(CurrentMemoryUtilizationHeapSys),
+		Inc(CurrentMemoryUtilizationAlloc, 1),
+		Set(CurrentMemoryUtilizationActive, 12),
+	)
+
+	bundle(actual)
+
+	if !reflect.DeepEqual(expected, actual) {
+		t.Errorf("Expected %v, but got %v", expected, actual)
 	}
 }
 
 func TestInc(t *testing.T) {
-	h := setupHealth()
-	expected := 4
+	var testData = []struct {
+		stat      Stat
+		increment int
+		initial   Stats
+		expected  Stats
+	}{
+		{
+			CurrentMemoryUtilizationHeapSys,
+			1,
+			Stats{},
+			Stats{CurrentMemoryUtilizationHeapSys: 1},
+		},
+		{
+			CurrentMemoryUtilizationHeapSys,
+			-12,
+			Stats{},
+			Stats{CurrentMemoryUtilizationHeapSys: -12},
+		},
+		{
+			CurrentMemoryUtilizationHeapSys,
+			72,
+			Stats{CurrentMemoryUtilizationHeapSys: 0},
+			Stats{CurrentMemoryUtilizationHeapSys: 72},
+		},
+		{
+			CurrentMemoryUtilizationHeapSys,
+			6,
+			Stats{CurrentMemoryUtilizationHeapSys: 45},
+			Stats{CurrentMemoryUtilizationHeapSys: 51},
+		},
+	}
 
-	h.SendEvent(Inc(CurrentMemoryUtilizationActive, 4))
-	time.Sleep(time.Duration(1) * time.Second)
+	for _, record := range testData {
+		Inc(record.stat, record.increment)(record.initial)
 
-	if h.stats[CurrentMemoryUtilizationActive] != expected {
-		t.Errorf("Health Set values do not match.\nGot: %v\nExpected: %v\n", h.stats[CurrentMemoryUtilizationActive], expected)
+		if !reflect.DeepEqual(record.expected, record.initial) {
+			t.Errorf("Expected %v, but got %v", record.expected, record.initial)
+		}
 	}
 }
 
 func TestSet(t *testing.T) {
-	h := setupHealth()
-	expected := 62
-
-	h.SendEvent(Set(CurrentMemoryUtilizationActive, 62))
-	time.Sleep(time.Duration(1) * time.Second)
-
-	if h.stats[CurrentMemoryUtilizationActive] != expected {
-		t.Errorf("Health Set values do not match.\nGot: %v\nExpected: %v\n", h.stats[CurrentMemoryUtilizationActive], expected)
-	}
-}
-
-func TestClose(t *testing.T) {
-	h := setupHealth()
-	h.Close()
-
-	if _, ok := <-h.event; ok {
-		t.Error("health event channel was not closed.")
-	}
-}
-
-func TestNew(t *testing.T) {
-	expected := setupHealth()
-
-	dp := 69 * time.Second
-	lg := logging.DefaultLogger{os.Stdout}
-	wg := &sync.WaitGroup{}
-
-	h := New(dp, lg, wg)
-	h.osChecker = testOsChecker{"testOS"}
-
-	if reflect.TypeOf(h) != reflect.TypeOf(expected) {
-		t.Error("Newly created health object not correct type: Got:%v, Expected: %v", reflect.TypeOf(h), reflect.TypeOf(expected))
-	}
-
-	if h.statDumpInterval != dp {
-		t.Error("Health stat dump interval not set correctly.")
-	}
-
-	if h.log != lg {
-		t.Error("Health logger not set correctly")
-	}
-}
-
-func TestWaitGroupDone(t *testing.T) {
-	dp := 69 * time.Second
-	lg := logging.DefaultLogger{os.Stdout}
-	wg := &sync.WaitGroup{}
-
-	h := New(dp, lg, wg)
-	h.osChecker = testOsChecker{"testOS"}
-	h.Close()
-
-	result := make(chan bool, 1)
-	defer close(result)
-	wg.Wait()
-	result <- true
-
-	timer := time.AfterFunc(
-		time.Second*5, // pick something reasonable
-		func() {
-			result <- false
+	var testData = []struct {
+		stat     Stat
+		newValue int
+		initial  Stats
+		expected Stats
+	}{
+		{
+			CurrentMemoryUtilizationHeapSys,
+			123,
+			Stats{},
+			Stats{CurrentMemoryUtilizationHeapSys: 123},
 		},
-	)
-	defer timer.Stop()
+		{
+			CurrentMemoryUtilizationHeapSys,
+			37842,
+			Stats{CurrentMemoryUtilizationHeapSys: 42734987},
+			Stats{CurrentMemoryUtilizationHeapSys: 37842},
+		},
+	}
 
-	for success := range result {
-		if !success {
-			t.Errorf("WaitGroup.Done() wasn't called")
+	for _, record := range testData {
+		Set(record.stat, record.newValue)(record.initial)
+
+		if !reflect.DeepEqual(record.expected, record.initial) {
+			t.Errorf("Expected %v, but got %v", record.expected, record.initial)
 		}
-
-		break
 	}
 }
 
-func TestCommonStats(t *testing.T) {
-	h := new(Health)
-	h.event = make(chan HealthFunc, 100)
-	h.stats = make(Stats)
-	h.statDumpInterval = time.Duration(69) * time.Second
+func TestEnsure(t *testing.T) {
+	var testData = []struct {
+		stat     Stat
+		initial  Stats
+		expected Stats
+	}{
+		{
+			CurrentMemoryUtilizationHeapSys,
+			Stats{},
+			Stats{CurrentMemoryUtilizationHeapSys: 0},
+		},
+		{
+			CurrentMemoryUtilizationHeapSys,
+			Stats{CurrentMemoryUtilizationHeapSys: -157},
+			Stats{CurrentMemoryUtilizationHeapSys: -157},
+		},
+	}
 
-	h.log = logging.DefaultLogger{os.Stdout}
-	h.wg = &sync.WaitGroup{}
+	for _, record := range testData {
+		Ensure(record.stat)(record.initial)
 
-	h.monitor()
-	time.Sleep(time.Duration(1) * time.Second)
-
-	h.commonStats()
-	time.Sleep(time.Duration(1) * time.Second)
-
-	expected := setupStats()
-	if !reflect.DeepEqual(h.stats, expected) {
-		t.Errorf("common stats not setup correctly.\n Got: %v\nExpected: %v\n", h.stats, expected)
+		if !reflect.DeepEqual(record.expected, record.initial) {
+			t.Errorf("Expected %v, but got %v", record.expected, record.initial)
+		}
 	}
 }
 
 func TestOscheck(t *testing.T) {
-	h := setupHealth()
-	result := h.oscheck()
-	expected := false
+	var testData = []struct {
+		osChecker OsChecker
+		expected  bool
+	}{
+		{&testOsChecker{"linux"}, true},
+		{&testOsChecker{"nonsense"}, false},
+		{&testOsChecker{""}, false},
+	}
 
-	if result != expected {
-		t.Error("operating system verification failed. Got: %v, Expected: %v", result, expected)
+	h := setupHealth()
+	defer h.Close()
+
+	testWaitGroup := &sync.WaitGroup{}
+	testWaitGroup.Add(len(testData))
+	for _, record := range testData {
+		func(osChecker OsChecker, expected bool) {
+			h.SendEvent(func(Stats) {
+				defer testWaitGroup.Done()
+				h.osChecker = osChecker
+				actual := h.oscheck()
+				if expected != actual {
+					t.Errorf("operating system verification failed. Got: %v, Expected: %v", expected, actual)
+				}
+			})
+		}(record.osChecker, record.expected)
+	}
+
+	done := make(chan bool)
+	timer := time.NewTimer(time.Second * 15)
+	defer timer.Stop()
+
+	go func() {
+		testWaitGroup.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-timer.C:
+		t.Errorf("Failed to verify oscheck within the timeout")
+		close(done)
 	}
 }
 
 func TestMemory(t *testing.T) {
 	h := setupHealth()
+	defer h.Close()
 
 	h.memory()
 	if h.stats[CurrentMemoryUtilizationAlloc] != 0 ||
@@ -242,32 +291,9 @@ func TestMemory(t *testing.T) {
 	}
 }
 
-func TestMonitor(t *testing.T) {
-	h := setupHealth()
-	h.monitor()
-	h.Close()
-}
-
-func TestGetStats(t *testing.T) {
-	h := setupHealth()
-
-	expected := setupStats()
-
-	if !reflect.DeepEqual(h.stats, expected) {
-		t.Errorf("Newly created stats to not match.\n Got: %v\nExpected: %v\n", h.stats, expected)
-	}
-}
-
-func setHealthTester(h *Health) {}
-
-func TestShare(t *testing.T) {
-	h := setupHealth()
-	h.Share(setHealthTester)
-}
-
 func TestServeHTTP(t *testing.T) {
 	h := setupHealth()
-	expected := setupStats()
+	defer h.Close()
 
 	req, _ := http.NewRequest("GET", "", nil)
 	rw := httptest.NewRecorder()
@@ -283,8 +309,8 @@ func TestServeHTTP(t *testing.T) {
 		t.Error("json Unmarshal error: %v", err)
 	}
 
-	if !reflect.DeepEqual(*result, expected) {
-		t.Errorf("ServeHTTP did not return Stats.\n Got: %v\nExpected: %v\n", result, expected)
+	if !reflect.DeepEqual(commonStats, *result) {
+		t.Errorf("ServeHTTP did not return Stats.\n Got: %v\nExpected: %v\n", commonStats, result)
 	}
 }
 
