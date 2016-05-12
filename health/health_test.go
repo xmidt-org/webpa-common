@@ -17,7 +17,6 @@ func setupHealth() *Health {
 	return New(
 		time.Duration(69)*time.Second,
 		logging.DefaultLogger{os.Stdout},
-		&sync.WaitGroup{},
 	)
 }
 
@@ -34,6 +33,10 @@ func TestLifecycle(t *testing.T) {
 	t.Log("starting TestLifecycle")
 	defer t.Log("TestLifecycle complete")
 	h := setupHealth()
+	h.memory = Memory(h.log, testOsChecker{})
+
+	healthWaitGroup := &sync.WaitGroup{}
+	h.Run(healthWaitGroup)
 
 	// verify initial state
 	var initialListenerCount int
@@ -49,10 +52,6 @@ func TestLifecycle(t *testing.T) {
 
 		if !reflect.DeepEqual(commonStats, stats) {
 			t.Errorf("Stats not copied properly.  Expected %v, but got %v", commonStats, h.stats)
-		}
-
-		if !reflect.DeepEqual(commonStats, h.getStats()) {
-			t.Errorf("getStats() did not copy the stats properly.  Expected %v, but got %v", commonStats, h.stats)
 		}
 	})
 
@@ -94,7 +93,7 @@ func TestLifecycle(t *testing.T) {
 	timer = time.NewTimer(time.Second * 10)
 	defer timer.Stop()
 	go func() {
-		h.wg.Wait()
+		healthWaitGroup.Wait()
 		close(done)
 	}()
 
@@ -230,100 +229,77 @@ func TestEnsure(t *testing.T) {
 	}
 }
 
-func TestOscheck(t *testing.T) {
-	var testData = []struct {
-		osChecker OsChecker
-		expected  bool
-	}{
-		{&testOsChecker{"linux"}, true},
-		{&testOsChecker{"nonsense"}, false},
-		{&testOsChecker{""}, false},
-	}
+func TestMemoryNonLinux(t *testing.T) {
+	log := &logging.DefaultLogger{os.Stdout}
+	memory := Memory(log, testOsChecker{"nonsense"})
 
-	h := setupHealth()
-	defer h.Close()
-
-	testWaitGroup := &sync.WaitGroup{}
-	testWaitGroup.Add(len(testData))
-	for _, record := range testData {
-		func(osChecker OsChecker, expected bool) {
-			h.SendEvent(func(Stats) {
-				defer testWaitGroup.Done()
-				h.osChecker = osChecker
-				actual := h.oscheck()
-				if expected != actual {
-					t.Errorf("operating system verification failed. Got: %v, Expected: %v", expected, actual)
-				}
-			})
-		}(record.osChecker, record.expected)
-	}
-
-	done := make(chan bool)
-	timer := time.NewTimer(time.Second * 15)
-	defer timer.Stop()
-
-	go func() {
-		testWaitGroup.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-	case <-timer.C:
-		t.Errorf("Failed to verify oscheck within the timeout")
-		close(done)
+	actual := commonStats.Clone()
+	memory(actual)
+	if !reflect.DeepEqual(commonStats, actual) {
+		t.Errorf("On a non-linux platform, Memory should not modify stats")
 	}
 }
 
-func TestMemory(t *testing.T) {
-	h := setupHealth()
-	defer h.Close()
+func TestMemoryLinux(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if r != ErrorCannotReadMemory {
+				t.Errorf("Panicked: %v", r)
+			}
+		}
+	}()
 
-	h.memory()
-	if h.stats[CurrentMemoryUtilizationAlloc] != 0 ||
-		h.stats[CurrentMemoryUtilizationHeapSys] != 0 ||
-		h.stats[CurrentMemoryUtilizationActive] != 0 ||
-		h.stats[MaxMemoryUtilizationAlloc] != 0 ||
-		h.stats[MaxMemoryUtilizationHeapSys] != 0 ||
-		h.stats[MaxMemoryUtilizationActive] != 0 {
+	log := &logging.DefaultLogger{os.Stdout}
+	memory := Memory(log, testOsChecker{"linux"})
 
-		t.Error("Bad memory value found: %v", h.stats)
+	actual := commonStats.Clone()
+	memory(actual)
+
+	// if we don't actually get a panic, then verify that the memory did change certain stats
+	if actual[CurrentMemoryUtilizationActive] == 0 ||
+		actual[MaxMemoryUtilizationActive] == 0 ||
+		actual[CurrentMemoryUtilizationAlloc] == 0 ||
+		actual[CurrentMemoryUtilizationHeapSys] == 0 ||
+		actual[MaxMemoryUtilizationAlloc] == 0 ||
+		actual[MaxMemoryUtilizationHeapSys] == 0 {
+		t.Errorf("Memory stats not updated")
 	}
 }
 
 func TestServeHTTP(t *testing.T) {
 	h := setupHealth()
+	h.Run(&sync.WaitGroup{})
 	defer h.Close()
 
-	req, _ := http.NewRequest("GET", "", nil)
-	rw := httptest.NewRecorder()
+	request, _ := http.NewRequest("GET", "", nil)
+	response := httptest.NewRecorder()
 
-	h.ServeHTTP(rw, req)
+	h.ServeHTTP(response, request)
 
-	if rw.Code != 200 {
-		t.Error("Status code was not 200.  got: %v", rw.Code)
+	done := make(chan bool)
+	timer := time.NewTimer(time.Second * 15)
+	defer timer.Stop()
+	h.SendEvent(func(stats Stats) {
+		close(done)
+	})
+
+	select {
+	case <-done:
+	case <-timer.C:
+		close(done)
+		t.Fatalf("Did not receive next event after ServeHTTP in the allotted time")
+	}
+
+	if response.Code != 200 {
+		t.Error("Status code was not 200.  got: %v", response.Code)
 	}
 
 	result := new(Stats)
-	if err := json.Unmarshal(rw.Body.Bytes(), result); err != nil {
-		t.Error("json Unmarshal error: %v", err)
+	if err := json.Unmarshal(response.Body.Bytes(), result); err != nil {
+		t.Errorf("json Unmarshal error: %v", err)
 	}
 
 	if !reflect.DeepEqual(commonStats, *result) {
-		t.Errorf("ServeHTTP did not return Stats.\n Got: %v\nExpected: %v\n", commonStats, result)
-	}
-}
-
-func TestResponseErrorJson(t *testing.T) {
-	rw := httptest.NewRecorder()
-	err := "Expected test error message"
-	code := 2222
-	lg := logging.DefaultLogger{os.Stdout}
-
-	responseErrorJson(rw, err, code, lg)
-
-	var js map[string]string
-	if json.Unmarshal(rw.Body.Bytes(), &js) != nil {
-		t.Errorf("Response error is not JSON: %v", rw.Body)
+		t.Errorf("ServeHTTP did not return Stats.\n Got: %v\nExpected: %v\n", *result, commonStats)
 	}
 }
