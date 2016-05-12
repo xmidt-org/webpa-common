@@ -1,12 +1,14 @@
 package health
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -241,19 +243,17 @@ func TestMemoryNonLinux(t *testing.T) {
 }
 
 func TestMemoryLinux(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			if r != ErrorCannotReadMemory {
-				t.Errorf("Panicked: %v", r)
-			}
-		}
-	}()
-
-	log := &logging.DefaultLogger{os.Stdout}
+	var buffer bytes.Buffer
+	log := &logging.DefaultLogger{&buffer}
 	memory := Memory(log, testOsChecker{"linux"})
 
 	actual := commonStats.Clone()
 	memory(actual)
+
+	if buffer.Len() > 0 && strings.Contains(buffer.String(), "error querying memory information") {
+		t.Log("Not on a linux system.  Aborting test of memory statistics update.")
+		return
+	}
 
 	// if we don't actually get a panic, then verify that the memory did change certain stats
 	if actual[CurrentMemoryUtilizationActive] == 0 ||

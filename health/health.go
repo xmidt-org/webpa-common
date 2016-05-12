@@ -156,8 +156,7 @@ func Set(stat Stat, value int) HealthFunc {
 }
 
 // Memory returns a HealthFunc that updates the given stats with memory statistics,
-// based on the operation system name.  If the memory was not able to be read, the
-// returned HealthFunc will panic.
+// based on the operation system name.
 func Memory(log logging.Logger, osChecker OsChecker) HealthFunc {
 	osName := osChecker.OsName()
 	log.Info("Operating system detected: %s", osName)
@@ -168,7 +167,7 @@ func Memory(log logging.Logger, osChecker OsChecker) HealthFunc {
 			meminfo, err := linux.ReadMemInfo("/proc/meminfo")
 			if err != nil {
 				log.Error("error querying memory information: %v", err)
-				panic(ErrorCannotReadMemory)
+				return
 			}
 
 			active := int(meminfo.Active * 1024)
