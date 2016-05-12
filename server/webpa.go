@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/Comcast/webpa-common/logging"
+	"net/http"
 	"sync"
 )
 
@@ -82,4 +83,22 @@ func NewSecure(logger logging.Logger, name string, executor Executor, certificat
 		keyFile:         keyFile,
 		logger:          logger,
 	}
+}
+
+// Primary is a faction function for the primary server
+func Primary(logger logging.Logger, name string, configuration *Configuration, handler http.Handler) *WebPA {
+	executor := &http.Server{
+		Addr:      configuration.PrimaryAddress(),
+		Handler:   handler,
+		ConnState: logging.NewConnectionStateLogger(logger, name),
+		ErrorLog:  logging.NewErrorLog(logger, name),
+	}
+
+	return NewSecure(
+		logger,
+		name,
+		executor,
+		configuration.CertificateFile,
+		configuration.KeyFile,
+	)
 }
