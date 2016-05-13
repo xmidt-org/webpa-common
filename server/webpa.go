@@ -1,8 +1,10 @@
 package server
 
 import (
+	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"net/http"
+	_ "net/http/pprof"
 	"sync"
 )
 
@@ -49,7 +51,7 @@ func (w *WebPA) Https() bool {
 //
 // Run is idemptotent.  It can only be execute once, and subsequent invocations have
 // no effect.  Once this method is invoked, this WebPA instance is considered immutable.
-func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
+func (w *WebPA) Run(waitGroup *sync.WaitGroup) error {
 	w.once.Do(func() {
 		waitGroup.Add(1)
 		go func() {
@@ -65,6 +67,8 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup) {
 			w.logger.Error("%v", err)
 		}()
 	})
+
+	return nil
 }
 
 // New creates a new, nonsecure WebPA instance.  It delegates to NewSecure(), with empty strings
@@ -85,7 +89,7 @@ func NewSecure(logger logging.Logger, name string, executor Executor, certificat
 	}
 }
 
-// Primary is a faction function for the primary server
+// Primary is a factory function for the primary server defined in the configuration
 func Primary(logger logging.Logger, name string, configuration *Configuration, handler http.Handler) *WebPA {
 	executor := &http.Server{
 		Addr:      configuration.PrimaryAddress(),
@@ -101,4 +105,32 @@ func Primary(logger logging.Logger, name string, configuration *Configuration, h
 		configuration.CertificateFile,
 		configuration.KeyFile,
 	)
+}
+
+// Health is a factory function for both the WebPA server that exposes health statistics
+// and the underlying Health object, both of which are Runnable.
+func Health(logger logging.Logger, name string, configuration *Configuration, options ...health.Option) (*WebPA, *health.Health) {
+	healthHandler := health.New(configuration.HealthCheckInterval(), logger, options...)
+
+	executor := &http.Server{
+		Addr:      configuration.HealthAddress(),
+		Handler:   healthHandler,
+		ConnState: logging.NewConnectionStateLogger(logger, name),
+		ErrorLog:  logging.NewErrorLog(logger, name),
+	}
+
+	return New(logger, name, executor), healthHandler
+}
+
+// Pprof is a factory function for the pprof server defined in the configuration
+func Pprof(logger logging.Logger, name string, configuration *Configuration) *WebPA {
+	// http.DefaultServeMux is where the pprof handlers are automatically registered
+	executor := &http.Server{
+		Addr:      configuration.PprofAddress(),
+		Handler:   http.DefaultServeMux,
+		ConnState: logging.NewConnectionStateLogger(logger, name),
+		ErrorLog:  logging.NewErrorLog(logger, name),
+	}
+
+	return New(logger, name, executor)
 }

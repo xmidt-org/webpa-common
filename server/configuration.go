@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/types"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 const (
@@ -17,6 +18,10 @@ const (
 
 	// DefaultPprofPort is the default value for the port on which pprof listens
 	DefaultPprofPort uint16 = 9999
+
+	// DefaultHealthCheckInterval is the default interval on which health statistics
+	// will be sent out
+	DefaultHealthCheckInterval time.Duration = time.Duration(time.Second * 60)
 )
 
 // Configuration provides the basic configuration options common to all WebPA servers.
@@ -28,8 +33,8 @@ type Configuration struct {
 	// is always HTTP.
 	HealthCheckPort uint16 `json:"hcport"`
 
-	// HealthCheckInterval is the interval at which health logging is dispatched
-	HealthCheckInterval types.Duration `json:"hcInterval"`
+	// HCInterval is the interval at which health logging is dispatched
+	HCInterval types.Duration `json:"hcInterval"`
 
 	// PprofPort is the port used for pprof.  This service
 	// is always HTTP.
@@ -51,7 +56,7 @@ func (c *Configuration) PrimaryAddress() string {
 	if port < 1 {
 		port = DefaultPort
 	}
-	
+
 	return fmt.Sprintf(":%d", port)
 }
 
@@ -61,8 +66,18 @@ func (c *Configuration) HealthAddress() string {
 	if port < 1 {
 		port = DefaultHealthCheckPort
 	}
-	
+
 	return fmt.Sprintf(":%d", port)
+}
+
+// HealthCheckInterval returns the health check interval as
+// a time.Duration, using the default if c.HCInterval is nonpositive.
+func (c *Configuration) HealthCheckInterval() time.Duration {
+	if c.HCInterval < 1 {
+		return DefaultHealthCheckInterval
+	} else {
+		return time.Duration(c.HCInterval)
+	}
 }
 
 // PprofAddress returns the listen address for the pprof server
@@ -71,7 +86,7 @@ func (c *Configuration) PprofAddress() string {
 	if port < 1 {
 		port = DefaultPprofPort
 	}
-	
+
 	return fmt.Sprintf(":%d", port)
 }
 

@@ -72,7 +72,7 @@ func New(interval time.Duration, log logging.Logger, options ...Option) *Health 
 
 // Run executes this Health object.  This method is idempotent:  once a
 // Health object is Run, it cannot be Run again.
-func (h *Health) Run(waitGroup *sync.WaitGroup) {
+func (h *Health) Run(waitGroup *sync.WaitGroup) error {
 	h.once.Do(func() {
 		h.log.Debug("Health Monitor Started")
 
@@ -102,6 +102,8 @@ func (h *Health) Run(waitGroup *sync.WaitGroup) {
 			}
 		}()
 	})
+
+	return nil
 }
 
 func (h *Health) ServeHTTP(response http.ResponseWriter, request *http.Request) {
