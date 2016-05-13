@@ -25,62 +25,78 @@ func TestClone(t *testing.T) {
 
 func TestApply(t *testing.T) {
 	var testData = []struct {
-		healthFunc HealthFunc
-		initial    Stats
-		expected   Stats
+		options  []Option
+		initial  Stats
+		expected Stats
 	}{
 		{
-			Inc(CurrentMemoryUtilizationAlloc, 1),
-			Stats{},
-			Stats{
+			options: []Option{Inc(CurrentMemoryUtilizationAlloc, 1)},
+			initial: Stats{},
+			expected: Stats{
 				CurrentMemoryUtilizationAlloc: 1,
 			},
 		},
 		{
-			Bundle(
-				Inc(CurrentMemoryUtilizationAlloc, -12),
-				Ensure(MaxMemoryUtilizationActive),
-			),
-			Stats{
-				CurrentMemoryUtilizationAlloc: 4,
+			options: []Option{
+				CurrentMemoryUtilizationAlloc,
+				MaxMemoryUtilizationActive,
 			},
-			Stats{
-				CurrentMemoryUtilizationAlloc: -8,
+			initial: Stats{},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 0,
 				MaxMemoryUtilizationActive:    0,
+			},
+		},
+		{
+			options: []Option{
+				CurrentMemoryUtilizationAlloc,
+				MaxMemoryUtilizationActive,
+			},
+			initial: Stats{
+				CurrentMemoryUtilizationAlloc: 12301,
+			},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 12301,
+				MaxMemoryUtilizationActive:    0,
+			},
+		},
+		{
+			options: []Option{
+				Stats{
+					CurrentMemoryUtilizationAlloc: 123,
+					MaxMemoryUtilizationActive:    -982374,
+				},
+			},
+			initial: Stats{},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 123,
+				MaxMemoryUtilizationActive:    -982374,
+			},
+		},
+		{
+			options: []Option{
+				Stats{
+					CurrentMemoryUtilizationAlloc: 123,
+					MaxMemoryUtilizationActive:    -982374,
+				},
+			},
+			initial: Stats{
+				MaxMemoryUtilizationAlloc: 56,
+			},
+			expected: Stats{
+				MaxMemoryUtilizationAlloc:     56,
+				CurrentMemoryUtilizationAlloc: 123,
+				MaxMemoryUtilizationActive:    -982374,
 			},
 		},
 	}
 
 	for _, record := range testData {
 		actual := record.initial.Clone()
-		actual.Apply(record.healthFunc)
+		actual.Apply(record.options...)
 		if !reflect.DeepEqual(record.expected, actual) {
 			t.Errorf("Expected %v, got %v", record.expected, actual)
 		}
-	}
-}
-
-func TestBundle(t *testing.T) {
-	expected := Stats{
-		CurrentMemoryUtilizationHeapSys: 0,
-		CurrentMemoryUtilizationAlloc:   1,
-		CurrentMemoryUtilizationActive:  12,
-	}
-
-	actual := Stats{
-		CurrentMemoryUtilizationAlloc: 0,
-	}
-
-	bundle := Bundle(
-		Ensure(CurrentMemoryUtilizationHeapSys),
-		Inc(CurrentMemoryUtilizationAlloc, 1),
-		Set(CurrentMemoryUtilizationActive, 12),
-	)
-
-	bundle(actual)
-
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Expected %v, but got %v", expected, actual)
 	}
 }
 

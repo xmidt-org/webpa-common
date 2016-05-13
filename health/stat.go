@@ -1,6 +1,7 @@
 package health
 
 import (
+	"errors"
 	"github.com/c9s/goprocinfo/linux"
 	"runtime"
 )
@@ -24,21 +25,30 @@ var (
 		MaxMemoryUtilizationHeapSys:     0,
 		MaxMemoryUtilizationActive:      0,
 	}
+
+	ErrorInvalidOption = errors.New("Invalid stat option")
 )
+
+// Option describes an option that can be set on a Stats map.
+// Various types implement this interface.
+type Option interface {
+	Set(Stats)
+}
 
 // Stat is a named piece of data to be tracked
 type Stat string
 
+func (s Stat) Set(stats Stats) {
+	if _, ok := stats[s]; !ok {
+		stats[s] = 0
+	}
+}
+
 // HealthFunc functions are allowed to modify the passed-in stats.
 type HealthFunc func(Stats)
 
-// Bundle produces an aggregate HealthFunc from a number of others
-func Bundle(hfs ...HealthFunc) HealthFunc {
-	return func(stats Stats) {
-		for _, hf := range hfs {
-			hf(stats)
-		}
-	}
+func (f HealthFunc) Set(stats Stats) {
+	f(stats)
 }
 
 // Ensure makes certain the given stat is defined.  If it does not exist,
@@ -68,20 +78,26 @@ func Set(stat Stat, value int) HealthFunc {
 // Stats is mapping of Stat to value
 type Stats map[Stat]int
 
-// Clone returns a distinct copy of this Stats object
-func (s Stats) Clone() Stats {
-	copyOf := make(Stats, len(s))
+func (s Stats) Set(stats Stats) {
 	for key, value := range s {
-		copyOf[key] = value
+		stats[key] = value
 	}
-
-	return copyOf
 }
 
-// Apply invokes each HealthFunc on this stats
-func (s Stats) Apply(options ...HealthFunc) {
+// Clone returns a distinct copy of this Stats object
+func (s Stats) Clone() Stats {
+	clone := make(Stats, len(s))
+	for key, value := range s {
+		clone[key] = value
+	}
+
+	return clone
+}
+
+// Apply invokes each Option.Set() on this stats map.
+func (s Stats) Apply(options ...Option) {
 	for _, option := range options {
-		option(s)
+		option.Set(s)
 	}
 }
 

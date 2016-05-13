@@ -57,7 +57,7 @@ func (h *Health) Close() error {
 }
 
 // New creates a Health object with the given statistics.
-func New(interval time.Duration, log logging.Logger, options ...HealthFunc) *Health {
+func New(interval time.Duration, log logging.Logger, options ...Option) *Health {
 	initialStats := commonStats.Clone()
 	initialStats.Apply(options...)
 
