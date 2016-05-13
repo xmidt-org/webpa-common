@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"reflect"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -21,20 +20,10 @@ func setupHealth() *Health {
 	)
 }
 
-// testOsChecker is the test implementation of OsChecker
-type testOsChecker struct {
-	osName string
-}
-
-func (t testOsChecker) OsName() string {
-	return t.osName
-}
-
 func TestLifecycle(t *testing.T) {
 	t.Log("starting TestLifecycle")
 	defer t.Log("TestLifecycle complete")
 	h := setupHealth()
-	h.memory = Memory(h.log, testOsChecker{})
 
 	healthWaitGroup := &sync.WaitGroup{}
 	h.Run(healthWaitGroup)
@@ -107,164 +96,8 @@ func TestLifecycle(t *testing.T) {
 	}
 }
 
-func TestBundle(t *testing.T) {
-	expected := Stats{
-		CurrentMemoryUtilizationHeapSys: 0,
-		CurrentMemoryUtilizationAlloc:   1,
-		CurrentMemoryUtilizationActive:  12,
-	}
-
-	actual := Stats{
-		CurrentMemoryUtilizationAlloc: 0,
-	}
-
-	bundle := Bundle(
-		Ensure(CurrentMemoryUtilizationHeapSys),
-		Inc(CurrentMemoryUtilizationAlloc, 1),
-		Set(CurrentMemoryUtilizationActive, 12),
-	)
-
-	bundle(actual)
-
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Expected %v, but got %v", expected, actual)
-	}
-}
-
-func TestInc(t *testing.T) {
-	var testData = []struct {
-		stat      Stat
-		increment int
-		initial   Stats
-		expected  Stats
-	}{
-		{
-			CurrentMemoryUtilizationHeapSys,
-			1,
-			Stats{},
-			Stats{CurrentMemoryUtilizationHeapSys: 1},
-		},
-		{
-			CurrentMemoryUtilizationHeapSys,
-			-12,
-			Stats{},
-			Stats{CurrentMemoryUtilizationHeapSys: -12},
-		},
-		{
-			CurrentMemoryUtilizationHeapSys,
-			72,
-			Stats{CurrentMemoryUtilizationHeapSys: 0},
-			Stats{CurrentMemoryUtilizationHeapSys: 72},
-		},
-		{
-			CurrentMemoryUtilizationHeapSys,
-			6,
-			Stats{CurrentMemoryUtilizationHeapSys: 45},
-			Stats{CurrentMemoryUtilizationHeapSys: 51},
-		},
-	}
-
-	for _, record := range testData {
-		Inc(record.stat, record.increment)(record.initial)
-
-		if !reflect.DeepEqual(record.expected, record.initial) {
-			t.Errorf("Expected %v, but got %v", record.expected, record.initial)
-		}
-	}
-}
-
-func TestSet(t *testing.T) {
-	var testData = []struct {
-		stat     Stat
-		newValue int
-		initial  Stats
-		expected Stats
-	}{
-		{
-			CurrentMemoryUtilizationHeapSys,
-			123,
-			Stats{},
-			Stats{CurrentMemoryUtilizationHeapSys: 123},
-		},
-		{
-			CurrentMemoryUtilizationHeapSys,
-			37842,
-			Stats{CurrentMemoryUtilizationHeapSys: 42734987},
-			Stats{CurrentMemoryUtilizationHeapSys: 37842},
-		},
-	}
-
-	for _, record := range testData {
-		Set(record.stat, record.newValue)(record.initial)
-
-		if !reflect.DeepEqual(record.expected, record.initial) {
-			t.Errorf("Expected %v, but got %v", record.expected, record.initial)
-		}
-	}
-}
-
-func TestEnsure(t *testing.T) {
-	var testData = []struct {
-		stat     Stat
-		initial  Stats
-		expected Stats
-	}{
-		{
-			CurrentMemoryUtilizationHeapSys,
-			Stats{},
-			Stats{CurrentMemoryUtilizationHeapSys: 0},
-		},
-		{
-			CurrentMemoryUtilizationHeapSys,
-			Stats{CurrentMemoryUtilizationHeapSys: -157},
-			Stats{CurrentMemoryUtilizationHeapSys: -157},
-		},
-	}
-
-	for _, record := range testData {
-		Ensure(record.stat)(record.initial)
-
-		if !reflect.DeepEqual(record.expected, record.initial) {
-			t.Errorf("Expected %v, but got %v", record.expected, record.initial)
-		}
-	}
-}
-
-func TestMemoryNonLinux(t *testing.T) {
-	log := &logging.DefaultLogger{os.Stdout}
-	memory := Memory(log, testOsChecker{"nonsense"})
-
-	actual := commonStats.Clone()
-	memory(actual)
-	if !reflect.DeepEqual(commonStats, actual) {
-		t.Errorf("On a non-linux platform, Memory should not modify stats")
-	}
-}
-
-func TestMemoryLinux(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Log("Not on a linux system.  Aborting test of memory statistics update.")
-		return
-	}
-
-	memory := Memory(&logging.DefaultLogger{os.Stdout}, testOsChecker{"linux"})
-	actual := commonStats.Clone()
-	memory(actual)
-
-	// if we don't actually get a panic, then verify that the memory did change certain stats
-	if actual[CurrentMemoryUtilizationActive] == 0 ||
-		actual[MaxMemoryUtilizationActive] == 0 ||
-		actual[CurrentMemoryUtilizationAlloc] == 0 ||
-		actual[CurrentMemoryUtilizationHeapSys] == 0 ||
-		actual[MaxMemoryUtilizationAlloc] == 0 ||
-		actual[MaxMemoryUtilizationHeapSys] == 0 {
-		t.Errorf("Memory stats not updated")
-	}
-}
-
 func TestServeHTTP(t *testing.T) {
 	h := setupHealth()
-	h.memory = Memory(h.log, testOsChecker{"nonsense"})
 	h.Run(&sync.WaitGroup{})
 	defer h.Close()
 
@@ -291,12 +124,15 @@ func TestServeHTTP(t *testing.T) {
 		t.Error("Status code was not 200.  got: %v", response.Code)
 	}
 
-	result := new(Stats)
-	if err := json.Unmarshal(response.Body.Bytes(), result); err != nil {
-		t.Errorf("json Unmarshal error: %v", err)
+	var result Stats
+	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+		t.Fatalf("json Unmarshal error: %v", err)
 	}
 
-	if !reflect.DeepEqual(commonStats, *result) {
-		t.Errorf("ServeHTTP did not return Stats.\n Got: %v\nExpected: %v\n", *result, commonStats)
+	// each key in commonStats should be present in the output
+	for key, _ := range commonStats {
+		if _, ok := result[key]; !ok {
+			t.Errorf("Key %s not present in ServeHTTP results", key)
+		}
 	}
 }
