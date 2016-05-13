@@ -10,7 +10,7 @@ func TestLinuxRead(t *testing.T) {
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
-	
+
 	if memInfo == nil {
 		t.Fatalf("No MemInfo returned")
 	}
@@ -22,7 +22,7 @@ func TestNonLinunxRead(t *testing.T) {
 	if err == nil {
 		t.Errorf("No error returned")
 	}
-	
+
 	if memInfo != nil {
 		t.Errorf("A MemInfo should not have been returned: %v", *memInfo)
 	}

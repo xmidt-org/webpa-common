@@ -7,27 +7,96 @@ import (
 	"testing"
 )
 
-func TestBundle(t *testing.T) {
-	expected := Stats{
-		CurrentMemoryUtilizationHeapSys: 0,
-		CurrentMemoryUtilizationAlloc:   1,
-		CurrentMemoryUtilizationActive:  12,
+func TestClone(t *testing.T) {
+	initial := Stats{
+		CurrentMemoryUtilizationHeapSys: 123,
 	}
 
-	actual := Stats{
-		CurrentMemoryUtilizationAlloc: 0,
+	cloned := initial.Clone()
+	if !reflect.DeepEqual(initial, cloned) {
+		t.Errorf("Expected %v, got %v", initial, cloned)
 	}
 
-	bundle := Bundle(
-		Ensure(CurrentMemoryUtilizationHeapSys),
-		Inc(CurrentMemoryUtilizationAlloc, 1),
-		Set(CurrentMemoryUtilizationActive, 12),
-	)
+	cloned[CurrentMemoryUtilizationActive] = 123211
+	if reflect.DeepEqual(initial, cloned) {
+		t.Error("Clone should be a distinct instance")
+	}
+}
 
-	bundle(actual)
+func TestApply(t *testing.T) {
+	var testData = []struct {
+		options  []Option
+		initial  Stats
+		expected Stats
+	}{
+		{
+			options: []Option{Inc(CurrentMemoryUtilizationAlloc, 1)},
+			initial: Stats{},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 1,
+			},
+		},
+		{
+			options: []Option{
+				CurrentMemoryUtilizationAlloc,
+				MaxMemoryUtilizationActive,
+			},
+			initial: Stats{},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 0,
+				MaxMemoryUtilizationActive:    0,
+			},
+		},
+		{
+			options: []Option{
+				CurrentMemoryUtilizationAlloc,
+				MaxMemoryUtilizationActive,
+			},
+			initial: Stats{
+				CurrentMemoryUtilizationAlloc: 12301,
+			},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 12301,
+				MaxMemoryUtilizationActive:    0,
+			},
+		},
+		{
+			options: []Option{
+				Stats{
+					CurrentMemoryUtilizationAlloc: 123,
+					MaxMemoryUtilizationActive:    -982374,
+				},
+			},
+			initial: Stats{},
+			expected: Stats{
+				CurrentMemoryUtilizationAlloc: 123,
+				MaxMemoryUtilizationActive:    -982374,
+			},
+		},
+		{
+			options: []Option{
+				Stats{
+					CurrentMemoryUtilizationAlloc: 123,
+					MaxMemoryUtilizationActive:    -982374,
+				},
+			},
+			initial: Stats{
+				MaxMemoryUtilizationAlloc: 56,
+			},
+			expected: Stats{
+				MaxMemoryUtilizationAlloc:     56,
+				CurrentMemoryUtilizationAlloc: 123,
+				MaxMemoryUtilizationActive:    -982374,
+			},
+		},
+	}
 
-	if !reflect.DeepEqual(expected, actual) {
-		t.Errorf("Expected %v, but got %v", expected, actual)
+	for _, record := range testData {
+		actual := record.initial.Clone()
+		actual.Apply(record.options...)
+		if !reflect.DeepEqual(record.expected, actual) {
+			t.Errorf("Expected %v, got %v", record.expected, actual)
+		}
 	}
 }
 
@@ -185,61 +254,61 @@ func TestUpdateMemInfo(t *testing.T) {
 }
 
 func TestUpdateMemStats(t *testing.T) {
-	var testData = []struct{
+	var testData = []struct {
 		memStats runtime.MemStats
-		initial Stats
+		initial  Stats
 		expected Stats
 	}{
 		// empty initial Stats
 		{
 			runtime.MemStats{
-				Alloc: 247,
+				Alloc:   247,
 				HeapSys: 2381,
 			},
 			Stats{},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 247,
-				MaxMemoryUtilizationAlloc: 247,
+				CurrentMemoryUtilizationAlloc:   247,
+				MaxMemoryUtilizationAlloc:       247,
 				CurrentMemoryUtilizationHeapSys: 2381,
-				MaxMemoryUtilizationHeapSys: 2381,
+				MaxMemoryUtilizationHeapSys:     2381,
 			},
 		},
 		// current is less than max
 		{
 			runtime.MemStats{
-				Alloc: 3874,
+				Alloc:   3874,
 				HeapSys: 1234,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 12354,
-				MaxMemoryUtilizationAlloc: 927412,
+				CurrentMemoryUtilizationAlloc:   12354,
+				MaxMemoryUtilizationAlloc:       927412,
 				CurrentMemoryUtilizationHeapSys: 7897,
-				MaxMemoryUtilizationHeapSys: 827123,
+				MaxMemoryUtilizationHeapSys:     827123,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 3874,
-				MaxMemoryUtilizationAlloc: 927412,
+				CurrentMemoryUtilizationAlloc:   3874,
+				MaxMemoryUtilizationAlloc:       927412,
 				CurrentMemoryUtilizationHeapSys: 1234,
-				MaxMemoryUtilizationHeapSys: 827123,
+				MaxMemoryUtilizationHeapSys:     827123,
 			},
 		},
 		// current is greater than max
 		{
 			runtime.MemStats{
-				Alloc: 8742,
+				Alloc:   8742,
 				HeapSys: 2903209,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 135,
-				MaxMemoryUtilizationAlloc: 1254,
+				CurrentMemoryUtilizationAlloc:   135,
+				MaxMemoryUtilizationAlloc:       1254,
 				CurrentMemoryUtilizationHeapSys: 5412,
-				MaxMemoryUtilizationHeapSys: 12345,
+				MaxMemoryUtilizationHeapSys:     12345,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 8742,
-				MaxMemoryUtilizationAlloc: 8742,
+				CurrentMemoryUtilizationAlloc:   8742,
+				MaxMemoryUtilizationAlloc:       8742,
 				CurrentMemoryUtilizationHeapSys: 2903209,
-				MaxMemoryUtilizationHeapSys: 2903209,
+				MaxMemoryUtilizationHeapSys:     2903209,
 			},
 		},
 	}

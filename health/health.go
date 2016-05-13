@@ -50,51 +50,6 @@ func (h *Health) SendEvent(healthFunc HealthFunc) {
 	h.event <- healthFunc
 }
 
-// Memory returns a HealthFunc that updates the given stats with memory statistics,
-// based on the operation system name.
-//func Memory(log logging.Logger, osChecker OsChecker) HealthFunc {
-//	osName := osChecker.OsName()
-//	log.Info("Operating system detected: %s", osName)
-//
-//	switch osName {
-//	case "linux":
-//		return func(stats Stats) {
-//			meminfo, err := linux.ReadMemInfo("/proc/meminfo")
-//			if err != nil {
-//				log.Error("error querying memory information: %v", err)
-//				return
-//			}
-//
-//			active := int(meminfo.Active * 1024)
-//			stats[CurrentMemoryUtilizationActive] = active
-//			if active > stats[MaxMemoryUtilizationActive] {
-//				stats[MaxMemoryUtilizationActive] = active
-//			}
-//
-//			var memstats runtime.MemStats
-//			runtime.ReadMemStats(&memstats)
-//			alloc := int(memstats.Alloc)
-//			heapsys := int(memstats.HeapSys)
-//
-//			// set current
-//			stats[CurrentMemoryUtilizationAlloc] = alloc
-//			stats[CurrentMemoryUtilizationHeapSys] = heapsys
-//
-//			// set max
-//			if alloc > stats[MaxMemoryUtilizationAlloc] {
-//				stats[MaxMemoryUtilizationAlloc] = alloc
-//			}
-//
-//			if heapsys > stats[MaxMemoryUtilizationHeapSys] {
-//				stats[MaxMemoryUtilizationHeapSys] = heapsys
-//			}
-//		}
-//	default:
-//		// return a noop
-//		return func(Stats) {}
-//	}
-//}
-
 // Close shuts down the health event monitoring
 func (h *Health) Close() error {
 	close(h.event)
@@ -102,7 +57,7 @@ func (h *Health) Close() error {
 }
 
 // New creates a Health object with the given statistics.
-func New(interval time.Duration, log logging.Logger, options ...HealthFunc) *Health {
+func New(interval time.Duration, log logging.Logger, options ...Option) *Health {
 	initialStats := commonStats.Clone()
 	initialStats.Apply(options...)
 
