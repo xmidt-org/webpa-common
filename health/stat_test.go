@@ -7,6 +7,59 @@ import (
 	"testing"
 )
 
+func TestClone(t *testing.T) {
+	initial := Stats{
+		CurrentMemoryUtilizationHeapSys: 123,
+	}
+
+	cloned := initial.Clone()
+	if !reflect.DeepEqual(initial, cloned) {
+		t.Errorf("Expected %v, got %v", initial, cloned)
+	}
+
+	cloned[CurrentMemoryUtilizationActive] = 123211
+	if reflect.DeepEqual(initial, cloned) {
+		t.Error("Clone should be a distinct instance")
+	}
+}
+
+func TestApply(t *testing.T) {
+	var testData = []struct {
+		healthFunc HealthFunc
+		initial    Stats
+		expected   Stats
+	}{
+		{
+			Inc(CurrentMemoryUtilizationAlloc, 1),
+			Stats{},
+			Stats{
+				CurrentMemoryUtilizationAlloc: 1,
+			},
+		},
+		{
+			Bundle(
+				Inc(CurrentMemoryUtilizationAlloc, -12),
+				Ensure(MaxMemoryUtilizationActive),
+			),
+			Stats{
+				CurrentMemoryUtilizationAlloc: 4,
+			},
+			Stats{
+				CurrentMemoryUtilizationAlloc: -8,
+				MaxMemoryUtilizationActive:    0,
+			},
+		},
+	}
+
+	for _, record := range testData {
+		actual := record.initial.Clone()
+		actual.Apply(record.healthFunc)
+		if !reflect.DeepEqual(record.expected, actual) {
+			t.Errorf("Expected %v, got %v", record.expected, actual)
+		}
+	}
+}
+
 func TestBundle(t *testing.T) {
 	expected := Stats{
 		CurrentMemoryUtilizationHeapSys: 0,
