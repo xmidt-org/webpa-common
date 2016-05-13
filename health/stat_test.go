@@ -185,61 +185,61 @@ func TestUpdateMemInfo(t *testing.T) {
 }
 
 func TestUpdateMemStats(t *testing.T) {
-	var testData = []struct{
+	var testData = []struct {
 		memStats runtime.MemStats
-		initial Stats
+		initial  Stats
 		expected Stats
 	}{
 		// empty initial Stats
 		{
 			runtime.MemStats{
-				Alloc: 247,
+				Alloc:   247,
 				HeapSys: 2381,
 			},
 			Stats{},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 247,
-				MaxMemoryUtilizationAlloc: 247,
+				CurrentMemoryUtilizationAlloc:   247,
+				MaxMemoryUtilizationAlloc:       247,
 				CurrentMemoryUtilizationHeapSys: 2381,
-				MaxMemoryUtilizationHeapSys: 2381,
+				MaxMemoryUtilizationHeapSys:     2381,
 			},
 		},
 		// current is less than max
 		{
 			runtime.MemStats{
-				Alloc: 3874,
+				Alloc:   3874,
 				HeapSys: 1234,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 12354,
-				MaxMemoryUtilizationAlloc: 927412,
+				CurrentMemoryUtilizationAlloc:   12354,
+				MaxMemoryUtilizationAlloc:       927412,
 				CurrentMemoryUtilizationHeapSys: 7897,
-				MaxMemoryUtilizationHeapSys: 827123,
+				MaxMemoryUtilizationHeapSys:     827123,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 3874,
-				MaxMemoryUtilizationAlloc: 927412,
+				CurrentMemoryUtilizationAlloc:   3874,
+				MaxMemoryUtilizationAlloc:       927412,
 				CurrentMemoryUtilizationHeapSys: 1234,
-				MaxMemoryUtilizationHeapSys: 827123,
+				MaxMemoryUtilizationHeapSys:     827123,
 			},
 		},
 		// current is greater than max
 		{
 			runtime.MemStats{
-				Alloc: 8742,
+				Alloc:   8742,
 				HeapSys: 2903209,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 135,
-				MaxMemoryUtilizationAlloc: 1254,
+				CurrentMemoryUtilizationAlloc:   135,
+				MaxMemoryUtilizationAlloc:       1254,
 				CurrentMemoryUtilizationHeapSys: 5412,
-				MaxMemoryUtilizationHeapSys: 12345,
+				MaxMemoryUtilizationHeapSys:     12345,
 			},
 			Stats{
-				CurrentMemoryUtilizationAlloc: 8742,
-				MaxMemoryUtilizationAlloc: 8742,
+				CurrentMemoryUtilizationAlloc:   8742,
+				MaxMemoryUtilizationAlloc:       8742,
 				CurrentMemoryUtilizationHeapSys: 2903209,
-				MaxMemoryUtilizationHeapSys: 2903209,
+				MaxMemoryUtilizationHeapSys:     2903209,
 			},
 		},
 	}
