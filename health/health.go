@@ -2,6 +2,7 @@ package health
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/c9s/goprocinfo/linux"
@@ -11,18 +12,36 @@ import (
 	"time"
 )
 
-const CurrentMemoryUtilizationAlloc Stat = "CurrentMemoryUtilizationAlloc"
-const CurrentMemoryUtilizationHeapSys Stat = "CurrentMemoryUtilizationHeapSys"
-const CurrentMemoryUtilizationActive Stat = "CurrentMemoryUtilizationActive"
-const MaxMemoryUtilizationAlloc Stat = "MaxMemoryUtilizationAlloc"
-const MaxMemoryUtilizationHeapSys Stat = "MaxMemoryUtilizationHeapSys"
-const MaxMemoryUtilizationActive Stat = "MaxMemoryUtilizationActive"
+const (
+	CurrentMemoryUtilizationAlloc   Stat = "CurrentMemoryUtilizationAlloc"
+	CurrentMemoryUtilizationHeapSys Stat = "CurrentMemoryUtilizationHeapSys"
+	CurrentMemoryUtilizationActive  Stat = "CurrentMemoryUtilizationActive"
+	MaxMemoryUtilizationAlloc       Stat = "MaxMemoryUtilizationAlloc"
+	MaxMemoryUtilizationHeapSys     Stat = "MaxMemoryUtilizationHeapSys"
+	MaxMemoryUtilizationActive      Stat = "MaxMemoryUtilizationActive"
+)
 
-// production code:
+var (
+	ErrorCannotReadMemory = errors.New("Cannot read memory")
+
+	// commonStats is the Stats used to seed the initial set of stats
+	commonStats = Stats{
+		CurrentMemoryUtilizationAlloc:   0,
+		CurrentMemoryUtilizationHeapSys: 0,
+		CurrentMemoryUtilizationActive:  0,
+		MaxMemoryUtilizationAlloc:       0,
+		MaxMemoryUtilizationHeapSys:     0,
+		MaxMemoryUtilizationActive:      0,
+	}
+)
+
+// OsChecker returns the name of the underlying operating system.
 type OsChecker interface {
 	OsName() string
 }
 
+// defaultOsChecker is the default implementation of OsChecker.
+// This implementation simply delegates to runtime.GOOS.
 type defaultOsChecker struct {
 }
 
@@ -30,58 +49,80 @@ func (d defaultOsChecker) OsName() string {
 	return runtime.GOOS
 }
 
-// *_test.go code:
-type testOsChecker struct {
-	osName string
+// DefaultOsChecker returns a default implementation of OsChecker,
+// which delegates to runtime.GOOS.
+func DefaultOsChecker() OsChecker {
+	return defaultOsChecker{}
 }
 
-func (t testOsChecker) OsName() string {
-	return t.osName
-}
-
+// StatsListener receives Stats on regular intervals.
 type StatsListener interface {
+	// OnStats is called with a copy of the health's stats map
+	// at regular intervals.
 	OnStats(Stats)
 }
 
-// use for monitoring the stat data
-// pass in a StatListenerFunc to SendEvent
+// StatsListenerFunc is a function type that implements StatsListener.
 type StatsListenerFunc func(Stats)
 
-// use to modify the stat data
-// pass in a HealthFunc to SendEvent
+func (f StatsListenerFunc) OnStats(stats Stats) {
+	f(stats)
+}
+
+// HealthFunc functions are allowed to modify the passed-in stats.
 type HealthFunc func(Stats)
 
-// a named piece of data to be tracked
+// Stat is a named piece of data to be tracked
 type Stat string
 
-// a map of named Stats with corresponding values
+// Stats is mapping of Stat to value
 type Stats map[Stat]int
 
+// Clone returns a distinct copy of this Stats object
+func (s Stats) Clone() Stats {
+	copyOf := make(Stats, len(s))
+	for key, value := range s {
+		copyOf[key] = value
+	}
+
+	return copyOf
+}
+
+// Apply invokes each HealthFunc on this stats
+func (s Stats) Apply(options ...HealthFunc) {
+	for _, option := range options {
+		option(s)
+	}
+}
+
+// Health is the central type of this package.  It defines and endpoint for tracking
+// and updating various statistics.  It also dispatches events to one or more StatsListeners
+// at regular intervals.
 type Health struct {
 	stats            Stats
 	statDumpInterval time.Duration
 	log              logging.Logger
-	wg               *sync.WaitGroup
 	event            chan HealthFunc
-	osChecker        OsChecker
 	statsListeners   []StatsListener
+	memory           HealthFunc
+	once             sync.Once
 }
 
+// AddStatsListener adds a new listener to this Health.  This method
+// is asynchronous.  The listener will eventually receive events, but callers
+// should not assume events will be dispatched immediately after this method call.
 func (h *Health) AddStatsListener(listener StatsListener) {
 	h.SendEvent(func(stat Stats) {
 		h.statsListeners = append(h.statsListeners, listener)
 	})
 }
 
-func (f StatsListenerFunc) OnStats(stats Stats) {
-	f(stats)
+// SendEvent dispatches a HealthFunc to the internal event queue
+func (h *Health) SendEvent(healthFunc HealthFunc) {
+	h.event <- healthFunc
 }
 
-// Send types with func(Stats) signatures through here to execute and prevent race conditions
-func (h *Health) SendEvent(fn func(Stats)) {
-	h.event <- fn
-}
-
+// Bundle produces an aggregate HealthFunc from a number of others
 func Bundle(hfs ...HealthFunc) HealthFunc {
 	return func(stats Stats) {
 		for _, hf := range hfs {
@@ -90,164 +131,145 @@ func Bundle(hfs ...HealthFunc) HealthFunc {
 	}
 }
 
+// Ensure makes certain the given stat is defined.  If it does not exist,
+// it is initialized to 0.  Otherwise, the existing stat value is left intact.
+func Ensure(stat Stat) HealthFunc {
+	return func(stats Stats) {
+		if _, ok := stats[stat]; !ok {
+			stats[stat] = 0
+		}
+	}
+}
+
+// Inc increments the given stat by a certain amount
 func Inc(stat Stat, value int) HealthFunc {
 	return func(stats Stats) {
 		stats[stat] += value
 	}
 }
 
+// Set changes (or, initializes) the stat to the given value
 func Set(stat Stat, value int) HealthFunc {
 	return func(stats Stats) {
 		stats[stat] = value
 	}
 }
 
-func (h *Health) Close() {
-	close(h.event)
-}
+// Memory returns a HealthFunc that updates the given stats with memory statistics,
+// based on the operation system name.
+func Memory(log logging.Logger, osChecker OsChecker) HealthFunc {
+	osName := osChecker.OsName()
+	log.Info("Operating system detected: %s", osName)
 
-func New(interval time.Duration, log logging.Logger, wg *sync.WaitGroup) *Health {
-	h := new(Health)
-	h.event = make(chan HealthFunc, 100)
-	h.stats = make(Stats)
-	h.statDumpInterval = interval
-	h.log = log
-	h.wg = wg
-	h.osChecker = new(defaultOsChecker)
-	h.monitor()
-	h.commonStats()
+	switch osName {
+	case "linux":
+		return func(stats Stats) {
+			meminfo, err := linux.ReadMemInfo("/proc/meminfo")
+			if err != nil {
+				log.Error("error querying memory information: %v", err)
+				return
+			}
 
-	return h
-}
-
-func (h *Health) commonStats() {
-	h.SendEvent(
-		Bundle(
-			Set(CurrentMemoryUtilizationAlloc, 0),
-			Set(CurrentMemoryUtilizationHeapSys, 0),
-			Set(CurrentMemoryUtilizationActive, 0),
-			Set(MaxMemoryUtilizationAlloc, 0),
-			Set(MaxMemoryUtilizationHeapSys, 0),
-			Set(MaxMemoryUtilizationActive, 0),
-		),
-	)
-}
-
-func (h *Health) oscheck() bool {
-	if h.osChecker.OsName() == "linux" {
-		h.log.Debug("Linux operating system detected: %v", runtime.GOOS)
-		return true
-	} else {
-		h.log.Debug("Other operating system detected: %v", runtime.GOOS)
-		return false
-	}
-}
-
-func (h *Health) memory() {
-	if h.oscheck() {
-		meminfo, err := linux.ReadMemInfo("/proc/meminfo")
-		if err != nil {
-			h.log.Error("error querying memory information: %v", err)
-		} else {
 			active := int(meminfo.Active * 1024)
-			h.stats[CurrentMemoryUtilizationActive] = active
-			if active > h.stats[MaxMemoryUtilizationActive] {
-				h.stats[MaxMemoryUtilizationActive] = active
+			stats[CurrentMemoryUtilizationActive] = active
+			if active > stats[MaxMemoryUtilizationActive] {
+				stats[MaxMemoryUtilizationActive] = active
+			}
+
+			var memstats runtime.MemStats
+			runtime.ReadMemStats(&memstats)
+			alloc := int(memstats.Alloc)
+			heapsys := int(memstats.HeapSys)
+
+			// set current
+			stats[CurrentMemoryUtilizationAlloc] = alloc
+			stats[CurrentMemoryUtilizationHeapSys] = heapsys
+
+			// set max
+			if alloc > stats[MaxMemoryUtilizationAlloc] {
+				stats[MaxMemoryUtilizationAlloc] = alloc
+			}
+
+			if heapsys > stats[MaxMemoryUtilizationHeapSys] {
+				stats[MaxMemoryUtilizationHeapSys] = heapsys
 			}
 		}
-
-		var memstats runtime.MemStats
-		runtime.ReadMemStats(&memstats)
-		alloc := int(memstats.Alloc)
-		heapsys := int(memstats.HeapSys)
-
-		// set current
-		h.stats[CurrentMemoryUtilizationAlloc] = alloc
-		h.stats[CurrentMemoryUtilizationHeapSys] = heapsys
-
-		// set max
-		if alloc > h.stats[MaxMemoryUtilizationAlloc] {
-			h.stats[MaxMemoryUtilizationAlloc] = alloc
-		}
-		if heapsys > h.stats[MaxMemoryUtilizationHeapSys] {
-			h.stats[MaxMemoryUtilizationHeapSys] = heapsys
-		}
+	default:
+		// return a noop
+		return func(Stats) {}
 	}
 }
 
-func (h *Health) monitor() {
-	h.log.Debug("Health Monitor Started")
+// Close shuts down the health event monitoring
+func (h *Health) Close() error {
+	close(h.event)
+	return nil
+}
 
-	h.wg.Add(1)
-	go func() {
-		ticker := time.NewTicker(h.statDumpInterval)
+// New creates a Health object with the given statistics.
+func New(interval time.Duration, log logging.Logger, options ...HealthFunc) *Health {
+	initialStats := commonStats.Clone()
+	initialStats.Apply(options...)
 
-		defer ticker.Stop()
-		defer h.log.Debug("Health Monitor Stopped")
-		defer h.wg.Done()
+	return &Health{
+		event:            make(chan HealthFunc, 100),
+		stats:            initialStats,
+		statDumpInterval: interval,
+		log:              log,
+		memory:           Memory(log, DefaultOsChecker()),
+	}
+}
 
-		for {
-			select {
-			case hf, ok := <-h.event:
-				if !ok {
-					return
-				}
+// Run executes this Health object.  This method is idempotent:  once a
+// Health object is Run, it cannot be Run again.
+func (h *Health) Run(waitGroup *sync.WaitGroup) {
+	h.once.Do(func() {
+		h.log.Debug("Health Monitor Started")
 
-				hf(h.stats)
-			case <-ticker.C:
-				hs := h.getStats()
-				for _, statsListener := range h.statsListeners {
-					statsListener.OnStats(hs)
+		waitGroup.Add(1)
+		go func() {
+			ticker := time.NewTicker(h.statDumpInterval)
+
+			defer ticker.Stop()
+			defer h.log.Debug("Health Monitor Stopped")
+			defer waitGroup.Done()
+
+			for {
+				select {
+				case hf, ok := <-h.event:
+					if !ok {
+						return
+					}
+
+					hf(h.stats)
+				case <-ticker.C:
+					h.memory(h.stats)
+					hs := h.stats.Clone()
+					for _, statsListener := range h.statsListeners {
+						statsListener.OnStats(hs)
+					}
 				}
 			}
-		}
-	}()
+		}()
+	})
 }
 
-func (h *Health) getStats() Stats {
-	statsCopy := make(Stats)
-
-	h.memory()
-	for k, v := range h.stats {
-		statsCopy[k] = v
-	}
-
-	return statsCopy
-}
-
-func (h *Health) Share(fs ...func(*Health)) {
-	for _, f := range fs {
-		f(h)
-	}
-}
-
-func (h *Health) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (h *Health) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	ch := make(chan Stats)
 	defer close(ch)
 
-	h.SendEvent(func(stat Stats) {
-		ch <- h.getStats()
+	h.SendEvent(func(stats Stats) {
+		h.memory(stats)
+		jsonmsg, err := json.Marshal(stats)
+		response.Header().Set("Content-Type", "application/json")
+
+		// TODO: leverage the standard error writing elsewhere in webpa-common
+		if err != nil {
+			h.log.Error("Could not marshal stats: %v", err)
+			response.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(response, `{"message": "%s"}\n`, err.Error())
+		} else {
+			fmt.Fprintf(response, "%s", jsonmsg)
+		}
 	})
-
-	hs := <-ch
-	jsonmsg, err := json.Marshal(hs)
-
-	if err != nil {
-		responseErrorJson(rw, err.Error(), http.StatusInternalServerError, h.log)
-		return
-	}
-
-	rw.Header().Set("Content-Type", "application/json")
-	rw.Write(jsonmsg)
-}
-
-func responseErrorJson(rw http.ResponseWriter, errmsg string, code int, log logging.Logger) {
-	log.Error("Response error code %v msg [%v]", code, errmsg)
-	rw.Header().Set("Content-Type", "application/json")
-	jsonStr := fmt.Sprintf(`{"message":"%s"}`, errmsg)
-
-	rw.WriteHeader(code)
-	fmt.Fprintln(rw, jsonStr)
-
-	return
 }
