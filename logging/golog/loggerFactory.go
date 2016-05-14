@@ -13,6 +13,15 @@ const (
 	DefaultPattern  Pattern = "[%d] [%p] (%l) %m%n"
 )
 
+// gologger wraps a go-log logger and supplies additional behavior
+type gologger struct {
+	logger.Logger
+}
+
+func (g *gologger) Errorf(parameters ...interface{}) {
+	g.Error(parameters...)
+}
+
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
 // via JSON.
 type LoggerFactory struct {
@@ -61,7 +70,7 @@ func (factory *LoggerFactory) NewLogger(name string) (logging.Logger, error) {
 	if appender, err := factory.NewAppender(); err != nil {
 		return nil, err
 	} else {
-		gologger := logger.New(name)
+		gologger := &gologger{logger.New(name)}
 		gologger.SetLevel(levels.LogLevel(factory.Level))
 		gologger.SetAppender(appender)
 
