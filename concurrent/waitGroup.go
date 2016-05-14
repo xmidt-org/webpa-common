@@ -5,9 +5,14 @@ import (
 	"time"
 )
 
-// WaitGroup is an extension of sync.WaitGroup that supplies additional behavior
+// WaitGroup is an wrapper around sync.WaitGroup that supplies additional behavior
 type WaitGroup struct {
 	sync.WaitGroup
+}
+
+// Unwrap returns the wrapped sync.WaitGroup
+func (wait *WaitGroup) Unwrap() *sync.WaitGroup {
+	return &wait.WaitGroup
 }
 
 // WaitTimeout waits on this WaitGroup until either the wait succeeds or the

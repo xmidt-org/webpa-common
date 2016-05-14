@@ -2,13 +2,20 @@ package server
 
 import (
 	"errors"
+	"fmt"
+	"github.com/Comcast/webpa-common/concurrent"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
+	"time"
 )
 
 const (
 	unexpectedListenAndServe    string = "Unexpected call to ListenAndServe"
 	unexpectedListenAndServeTLS string = "Unexpected call to ListenAndServeTLS"
+	expectedCertificateFile     string = "/etc/myapp/cert"
+	expectedKeyFile             string = "/etc/myapp/cert"
 )
 
 // testServerExecutor provides a test implementation of serverExecutor
@@ -44,24 +51,28 @@ func TestWebPAMarshalJSON(t *testing.T) {
 		expected string
 	}{
 		{
-			webPA:    webPA{},
-			expected: `{"name": "", "address": "", "cert": "", "key": ""}`,
+			webPA{},
+			`{"name": "", "address": "", "cert": "", "key": ""}`,
 		},
 		{
-			webPA: webPA{
+			webPA{
 				name:    "foobar",
 				address: ":8080",
 			},
-			expected: `{"name": "foobar", "address": ":8080", "cert": "", "key": ""}`,
+			`{"name": "foobar", "address": ":8080", "cert": "", "key": ""}`,
 		},
 		{
-			webPA: webPA{
+			webPA{
 				name:            "moomar",
 				address:         ":9191",
-				certificateFile: "/etc/config/somefile.cert",
-				keyFile:         "/etc/config/somefile.pem",
+				certificateFile: expectedCertificateFile,
+				keyFile:         expectedKeyFile,
 			},
-			expected: `{"name": "moomar", "address": ":9191", "cert": "/etc/config/somefile.cert", "key": "/etc/config/somefile.pem"}`,
+			fmt.Sprintf(
+				`{"name": "moomar", "address": ":9191", "cert": "%s", "key": "%s"}`,
+				expectedCertificateFile,
+				expectedKeyFile,
+			),
 		},
 	}
 
@@ -78,6 +89,59 @@ func TestWebPAMarshalJSON(t *testing.T) {
 		stringValue := record.webPA.String()
 		if string(data) != stringValue {
 			t.Errorf("Expected string value %s, but got %s", data, stringValue)
+		}
+	}
+}
+
+func TestWebPARun(t *testing.T) {
+	var testData = []struct {
+		webPA webPA
+	}{
+		{
+			webPA{
+				name:    "foobar",
+				address: ":8080",
+				serverExecutor: &testServerExecutor{
+					t:                    t,
+					expectListenAndServe: func(*testing.T) error { return nil },
+				},
+				logger: &logging.DefaultLogger{os.Stdout},
+			},
+		},
+		{
+			webPA{
+				name:            "foobar",
+				address:         ":8080",
+				certificateFile: expectedCertificateFile,
+				keyFile:         expectedKeyFile,
+				serverExecutor: &testServerExecutor{
+					t: t,
+					expectListenAndServeTLS: func(t *testing.T, certificateFile, keyFile string) error {
+						if expectedCertificateFile != certificateFile {
+							t.Errorf("Expected certificate file %s, but got %s", expectedCertificateFile, certificateFile)
+						}
+
+						if expectedKeyFile != keyFile {
+							t.Errorf("Expected key file %s, but got %s", expectedKeyFile, keyFile)
+						}
+
+						return nil
+					},
+				},
+				logger: &logging.DefaultLogger{os.Stdout},
+			},
+		},
+	}
+
+	for _, record := range testData {
+		waitGroup := &concurrent.WaitGroup{}
+		err := record.webPA.Run(waitGroup.Unwrap())
+		if err != nil {
+			t.Errorf("Failed to run webPA instance: %v", err)
+		}
+
+		if !waitGroup.WaitTimeout(time.Second * 5) {
+			t.Errorf("WaitGroup.Done() was not called within the timeout")
 		}
 	}
 }

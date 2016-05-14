@@ -5,6 +5,13 @@ import (
 	"time"
 )
 
+func TestUnwrap(t *testing.T) {
+	waitGroup := &WaitGroup{}
+	if waitGroup.Unwrap() == nil {
+		t.Errorf("Unwrap should return the wrapped sync.WaitGroup")
+	}
+}
+
 func TestWaitGroupSuccess(t *testing.T) {
 	waitGroup := &WaitGroup{}
 	waitGroup.Add(1)

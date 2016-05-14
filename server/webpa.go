@@ -78,7 +78,7 @@ func (w *webPA) Run(waitGroup *sync.WaitGroup) error {
 				err = w.serverExecutor.ListenAndServe()
 			}
 
-			w.logger.Error("%v", err)
+			w.logger.Error("%s exiting: %v", w.name, err)
 		}()
 	})
 
