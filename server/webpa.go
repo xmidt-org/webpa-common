@@ -59,13 +59,25 @@ func (w *webPA) Run(waitGroup *sync.WaitGroup) error {
 	return nil
 }
 
-// WebPABuilder implements the instantiation logic for each WebPA server component
+// WebPABuilder implements the instantiation logic for each WebPA server component.
+// This builder type is the standard way to construct and start a WebPA server.
 type WebPABuilder struct {
-	LoggerFactory  logging.LoggerFactory
-	Configuration  *Configuration
+	// LoggerFactory is used to create logging.Logger objects for use in
+	// each server
+	LoggerFactory logging.LoggerFactory
+
+	// Configuration is the parsed configuration data, normaly from a JSON configuration file
+	Configuration *Configuration
+
+	// PrimaryHandler is the http.Handler used for the primary server
 	PrimaryHandler http.Handler
-	PprofHandler   http.Handler
-	HealthOptions  []health.Option
+
+	// PprofHandler is the optional handler for pprof traffic.  If omitted, http.DefaultServeMux
+	// will be used instead
+	PprofHandler http.Handler
+
+	// HealthOptions define what health stats this server exposes for tracking
+	HealthOptions []health.Option
 }
 
 // PrimaryAddress returns the listen address for the primary server, i.e.
