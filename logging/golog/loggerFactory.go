@@ -18,7 +18,6 @@ const (
 type LoggerFactory struct {
 	File      string   `json:"file"`
 	Level     LogLevel `json:"level"`
-	Name      string   `json:"name"`
 	Pattern   Pattern  `json:"pattern"`
 	MaxSize   int64    `json:"maxSize"`
 	MaxBackup int      `json:"maxBackup"`
@@ -58,11 +57,11 @@ func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
 }
 
 // NewLogger provides the implementation of logging.LoggerFactory
-func (factory *LoggerFactory) NewLogger() (logging.Logger, error) {
+func (factory *LoggerFactory) NewLogger(name string) (logging.Logger, error) {
 	if appender, err := factory.NewAppender(); err != nil {
 		return nil, err
 	} else {
-		gologger := logger.New(factory.Name)
+		gologger := logger.New(name)
 		gologger.SetLevel(levels.LogLevel(factory.Level))
 		gologger.SetAppender(appender)
 

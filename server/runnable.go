@@ -27,11 +27,3 @@ func (set RunnableSet) Run(waitGroup *sync.WaitGroup) error {
 
 	return nil
 }
-
-// RunAll executes a this slice of operations together using the same WaitGroup.
-// If any operation.Run() calls return an error, this function returns that error prematurely
-// with the wait group partially initialized with the operations that succeeded.
-func (set RunnableSet) RunAll() (*sync.WaitGroup, error) {
-	waitGroup := &sync.WaitGroup{}
-	return waitGroup, set.Run(waitGroup)
-}

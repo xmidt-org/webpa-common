@@ -5,5 +5,5 @@ package logging
 // configured through JSON.
 type LoggerFactory interface {
 	// Returns a new, distinct Logger instance using this factory's configuration
-	NewLogger() (Logger, error)
+	NewLogger(name string) (Logger, error)
 }

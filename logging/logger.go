@@ -15,7 +15,12 @@ const (
 
 // ErrorLogger provides the interface for outputting errors to a log sink
 type ErrorLogger interface {
+	// Error will result in complaints by go vet if used with a format string.
+	// Use Errorf to avoid those.
 	Error(parameters ...interface{})
+
+	// Errorf is provided to get around go vet problems.
+	Errorf(parameters ...interface{})
 }
 
 // FatalLogger provides the interface for outputting fatal errors.  Implementations
@@ -99,6 +104,10 @@ func (logger DefaultLogger) Warn(parameters ...interface{}) {
 }
 
 func (logger DefaultLogger) Error(parameters ...interface{}) {
+	logger.doWrite("ERROR", parameters...)
+}
+
+func (logger DefaultLogger) Errorf(parameters ...interface{}) {
 	logger.doWrite("ERROR", parameters...)
 }
 
