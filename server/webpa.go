@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
@@ -27,6 +28,31 @@ type webPA struct {
 	keyFile         string
 	logger          logging.Logger
 	once            sync.Once
+}
+
+func (w *webPA) String() string {
+	data, err := w.MarshalJSON()
+	if err != nil {
+		return err.Error()
+	}
+
+	return string(data)
+}
+
+func (w *webPA) MarshalJSON() ([]byte, error) {
+	data := struct {
+		Name            string `json:"name"`
+		Address         string `json:"address"`
+		CertificateFile string `json:"cert"`
+		KeyFile         string `json:"key"`
+	}{
+		Name:            w.name,
+		Address:         w.address,
+		CertificateFile: w.certificateFile,
+		KeyFile:         w.keyFile,
+	}
+
+	return json.Marshal(&data)
 }
 
 // Run executes this WebPA server.  If both certificateFile and keyFile are non-empty, this method will start
