@@ -14,6 +14,13 @@ type Runnable interface {
 	Run(*sync.WaitGroup) error
 }
 
+// RunnableFunc is a function type that implements Runnable
+type RunnableFunc func(*sync.WaitGroup) error
+
+func (r RunnableFunc) Run(waitGroup *sync.WaitGroup) error {
+	return r(waitGroup)
+}
+
 // RunnableSet is a slice type that allows grouping of operations.
 // This type implements Runnable as well.
 type RunnableSet []Runnable
