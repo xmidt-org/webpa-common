@@ -30,6 +30,14 @@ type WebPABuilder struct {
 	HealthOptions []health.Option
 }
 
+func (builder *WebPABuilder) ServerName() string {
+	if builder.Configuration != nil && len(builder.Configuration.ServerName) > 0 {
+		return builder.Configuration.ServerName
+	}
+
+	return DefaultServerName
+}
+
 // PrimaryAddress returns the listen address for the primary server, i.e.
 // the server that listens on c.Port.
 func (builder *WebPABuilder) PrimaryAddress() string {
@@ -73,7 +81,7 @@ func (builder *WebPABuilder) PprofAddress() string {
 
 // BuildPrimary returns a Runnable that will execute the primary server
 func (builder *WebPABuilder) BuildPrimary() (Runnable, error) {
-	name := builder.Configuration.ServerName
+	name := builder.ServerName()
 	address := builder.PrimaryAddress()
 	logger, err := builder.LoggerFactory.NewLogger(name)
 	if err != nil {
@@ -98,7 +106,7 @@ func (builder *WebPABuilder) BuildPrimary() (Runnable, error) {
 // BuildHealth is a factory function for both the WebPA server that exposes health statistics
 // and the underlying Health object, both of which are Runnable.
 func (builder *WebPABuilder) BuildHealth() (Runnable, error) {
-	name := builder.Configuration.ServerName + healthSuffix
+	name := builder.ServerName() + healthSuffix
 	address := builder.HealthAddress()
 	logger, err := builder.LoggerFactory.NewLogger(name)
 	if err != nil {
@@ -126,7 +134,7 @@ func (builder *WebPABuilder) BuildHealth() (Runnable, error) {
 
 // BuildPprof is a factory function for the pprof server defined in the configuration
 func (builder *WebPABuilder) BuildPprof() (Runnable, error) {
-	name := builder.Configuration.ServerName + pprofSuffix
+	name := builder.ServerName() + pprofSuffix
 	address := builder.PprofAddress()
 	logger, err := builder.LoggerFactory.NewLogger(name)
 	if err != nil {

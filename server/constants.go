@@ -5,6 +5,10 @@ import (
 )
 
 const (
+	// DefaultServerName is the default value for the server name.  It's almost never
+	// a good idea to use this default.  It's simply here to allow valid 0-values in structs.
+	DefaultServerName string = "webpa"
+
 	// DefaultPort is the default value for the port of the primary server
 	DefaultPort uint16 = 8080
 

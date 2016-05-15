@@ -10,6 +10,7 @@ import (
 func TestWebPABuilderConfiguration(t *testing.T) {
 	var testData = []struct {
 		builder                     WebPABuilder
+		expectedServerName          string
 		expectedPrimaryAddress      string
 		expectedHealthAddress       string
 		expectedHealthCheckInterval time.Duration
@@ -17,6 +18,7 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 	}{
 		{
 			builder:                     WebPABuilder{},
+			expectedServerName:          DefaultServerName,
 			expectedPrimaryAddress:      fmt.Sprintf(":%d", DefaultPort),
 			expectedHealthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
 			expectedHealthCheckInterval: DefaultHealthCheckInterval,
@@ -26,6 +28,19 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 			builder: WebPABuilder{
 				Configuration: &Configuration{},
 			},
+			expectedServerName:          DefaultServerName,
+			expectedPrimaryAddress:      fmt.Sprintf(":%d", DefaultPort),
+			expectedHealthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
+			expectedHealthCheckInterval: DefaultHealthCheckInterval,
+			expectedPprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
+		},
+		{
+			builder: WebPABuilder{
+				Configuration: &Configuration{
+					ServerName: "onlyoneset",
+				},
+			},
+			expectedServerName:          "onlyoneset",
 			expectedPrimaryAddress:      fmt.Sprintf(":%d", DefaultPort),
 			expectedHealthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
 			expectedHealthCheckInterval: DefaultHealthCheckInterval,
@@ -37,6 +52,7 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 					Port: 2857,
 				},
 			},
+			expectedServerName:          DefaultServerName,
 			expectedPrimaryAddress:      ":2857",
 			expectedHealthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
 			expectedHealthCheckInterval: DefaultHealthCheckInterval,
@@ -48,6 +64,7 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 					HealthCheckPort: 83,
 				},
 			},
+			expectedServerName:          DefaultServerName,
 			expectedPrimaryAddress:      fmt.Sprintf(":%d", DefaultPort),
 			expectedHealthAddress:       ":83",
 			expectedHealthCheckInterval: DefaultHealthCheckInterval,
@@ -59,6 +76,7 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 					HealthCheckInterval: types.Duration(time.Hour * 5),
 				},
 			},
+			expectedServerName:          DefaultServerName,
 			expectedPrimaryAddress:      fmt.Sprintf(":%d", DefaultPort),
 			expectedHealthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
 			expectedHealthCheckInterval: time.Hour * 5,
@@ -70,6 +88,7 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 					PprofPort: 2395,
 				},
 			},
+			expectedServerName:          DefaultServerName,
 			expectedPrimaryAddress:      fmt.Sprintf(":%d", DefaultPort),
 			expectedHealthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
 			expectedHealthCheckInterval: DefaultHealthCheckInterval,
@@ -78,12 +97,14 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 		{
 			builder: WebPABuilder{
 				Configuration: &Configuration{
+					ServerName:          "foobar",
 					Port:                1281,
 					HealthCheckPort:     56001,
 					HealthCheckInterval: types.Duration(time.Minute * 3412),
 					PprofPort:           41508,
 				},
 			},
+			expectedServerName:          "foobar",
 			expectedPrimaryAddress:      ":1281",
 			expectedHealthAddress:       ":56001",
 			expectedHealthCheckInterval: time.Minute * 3412,
@@ -92,6 +113,11 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 	}
 
 	for _, record := range testData {
+		actualServerName := record.builder.ServerName()
+		if record.expectedServerName != actualServerName {
+			t.Errorf("Expected server name %s, but got %s", record.expectedServerName, actualServerName)
+		}
+
 		actualPrimaryAddress := record.builder.PrimaryAddress()
 		if record.expectedPrimaryAddress != actualPrimaryAddress {
 			t.Errorf("Expected primary address %s, but got %s", record.expectedPrimaryAddress, actualPrimaryAddress)
