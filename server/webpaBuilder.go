@@ -88,12 +88,18 @@ func (builder *WebPABuilder) BuildPrimary() (Runnable, error) {
 		return nil, err
 	}
 
+	certificateFile, keyFile := "", ""
+	if builder.Configuration != nil {
+		certificateFile = builder.Configuration.CertificateFile
+		keyFile = builder.Configuration.KeyFile
+	}
+
 	return &webPA{
 		name:            name,
 		address:         address,
 		logger:          logger,
-		certificateFile: builder.Configuration.CertificateFile,
-		keyFile:         builder.Configuration.KeyFile,
+		certificateFile: certificateFile,
+		keyFile:         keyFile,
 		serverExecutor: &http.Server{
 			Addr:      address,
 			Handler:   builder.PrimaryHandler,
