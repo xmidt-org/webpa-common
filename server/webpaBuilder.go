@@ -33,9 +33,9 @@ type WebPABuilder struct {
 // PrimaryAddress returns the listen address for the primary server, i.e.
 // the server that listens on c.Port.
 func (builder *WebPABuilder) PrimaryAddress() string {
-	port := builder.Configuration.Port
-	if port < 1 {
-		port = DefaultPort
+	port := DefaultPort
+	if builder.Configuration != nil && builder.Configuration.Port > 0 {
+		port = builder.Configuration.Port
 	}
 
 	return fmt.Sprintf(":%d", port)
@@ -43,9 +43,9 @@ func (builder *WebPABuilder) PrimaryAddress() string {
 
 // HealthAddress returns the listen address for the health server
 func (builder *WebPABuilder) HealthAddress() string {
-	port := builder.Configuration.HealthCheckPort
-	if port < 1 {
-		port = DefaultHealthCheckPort
+	port := DefaultHealthCheckPort
+	if builder.Configuration != nil && builder.Configuration.HealthCheckPort > 0 {
+		port = builder.Configuration.HealthCheckPort
 	}
 
 	return fmt.Sprintf(":%d", port)
@@ -54,18 +54,18 @@ func (builder *WebPABuilder) HealthAddress() string {
 // HealthCheckInterval returns the health check interval as
 // a time.Duration, using the default if c.HCInterval is nonpositive.
 func (builder *WebPABuilder) HealthCheckInterval() time.Duration {
-	if builder.Configuration.HealthCheckInterval < 1 {
-		return DefaultHealthCheckInterval
-	} else {
+	if builder.Configuration != nil && builder.Configuration.HealthCheckInterval > 0 {
 		return time.Duration(builder.Configuration.HealthCheckInterval)
 	}
+
+	return DefaultHealthCheckInterval
 }
 
 // PprofAddress returns the listen address for the pprof server
 func (builder *WebPABuilder) PprofAddress() string {
-	port := builder.Configuration.PprofPort
-	if port < 1 {
-		port = DefaultPprofPort
+	port := DefaultPprofPort
+	if builder.Configuration != nil && builder.Configuration.PprofPort > 0 {
+		port = builder.Configuration.PprofPort
 	}
 
 	return fmt.Sprintf(":%d", port)
