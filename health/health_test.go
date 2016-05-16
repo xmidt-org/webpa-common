@@ -92,7 +92,7 @@ func TestLifecycle(t *testing.T) {
 		close(done)
 	}
 
-	if _, ok := <-h.event; ok {
+	if _, ok := <-h.events; ok {
 		t.Errorf("Close() did not close the event channel")
 	}
 }

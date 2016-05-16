@@ -30,7 +30,7 @@ type Health struct {
 	stats            Stats
 	statDumpInterval time.Duration
 	log              logging.Logger
-	event            chan HealthFunc
+	events           chan HealthFunc
 	statsListeners   []StatsListener
 	memInfoReader    *MemInfoReader
 	once             sync.Once
@@ -47,7 +47,7 @@ func (h *Health) AddStatsListener(listener StatsListener) {
 
 // SendEvent dispatches a HealthFunc to the internal event queue
 func (h *Health) SendEvent(healthFunc HealthFunc) {
-	h.event <- healthFunc
+	h.events <- healthFunc
 }
 
 // New creates a Health object with the given statistics.
@@ -68,7 +68,7 @@ func New(interval time.Duration, log logging.Logger, options ...Option) *Health 
 func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	h.once.Do(func() {
 		h.log.Debug("Health Monitor Started")
-		h.event = make(chan HealthFunc, 100)
+		h.events = make(chan HealthFunc, 100)
 
 		waitGroup.Add(1)
 		go func() {
@@ -76,19 +76,16 @@ func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error 
 			ticker := time.NewTicker(h.statDumpInterval)
 			defer ticker.Stop()
 			defer h.log.Debug("Health Monitor Stopped")
-			defer close(h.event)
+			defer close(h.events)
 
 			for {
 				select {
 				case <-shutdown:
 					return
 
-				case hf, ok := <-h.event:
-					if !ok {
-						return
-					}
-
+				case hf := <-h.events:
 					hf(h.stats)
+
 				case <-ticker.C:
 					h.stats.UpdateMemory(h.memInfoReader)
 					dispatchStats := h.stats.Clone()
