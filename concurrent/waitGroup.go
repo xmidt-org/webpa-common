@@ -19,7 +19,7 @@ func (wait *WaitGroup) Unwrap() *sync.WaitGroup {
 // timeout elapses.  This method returns true if sync.WaitGroup.Wait() returned
 // within the timeout, false if the timeout elapsed.
 func (wait *WaitGroup) WaitTimeout(timeout time.Duration) bool {
-	success := make(chan bool)
+	success := make(chan struct{})
 	go func() {
 		defer func() {
 			// swallow any panics, as they'll just be from the channel

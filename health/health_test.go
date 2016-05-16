@@ -57,7 +57,7 @@ func TestLifecycle(t *testing.T) {
 		}
 	})
 
-	done := make(chan bool)
+	done := make(chan struct{})
 	timer := time.NewTimer(time.Second * 10)
 
 	go func() {
@@ -75,7 +75,7 @@ func TestLifecycle(t *testing.T) {
 
 	close(shutdown)
 
-	done = make(chan bool)
+	done = make(chan struct{})
 	timer.Stop()
 	timer = time.NewTimer(time.Second * 10)
 	defer timer.Stop()
@@ -108,7 +108,7 @@ func TestServeHTTP(t *testing.T) {
 
 	h.ServeHTTP(response, request)
 
-	done := make(chan bool)
+	done := make(chan struct{})
 	timer := time.NewTimer(time.Second * 15)
 	defer timer.Stop()
 	h.SendEvent(func(stats Stats) {
