@@ -50,6 +50,10 @@ func (w *webPA) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&data)
 }
 
+func (w *webPA) Close() error {
+	return nil
+}
+
 // Run executes this WebPA server.  If both certificateFile and keyFile are non-empty, this method will start
 // an HTTPS server using the configured certificate and key.  Otherwise, it will
 // start an HTTP server.
@@ -60,7 +64,7 @@ func (w *webPA) MarshalJSON() ([]byte, error) {
 //
 // Run is idemptotent.  It can only be execute once, and subsequent invocations have
 // no effect.
-func (w *webPA) Run(waitGroup *sync.WaitGroup) error {
+func (w *webPA) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	w.once.Do(func() {
 		waitGroup.Add(1)
 		go func() {

@@ -50,19 +50,12 @@ func (h *Health) SendEvent(healthFunc HealthFunc) {
 	h.event <- healthFunc
 }
 
-// Close shuts down the health event monitoring
-func (h *Health) Close() error {
-	close(h.event)
-	return nil
-}
-
 // New creates a Health object with the given statistics.
 func New(interval time.Duration, log logging.Logger, options ...Option) *Health {
 	initialStats := commonStats.Clone()
 	initialStats.Apply(options...)
 
 	return &Health{
-		event:            make(chan HealthFunc, 100),
 		stats:            initialStats,
 		statDumpInterval: interval,
 		log:              log,
@@ -72,20 +65,24 @@ func New(interval time.Duration, log logging.Logger, options ...Option) *Health 
 
 // Run executes this Health object.  This method is idempotent:  once a
 // Health object is Run, it cannot be Run again.
-func (h *Health) Run(waitGroup *sync.WaitGroup) error {
+func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	h.once.Do(func() {
 		h.log.Debug("Health Monitor Started")
+		h.event = make(chan HealthFunc, 100)
 
 		waitGroup.Add(1)
 		go func() {
+			defer waitGroup.Done()
 			ticker := time.NewTicker(h.statDumpInterval)
-
 			defer ticker.Stop()
 			defer h.log.Debug("Health Monitor Stopped")
-			defer waitGroup.Done()
+			defer close(h.event)
 
 			for {
 				select {
+				case <-shutdown:
+					return
+
 				case hf, ok := <-h.event:
 					if !ok {
 						return

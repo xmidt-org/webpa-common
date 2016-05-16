@@ -4,28 +4,38 @@ import (
 	"errors"
 	"github.com/Comcast/webpa-common/concurrent"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
 func TestRunnableSetRun(t *testing.T) {
-	actualRunCount := 0
+	var actualRunCount uint32
 	var expectedWaitGroup *sync.WaitGroup
-	success := RunnableFunc(func(actualWaitGroup *sync.WaitGroup) error {
-		defer actualWaitGroup.Done()
-		actualWaitGroup.Add(1)
-		actualRunCount++
+
+	// simulates the successful start of a runnable task
+	success := RunnableFunc(func(actualWaitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		atomic.AddUint32(&actualRunCount, 1)
 		if expectedWaitGroup != actualWaitGroup {
 			t.Errorf("Unexpected wait group passed to Runnable")
 		}
 
+		go func() {
+			defer actualWaitGroup.Done()
+			actualWaitGroup.Add(1)
+
+			// simulates some longrunning task ...
+			<-shutdown
+		}()
+
 		return nil
 	})
 
-	fail := RunnableFunc(func(actualWaitGroup *sync.WaitGroup) error {
+	// simulates the aborted start of a runnable task
+	fail := RunnableFunc(func(actualWaitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		defer actualWaitGroup.Done()
+		atomic.AddUint32(&actualRunCount, 1)
 		actualWaitGroup.Add(1)
-		actualRunCount++
 		if expectedWaitGroup != actualWaitGroup {
 			t.Errorf("Unexpected wait group passed to Runnable")
 		}
@@ -35,7 +45,7 @@ func TestRunnableSetRun(t *testing.T) {
 
 	var testData = []struct {
 		runnable         RunnableSet
-		expectedRunCount int
+		expectedRunCount uint32
 	}{
 		{nil, 0},
 		{RunnableSet{}, 0},
@@ -54,8 +64,11 @@ func TestRunnableSetRun(t *testing.T) {
 	for _, record := range testData {
 		actualRunCount = 0
 		waitGroup := &concurrent.WaitGroup{}
+		shutdown := make(chan struct{})
 		expectedWaitGroup = waitGroup.Unwrap()
-		record.runnable.Run(expectedWaitGroup)
+		record.runnable.Run(expectedWaitGroup, shutdown)
+		close(shutdown)
+
 		if !waitGroup.WaitTimeout(time.Second * 2) {
 			t.Errorf("Blocked on WaitGroup longer than the timeout")
 		}

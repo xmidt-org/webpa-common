@@ -464,9 +464,10 @@ func TestBuildHealth(t *testing.T) {
 			}
 
 			waitGroup := &sync.WaitGroup{}
-			healthHandler.Run(waitGroup)
-			defer healthHandler.Close()
-			doneCheckingStats := make(chan bool)
+			shutdown := make(chan struct{})
+			healthHandler.Run(waitGroup, shutdown)
+			defer close(shutdown)
+			doneCheckingStats := make(chan struct{})
 			healthHandler.SendEvent(health.HealthFunc(func(stats health.Stats) {
 				defer close(doneCheckingStats)
 				t.Logf("actual stats: %#v", stats)

@@ -102,7 +102,9 @@ func TestWebPARun(t *testing.T) {
 
 	for _, record := range testData {
 		waitGroup := &concurrent.WaitGroup{}
-		err := record.webPA.Run(waitGroup.Unwrap())
+		shutdown := make(chan struct{})
+		defer close(shutdown)
+		err := record.webPA.Run(waitGroup.Unwrap(), shutdown)
 		if err != nil {
 			t.Errorf("Failed to run webPA instance: %v", err)
 		}
