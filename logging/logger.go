@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -36,6 +37,11 @@ type Logger interface {
 	Debug(parameters ...interface{})
 	Info(parameters ...interface{})
 	Warn(parameters ...interface{})
+
+	// Printf is supplied as a good number of go libraries use a method with
+	// this signature to log with.  Most frameworks expect output from this
+	// method to be at the INFO level.
+	Printf(parameters ...interface{})
 }
 
 // ErrorWriter adapts a context.Logger so that all output from Write() goes
@@ -61,19 +67,21 @@ var _ Logger = DefaultLogger{}
 
 // doWrite mimics the behavior of most logging frameworks, albeit with a simpler implementation.
 func (logger DefaultLogger) doWrite(level string, parameters ...interface{}) {
-	if _, err := fmt.Fprintf(logger, "[%-5.5s] ", level); err != nil {
+	var buffer bytes.Buffer
+
+	if _, err := fmt.Fprintf(&buffer, "[%-5.5s] ", level); err != nil {
 		panic(err)
 	}
 
 	if len(parameters) > 0 {
 		switch head := parameters[0].(type) {
 		case fmt.Stringer:
-			if _, err := fmt.Fprintf(logger, head.String(), parameters[1:]...); err != nil {
+			if _, err := fmt.Fprintf(&buffer, head.String(), parameters[1:]...); err != nil {
 				panic(err)
 			}
 
 		case string:
-			if _, err := fmt.Fprintf(logger, head, parameters[1:]...); err != nil {
+			if _, err := fmt.Fprintf(&buffer, head, parameters[1:]...); err != nil {
 				panic(err)
 			}
 
@@ -86,7 +94,7 @@ func (logger DefaultLogger) doWrite(level string, parameters ...interface{}) {
 		}
 	}
 
-	if _, err := fmt.Fprintln(logger); err != nil {
+	if _, err := fmt.Fprintln(logger, buffer.String()); err != nil {
 		panic(err)
 	}
 }
@@ -113,6 +121,10 @@ func (logger DefaultLogger) Errorf(parameters ...interface{}) {
 
 func (logger DefaultLogger) Fatal(parameters ...interface{}) {
 	logger.doWrite("FATAL", parameters...)
+}
+
+func (logger DefaultLogger) Printf(parameters ...interface{}) {
+	logger.doWrite("INFO", parameters...)
 }
 
 // NewErrorLog creates a new log.Logger appropriate for http.Server.ErrorLog
