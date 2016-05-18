@@ -18,10 +18,6 @@ type gologger struct {
 	logger.Logger
 }
 
-func (g *gologger) Errorf(parameters ...interface{}) {
-	g.Error(parameters...)
-}
-
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
 // via JSON.
 type LoggerFactory struct {

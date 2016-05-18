@@ -13,8 +13,8 @@ type LoggerFactory interface {
 	NewLogger(name string) (Logger, error)
 }
 
-// DefaultLoggerFactory provides a simple way to create DefaultLoggers.  This type
-// is mostly used for testing.
+// DefaultLoggerFactory provides a simple way to create Logger instances adapted
+// onto log.Logger.
 type DefaultLoggerFactory struct {
 	Output io.Writer
 }
@@ -25,5 +25,5 @@ func (factory *DefaultLoggerFactory) NewLogger(name string) (Logger, error) {
 		output = os.Stdout
 	}
 
-	return &DefaultLogger{output}, nil
+	return &LoggerWriter{output}, nil
 }
