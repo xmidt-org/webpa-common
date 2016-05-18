@@ -1,7 +1,6 @@
 package golog
 
 import (
-	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/ian-kent/go-log/appenders"
 	"github.com/ian-kent/go-log/levels"
