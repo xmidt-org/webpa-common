@@ -1,6 +1,7 @@
 package golog
 
 import (
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/ian-kent/go-log/appenders"
 	"github.com/ian-kent/go-log/levels"
@@ -13,9 +14,13 @@ const (
 	DefaultPattern  Pattern = "[%d] [%p] (%l) %m%n"
 )
 
-// gologger wraps a go-log logger and supplies additional behavior
-type gologger struct {
+// adapter adapts the go-log Logger onto logging.Logger
+type adapter struct {
 	logger.Logger
+}
+
+func (a adapter) Printf(format string, parameters ...interface{}) {
+	a.Info(fmt.Printf(format, parameters...))
 }
 
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
@@ -66,10 +71,10 @@ func (factory *LoggerFactory) NewLogger(name string) (logging.Logger, error) {
 	if appender, err := factory.NewAppender(); err != nil {
 		return nil, err
 	} else {
-		gologger := &gologger{logger.New(name)}
-		gologger.SetLevel(levels.LogLevel(factory.Level))
-		gologger.SetAppender(appender)
+		adapter := &adapter{logger.New(name)}
+		adapter.SetLevel(levels.LogLevel(factory.Level))
+		adapter.SetAppender(appender)
 
-		return gologger, nil
+		return adapter, nil
 	}
 }
