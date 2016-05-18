@@ -103,8 +103,8 @@ func (builder *WebPABuilder) BuildPrimary() (Runnable, error) {
 		serverExecutor: &http.Server{
 			Addr:      address,
 			Handler:   builder.PrimaryHandler,
-			ConnState: logging.NewConnectionStateLogger(logger, name),
-			ErrorLog:  logging.NewErrorLog(logger, name),
+			ConnState: NewConnectionStateLogger(logger, name),
+			ErrorLog:  NewErrorLog(logger, name),
 		},
 	}, nil
 }
@@ -130,8 +130,8 @@ func (builder *WebPABuilder) BuildHealth() (Runnable, error) {
 		serverExecutor: &http.Server{
 			Addr:      address,
 			Handler:   healthHandler,
-			ConnState: logging.NewConnectionStateLogger(logger, name),
-			ErrorLog:  logging.NewErrorLog(logger, name),
+			ConnState: NewConnectionStateLogger(logger, name),
+			ErrorLog:  NewErrorLog(logger, name),
 		},
 	}
 
@@ -161,8 +161,8 @@ func (builder *WebPABuilder) BuildPprof() (Runnable, error) {
 		serverExecutor: &http.Server{
 			Addr:      address,
 			Handler:   pprofHandler,
-			ConnState: logging.NewConnectionStateLogger(logger, name),
-			ErrorLog:  logging.NewErrorLog(logger, name),
+			ConnState: NewConnectionStateLogger(logger, name),
+			ErrorLog:  NewErrorLog(logger, name),
 		},
 	}, nil
 }

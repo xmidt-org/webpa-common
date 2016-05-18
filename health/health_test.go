@@ -16,7 +16,7 @@ import (
 func setupHealth() *Health {
 	return New(
 		time.Duration(69)*time.Second,
-		logging.DefaultLogger{os.Stdout},
+		&logging.LoggerWriter{os.Stdout},
 	)
 }
 

@@ -191,7 +191,7 @@ func TestWebPABuilderConfiguration(t *testing.T) {
 
 func TestBuildPrimary(t *testing.T) {
 	for _, record := range webpaBuilderTestData {
-		expectedLogger := &logging.DefaultLogger{os.Stdout}
+		expectedLogger := &logging.LoggerWriter{os.Stdout}
 		handlerCalled := false
 		expectedHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 			handlerCalled = true
@@ -267,7 +267,7 @@ func TestBuildPrimary(t *testing.T) {
 func TestBuildPprofUsingDefaultServeMux(t *testing.T) {
 	for _, record := range webpaBuilderTestData {
 		expectedServerName := record.expect.serverName + pprofSuffix
-		expectedLogger := &logging.DefaultLogger{os.Stdout}
+		expectedLogger := &logging.LoggerWriter{os.Stdout}
 		builder := record.builder
 		builder.LoggerFactory = &testLoggerFactory{
 			t,
@@ -341,7 +341,7 @@ func TestBuildPprofUsingCustomHandler(t *testing.T) {
 			handlerCalled = true
 		})
 
-		expectedLogger := &logging.DefaultLogger{os.Stdout}
+		expectedLogger := &logging.LoggerWriter{os.Stdout}
 		builder := record.builder
 		builder.PprofHandler = expectedHandler
 		builder.LoggerFactory = &testLoggerFactory{
@@ -425,7 +425,7 @@ func TestBuildHealth(t *testing.T) {
 		}
 
 		for _, expectedOptions := range healthOptions {
-			expectedLogger := &logging.DefaultLogger{os.Stdout}
+			expectedLogger := &logging.LoggerWriter{os.Stdout}
 			expectedStats := make(health.Stats)
 			for _, expectedOption := range expectedOptions {
 				expectedOption.Set(expectedStats)

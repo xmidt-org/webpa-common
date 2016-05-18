@@ -72,7 +72,7 @@ func TestWebPARun(t *testing.T) {
 					t:                    t,
 					expectListenAndServe: func(*testing.T) error { return nil },
 				},
-				logger: &logging.DefaultLogger{os.Stdout},
+				logger: &logging.LoggerWriter{os.Stdout},
 			},
 		},
 		{
@@ -95,7 +95,7 @@ func TestWebPARun(t *testing.T) {
 						return nil
 					},
 				},
-				logger: &logging.DefaultLogger{os.Stdout},
+				logger: &logging.LoggerWriter{os.Stdout},
 			},
 		},
 	}
