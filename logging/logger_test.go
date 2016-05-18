@@ -2,93 +2,109 @@ package logging
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
 
-func TestErrorWriter(t *testing.T) {
-	testErrorMessage := []byte("this is an error message!")
-	var output bytes.Buffer
-	errorLogger := DefaultLogger{&output}
-	errorWriter := ErrorWriter{errorLogger}
-
-	count, err := errorWriter.Write(testErrorMessage)
-	if err != nil {
-		t.Errorf("Failed to write test error message: %v", err)
-	}
-
-	if count != len(testErrorMessage) {
-		t.Errorf("Invalid count returned from Write(): %d", count)
-	}
-
-	actualErrorMessage := output.String()
-	expectedErrorMessage := fmt.Sprintf("[ERROR] %s\n", testErrorMessage)
-	if actualErrorMessage != expectedErrorMessage {
-		t.Errorf(`"Expected error "%s", but got "%s"`, expectedErrorMessage, actualErrorMessage)
-	}
+type testStringer struct {
+	message string
 }
 
-type Message struct {
-	string
+func (t testStringer) String() string {
+	return t.message
 }
 
-func (m Message) String() string {
-	return m.string
-}
-
-func TestDefaultLogger(t *testing.T) {
-	var testData = []struct {
-		parameters []interface{}
-		message    string
+func TestLoggerWriterUsingParameters(t *testing.T) {
+	var usingParameters = []struct {
+		parameters      []interface{}
+		expectedMessage string
 	}{
-		{[]interface{}{}, ""},
-		{[]interface{}{"this is a message"}, "this is a message"},
-		{[]interface{}{"this is a message that uses a parameter: %d", 123}, "this is a message that uses a parameter: 123"},
-		{[]interface{}{Message{"here is a stringer"}}, "here is a stringer"},
-		{[]interface{}{Message{"here is a stringer with a parameter: %s"}, "foobar"}, "here is a stringer with a parameter: foobar"},
+		{
+			[]interface{}{},
+			"",
+		},
+		{
+			[]interface{}{"this is a format string: %d", 12},
+			"this is a format string: 12",
+		},
+		{
+			[]interface{}{"a %s complicated %d format string", "foobar", -23},
+			"a foobar complicated -23 format string",
+		},
+		{
+			[]interface{}{testStringer{""}},
+			"",
+		},
+		{
+			[]interface{}{testStringer{"this is a format string: %d"}, 12},
+			"this is a format string: 12",
+		},
+		{
+			[]interface{}{testStringer{"a %s complicated %d format string"}, "foobar", -23},
+			"a foobar complicated -23 format string",
+		},
+		{
+			[]interface{}{47},
+			"47",
+		},
+		{
+			[]interface{}{-1234, "rawk! I shouldn't be!"},
+			"-1234%!(EXTRA string=rawk! I shouldn't be!)",
+		},
 	}
 
-	var buffer bytes.Buffer
-	defaultLogger := DefaultLogger{&buffer}
-	for _, record := range testData {
-		buffer.Reset()
-		defaultLogger.Debug(record.parameters...)
-		actualMessage := buffer.String()
-		expectedMessage := fmt.Sprintf("[%-5.5s] %s\n", "DEBUG", record.message)
-		if expectedMessage != actualMessage {
-			t.Errorf(`"Expected debug message "%s", but got "%s"`, expectedMessage, actualMessage)
+	var output bytes.Buffer
+	loggerWriter := LoggerWriter{&output}
+	verify := func(expectedLogEntry string, logFunction func(...interface{}), parameters []interface{}) {
+		output.Reset()
+		logFunction(parameters...)
+		if expectedLogEntry != output.String() {
+			t.Errorf(`Expected "%s", but got "%s"`, expectedLogEntry, output.String())
 		}
+	}
 
-		buffer.Reset()
-		defaultLogger.Info(record.parameters...)
-		actualMessage = buffer.String()
-		expectedMessage = fmt.Sprintf("[%-5.5s] %s\n", "INFO", record.message)
-		if expectedMessage != actualMessage {
-			t.Errorf(`"Expected info message "%s", but got "%s"`, expectedMessage, actualMessage)
-		}
+	for _, record := range usingParameters {
+		verify(traceLevel+record.expectedMessage+"\n", loggerWriter.Trace, record.parameters)
+		verify(debugLevel+record.expectedMessage+"\n", loggerWriter.Debug, record.parameters)
+		verify(infoLevel+record.expectedMessage+"\n", loggerWriter.Info, record.parameters)
+		verify(warnLevel+record.expectedMessage+"\n", loggerWriter.Warn, record.parameters)
+		verify(errorLevel+record.expectedMessage+"\n", loggerWriter.Error, record.parameters)
+	}
+}
 
-		buffer.Reset()
-		defaultLogger.Warn(record.parameters...)
-		actualMessage = buffer.String()
-		expectedMessage = fmt.Sprintf("[%-5.5s] %s\n", "WARN", record.message)
-		if expectedMessage != actualMessage {
-			t.Errorf(`"Expected warn message "%s", but got "%s"`, expectedMessage, actualMessage)
-		}
+func TestLoggerWriterUsingFormat(t *testing.T) {
+	var formats = []struct {
+		format          string
+		parameters      []interface{}
+		expectedMessage string
+	}{
+		{
+			"",
+			nil,
+			"",
+		},
+		{
+			"%s",
+			[]interface{}{"foobar"},
+			"foobar",
+		},
+		{
+			"%s: %d",
+			[]interface{}{"foobar", 12},
+			"foobar: 12",
+		},
+	}
 
-		buffer.Reset()
-		defaultLogger.Error(record.parameters...)
-		actualMessage = buffer.String()
-		expectedMessage = fmt.Sprintf("[%-5.5s] %s\n", "ERROR", record.message)
-		if expectedMessage != actualMessage {
-			t.Errorf(`"Expected error message "%s", but got "%s"`, expectedMessage, actualMessage)
+	var output bytes.Buffer
+	loggerWriter := LoggerWriter{&output}
+	verify := func(expectedLogEntry string, formatFunction func(string, ...interface{}), format string, parameters []interface{}) {
+		output.Reset()
+		formatFunction(format, parameters...)
+		if expectedLogEntry != output.String() {
+			t.Errorf(`Expected "%s", but got "%s"`, expectedLogEntry, output.String())
 		}
+	}
 
-		buffer.Reset()
-		defaultLogger.Fatal(record.parameters...)
-		actualMessage = buffer.String()
-		expectedMessage = fmt.Sprintf("[%-5.5s] %s\n", "FATAL", record.message)
-		if expectedMessage != actualMessage {
-			t.Errorf(`"Expected fatal message "%s", but got "%s"`, expectedMessage, actualMessage)
-		}
+	for _, record := range formats {
+		verify(infoLevel+record.expectedMessage+"\n", loggerWriter.Printf, record.format, record.parameters)
 	}
 }

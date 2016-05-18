@@ -13,12 +13,28 @@ const (
 	DefaultPattern  Pattern = "[%d] [%p] (%l) %m%n"
 )
 
+// adapter adapts the go-log Logger onto logging.Logger
+type adapter struct {
+	logger.Logger
+}
+
+func (a adapter) Printf(format string, parameters ...interface{}) {
+	if !a.Enabled()[levels.INFO] {
+		return
+	}
+
+	a.Appender().Write(
+		levels.INFO,
+		format,
+		parameters...,
+	)
+}
+
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
 // via JSON.
 type LoggerFactory struct {
 	File      string   `json:"file"`
 	Level     LogLevel `json:"level"`
-	Name      string   `json:"name"`
 	Pattern   Pattern  `json:"pattern"`
 	MaxSize   int64    `json:"maxSize"`
 	MaxBackup int      `json:"maxBackup"`
@@ -58,14 +74,14 @@ func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
 }
 
 // NewLogger provides the implementation of logging.LoggerFactory
-func (factory *LoggerFactory) NewLogger() (logging.Logger, error) {
+func (factory *LoggerFactory) NewLogger(name string) (logging.Logger, error) {
 	if appender, err := factory.NewAppender(); err != nil {
 		return nil, err
 	} else {
-		gologger := logger.New(factory.Name)
-		gologger.SetLevel(levels.LogLevel(factory.Level))
-		gologger.SetAppender(appender)
+		adapter := &adapter{logger.New(name)}
+		adapter.SetLevel(levels.LogLevel(factory.Level))
+		adapter.SetAppender(appender)
 
-		return gologger, nil
+		return adapter, nil
 	}
 }

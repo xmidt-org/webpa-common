@@ -22,7 +22,7 @@ func (r remoteSystem) Connected() bool {
 
 // ExampleBasicChain shows the typical usage pattern for chained handlers
 func ExampleBasicChain() {
-	logger := logging.DefaultLogger{os.Stdout}
+	logger := &logging.LoggerWriter{os.Stdout}
 	handler := Chain{
 		Recovery(),
 		RemoteGate(remoteSystem{}, http.StatusServiceUnavailable, "Service Unavailable"),

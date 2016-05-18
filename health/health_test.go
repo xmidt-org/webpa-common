@@ -16,7 +16,7 @@ import (
 func setupHealth() *Health {
 	return New(
 		time.Duration(69)*time.Second,
-		logging.DefaultLogger{os.Stdout},
+		&logging.LoggerWriter{os.Stdout},
 	)
 }
 
@@ -26,7 +26,8 @@ func TestLifecycle(t *testing.T) {
 	h := setupHealth()
 
 	healthWaitGroup := &sync.WaitGroup{}
-	h.Run(healthWaitGroup)
+	shutdown := make(chan struct{})
+	h.Run(healthWaitGroup, shutdown)
 
 	// verify initial state
 	var initialListenerCount int
@@ -56,7 +57,7 @@ func TestLifecycle(t *testing.T) {
 		}
 	})
 
-	done := make(chan bool)
+	done := make(chan struct{})
 	timer := time.NewTimer(time.Second * 10)
 
 	go func() {
@@ -72,13 +73,9 @@ func TestLifecycle(t *testing.T) {
 		close(done)
 	}
 
-	// verify that the channel has been closed
-	h.Close()
-	if _, ok := <-h.event; ok {
-		t.Errorf("Close() did not close the event channel")
-	}
+	close(shutdown)
 
-	done = make(chan bool)
+	done = make(chan struct{})
 	timer.Stop()
 	timer = time.NewTimer(time.Second * 10)
 	defer timer.Stop()
@@ -94,19 +91,24 @@ func TestLifecycle(t *testing.T) {
 		t.Errorf("Failed to verify final state within the timeout")
 		close(done)
 	}
+
+	if _, ok := <-h.events; ok {
+		t.Errorf("Close() did not close the event channel")
+	}
 }
 
 func TestServeHTTP(t *testing.T) {
 	h := setupHealth()
-	h.Run(&sync.WaitGroup{})
-	defer h.Close()
+	shutdown := make(chan struct{})
+	h.Run(&sync.WaitGroup{}, shutdown)
+	defer close(shutdown)
 
 	request, _ := http.NewRequest("GET", "", nil)
 	response := httptest.NewRecorder()
 
 	h.ServeHTTP(response, request)
 
-	done := make(chan bool)
+	done := make(chan struct{})
 	timer := time.NewTimer(time.Second * 15)
 	defer timer.Stop()
 	h.SendEvent(func(stats Stats) {

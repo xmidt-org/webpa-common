@@ -2,25 +2,18 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/Comcast/webpa-common/types"
 	"io/ioutil"
 	"os"
 )
 
-const (
-	// DefaultPort is the default value for the port of the primary server
-	DefaultPort uint16 = 8080
-
-	// DefaultHealthCheckPort is the default value for the port on which health check listens
-	DefaultHealthCheckPort uint16 = 8888
-
-	// DefaultPprofPort is the default value for the port on which pprof listens
-	DefaultPprofPort uint16 = 9999
-)
-
 // Configuration provides the basic configuration options common to all WebPA servers.
 type Configuration struct {
+	// ServerName is the human-readable name for this server.  This will be used as the name of
+	// the internal logger.  Note that this is exposed via JSON, but doesn't have to be supplied
+	// from a configuration file.  Applications can hardcode it at will.
+	ServerName string `json:"serverName"`
+
 	// Port is the primary port for this server
 	Port uint16 `json:"port"`
 
@@ -42,37 +35,6 @@ type Configuration struct {
 	// KeyFile is the path to the file containing the key for HTTPS.
 	// This only applies to the primary server listening on Port.
 	KeyFile string `json:"key"`
-}
-
-// PrimaryAddress returns the listen address for the primary server, i.e.
-// the server that listens on c.Port.
-func (c *Configuration) PrimaryAddress() string {
-	port := c.Port
-	if port < 1 {
-		port = DefaultPort
-	}
-	
-	return fmt.Sprintf(":%d", port)
-}
-
-// HealthAddress returns the listen address for the health server
-func (c *Configuration) HealthAddress() string {
-	port := c.HealthCheckPort
-	if port < 1 {
-		port = DefaultHealthCheckPort
-	}
-	
-	return fmt.Sprintf(":%d", port)
-}
-
-// PprofAddress returns the listen address for the pprof server
-func (c *Configuration) PprofAddress() string {
-	port := c.PprofPort
-	if port < 1 {
-		port = DefaultPprofPort
-	}
-	
-	return fmt.Sprintf(":%d", port)
 }
 
 // ReadConfigurationFile provides the standard logic for reading a JSON
