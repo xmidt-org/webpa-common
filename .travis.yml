@@ -12,6 +12,7 @@ env:
     - TEST_DIR=health
     - TEST_DIR=jwt/key
     - TEST_DIR=logging
+    - TEST_DIR=logging/golog
     - TEST_DIR=server
     - TEST_DIR=types
 
