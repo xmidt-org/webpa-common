@@ -20,7 +20,15 @@ type adapter struct {
 }
 
 func (a adapter) Printf(format string, parameters ...interface{}) {
-	a.Info(fmt.Printf(format, parameters...))
+	if !a.Enabled()[levels.INFO] {
+		return
+	}
+
+	a.Appender().Write(
+		levels.INFO,
+		format,
+		parameters...,
+	)
 }
 
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
