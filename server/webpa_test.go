@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -101,15 +102,15 @@ func TestWebPARun(t *testing.T) {
 	}
 
 	for _, record := range testData {
-		waitGroup := &concurrent.WaitGroup{}
+		waitGroup := &sync.WaitGroup{}
 		shutdown := make(chan struct{})
 		defer close(shutdown)
-		err := record.webPA.Run(waitGroup.Unwrap(), shutdown)
+		err := record.webPA.Run(waitGroup, shutdown)
 		if err != nil {
 			t.Errorf("Failed to run webPA instance: %v", err)
 		}
 
-		if !waitGroup.WaitTimeout(time.Second * 5) {
+		if !concurrent.WaitTimeout(waitGroup, time.Second*5) {
 			t.Errorf("WaitGroup.Done() was not called within the timeout")
 		}
 	}

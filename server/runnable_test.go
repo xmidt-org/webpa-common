@@ -9,20 +9,14 @@ import (
 	"time"
 )
 
-func TestRunnableSetRun(t *testing.T) {
-	var actualRunCount uint32
-	var expectedWaitGroup *sync.WaitGroup
-
-	// simulates the successful start of a runnable task
-	success := RunnableFunc(func(actualWaitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		atomic.AddUint32(&actualRunCount, 1)
-		if expectedWaitGroup != actualWaitGroup {
-			t.Errorf("Unexpected wait group passed to Runnable")
-		}
+// success returns a closure that simulates a successfully started task
+func success(t *testing.T, runCount *uint32) Runnable {
+	return RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		atomic.AddUint32(runCount, 1)
 
 		go func() {
-			defer actualWaitGroup.Done()
-			actualWaitGroup.Add(1)
+			defer waitGroup.Done()
+			waitGroup.Add(1)
 
 			// simulates some longrunning task ...
 			<-shutdown
@@ -30,18 +24,22 @@ func TestRunnableSetRun(t *testing.T) {
 
 		return nil
 	})
+}
 
-	// simulates the aborted start of a runnable task
-	fail := RunnableFunc(func(actualWaitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		defer actualWaitGroup.Done()
-		atomic.AddUint32(&actualRunCount, 1)
-		actualWaitGroup.Add(1)
-		if expectedWaitGroup != actualWaitGroup {
-			t.Errorf("Unexpected wait group passed to Runnable")
-		}
-
+// fail returns a closure that simulates a task that failed to start
+func fail(t *testing.T, runCount *uint32) Runnable {
+	return RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		defer waitGroup.Done()
+		atomic.AddUint32(runCount, 1)
+		waitGroup.Add(1)
 		return errors.New("Expected error")
 	})
+}
+
+func TestRunnableSetRun(t *testing.T) {
+	var actualRunCount uint32
+	success := success(t, &actualRunCount)
+	fail := fail(t, &actualRunCount)
 
 	var testData = []struct {
 		runnable         RunnableSet
@@ -63,13 +61,12 @@ func TestRunnableSetRun(t *testing.T) {
 
 	for _, record := range testData {
 		actualRunCount = 0
-		waitGroup := &concurrent.WaitGroup{}
+		waitGroup := &sync.WaitGroup{}
 		shutdown := make(chan struct{})
-		expectedWaitGroup = waitGroup.Unwrap()
-		record.runnable.Run(expectedWaitGroup, shutdown)
+		record.runnable.Run(waitGroup, shutdown)
 		close(shutdown)
 
-		if !waitGroup.WaitTimeout(time.Second * 2) {
+		if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
 			t.Errorf("Blocked on WaitGroup longer than the timeout")
 		}
 
@@ -80,5 +77,22 @@ func TestRunnableSetRun(t *testing.T) {
 				actualRunCount,
 			)
 		}
+	}
+}
+
+func TestExecuteSuccess(t *testing.T) {
+	var actualRunCount uint32
+	success := success(t, &actualRunCount)
+	waitGroup, shutdown, err := Execute(success)
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	if waitGroup == nil {
+		t.Fatal("Execute() returned a nil WaitGroup")
+	}
+
+	if shutdown == nil {
+		t.Fatal("Execute() returned a nil shutdown channel")
 	}
 }

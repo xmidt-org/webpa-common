@@ -36,3 +36,12 @@ func (set RunnableSet) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) 
 
 	return nil
 }
+
+// Execute is a convenience function that creates the necessary synchronization objects
+// and then invokes Run().
+func Execute(runnable Runnable) (waitGroup *sync.WaitGroup, shutdown chan struct{}, err error) {
+	waitGroup = &sync.WaitGroup{}
+	shutdown = make(chan struct{})
+	err = runnable.Run(waitGroup, shutdown)
+	return
+}
