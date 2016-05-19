@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/concurrent"
+	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -13,12 +14,11 @@ import (
 func success(t *testing.T, runCount *uint32) Runnable {
 	return RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		atomic.AddUint32(runCount, 1)
+		waitGroup.Add(1)
 
+		// simulates some longrunning task ...
 		go func() {
 			defer waitGroup.Done()
-			waitGroup.Add(1)
-
-			// simulates some longrunning task ...
 			<-shutdown
 		}()
 
@@ -29,9 +29,7 @@ func success(t *testing.T, runCount *uint32) Runnable {
 // fail returns a closure that simulates a task that failed to start
 func fail(t *testing.T, runCount *uint32) Runnable {
 	return RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		defer waitGroup.Done()
 		atomic.AddUint32(runCount, 1)
-		waitGroup.Add(1)
 		return errors.New("Expected error")
 	})
 }
@@ -130,6 +128,54 @@ func TestExecuteFail(t *testing.T) {
 	close(shutdown)
 
 	if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
+		t.Errorf("Blocked on WaitGroup longer than the timeout")
+	}
+}
+
+func TestAwaitSuccess(t *testing.T) {
+	testWaitGroup := &sync.WaitGroup{}
+	testWaitGroup.Add(1)
+	success := RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			defer testWaitGroup.Done()
+			<-shutdown
+		}()
+
+		return nil
+	})
+
+	signals := make(chan os.Signal, 1)
+	go func() {
+		Await(success, signals)
+	}()
+
+	// simulate a ctrl+c
+	signals <- os.Interrupt
+
+	if !concurrent.WaitTimeout(testWaitGroup, time.Second*2) {
+		t.Errorf("Blocked on WaitGroup longer than the timeout")
+	}
+}
+
+func TestAwaitFail(t *testing.T) {
+	testWaitGroup := &sync.WaitGroup{}
+	testWaitGroup.Add(1)
+	fail := RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		defer testWaitGroup.Done()
+		return errors.New("Expected error")
+	})
+
+	signals := make(chan os.Signal, 1)
+	go func() {
+		Await(fail, signals)
+	}()
+
+	// simulate a ctrl+c
+	signals <- os.Interrupt
+
+	if !concurrent.WaitTimeout(testWaitGroup, time.Second*2) {
 		t.Errorf("Blocked on WaitGroup longer than the timeout")
 	}
 }
