@@ -1,484 +1,289 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/types"
 	"net/http"
-	"os"
 	"testing"
-	"time"
 )
 
-type webpaBuilderExpect struct {
-	serverName          string
-	primaryAddress      string
-	healthAddress       string
-	healthCheckInterval time.Duration
-	pprofAddress        string
-	certificateFile     string
-	keyFile             string
+// dummyHandler is an http.Handler used to verify that builder code worked
+type dummyHandler struct {
 }
 
-var webpaBuilderTestData = []struct {
-	builder WebPABuilder
-	expect  webpaBuilderExpect
-}{
-	{
-		builder: WebPABuilder{},
-		expect: webpaBuilderExpect{
-			serverName:          DefaultServerName,
-			primaryAddress:      fmt.Sprintf(":%d", DefaultPort),
-			healthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
-			healthCheckInterval: DefaultHealthCheckInterval,
-			pprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          DefaultServerName,
-			primaryAddress:      fmt.Sprintf(":%d", DefaultPort),
-			healthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
-			healthCheckInterval: DefaultHealthCheckInterval,
-			pprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				ServerName: "onlyoneset",
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          "onlyoneset",
-			primaryAddress:      fmt.Sprintf(":%d", DefaultPort),
-			healthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
-			healthCheckInterval: DefaultHealthCheckInterval,
-			pprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				Port: 2857,
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          DefaultServerName,
-			primaryAddress:      ":2857",
-			healthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
-			healthCheckInterval: DefaultHealthCheckInterval,
-			pprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				HealthCheckPort: 83,
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          DefaultServerName,
-			primaryAddress:      fmt.Sprintf(":%d", DefaultPort),
-			healthAddress:       ":83",
-			healthCheckInterval: DefaultHealthCheckInterval,
-			pprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				HealthCheckInterval: types.Duration(time.Hour * 5),
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          DefaultServerName,
-			primaryAddress:      fmt.Sprintf(":%d", DefaultPort),
-			healthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
-			healthCheckInterval: time.Hour * 5,
-			pprofAddress:        fmt.Sprintf(":%d", DefaultPprofPort),
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				PprofPort: 2395,
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          DefaultServerName,
-			primaryAddress:      fmt.Sprintf(":%d", DefaultPort),
-			healthAddress:       fmt.Sprintf(":%d", DefaultHealthCheckPort),
-			healthCheckInterval: DefaultHealthCheckInterval,
-			pprofAddress:        ":2395",
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				ServerName:          "foobar",
-				Port:                1281,
-				HealthCheckPort:     56001,
-				HealthCheckInterval: types.Duration(time.Minute * 3412),
-				PprofPort:           41508,
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          "foobar",
-			primaryAddress:      ":1281",
-			healthAddress:       ":56001",
-			healthCheckInterval: time.Minute * 3412,
-			pprofAddress:        ":41508",
-		},
-	},
-	{
-		builder: WebPABuilder{
-			Configuration: &Configuration{
-				ServerName:          "groograar",
-				Port:                8347,
-				HealthCheckPort:     81,
-				HealthCheckInterval: types.Duration(time.Minute * 797),
-				PprofPort:           55692,
-				CertificateFile:     "/etc/groograar/cert",
-				KeyFile:             "/etc/groograar/key",
-			},
-		},
-		expect: webpaBuilderExpect{
-			serverName:          "groograar",
-			primaryAddress:      ":8347",
-			healthAddress:       ":81",
-			healthCheckInterval: time.Minute * 797,
-			pprofAddress:        ":55692",
-			certificateFile:     "/etc/groograar/cert",
-			keyFile:             "/etc/groograar/key",
-		},
-	},
+func (d dummyHandler) ServeHTTP(http.ResponseWriter, *http.Request) {
 }
+
+type webpaExpect struct {
+	name            string
+	address         string
+	handler         http.Handler
+	certificateFile string
+	keyFile         string
+}
+
+func (expect *webpaExpect) assertBuildFunc(t *testing.T, loggingBuffer *bytes.Buffer, buildFunc func() (Runnable, error)) {
+	product, err := buildFunc()
+	if err != nil {
+		t.Fatalf("The builder function failed: %v", err)
+	}
+
+	expect.assertProduct(t, loggingBuffer, product)
+}
+
+func (expect *webpaExpect) assertProduct(t *testing.T, loggingBuffer *bytes.Buffer, product Runnable) {
+	actual, ok := product.(*webPA)
+	if !ok {
+		t.Fatal("The builder product is not a webPA instance")
+	}
+
+	if expect.name != actual.name {
+		t.Errorf("Expected name %s, but got %s", expect.name, actual.name)
+	}
+
+	if expect.address != actual.address {
+		t.Errorf("Expected address %s, but got %s", expect.address, actual.address)
+	}
+
+	if expect.certificateFile != actual.certificateFile {
+		t.Errorf("Expected certificateFile %s, but got %s", expect.certificateFile, actual.certificateFile)
+	}
+
+	if expect.keyFile != actual.keyFile {
+		t.Errorf("Expected keyFile %s, but got %s", expect.keyFile, actual.keyFile)
+	}
+
+	if actual.logger == nil {
+		t.Error("No logger set on the webPA instance")
+	} else {
+		loggingBuffer.Reset()
+		actual.logger.Debug("test test test")
+		if loggingBuffer.Len() == 0 {
+			t.Error("Incorrect logger set on webPA instance")
+		}
+	}
+
+	httpServer, ok := actual.serverExecutor.(*http.Server)
+	if !ok {
+		t.Fatal("The serverExecutor is not an http.Server")
+	}
+
+	if expect.address != httpServer.Addr {
+		t.Errorf("Expected httpServer address %s, but got %s", expect.address, httpServer.Addr)
+	}
+
+	if expect.handler != httpServer.Handler {
+		t.Errorf("Expected httpServer handler %v, but got %v", expect.handler, httpServer.Handler)
+	}
+
+	if httpServer.ErrorLog == nil {
+		t.Error("No ErrorLog set on httpServer")
+	} else {
+		loggingBuffer.Reset()
+		httpServer.ErrorLog.Println("test test test")
+		if loggingBuffer.Len() == 0 {
+			t.Error("Incorrect ErrorLog set on webPA instance")
+		}
+	}
+
+	if httpServer.ConnState == nil {
+		t.Error("No ConnState set on httpServer")
+	} else {
+		loggingBuffer.Reset()
+		httpServer.ConnState(mockConn{t}, http.StateNew)
+		if loggingBuffer.Len() == 0 {
+			t.Error("Incorrect ConnState set on webPA instance")
+		}
+	}
+}
+
+var (
+	primaryHandler     = dummyHandler{}
+	healthHandler      = dummyHandler{}
+	customPprofHandler = dummyHandler{}
+
+	webpaBuilderTestData = []struct {
+		builder       WebPABuilder
+		expectPrimary webpaExpect
+		expectPprof   webpaExpect
+		expectHealth  webpaExpect
+	}{
+		{
+			builder: WebPABuilder{
+				PrimaryHandler: primaryHandler,
+				HealthHandler:  healthHandler,
+			},
+			expectPrimary: webpaExpect{
+				name:    DefaultServerName,
+				address: fmt.Sprintf(":%d", DefaultPort),
+				handler: primaryHandler,
+			},
+			expectHealth: webpaExpect{
+				name:    DefaultServerName + healthSuffix,
+				address: fmt.Sprintf(":%d", DefaultHealthCheckPort),
+				handler: healthHandler,
+			},
+			expectPprof: webpaExpect{
+				name:    DefaultServerName + pprofSuffix,
+				address: fmt.Sprintf(":%d", DefaultPprofPort),
+				handler: http.DefaultServeMux,
+			},
+		},
+		{
+			builder: WebPABuilder{
+				Configuration:  &Configuration{},
+				PrimaryHandler: primaryHandler,
+				HealthHandler:  healthHandler,
+			},
+			expectPrimary: webpaExpect{
+				name:    DefaultServerName,
+				address: fmt.Sprintf(":%d", DefaultPort),
+				handler: primaryHandler,
+			},
+			expectHealth: webpaExpect{
+				name:    DefaultServerName + healthSuffix,
+				address: fmt.Sprintf(":%d", DefaultHealthCheckPort),
+				handler: healthHandler,
+			},
+			expectPprof: webpaExpect{
+				name:    DefaultServerName + pprofSuffix,
+				address: fmt.Sprintf(":%d", DefaultPprofPort),
+				handler: http.DefaultServeMux,
+			},
+		},
+		{
+			builder: WebPABuilder{
+				Configuration: &Configuration{
+					ServerName:      "foobar",
+					Port:            2739,
+					HealthCheckPort: 1842,
+					PprofPort:       28391,
+				},
+				PrimaryHandler: primaryHandler,
+				HealthHandler:  healthHandler,
+			},
+			expectPrimary: webpaExpect{
+				name:    "foobar",
+				address: ":2739",
+				handler: primaryHandler,
+			},
+			expectHealth: webpaExpect{
+				name:    "foobar" + healthSuffix,
+				address: ":1842",
+				handler: healthHandler,
+			},
+			expectPprof: webpaExpect{
+				name:    "foobar" + pprofSuffix,
+				address: ":28391",
+				handler: http.DefaultServeMux,
+			},
+		},
+		{
+			builder: WebPABuilder{
+				Configuration: &Configuration{
+					ServerName:      "graarpants",
+					Port:            29019,
+					HealthCheckPort: 28,
+					PprofPort:       129,
+				},
+				PrimaryHandler: primaryHandler,
+				HealthHandler:  healthHandler,
+				PprofHandler:   customPprofHandler,
+			},
+			expectPrimary: webpaExpect{
+				name:    "graarpants",
+				address: ":29019",
+				handler: primaryHandler,
+			},
+			expectHealth: webpaExpect{
+				name:    "graarpants" + healthSuffix,
+				address: ":28",
+				handler: healthHandler,
+			},
+			expectPprof: webpaExpect{
+				name:    "graarpants" + pprofSuffix,
+				address: ":129",
+				handler: customPprofHandler,
+			},
+		},
+	}
+)
 
 func TestWebPABuilderConfiguration(t *testing.T) {
 	for _, record := range webpaBuilderTestData {
-		actualServerName := record.builder.ServerName()
-		if record.expect.serverName != actualServerName {
-			t.Errorf("Expected server name %s, but got %s", record.expect.serverName, actualServerName)
+		builder := record.builder
+		actualServerName := builder.ServerName()
+		if record.expectPrimary.name != record.builder.ServerName() {
+			t.Errorf("Expected server name %s, but got %s", record.expectPrimary.name, actualServerName)
 		}
 
-		actualPrimaryAddress := record.builder.PrimaryAddress()
-		if record.expect.primaryAddress != actualPrimaryAddress {
-			t.Errorf("Expected primary address %s, but got %s", record.expect.primaryAddress, actualPrimaryAddress)
+		actualPrimaryAddress := builder.PrimaryAddress()
+		if record.expectPrimary.address != actualPrimaryAddress {
+			t.Errorf("Expected primary address %s, but got %s", record.expectPrimary.address, actualPrimaryAddress)
 		}
 
-		actualHealthAddress := record.builder.HealthAddress()
-		if record.expect.healthAddress != actualHealthAddress {
-			t.Errorf("Expected health address %s, but got %s", record.expect.healthAddress, actualHealthAddress)
+		actualHealthAddress := builder.HealthAddress()
+		if record.expectHealth.address != actualHealthAddress {
+			t.Errorf("Expected health address %s, but got %s", record.expectHealth.address, actualHealthAddress)
 		}
 
-		actualHealthCheckInterval := record.builder.HealthCheckInterval()
-		if record.expect.healthCheckInterval != actualHealthCheckInterval {
-			t.Errorf("Expected health check interval %s, but got %s", record.expect.healthCheckInterval, actualHealthCheckInterval)
-		}
-
-		actualPprofAddress := record.builder.PprofAddress()
-		if record.expect.pprofAddress != actualPprofAddress {
-			t.Errorf("Expected primary address %s, but got %s", record.expect.pprofAddress, actualPprofAddress)
+		actualPprofAddress := builder.PprofAddress()
+		if record.expectPprof.address != actualPprofAddress {
+			t.Errorf("Expected pprof address %s, but got %s", record.expectPprof.address, actualPprofAddress)
 		}
 	}
 }
 
 func TestBuildPrimary(t *testing.T) {
 	for _, record := range webpaBuilderTestData {
-		expectedLogger := &logging.LoggerWriter{os.Stdout}
-		handlerCalled := false
-		expectedHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-			handlerCalled = true
-		})
-
+		expect := record.expectPrimary
 		builder := record.builder
-		builder.PrimaryHandler = expectedHandler
-		builder.LoggerFactory = &testLoggerFactory{
-			t,
-			func(t *testing.T, name string) (logging.Logger, error) {
-				if record.expect.serverName != name {
-					t.Fatalf("Expected logger name %s, but got %s", record.expect.serverName, name)
-				}
+		loggerFactory := newTestLoggerFactory(t, expect.name)
+		builder.LoggerFactory = loggerFactory
 
-				return expectedLogger, nil
-			},
-		}
-
-		runnable, err := builder.BuildPrimary()
-		if err != nil {
-			t.Fatalf("BuildPrimary() failed: %v", err)
-		}
-
-		primary, ok := runnable.(*webPA)
-		if !ok {
-			t.Fatal("BuildPrimary() did not return a webPA")
-		}
-
-		if record.expect.serverName != primary.name {
-			t.Errorf("Expected server name %s, but got %s", record.expect.serverName, primary.name)
-		}
-
-		if expectedLogger != primary.logger {
-			t.Errorf("Expected logger %#v, but got %#v", expectedLogger, primary.logger)
-		}
-
-		if record.expect.primaryAddress != primary.address {
-			t.Errorf("Expected primary address %s, but got %s", record.expect.primaryAddress, primary.address)
-		}
-
-		if record.expect.certificateFile != primary.certificateFile {
-			t.Errorf("Expected certificate file %s, but got %s", record.expect.certificateFile, primary.certificateFile)
-		}
-
-		if record.expect.keyFile != primary.keyFile {
-			t.Errorf("Expected key file %s, but got %s", record.expect.keyFile, primary.keyFile)
-		}
-
-		httpServer, ok := primary.serverExecutor.(*http.Server)
-		if !ok {
-			t.Fatal("BuildPrimary() did not generate an http.Server")
-		}
-
-		if record.expect.primaryAddress != httpServer.Addr {
-			t.Errorf("Expected http.Server address %s, but got %s", record.expect.primaryAddress, httpServer.Addr)
-		}
-
-		httpServer.Handler.ServeHTTP(nil, nil)
-		if !handlerCalled {
-			t.Error("BuildPrimary() did not use the supplied handler")
-		}
-
-		if httpServer.ConnState == nil {
-			t.Error("BuildPrimary() did not generate a ConnState function")
-		}
-
-		if httpServer.ErrorLog == nil {
-			t.Error("BuildPrimary() did not generate an ErrorLog")
-		}
+		expect.assertBuildFunc(t, &loggerFactory.buffer, builder.BuildPrimary)
 	}
 }
 
-func TestBuildPprofUsingDefaultServeMux(t *testing.T) {
+func TestBuildPprof(t *testing.T) {
 	for _, record := range webpaBuilderTestData {
-		expectedServerName := record.expect.serverName + pprofSuffix
-		expectedLogger := &logging.LoggerWriter{os.Stdout}
+		expect := record.expectPprof
 		builder := record.builder
-		builder.LoggerFactory = &testLoggerFactory{
-			t,
-			func(t *testing.T, name string) (logging.Logger, error) {
-				if expectedServerName != name {
-					t.Fatalf("Expected logger name %s, but got %s", expectedServerName, name)
-				}
+		loggerFactory := newTestLoggerFactory(t, expect.name)
+		builder.LoggerFactory = loggerFactory
 
-				return expectedLogger, nil
-			},
-		}
-
-		runnable, err := builder.BuildPprof()
-		if err != nil {
-			t.Fatalf("BuildPprof() failed: %v", err)
-		}
-
-		pprof, ok := runnable.(*webPA)
-		if !ok {
-			t.Fatal("BuildPprof() did not return a webPA")
-		}
-
-		if expectedServerName != pprof.name {
-			t.Errorf("Expected server name %s, but got %s", expectedServerName, pprof.name)
-		}
-
-		if expectedLogger != pprof.logger {
-			t.Errorf("Expected logger %#v, but got %#v", expectedLogger, pprof.logger)
-		}
-
-		if record.expect.pprofAddress != pprof.address {
-			t.Errorf("Expected pprof address %s, but got %s", record.expect.pprofAddress, pprof.address)
-		}
-
-		if len(pprof.certificateFile) != 0 {
-			t.Errorf("BuildPprof() used certificate file %s", pprof.certificateFile)
-		}
-
-		if len(pprof.keyFile) != 0 {
-			t.Errorf("BuildPprof() used key file %s", pprof.certificateFile)
-		}
-
-		httpServer, ok := pprof.serverExecutor.(*http.Server)
-		if !ok {
-			t.Fatal("BuildPprof() did not generate an http.Server")
-		}
-
-		if record.expect.pprofAddress != httpServer.Addr {
-			t.Errorf("Expected http.Server address %s, but got %s", record.expect.pprofAddress, httpServer.Addr)
-		}
-
-		if http.DefaultServeMux != httpServer.Handler {
-			t.Error("BuildPprof() did not use http.DefaultServeMux")
-		}
-
-		if httpServer.ConnState == nil {
-			t.Error("BuildPprof() did not generate a ConnState function")
-		}
-
-		if httpServer.ErrorLog == nil {
-			t.Error("BuildPprof() did not generate an ErrorLog")
-		}
-	}
-}
-
-func TestBuildPprofUsingCustomHandler(t *testing.T) {
-	for _, record := range webpaBuilderTestData {
-		expectedServerName := record.expect.serverName + pprofSuffix
-		handlerCalled := false
-		expectedHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-			handlerCalled = true
-		})
-
-		expectedLogger := &logging.LoggerWriter{os.Stdout}
-		builder := record.builder
-		builder.PprofHandler = expectedHandler
-		builder.LoggerFactory = &testLoggerFactory{
-			t,
-			func(t *testing.T, name string) (logging.Logger, error) {
-				if expectedServerName != name {
-					t.Fatalf("Expected logger name %s, but got %s", expectedServerName, name)
-				}
-
-				return expectedLogger, nil
-			},
-		}
-
-		runnable, err := builder.BuildPprof()
-		if err != nil {
-			t.Fatalf("BuildPprof() failed: %v", err)
-		}
-
-		pprof, ok := runnable.(*webPA)
-		if !ok {
-			t.Fatal("BuildPprof() did not return a webPA")
-		}
-
-		if expectedServerName != pprof.name {
-			t.Errorf("Expected server name %s, but got %s", expectedServerName, pprof.name)
-		}
-
-		if expectedLogger != pprof.logger {
-			t.Errorf("Expected logger %#v, but got %#v", expectedLogger, pprof.logger)
-		}
-
-		if record.expect.pprofAddress != pprof.address {
-			t.Errorf("Expected pprof address %s, but got %s", record.expect.pprofAddress, pprof.address)
-		}
-
-		if len(pprof.certificateFile) != 0 {
-			t.Errorf("BuildPprof() used certificate file %s", pprof.certificateFile)
-		}
-
-		if len(pprof.keyFile) != 0 {
-			t.Errorf("BuildPprof() used key file %s", pprof.certificateFile)
-		}
-
-		httpServer, ok := pprof.serverExecutor.(*http.Server)
-		if !ok {
-			t.Fatal("BuildPprof() did not generate an http.Server")
-		}
-
-		if record.expect.pprofAddress != httpServer.Addr {
-			t.Errorf("Expected http.Server address %s, but got %s", record.expect.pprofAddress, httpServer.Addr)
-		}
-
-		httpServer.Handler.ServeHTTP(nil, nil)
-		if !handlerCalled {
-			t.Error("BuildPprof() did not use the supplied handler")
-		}
-
-		if httpServer.ConnState == nil {
-			t.Error("BuildPprof() did not generate a ConnState function")
-		}
-
-		if httpServer.ErrorLog == nil {
-			t.Error("BuildPprof() did not generate an ErrorLog")
-		}
+		expect.assertBuildFunc(t, &loggerFactory.buffer, builder.BuildPprof)
 	}
 }
 
 func TestBuildHealth(t *testing.T) {
 	for _, record := range webpaBuilderTestData {
-		expectedServerName := record.expect.serverName + healthSuffix
-		expectedLogger := &logging.LoggerWriter{os.Stdout}
-		handlerCalled := false
-		expectedHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-			handlerCalled = true
-		})
-
+		expect := record.expectHealth
 		builder := record.builder
-		builder.HealthHandler = expectedHandler
-		builder.LoggerFactory = &testLoggerFactory{
-			t,
-			func(t *testing.T, name string) (logging.Logger, error) {
-				if expectedServerName != name {
-					t.Fatalf("Expected logger name %s, but got %s", expectedServerName, name)
-				}
+		loggerFactory := newTestLoggerFactory(t, expect.name)
+		builder.LoggerFactory = loggerFactory
 
-				return expectedLogger, nil
-			},
+		expect.assertBuildFunc(t, &loggerFactory.buffer, builder.BuildHealth)
+	}
+}
+
+func TestBuildAll(t *testing.T) {
+	for _, record := range webpaBuilderTestData {
+		builder := record.builder
+		loggerFactory := newTestLoggerFactory(t, record.expectPrimary.name, record.expectPprof.name, record.expectHealth.name)
+		builder.LoggerFactory = loggerFactory
+		if runnableSet, err := builder.BuildAll(); err != nil {
+			t.Fatalf("BuildAll() failed: %v", err)
+		} else {
+			if len(runnableSet) != 3 {
+				t.Fatalf("Expected count of runnables to be 3, but got %d", len(runnableSet))
+			}
+
+			// the order is important: we want primary started last
+			record.expectPprof.assertProduct(t, &loggerFactory.buffer, runnableSet[0])
+			record.expectHealth.assertProduct(t, &loggerFactory.buffer, runnableSet[1])
+			record.expectPrimary.assertProduct(t, &loggerFactory.buffer, runnableSet[2])
 		}
 
-		runnable, err := builder.BuildHealth()
-		if err != nil {
-			t.Fatalf("BuildHealth() failed: %v", err)
-		}
-
-		health, ok := runnable.(*webPA)
-		if !ok {
-			t.Fatal("BuildHealth() did not return a webPA")
-		}
-
-		if expectedServerName != health.name {
-			t.Errorf("Expected server name %s, but got %s", record.expect.serverName, health.name)
-		}
-
-		if expectedLogger != health.logger {
-			t.Errorf("Expected logger %#v, but got %#v", expectedLogger, health.logger)
-		}
-
-		if record.expect.healthAddress != health.address {
-			t.Errorf("Expected health address %s, but got %s", record.expect.primaryAddress, health.address)
-		}
-
-		if len(health.certificateFile) != 0 {
-			t.Errorf("BuildHealth() used certificate file %s", health.certificateFile)
-		}
-
-		if len(health.keyFile) != 0 {
-			t.Errorf("BuildHealth() used key file %s", health.certificateFile)
-		}
-
-		httpServer, ok := health.serverExecutor.(*http.Server)
-		if !ok {
-			t.Fatal("BuildHealth() did not generate an http.Server")
-		}
-
-		if record.expect.healthAddress != httpServer.Addr {
-			t.Errorf("Expected http.Server address %s, but got %s", record.expect.healthAddress, httpServer.Addr)
-		}
-
-		httpServer.Handler.ServeHTTP(nil, nil)
-		if !handlerCalled {
-			t.Error("BuildHealth() did not use the supplied handler")
-		}
-
-		if httpServer.ConnState == nil {
-			t.Error("BuildHealth() did not generate a ConnState function")
-		}
-
-		if httpServer.ErrorLog == nil {
-			t.Error("BuildHealth() did not generate an ErrorLog")
-		}
 	}
 }

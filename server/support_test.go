@@ -1,9 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"net"
 	"testing"
+	"time"
 )
 
 const (
@@ -41,15 +45,78 @@ func (executor *testServerExecutor) ListenAndServeTLS(certificateFile, keyFile s
 
 // testLoggerFactory provides a mocked logging.LoggerFactory for testing
 type testLoggerFactory struct {
-	t               *testing.T
-	expectNewLogger func(*testing.T, string) (logging.Logger, error)
+	t             *testing.T
+	buffer        bytes.Buffer
+	expectedNames map[string]bool
 }
 
 func (factory *testLoggerFactory) NewLogger(name string) (logging.Logger, error) {
-	if factory.expectNewLogger == nil {
-		factory.t.Errorf(unexpectedNewLogger)
-		return nil, errors.New(unexpectedNewLogger)
+	if !factory.expectedNames[name] {
+		message := fmt.Sprintf("Unexpected logger name %s", name)
+		factory.t.Errorf(message)
+		return nil, errors.New(message)
 	}
 
-	return factory.expectNewLogger(factory.t, name)
+	return &logging.LoggerWriter{&factory.buffer}, nil
+}
+
+func newTestLoggerFactory(t *testing.T, expectedNames ...string) *testLoggerFactory {
+	loggerFactory := &testLoggerFactory{t: t, expectedNames: make(map[string]bool, len(expectedNames))}
+	for _, name := range expectedNames {
+		loggerFactory.expectedNames[name] = true
+	}
+
+	return loggerFactory
+}
+
+// mockConn implements both net.Conn and net.Addr, for testing
+type mockConn struct {
+	t *testing.T
+}
+
+func (m mockConn) Network() string {
+	return "network"
+}
+
+func (m mockConn) String() string {
+	return "127.0.0.1"
+}
+
+func (m mockConn) Read(b []byte) (n int, err error) {
+	m.t.Fatal("Read should not have been called")
+	return 0, nil
+}
+
+func (m mockConn) Write(b []byte) (n int, err error) {
+	m.t.Fatal("Write should not have been called")
+	return 0, nil
+}
+
+func (m mockConn) Close() error {
+	m.t.Fatal("Close should not have been called")
+	return nil
+}
+
+func (m mockConn) LocalAddr() net.Addr {
+	return m
+}
+
+func (m mockConn) RemoteAddr() net.Addr {
+	m.t.Fatal("RemoteAddr should not have been called")
+	return nil
+}
+
+func (m mockConn) SetDeadline(t time.Time) error {
+	m.t.Fatal("SetDeadline should not have been called")
+	return nil
+}
+
+func (m mockConn) SetReadDeadline(t time.Time) error {
+	m.t.Fatal("SetReadDeadline should not have been called")
+	return nil
+}
+
+func (m mockConn) SetWriteDeadline(t time.Time) error {
+	m.t.Fatal("SetWriteDeadline should not have been called")
+	return nil
 }

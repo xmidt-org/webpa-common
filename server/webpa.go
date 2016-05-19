@@ -13,7 +13,7 @@ type serverExecutor interface {
 	ListenAndServeTLS(certificateFile, keyFile string) error
 }
 
-// webPA represents a server within the WebPA cluster.  It is used for both
+// webPA represents a server component within the WebPA cluster.  It is used for both
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
 type webPA struct {
 	name            string
