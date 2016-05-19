@@ -2,12 +2,10 @@ package server
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/types"
 	"net/http"
 	"os"
-	"sync"
 	"testing"
 	"time"
 )
@@ -410,122 +408,77 @@ func TestBuildPprofUsingCustomHandler(t *testing.T) {
 }
 
 func TestBuildHealth(t *testing.T) {
-	const (
-		TestStat1 health.Stat = "TestStat1"
-		TestStat2 health.Stat = "TestStat2"
-	)
-
 	for _, record := range webpaBuilderTestData {
 		expectedServerName := record.expect.serverName + healthSuffix
-		healthOptions := [][]health.Option{
-			nil,
-			{},
-			{TestStat1},
-			{TestStat1, TestStat2},
+		expectedLogger := &logging.LoggerWriter{os.Stdout}
+		handlerCalled := false
+		expectedHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			handlerCalled = true
+		})
+
+		builder := record.builder
+		builder.HealthHandler = expectedHandler
+		builder.LoggerFactory = &testLoggerFactory{
+			t,
+			func(t *testing.T, name string) (logging.Logger, error) {
+				if expectedServerName != name {
+					t.Fatalf("Expected logger name %s, but got %s", expectedServerName, name)
+				}
+
+				return expectedLogger, nil
+			},
 		}
 
-		for _, expectedOptions := range healthOptions {
-			expectedLogger := &logging.LoggerWriter{os.Stdout}
-			expectedStats := make(health.Stats)
-			for _, expectedOption := range expectedOptions {
-				expectedOption.Set(expectedStats)
-			}
+		runnable, err := builder.BuildHealth()
+		if err != nil {
+			t.Fatalf("BuildHealth() failed: %v", err)
+		}
 
-			builder := record.builder
-			builder.HealthOptions = expectedOptions
-			builder.LoggerFactory = &testLoggerFactory{
-				t,
-				func(t *testing.T, name string) (logging.Logger, error) {
-					if expectedServerName != name {
-						t.Fatalf("Expected logger name %s, but got %s", expectedServerName, name)
-					}
+		health, ok := runnable.(*webPA)
+		if !ok {
+			t.Fatal("BuildHealth() did not return a webPA")
+		}
 
-					return expectedLogger, nil
-				},
-			}
+		if expectedServerName != health.name {
+			t.Errorf("Expected server name %s, but got %s", record.expect.serverName, health.name)
+		}
 
-			runnable, err := builder.BuildHealth()
-			if err != nil {
-				t.Fatalf("BuildHealth() failed: %v", err)
-			}
+		if expectedLogger != health.logger {
+			t.Errorf("Expected logger %#v, but got %#v", expectedLogger, health.logger)
+		}
 
-			runnableSet, ok := runnable.(RunnableSet)
-			if !ok {
-				t.Fatal("BuildHealth() did not produce a RunnableSet")
-			}
+		if record.expect.healthAddress != health.address {
+			t.Errorf("Expected health address %s, but got %s", record.expect.primaryAddress, health.address)
+		}
 
-			if len(runnableSet) != 2 {
-				t.Fatalf("BuilderHealth() should have produced 2 runnables, instead produced %d", len(runnableSet))
-			}
+		if len(health.certificateFile) != 0 {
+			t.Errorf("BuildHealth() used certificate file %s", health.certificateFile)
+		}
 
-			healthHandler, ok := runnableSet[0].(*health.Health)
-			if !ok {
-				t.Fatal("BuildHealth() did not produce a health.Health as the first element")
-			}
+		if len(health.keyFile) != 0 {
+			t.Errorf("BuildHealth() used key file %s", health.certificateFile)
+		}
 
-			waitGroup := &sync.WaitGroup{}
-			shutdown := make(chan struct{})
-			healthHandler.Run(waitGroup, shutdown)
-			defer close(shutdown)
-			doneCheckingStats := make(chan struct{})
-			healthHandler.SendEvent(health.HealthFunc(func(stats health.Stats) {
-				defer close(doneCheckingStats)
-				t.Logf("actual stats: %#v", stats)
-				for key, expectedValue := range expectedStats {
-					if actualValue, ok := stats[key]; !ok {
-						t.Errorf("Expected stat %s not present", key)
-					} else if expectedValue != actualValue {
-						t.Errorf("Expected [%s] value %d, but got %d", key, expectedValue, actualValue)
-					}
-				}
-			}))
+		httpServer, ok := health.serverExecutor.(*http.Server)
+		if !ok {
+			t.Fatal("BuildHealth() did not generate an http.Server")
+		}
 
-			<-doneCheckingStats
-			healthWebPA, ok := runnableSet[1].(*webPA)
-			if !ok {
-				t.Fatal("BuildHealth() did not produce a webPA as the second element")
-			}
+		if record.expect.healthAddress != httpServer.Addr {
+			t.Errorf("Expected http.Server address %s, but got %s", record.expect.healthAddress, httpServer.Addr)
+		}
 
-			if expectedServerName != healthWebPA.name {
-				t.Errorf("Expected server name %s, but got %s", expectedServerName, healthWebPA.name)
-			}
+		httpServer.Handler.ServeHTTP(nil, nil)
+		if !handlerCalled {
+			t.Error("BuildHealth() did not use the supplied handler")
+		}
 
-			if expectedLogger != healthWebPA.logger {
-				t.Errorf("Expected logger %#v, but got %#v", expectedLogger, healthWebPA.logger)
-			}
+		if httpServer.ConnState == nil {
+			t.Error("BuildHealth() did not generate a ConnState function")
+		}
 
-			if record.expect.healthAddress != healthWebPA.address {
-				t.Errorf("Expected health address %s, but got %s", record.expect.healthAddress, healthWebPA.address)
-			}
-
-			if len(healthWebPA.certificateFile) != 0 {
-				t.Errorf("BuildHealth() used certificate file %s", healthWebPA.certificateFile)
-			}
-
-			if len(healthWebPA.keyFile) != 0 {
-				t.Errorf("BuildHealth() used key file %s", healthWebPA.certificateFile)
-			}
-
-			httpServer, ok := healthWebPA.serverExecutor.(*http.Server)
-			if !ok {
-				t.Fatal("BuildHealth() did not generate an http.Server")
-			}
-
-			if record.expect.healthAddress != httpServer.Addr {
-				t.Errorf("Expected http.Server address %s, but got %s", record.expect.healthAddress, httpServer.Addr)
-			}
-
-			if healthHandler != httpServer.Handler {
-				t.Error("BuildHealth() did not use the generated Health handler")
-			}
-
-			if httpServer.ConnState == nil {
-				t.Error("BuildHealth() did not generate a ConnState function")
-			}
-
-			if httpServer.ErrorLog == nil {
-				t.Error("BuildHealth() did not generate an ErrorLog")
-			}
+		if httpServer.ErrorLog == nil {
+			t.Error("BuildHealth() did not generate an ErrorLog")
 		}
 	}
 }

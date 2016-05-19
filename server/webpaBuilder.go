@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 	_ "net/http/pprof"
@@ -26,8 +25,8 @@ type WebPABuilder struct {
 	// will be used instead
 	PprofHandler http.Handler
 
-	// HealthOptions define what health stats this server exposes for tracking
-	HealthOptions []health.Option
+	// HealthHandler is the http.handler for health traffic
+	HealthHandler http.Handler
 }
 
 func (builder *WebPABuilder) ServerName() string {
@@ -119,23 +118,17 @@ func (builder *WebPABuilder) BuildHealth() (Runnable, error) {
 		return nil, err
 	}
 
-	var runnables [2]Runnable
-	healthHandler := health.New(builder.HealthCheckInterval(), logger, builder.HealthOptions...)
-	runnables[0] = healthHandler
-
-	runnables[1] = &webPA{
+	return &webPA{
 		name:    name,
 		address: address,
 		logger:  logger,
 		serverExecutor: &http.Server{
 			Addr:      address,
-			Handler:   healthHandler,
+			Handler:   builder.HealthHandler,
 			ConnState: NewConnectionStateLogger(logger, name),
 			ErrorLog:  NewErrorLog(logger, name),
 		},
-	}
-
-	return RunnableSet(runnables[0:2]), nil
+	}, nil
 }
 
 // BuildPprof is a factory function for the pprof server defined in the configuration
@@ -167,9 +160,9 @@ func (builder *WebPABuilder) BuildPprof() (Runnable, error) {
 	}, nil
 }
 
-// BuildAll returns a single Runnable that executes all server components produced
+// BuildAll returns a RunnableSet that executes all server components produced
 // by this builder: pprof, health, and the primary server
-func (builder *WebPABuilder) BuildAll() (runnable Runnable, err error) {
+func (builder *WebPABuilder) BuildAll() (runnableSet RunnableSet, err error) {
 	var runnables [3]Runnable
 	runnables[0], err = builder.BuildPprof()
 	if err != nil {
@@ -186,6 +179,6 @@ func (builder *WebPABuilder) BuildAll() (runnable Runnable, err error) {
 		return
 	}
 
-	runnable = RunnableSet(runnables[0:3])
+	runnableSet = RunnableSet(runnables[0:3])
 	return
 }
