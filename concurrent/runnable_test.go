@@ -1,8 +1,7 @@
-package server
+package concurrent
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/concurrent"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -64,7 +63,7 @@ func TestRunnableSetRun(t *testing.T) {
 		record.runnable.Run(waitGroup, shutdown)
 		close(shutdown)
 
-		if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
+		if !WaitTimeout(waitGroup, time.Second*2) {
 			t.Errorf("Blocked on WaitGroup longer than the timeout")
 		}
 
@@ -100,7 +99,7 @@ func TestExecuteSuccess(t *testing.T) {
 
 	close(shutdown)
 
-	if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
+	if !WaitTimeout(waitGroup, time.Second*2) {
 		t.Errorf("Blocked on WaitGroup longer than the timeout")
 	}
 }
@@ -127,7 +126,7 @@ func TestExecuteFail(t *testing.T) {
 
 	close(shutdown)
 
-	if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
+	if !WaitTimeout(waitGroup, time.Second*2) {
 		t.Errorf("Blocked on WaitGroup longer than the timeout")
 	}
 }
@@ -154,7 +153,7 @@ func TestAwaitSuccess(t *testing.T) {
 	// simulate a ctrl+c
 	signals <- os.Interrupt
 
-	if !concurrent.WaitTimeout(testWaitGroup, time.Second*2) {
+	if !WaitTimeout(testWaitGroup, time.Second*2) {
 		t.Errorf("Blocked on WaitGroup longer than the timeout")
 	}
 }
@@ -175,7 +174,7 @@ func TestAwaitFail(t *testing.T) {
 	// simulate a ctrl+c
 	signals <- os.Interrupt
 
-	if !concurrent.WaitTimeout(testWaitGroup, time.Second*2) {
+	if !WaitTimeout(testWaitGroup, time.Second*2) {
 		t.Errorf("Blocked on WaitGroup longer than the timeout")
 	}
 }

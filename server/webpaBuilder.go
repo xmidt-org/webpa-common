@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 	_ "net/http/pprof"
@@ -78,8 +79,8 @@ func (builder *WebPABuilder) PprofAddress() string {
 	return fmt.Sprintf(":%d", port)
 }
 
-// BuildPrimary returns a Runnable that will execute the primary server
-func (builder *WebPABuilder) BuildPrimary() (Runnable, error) {
+// BuildPrimary returns a concurrent.Runnable that will execute the primary server
+func (builder *WebPABuilder) BuildPrimary() (concurrent.Runnable, error) {
 	name := builder.ServerName()
 	address := builder.PrimaryAddress()
 	logger, err := builder.LoggerFactory.NewLogger(name)
@@ -109,8 +110,8 @@ func (builder *WebPABuilder) BuildPrimary() (Runnable, error) {
 }
 
 // BuildHealth is a factory function for both the WebPA server that exposes health statistics
-// and the underlying Health object, both of which are Runnable.
-func (builder *WebPABuilder) BuildHealth() (Runnable, error) {
+// and the underlying Health object, both of which are concurrent.Runnable.
+func (builder *WebPABuilder) BuildHealth() (concurrent.Runnable, error) {
 	name := builder.ServerName() + healthSuffix
 	address := builder.HealthAddress()
 	logger, err := builder.LoggerFactory.NewLogger(name)
@@ -132,7 +133,7 @@ func (builder *WebPABuilder) BuildHealth() (Runnable, error) {
 }
 
 // BuildPprof is a factory function for the pprof server defined in the configuration
-func (builder *WebPABuilder) BuildPprof() (Runnable, error) {
+func (builder *WebPABuilder) BuildPprof() (concurrent.Runnable, error) {
 	name := builder.ServerName() + pprofSuffix
 	address := builder.PprofAddress()
 	logger, err := builder.LoggerFactory.NewLogger(name)
@@ -162,8 +163,8 @@ func (builder *WebPABuilder) BuildPprof() (Runnable, error) {
 
 // BuildAll returns a RunnableSet that executes all server components produced
 // by this builder: pprof, health, and the primary server
-func (builder *WebPABuilder) BuildAll() (runnableSet RunnableSet, err error) {
-	var runnables [3]Runnable
+func (builder *WebPABuilder) BuildAll() (runnableSet concurrent.RunnableSet, err error) {
+	var runnables [3]concurrent.Runnable
 	runnables[0], err = builder.BuildPprof()
 	if err != nil {
 		return
@@ -179,6 +180,6 @@ func (builder *WebPABuilder) BuildAll() (runnableSet RunnableSet, err error) {
 		return
 	}
 
-	runnableSet = RunnableSet(runnables[0:3])
+	runnableSet = concurrent.RunnableSet(runnables[0:3])
 	return
 }

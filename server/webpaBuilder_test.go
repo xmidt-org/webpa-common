@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"fmt"
+	"github.com/Comcast/webpa-common/concurrent"
 	"net/http"
 	"testing"
 )
@@ -22,7 +23,7 @@ type webpaExpect struct {
 	keyFile         string
 }
 
-func (expect *webpaExpect) assertBuildFunc(t *testing.T, loggingBuffer *bytes.Buffer, buildFunc func() (Runnable, error)) {
+func (expect *webpaExpect) assertBuildFunc(t *testing.T, loggingBuffer *bytes.Buffer, buildFunc func() (concurrent.Runnable, error)) {
 	product, err := buildFunc()
 	if err != nil {
 		t.Fatalf("The builder function failed: %v", err)
@@ -31,7 +32,7 @@ func (expect *webpaExpect) assertBuildFunc(t *testing.T, loggingBuffer *bytes.Bu
 	expect.assertProduct(t, loggingBuffer, product)
 }
 
-func (expect *webpaExpect) assertProduct(t *testing.T, loggingBuffer *bytes.Buffer, product Runnable) {
+func (expect *webpaExpect) assertProduct(t *testing.T, loggingBuffer *bytes.Buffer, product concurrent.Runnable) {
 	actual, ok := product.(*webPA)
 	if !ok {
 		t.Fatal("The builder product is not a webPA instance")
