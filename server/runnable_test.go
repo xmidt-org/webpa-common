@@ -84,6 +84,10 @@ func TestExecuteSuccess(t *testing.T) {
 	var actualRunCount uint32
 	success := success(t, &actualRunCount)
 	waitGroup, shutdown, err := Execute(success)
+	if actualRunCount != 1 {
+		t.Error("Execute() did not invoke Run()")
+	}
+
 	if err != nil {
 		t.Fatalf("Execute() failed: %v", err)
 	}
@@ -94,5 +98,38 @@ func TestExecuteSuccess(t *testing.T) {
 
 	if shutdown == nil {
 		t.Fatal("Execute() returned a nil shutdown channel")
+	}
+
+	close(shutdown)
+
+	if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
+		t.Errorf("Blocked on WaitGroup longer than the timeout")
+	}
+}
+
+func TestExecuteFail(t *testing.T) {
+	var actualRunCount uint32
+	fail := fail(t, &actualRunCount)
+	waitGroup, shutdown, err := Execute(fail)
+	if actualRunCount != 1 {
+		t.Error("Execute() did not invoke Run()")
+	}
+
+	if err == nil {
+		t.Error("Execute() should have returned an error")
+	}
+
+	if waitGroup == nil {
+		t.Fatal("Execute() returned a nil WaitGroup")
+	}
+
+	if shutdown == nil {
+		t.Fatal("Execute() returned a nil shutdown channel")
+	}
+
+	close(shutdown)
+
+	if !concurrent.WaitTimeout(waitGroup, time.Second*2) {
+		t.Errorf("Blocked on WaitGroup longer than the timeout")
 	}
 }
