@@ -1,10 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"github.com/Comcast/webpa-common/logging"
 	"net"
 	"testing"
 	"time"
@@ -41,32 +38,6 @@ func (executor *testServerExecutor) ListenAndServeTLS(certificateFile, keyFile s
 	}
 
 	return executor.expectListenAndServeTLS(executor.t, certificateFile, keyFile)
-}
-
-// testLoggerFactory provides a mocked logging.LoggerFactory for testing
-type testLoggerFactory struct {
-	t             *testing.T
-	buffer        bytes.Buffer
-	expectedNames map[string]bool
-}
-
-func (factory *testLoggerFactory) NewLogger(name string) (logging.Logger, error) {
-	if !factory.expectedNames[name] {
-		message := fmt.Sprintf("Unexpected logger name %s", name)
-		factory.t.Errorf(message)
-		return nil, errors.New(message)
-	}
-
-	return &logging.LoggerWriter{&factory.buffer}, nil
-}
-
-func newTestLoggerFactory(t *testing.T, expectedNames ...string) *testLoggerFactory {
-	loggerFactory := &testLoggerFactory{t: t, expectedNames: make(map[string]bool, len(expectedNames))}
-	for _, name := range expectedNames {
-		loggerFactory.expectedNames[name] = true
-	}
-
-	return loggerFactory
 }
 
 // mockConn implements both net.Conn and net.Addr, for testing

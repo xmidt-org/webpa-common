@@ -2,18 +2,15 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Comcast/webpa-common/types"
 	"io/ioutil"
 	"os"
+	"time"
 )
 
 // Configuration provides the basic configuration options common to all WebPA servers.
 type Configuration struct {
-	// ServerName is the human-readable name for this server.  This will be used as the name of
-	// the internal logger.  Note that this is exposed via JSON, but doesn't have to be supplied
-	// from a configuration file.  Applications can hardcode it at will.
-	ServerName string `json:"serverName"`
-
 	// Port is the primary port for this server
 	Port uint16 `json:"port"`
 
@@ -21,8 +18,8 @@ type Configuration struct {
 	// is always HTTP.
 	HealthCheckPort uint16 `json:"hcport"`
 
-	// HealthCheckInterval is the interval at which health logging is dispatched
-	HealthCheckInterval types.Duration `json:"hcInterval"`
+	// HCInterval is the interval at which health logging is dispatched
+	HCInterval types.Duration `json:"hcInterval"`
 
 	// PprofPort is the port used for pprof.  This service
 	// is always HTTP.
@@ -35,6 +32,46 @@ type Configuration struct {
 	// KeyFile is the path to the file containing the key for HTTPS.
 	// This only applies to the primary server listening on Port.
 	KeyFile string `json:"key"`
+}
+
+// PrimaryAddress returns the listen address for the primary server, i.e.
+// the server that listens on c.Port.
+func (c *Configuration) PrimaryAddress() string {
+	port := DefaultPort
+	if c.Port > 0 {
+		port = c.Port
+	}
+
+	return fmt.Sprintf(":%d", port)
+}
+
+// HealthAddress returns the listen address for the health server
+func (c *Configuration) HealthAddress() string {
+	port := DefaultHealthCheckPort
+	if c.HealthCheckPort > 0 {
+		port = c.HealthCheckPort
+	}
+
+	return fmt.Sprintf(":%d", port)
+}
+
+// HealthCheckInterval returns the period between health updates
+func (c *Configuration) HealthCheckInterval() time.Duration {
+	if c.HCInterval > 0 {
+		return time.Duration(c.HCInterval)
+	} else {
+		return DefaultHealthCheckInterval
+	}
+}
+
+// PprofAddress returns the listen address for the pprof server
+func (c *Configuration) PprofAddress() string {
+	port := DefaultPprofPort
+	if c.PprofPort > 0 {
+		port = c.PprofPort
+	}
+
+	return fmt.Sprintf(":%d", port)
 }
 
 // ReadConfigurationFile provides the standard logic for reading a JSON

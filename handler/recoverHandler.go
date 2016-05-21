@@ -1,24 +1,26 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/context"
-	"github.com/Comcast/webpa-common/logging"
+	"fmt"
+	"github.com/Comcast/webpa-common/fact"
+	"golang.org/x/net/context"
 	"net/http"
 )
 
-// recovery is the internal ChainHandler function.  For simplicity, clients must call Recovery()
-// to obtain a reference to this function, which gives a little syntactic sugar.
-func recovery(logger logging.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
+// Recover is a ChainHandler that recovers from panics down the chain.  If a panic occurs,
+// a well-formed HTTP response is written out.
+//
+// This ChainHandler should normally be at the start of the chain.
+func Recover(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			logger.Error("Recovering from panic: %v", recovered)
-			context.WriteError(response, recovered)
+			fact.MustLogger(ctx).Error("Recovered: %v", recovered)
+			WriteError(
+				response,
+				fmt.Sprintf("%v", recovered),
+			)
 		}
 	}()
 
-	next.ServeHTTP(response, request)
-}
-
-func Recovery() ChainHandler {
-	return ChainHandlerFunc(recovery)
+	next.ServeHTTP(ctx, response, request)
 }

@@ -1,54 +1,48 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/logging"
+	"golang.org/x/net/context"
 	"net/http"
 )
 
 // ChainHandler represents an HTTP handler type that is one part of a chain of handlers.
 type ChainHandler interface {
-	ServeHTTP(logging.Logger, http.ResponseWriter, *http.Request, http.Handler)
+	ServeHTTP(context.Context, http.ResponseWriter, *http.Request, ContextHandler)
 }
 
 // ChainHandlerFunc is a function type that implements ChainHandler
-type ChainHandlerFunc func(logging.Logger, http.ResponseWriter, *http.Request, http.Handler)
+type ChainHandlerFunc func(context.Context, http.ResponseWriter, *http.Request, ContextHandler)
 
-func (f ChainHandlerFunc) ServeHTTP(logger logging.Logger, response http.ResponseWriter, request *http.Request, next http.Handler) {
-	f(logger, response, request, next)
+func (f ChainHandlerFunc) ServeHTTP(requestContext context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+	f(requestContext, response, request, next)
 }
 
-// chainLink is an internal type that acts like one node in a linked list.
-// This type maintains a reference to a ChainHandler and the next http.Handler,
-// which in turn can be another chainedHandler.
+// chainLink represents one node in a chain of handlers.  It is essentially
+// a linked list node.
 type chainLink struct {
-	handler ChainHandler
-	logger  logging.Logger
-	next    http.Handler
+	current ChainHandler
+	next    ContextHandler
 }
 
-func (link *chainLink) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	link.handler.ServeHTTP(link.logger, response, request, link.next)
+func (link *chainLink) ServeHTTP(requestContext context.Context, response http.ResponseWriter, request *http.Request) {
+	link.current.ServeHTTP(requestContext, response, request, link.next)
 }
 
-// Chain represents an ordered list of ChainHandlers that will decorate a given http.Handler.
+// Chain represents an ordered slice of ChainHandlers that will be applied to each request.
 type Chain []ChainHandler
 
-// Decorate applies the chain of handlers to the given delegate.  The order in which each handler
-// is executed is the same as the order within the Chain slice.
-func (chain Chain) Decorate(logger logging.Logger, delegate http.Handler) http.Handler {
-	decorated := delegate
-	for index := len(chain) - 1; index >= 0; index-- {
+// Decorate produces a single http.Handler that executes each handler in the chain in sequence
+// before finally executing a ContextHandler.  The given Context is passed through the chain,
+// and may be modified at each step.
+func (chain Chain) Decorate(root context.Context, contextHandler ContextHandler) http.Handler {
+	var decorated ContextHandler = contextHandler
+
+	for _, link := range chain {
 		decorated = &chainLink{
-			handler: chain[index],
-			logger:  logger,
+			current: link,
 			next:    decorated,
 		}
 	}
 
-	return decorated
-}
-
-// DecorateContext is a variant of Decorate that uses a ContextHandler as the delegate.
-func (chain Chain) DecorateContext(logger logging.Logger, delegate ContextHandler) http.Handler {
-	return chain.Decorate(logger, NewContextHttpHandler(logger, delegate))
+	return Adapt(root, decorated)
 }

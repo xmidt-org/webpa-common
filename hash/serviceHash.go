@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ErrorServiceHashHolderUninitialized = errors.New("ServiceHashHolder is not initialized")
+	ServiceHashHolderUninitialized = errors.New("ServiceHashHolder is not initialized")
 )
 
 // ServiceHash represents a component which can return URLs as strings based
@@ -29,7 +29,7 @@ var _ ServiceHash = (*ServiceHashHolder)(nil)
 func (holder *ServiceHashHolder) Get(key []byte) (string, error) {
 	reference := (*ServiceHash)(atomic.LoadPointer(&holder.current))
 	if reference == nil {
-		return "", ErrorServiceHashHolderUninitialized
+		return "", ServiceHashHolderUninitialized
 	}
 
 	return (*reference).Get(key)

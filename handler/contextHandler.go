@@ -1,8 +1,7 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/context"
-	"github.com/Comcast/webpa-common/logging"
+	"golang.org/x/net/context"
 	"net/http"
 )
 
@@ -15,32 +14,13 @@ type ContextHandler interface {
 // ContextHandlerFunc is a function type that implements ContextHandler
 type ContextHandlerFunc func(context.Context, http.ResponseWriter, *http.Request)
 
-func (f ContextHandlerFunc) ServeHTTP(requestContext context.Context, response http.ResponseWriter, request *http.Request) {
-	f(requestContext, response, request)
+func (f ContextHandlerFunc) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request) {
+	f(ctx, response, request)
 }
 
-// contextHttpHandler is an internal type that adapts http.Handler onto ContextHandler
-type contextHttpHandler struct {
-	logger   logging.Logger
-	delegate ContextHandler
-}
-
-func (c *contextHttpHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	requestContext, err := context.NewContext(c.logger, request)
-	if err != nil {
-		c.logger.Error("Unable to create WebPA context: %v", err)
-		context.WriteError(response, err)
-		return
-	}
-
-	c.delegate.ServeHTTP(requestContext, response, request)
-}
-
-// NewContextHttpHandler returns a new http.Handler that passes a distinct WebPA context object
-// for each request to the delegate function.
-func NewContextHttpHandler(logger logging.Logger, delegate ContextHandler) http.Handler {
-	return &contextHttpHandler{
-		logger:   logger,
-		delegate: delegate,
-	}
+// Adapt returns an http.Handler that delegates to the given ContextHandler
+func Adapt(ctx context.Context, contextHandler ContextHandler) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		contextHandler.ServeHTTP(ctx, response, request)
+	})
 }

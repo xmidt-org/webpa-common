@@ -2,20 +2,21 @@ package server
 
 import (
 	"encoding/json"
+	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/logging"
 	"sync"
 )
 
 // serverExecutor is a local interface describing the set of methods the underlying
-// server object must implement.
+// server object must implement. *http.Server, for example, implements this interface.
 type serverExecutor interface {
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
 }
 
-// webPA represents a server component within the WebPA cluster.  It is used for both
+// WebPA represents a server component within the WebPA cluster.  It is used for both
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
-type webPA struct {
+type WebPA struct {
 	name            string
 	address         string
 	serverExecutor  serverExecutor
@@ -25,7 +26,33 @@ type webPA struct {
 	once            sync.Once
 }
 
-func (w *webPA) String() string {
+var _ concurrent.Runnable = (*WebPA)(nil)
+
+func (w *WebPA) Name() string {
+	return w.name
+}
+
+func (w *WebPA) Address() string {
+	return w.address
+}
+
+func (w *WebPA) CertificateFile() string {
+	return w.certificateFile
+}
+
+func (w *WebPA) KeyFile() string {
+	return w.keyFile
+}
+
+func (w *WebPA) Secure() bool {
+	return len(w.certificateFile) > 0 && len(w.keyFile) > 0
+}
+
+func (w *WebPA) Logger() logging.Logger {
+	return w.logger
+}
+
+func (w *WebPA) String() string {
 	data, err := w.MarshalJSON()
 	if err != nil {
 		return err.Error()
@@ -34,7 +61,7 @@ func (w *webPA) String() string {
 	return string(data)
 }
 
-func (w *webPA) MarshalJSON() ([]byte, error) {
+func (w *WebPA) MarshalJSON() ([]byte, error) {
 	data := struct {
 		Name            string `json:"name"`
 		Address         string `json:"address"`
@@ -60,14 +87,14 @@ func (w *webPA) MarshalJSON() ([]byte, error) {
 //
 // Run is idemptotent.  It can only be execute once, and subsequent invocations have
 // no effect.
-func (w *webPA) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+func (w *WebPA) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	w.once.Do(func() {
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
 			var err error
 			w.logger.Info("Starting [%s]", w.name)
-			if len(w.certificateFile) > 0 && len(w.keyFile) > 0 {
+			if w.Secure() {
 				err = w.serverExecutor.ListenAndServeTLS(w.certificateFile, w.keyFile)
 			} else {
 				err = w.serverExecutor.ListenAndServe()

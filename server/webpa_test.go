@@ -15,22 +15,22 @@ func TestWebPAMarshalJSON(t *testing.T) {
 	assertions := assert.New(t)
 
 	var testData = []struct {
-		webPA    webPA
+		webPA    WebPA
 		expected string
 	}{
 		{
-			webPA{},
+			WebPA{},
 			`{"name": "", "address": "", "cert": "", "key": ""}`,
 		},
 		{
-			webPA{
+			WebPA{
 				name:    "foobar",
 				address: ":8080",
 			},
 			`{"name": "foobar", "address": ":8080", "cert": "", "key": ""}`,
 		},
 		{
-			webPA{
+			WebPA{
 				name:            "moomar",
 				address:         ":9191",
 				certificateFile: expectedCertificateFile,
@@ -63,10 +63,10 @@ func TestWebPAMarshalJSON(t *testing.T) {
 
 func TestWebPARun(t *testing.T) {
 	var testData = []struct {
-		webPA webPA
+		webPA WebPA
 	}{
 		{
-			webPA{
+			WebPA{
 				name:    "foobar",
 				address: ":8080",
 				serverExecutor: &testServerExecutor{
@@ -77,7 +77,7 @@ func TestWebPARun(t *testing.T) {
 			},
 		},
 		{
-			webPA{
+			WebPA{
 				name:            "foobar",
 				address:         ":8080",
 				certificateFile: expectedCertificateFile,
