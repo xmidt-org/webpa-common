@@ -17,10 +17,3 @@ type ContextHandlerFunc func(context.Context, http.ResponseWriter, *http.Request
 func (f ContextHandlerFunc) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request) {
 	f(ctx, response, request)
 }
-
-// Adapt returns an http.Handler that delegates to the given ContextHandler
-func Adapt(ctx context.Context, contextHandler ContextHandler) http.Handler {
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		contextHandler.ServeHTTP(ctx, response, request)
-	})
-}

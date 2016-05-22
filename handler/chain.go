@@ -44,16 +44,7 @@ func (chain Chain) Decorate(root context.Context, contextHandler ContextHandler)
 		}
 	}
 
-	return Adapt(root, decorated)
-}
-
-// DefaultChain creates a Chain instance with the default handlers for WebPA.
-// The returned Chain is a distinct instance, and can be modified to suit
-// the server's demands.
-func DefaultChain() Chain {
-	return Chain{
-		Recover(),
-		DeviceId(),
-		Convey(),
-	}
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		decorated.ServeHTTP(root, response, request)
+	})
 }

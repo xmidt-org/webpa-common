@@ -8,8 +8,8 @@ import (
 	"net/http"
 )
 
-// HashRedirector provides a ContextHandler that redirects requests based on a ServiceHash.
-func HashRedirector(serviceHash hash.ServiceHash, code int) ContextHandler {
+// Hash provides a ContextHandler that redirects requests based on a ServiceHash.
+func Hash(serviceHash hash.ServiceHash, code int) ContextHandler {
 	return ContextHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request) {
 		address, err := serviceHash.Get(fact.MustDeviceId(ctx).Bytes())
 		if err != nil {
