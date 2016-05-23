@@ -10,7 +10,7 @@ import (
 )
 
 // payloadTestData can be generated with:
-// https://play.golang.org/p/Dn_wIn1Y14
+// https://play.golang.org/p/T0ymv6RE4l
 var payloadTestData = []struct {
 	encoding *base64.Encoding
 	value    string
