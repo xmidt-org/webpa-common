@@ -34,7 +34,7 @@ type Chain []ChainHandler
 // Decorate produces a single http.Handler that executes each handler in the chain in sequence
 // before finally executing a ContextHandler.  The given Context is passed through the chain,
 // and may be modified at each step.
-func (chain Chain) Decorate(root context.Context, contextHandler ContextHandler) http.Handler {
+func (chain Chain) Decorate(initial context.Context, contextHandler ContextHandler) http.Handler {
 	var decorated ContextHandler = contextHandler
 
 	for _, link := range chain {
@@ -45,6 +45,6 @@ func (chain Chain) Decorate(root context.Context, contextHandler ContextHandler)
 	}
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		decorated.ServeHTTP(root, response, request)
+		decorated.ServeHTTP(initial, response, request)
 	})
 }

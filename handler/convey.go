@@ -22,10 +22,12 @@ func ConveyCustom(conveyHeader string, encoding *base64.Encoding) ChainHandler {
 			if rawPayload == notAvailable {
 				fact.MustLogger(ctx).Error("Invalid convey header: %s.  FIX ME: https://www.teamccp.com/jira/browse/WEBPA-787", rawPayload)
 			} else if conveyPayload, err := convey.ParsePayload(encoding, rawPayload); err != nil {
+				message := fmt.Sprintf(InvalidConveyPattern, rawPayload, err)
+				fact.MustLogger(ctx).Error(message)
 				WriteJsonError(
 					response,
 					http.StatusBadRequest,
-					fmt.Sprintf(InvalidConveyPattern, rawPayload, err),
+					message,
 				)
 
 				return
