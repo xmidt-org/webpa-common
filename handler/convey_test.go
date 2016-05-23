@@ -33,10 +33,8 @@ func ExampleConvey() {
 	}
 
 	request.Header.Add(ConveyHeader, "eyJuYW1lIjoidmFsdWUifQ==")
+	Convey().ServeHTTP(context.Background(), response, request, contextHandler)
 
-	Chain{
-		Convey(),
-	}.Decorate(context.Background(), contextHandler).ServeHTTP(response, request)
 	// Output: {"name":"value"}
 }
 
