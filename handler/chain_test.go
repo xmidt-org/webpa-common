@@ -5,45 +5,12 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
-	"mime"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 )
-
-type errorChainHandler struct {
-	statusCode int
-	message    string
-}
-
-func (e errorChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-	WriteJsonError(response, e.statusCode, e.message)
-}
-
-type successChainHandler struct {
-	key   interface{}
-	value interface{}
-}
-
-func (s successChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-	next.ServeHTTP(
-		context.WithValue(ctx, s.key, s.value),
-		response,
-		request,
-	)
-}
-
-type panicHandler struct {
-	value interface{}
-}
-
-func (p panicHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-	panic(p.value)
-}
 
 type chainExpect struct {
 	contextHandlerCalled bool
@@ -51,25 +18,15 @@ type chainExpect struct {
 	message              string
 }
 
-func (expect *chainExpect) assert(assertions *assert.Assertions, response *httptest.ResponseRecorder, contextHandler *testContextHandler) {
+func (expect *chainExpect) assert(t *testing.T, response *httptest.ResponseRecorder, contextHandler *testContextHandler) {
 	contextHandler.assertCalled(expect.contextHandlerCalled)
-	assertions.Equal(expect.statusCode, response.Code)
 
 	if len(expect.message) > 0 {
-		mediaType, _, err := mime.ParseMediaType(response.Header().Get("Content-Type"))
-		assertions.NoError(err)
-		mediaType = strings.ToLower(mediaType)
-		assertions.Equal("application/json", mediaType)
-		assertions.JSONEq(
-			fmt.Sprintf(`{"message": "%s"}`, expect.message),
-			response.Body.String(),
-		)
+		assertJsonErrorResponse(t, response, expect.statusCode, expect.message)
 	}
 }
 
 func TestDecorate(t *testing.T) {
-	assertions := assert.New(t)
-
 	var testData = []struct {
 		chain          Chain
 		contextHandler *testContextHandler
@@ -191,7 +148,7 @@ func TestDecorate(t *testing.T) {
 
 		decorated := record.chain.Decorate(ctx, record.contextHandler)
 		response, _ := invokeServeHttp(t, decorated)
-		record.expect.assert(assertions, response, record.contextHandler)
+		record.expect.assert(t, response, record.contextHandler)
 	}
 }
 

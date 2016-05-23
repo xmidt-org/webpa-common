@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"github.com/Comcast/webpa-common/fact"
 	"golang.org/x/net/context"
 	"net/http"
 )
@@ -46,17 +45,7 @@ func (chain Chain) Decorate(initial context.Context, contextHandler ContextHandl
 	}
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		defer func() {
-			if recovered := recover(); recovered != nil {
-				logger, ok := fact.Logger(initial)
-				if ok {
-					logger.Error("Recovered: %v", recovered)
-				}
-
-				WriteError(response, recovered)
-			}
-		}()
-
+		defer Recover(initial, response)
 		decorated.ServeHTTP(initial, response, request)
 	})
 }

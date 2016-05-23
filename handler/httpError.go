@@ -2,6 +2,8 @@ package handler
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/fact"
+	"golang.org/x/net/context"
 	"net/http"
 )
 
@@ -67,4 +69,17 @@ func WriteError(response http.ResponseWriter, err interface{}) error {
 	}
 
 	return nil
+}
+
+// Recover provides panic recovery for a chain of requests.  This function *must* be
+// called as a deferred function.
+func Recover(ctx context.Context, response http.ResponseWriter) {
+	if recovered := recover(); recovered != nil {
+		logger, ok := fact.Logger(ctx)
+		if ok {
+			logger.Error("Recovered: %v", recovered)
+		}
+
+		WriteError(response, recovered)
+	}
 }

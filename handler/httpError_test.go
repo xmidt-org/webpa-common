@@ -3,7 +3,10 @@ package handler
 import (
 	"bytes"
 	"fmt"
+	"github.com/Comcast/webpa-common/fact"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/net/context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -139,4 +142,92 @@ func TestWriteErrorUsingStringer(t *testing.T) {
 		fmt.Sprintf(`{"message": "%s"}`, errorMessage),
 		responseRecorder.Body.String(),
 	)
+}
+
+func TestRecoverFromPanic(t *testing.T) {
+	var testData = []struct {
+		panicValue         interface{}
+		expectedStatusCode int
+		expectedMessage    string
+	}{
+		{
+			"an error message",
+			http.StatusInternalServerError,
+			"an error message",
+		},
+		{
+			NewHttpError(415, "foobar!"),
+			415,
+			"foobar!",
+		},
+	}
+
+	for _, record := range testData {
+		ctx := context.Background()
+		response := httptest.NewRecorder()
+
+		// no logger in context ...
+		func() {
+			defer Recover(ctx, response)
+			panic(record.panicValue)
+		}()
+
+		assertJsonErrorResponse(t, response, record.expectedStatusCode, record.expectedMessage)
+
+		var output bytes.Buffer
+		logger := &logging.LoggerWriter{&output}
+		ctx = fact.SetLogger(ctx, logger)
+		response = httptest.NewRecorder()
+
+		// now a logger is in the context
+		func() {
+			defer Recover(ctx, response)
+			panic(record.panicValue)
+		}()
+
+		assertJsonErrorResponse(t, response, record.expectedStatusCode, record.expectedMessage)
+		if output.Len() == 0 {
+			t.Error("Logger did not receive an error message")
+		}
+	}
+}
+
+func TestRecoverWithoutPanic(t *testing.T) {
+	ctx := context.Background()
+	response := httptest.NewRecorder()
+
+	// no logger in context ...
+	func() {
+		defer Recover(ctx, response)
+	}()
+
+	if response.Code != 200 {
+		t.Errorf("Unexpected status code: %d", response.Code)
+	}
+
+	if response.Body.Len() > 0 {
+		t.Errorf("Unexpected response body: %s", response.Body.Bytes())
+	}
+
+	var output bytes.Buffer
+	logger := &logging.LoggerWriter{&output}
+	ctx = fact.SetLogger(ctx, logger)
+	response = httptest.NewRecorder()
+
+	// now a logger is in the context
+	func() {
+		defer Recover(ctx, response)
+	}()
+
+	if output.Len() > 0 {
+		t.Error("Unexpected logging output")
+	}
+
+	if response.Code != 200 {
+		t.Errorf("Unexpected status code: %d", response.Code)
+	}
+
+	if response.Body.Len() > 0 {
+		t.Errorf("Unexpected response body: %s", response.Body.Bytes())
+	}
 }

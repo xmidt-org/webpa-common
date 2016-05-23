@@ -28,23 +28,28 @@ func (writer *listenableResponseWriter) WriteHeader(statusCode int) {
 }
 
 // Listen produces a ChainHandler that notifies the given list of listeners
-// of request events.
+// of request events.  This handler also provides panic recovery.  Upon a recovered panic,
+// this ChainHandler ensures that listener.RequestCompleted is invoked.
 func Listen(listeners ...RequestListener) ChainHandler {
 	return ChainHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+		listenableResponse := &listenableResponseWriter{ResponseWriter: response}
+
+		defer func() {
+			Recover(ctx, listenableResponse)
+			statusCode := listenableResponse.statusCode
+			if statusCode < 1 {
+				statusCode = http.StatusOK
+			}
+
+			for _, listener := range listeners {
+				listener.RequestCompleted(statusCode, request)
+			}
+		}()
+
 		for _, listener := range listeners {
 			listener.RequestReceived(request)
 		}
 
-		listenableResponse := &listenableResponseWriter{ResponseWriter: response}
 		next.ServeHTTP(ctx, listenableResponse, request)
-
-		statusCode := listenableResponse.statusCode
-		if statusCode < 1 {
-			statusCode = http.StatusOK
-		}
-
-		for _, listener := range listeners {
-			listener.RequestCompleted(statusCode, request)
-		}
 	})
 }
