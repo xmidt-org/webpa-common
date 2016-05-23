@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"golang.org/x/net/context"
 	"net/http"
@@ -54,10 +53,7 @@ func (chain Chain) Decorate(initial context.Context, contextHandler ContextHandl
 					logger.Error("Recovered: %v", recovered)
 				}
 
-				WriteError(
-					response,
-					fmt.Sprintf("%v", recovered),
-				)
+				WriteError(response, recovered)
 			}
 		}()
 

@@ -37,6 +37,14 @@ func (s successChainHandler) ServeHTTP(ctx context.Context, response http.Respon
 	)
 }
 
+type panicHandler struct {
+	value interface{}
+}
+
+func (p panicHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+	panic(p.value)
+}
+
 type chainExpect struct {
 	contextHandlerCalled bool
 	statusCode           int
@@ -144,6 +152,36 @@ func TestDecorate(t *testing.T) {
 				contextHandlerCalled: false,
 				statusCode:           555,
 				message:              "an error message",
+			},
+		},
+		{
+			Chain{
+				panicHandler{
+					"an error message",
+				},
+			},
+			&testContextHandler{
+				t: t,
+			},
+			chainExpect{
+				contextHandlerCalled: false,
+				statusCode:           http.StatusInternalServerError,
+				message:              "an error message",
+			},
+		},
+		{
+			Chain{
+				panicHandler{
+					NewHttpError(598, "it's on fire!"),
+				},
+			},
+			&testContextHandler{
+				t: t,
+			},
+			chainExpect{
+				contextHandlerCalled: false,
+				statusCode:           598,
+				message:              "it's on fire!",
 			},
 		},
 	}
