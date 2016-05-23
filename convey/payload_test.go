@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+// payloadTestData can be generated with:
+// https://play.golang.org/p/Dn_wIn1Y14
 var payloadTestData = []struct {
 	encoding *base64.Encoding
 	value    string
@@ -17,6 +19,60 @@ var payloadTestData = []struct {
 	{
 		encoding: base64.StdEncoding,
 		value:    "eyAicGFyYW1ldGVycyI6IFsgeyAibmFtZSI6ICJEZXZpY2UuRGV2aWNlSW5mby5XZWJwYS5YX0NPTUNBU1QtQ09NX0NJRCIsICJ2YWx1ZSI6ICIwIiwgImRhdGFUeXBlIjogMCB9LCB7ICJuYW1lIjogIkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwgInZhbHVlIjogIjI2OSIsICJkYXRhVHlwZSI6IDIgfSBdIH0K",
+		expected: Payload{
+			"parameters": []Payload{
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CID",
+					"value":    "0",
+					"dataType": 0,
+				},
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CMC",
+					"value":    "269",
+					"dataType": 2,
+				},
+			},
+		},
+	},
+	{
+		encoding: base64.RawURLEncoding,
+		value:    "eyJwYXJhbWV0ZXJzIjpbeyJkYXRhVHlwZSI6MCwibmFtZSI6IkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ0lEIiwidmFsdWUiOiIwIn0seyJkYXRhVHlwZSI6MiwibmFtZSI6IkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwidmFsdWUiOiIyNjkifV19",
+		expected: Payload{
+			"parameters": []Payload{
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CID",
+					"value":    "0",
+					"dataType": 0,
+				},
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CMC",
+					"value":    "269",
+					"dataType": 2,
+				},
+			},
+		},
+	},
+	{
+		encoding: base64.URLEncoding,
+		value:    "eyJwYXJhbWV0ZXJzIjpbeyJkYXRhVHlwZSI6MCwibmFtZSI6IkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ0lEIiwidmFsdWUiOiIwIn0seyJkYXRhVHlwZSI6MiwibmFtZSI6IkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwidmFsdWUiOiIyNjkifV19",
+		expected: Payload{
+			"parameters": []Payload{
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CID",
+					"value":    "0",
+					"dataType": 0,
+				},
+				Payload{
+					"name":     "Device.DeviceInfo.Webpa.X_COMCAST-COM_CMC",
+					"value":    "269",
+					"dataType": 2,
+				},
+			},
+		},
+	},
+	{
+		encoding: base64.RawStdEncoding,
+		value:    "eyJwYXJhbWV0ZXJzIjpbeyJkYXRhVHlwZSI6MCwibmFtZSI6IkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ0lEIiwidmFsdWUiOiIwIn0seyJkYXRhVHlwZSI6MiwibmFtZSI6IkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwidmFsdWUiOiIyNjkifV19",
 		expected: Payload{
 			"parameters": []Payload{
 				Payload{
