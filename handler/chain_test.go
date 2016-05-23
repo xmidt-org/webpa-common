@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/Comcast/webpa-common/fact"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"mime"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -151,4 +155,40 @@ func TestDecorate(t *testing.T) {
 		response, _ := invokeServeHttp(t, decorated)
 		record.expect.assert(assertions, response, record.contextHandler)
 	}
+}
+
+func ExampleTypicalChain() {
+	logger := &logging.LoggerWriter{os.Stdout}
+	ctx := fact.SetLogger(context.Background(), logger)
+
+	contextHandler := ContextHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request) {
+		logger := fact.MustLogger(ctx)
+		payloadJson, err := json.Marshal(fact.MustConvey(ctx))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to marshal convey payload: %v\n", err)
+			return
+		}
+
+		logger.Info("%s", payloadJson)
+		logger.Info("%s", fact.MustDeviceId(ctx))
+	})
+
+	response := httptest.NewRecorder()
+	request, err := http.NewRequest("GET", "", nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create request: %v\n", err)
+		return
+	}
+
+	request.Header.Add(ConveyHeader, "eyJuYW1lIjoidmFsdWUifQ==")
+	request.Header.Add(DeviceNameHeader, "mac:111122223333")
+
+	Chain{
+		Convey(),
+		DeviceId(),
+	}.Decorate(ctx, contextHandler).ServeHTTP(response, request)
+
+	// Output:
+	// [INFO]  {"name":"value"}
+	// [INFO]  mac:111122223333
 }

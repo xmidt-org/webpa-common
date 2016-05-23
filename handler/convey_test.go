@@ -74,10 +74,16 @@ func TestConveyCustom(t *testing.T) {
 			}
 
 			request.Header.Add(headerName, encodedPayload.String())
+			ConveyCustom(headerName, encoding).ServeHTTP(
+				context.Background(),
+				response,
+				request,
+				contextHandler,
+			)
 
-			Chain{
-				ConveyCustom(headerName, encoding),
-			}.Decorate(context.Background(), contextHandler).ServeHTTP(response, request)
+			if response.Code != 200 {
+				t.Errorf("Invalid response code %d", response.Code)
+			}
 
 			if !contextHandlerCalled {
 				t.Fatal("Context handler was not called")
