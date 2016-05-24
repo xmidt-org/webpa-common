@@ -35,7 +35,6 @@ func Listen(listeners ...RequestListener) ChainHandler {
 		listenableResponse := &listenableResponseWriter{ResponseWriter: response}
 
 		defer func() {
-			Recover(ctx, listenableResponse)
 			statusCode := listenableResponse.statusCode
 			if statusCode < 1 {
 				statusCode = http.StatusOK
@@ -45,6 +44,8 @@ func Listen(listeners ...RequestListener) ChainHandler {
 				listener.RequestCompleted(statusCode, request)
 			}
 		}()
+
+		defer Recover(ctx, listenableResponse)
 
 		for _, listener := range listeners {
 			listener.RequestReceived(request)

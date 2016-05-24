@@ -1,12 +1,11 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 )
@@ -19,13 +18,7 @@ func ExampleDeviceId() {
 		fact.MustLogger(ctx).Info("%s", deviceId)
 	})
 
-	response := httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "", nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create request: %v\n", err)
-		return
-	}
-
+	response, request := dummyHttpOperation()
 	request.Header.Add(DeviceNameHeader, "mac:111122223333")
 	DeviceId().ServeHTTP(ctx, response, request, contextHandler)
 
@@ -33,6 +26,7 @@ func ExampleDeviceId() {
 }
 
 func TestDeviceId(t *testing.T) {
+	assert := assert.New(t)
 	const expectedDeviceId string = "mac:111122223333"
 
 	for _, headerName := range []string{DeviceNameHeader, "X-Some-Other-Header"} {
@@ -40,27 +34,13 @@ func TestDeviceId(t *testing.T) {
 		contextHandler := ContextHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request) {
 			contextHandlerCalled = true
 			deviceId := fact.MustDeviceId(ctx)
-			if expectedDeviceId != string(deviceId.Bytes()) {
-				t.Errorf("Expected device id %s, but got %s", expectedDeviceId, deviceId.Bytes())
-			}
+			assert.Equal(expectedDeviceId, string(deviceId.Bytes()))
 		})
 
-		response := httptest.NewRecorder()
-		request, err := http.NewRequest("GET", "", nil)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Unable to create request: %v\n", err)
-			return
-		}
-
+		response, request := dummyHttpOperation()
 		request.Header.Add(headerName, expectedDeviceId)
 		DeviceIdCustom(headerName).ServeHTTP(context.Background(), response, request, contextHandler)
-
-		if response.Code != 200 {
-			t.Errorf("Invalid response code %d", response.Code)
-		}
-
-		if !contextHandlerCalled {
-			t.Fatal("Context handler was not called")
-		}
+		assert.Equal(200, response.Code)
+		assert.True(contextHandlerCalled)
 	}
 }

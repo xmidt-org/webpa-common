@@ -7,23 +7,45 @@ import (
 	"mime"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
-	"strings"
-	"testing"
 )
 
-func assertJsonErrorResponse(t *testing.T, response *httptest.ResponseRecorder, expectedStatusCode int, expectedMessage string) {
-	if expectedStatusCode != response.Code {
-		t.Errorf("Expected status code %d, but got %d", expectedStatusCode, response.Code)
+func dummyHttpOperation() (response *httptest.ResponseRecorder, request *http.Request) {
+	response = httptest.NewRecorder()
+	request, err := http.NewRequest("GET", "", nil)
+	if err != nil {
+		panic(err)
 	}
 
-	if mediaType, _, err := mime.ParseMediaType(response.Header().Get("Content-Type")); err != nil {
-		t.Errorf("Unable to parse response Content-Type: %v", err)
-	} else if !strings.EqualFold("application/json", mediaType) {
-		t.Errorf("Unexpected media type: %s", mediaType)
+	return
+}
+
+func assertJsonErrorResponse(assert *assert.Assertions, response *httptest.ResponseRecorder, expectedStatusCode int, expectedMessage string) {
+	assert.Equal(
+		expectedStatusCode,
+		response.Code,
+		"Expected status code %d, but got %d",
+		expectedStatusCode,
+		response.Code,
+	)
+
+	mediaType, _, err := mime.ParseMediaType(response.Header().Get(ContentTypeHeader))
+	if assert.Nil(err) {
+		assert.Equal(
+			"application/json",
+			mediaType,
+			"Unexpected media type: %s",
+			mediaType,
+		)
 	}
 
-	assert.JSONEq(t, fmt.Sprintf(`{"message": "%s"}`, expectedMessage), response.Body.String())
+	assert.Equal(response.Header().Get(ContentTypeOptionsHeader), NoSniff)
+	assert.JSONEq(fmt.Sprintf(`{"message": "%s"}`, expectedMessage), response.Body.String())
+}
+
+func assertContext(assert *assert.Assertions, expected map[interface{}]interface{}, actual context.Context) {
+	for key, expectedValue := range expected {
+		assert.Equal(expectedValue, actual.Value(key))
+	}
 }
 
 // errorChainHandler is a ChainHandler that always writes an error to the response.
@@ -52,56 +74,40 @@ func (s successChainHandler) ServeHTTP(ctx context.Context, response http.Respon
 	)
 }
 
-// panicHandler is a ChainHandler that always panics with the given value
-type panicHandler struct {
-	value interface{}
+// panicContextHandler is a ContextHandler that always panics
+type panicContextHandler struct {
+	wasCalled bool
+	value     interface{}
 }
 
-func (p panicHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+func (p *panicContextHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request) {
+	p.wasCalled = true
 	panic(p.value)
 }
 
-// invokeServeHttp is a helper function that invokes handler.ServeHttp() with
-// dummy arguments.  The dummy arguments are returned for verification, if desired.
-func invokeServeHttp(t *testing.T, handler http.Handler) (response *httptest.ResponseRecorder, request *http.Request) {
-	response = httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "", nil)
-	if err != nil {
-		t.Fatalf("Unable to create request: %v", err)
-		return
-	}
+// panicChainHandler is a ChainHandler that always panics
+type panicChainHandler struct {
+	wasCalled bool
+	value     interface{}
+}
 
-	handler.ServeHTTP(response, request)
-	t.Logf("response code: %d, response body: %s", response.Code, response.Body.String())
-	return
+func (p *panicChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+	p.wasCalled = true
+	panic(p.value)
 }
 
 type testContextHandler struct {
-	t               *testing.T
+	assert          *assert.Assertions
 	wasCalled       bool
+	statusCode      int
 	expectedContext map[interface{}]interface{}
 }
 
 func (handler *testContextHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request) {
-	handler.t.Logf("ServeHTTP called: ctx=%v", ctx)
 	handler.wasCalled = true
-	for key, expected := range handler.expectedContext {
-		actual := ctx.Value(key)
-		if !reflect.DeepEqual(expected, actual) {
-			handler.t.Errorf(
-				"Expected context key [%v] to be [%v], but got [%v]",
-				key,
-				expected,
-				actual,
-			)
-		}
+	if handler.statusCode > 0 {
+		response.WriteHeader(handler.statusCode)
 	}
-}
 
-func (handler *testContextHandler) assertCalled(expected bool) {
-	if expected && !handler.wasCalled {
-		handler.t.Error("ContextHandler was not called")
-	} else if !expected && handler.wasCalled {
-		handler.t.Error("ContextHandler was called")
-	}
+	assertContext(handler.assert, handler.expectedContext, ctx)
 }

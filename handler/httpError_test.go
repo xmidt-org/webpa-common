@@ -2,7 +2,6 @@ package handler
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
@@ -21,130 +20,59 @@ var httpErrorData = []struct {
 }
 
 func TestNewHttpError(t *testing.T) {
+	assert := assert.New(t)
 	for _, record := range httpErrorData {
 		actual := NewHttpError(record.code, record.message)
-		if record.code != actual.Code() {
-			t.Errorf("Expected code %d, but got %d", record.code, actual.Code())
-		}
-
-		if record.message != actual.Error() {
-			t.Errorf("Expected error message %s, but got %s", record.message, actual.Error())
-		}
+		assert.Equal(record.code, actual.Code())
+		assert.Equal(record.message, actual.Error())
 	}
 }
 
 func TestWriteJsonError(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	for _, record := range httpErrorData {
-		responseRecorder := httptest.NewRecorder()
-		WriteJsonError(responseRecorder, record.code, record.message)
-
-		if responseRecorder.Header().Get(ContentTypeHeader) != JsonContentType {
-			t.Errorf("JSON content type not set")
-		}
-
-		if responseRecorder.Header().Get(ContentTypeOptionsHeader) != NoSniff {
-			t.Errorf("nosniff content options not set")
-		}
-
-		if record.code != responseRecorder.Code {
-			t.Errorf("Expected response code %d, but got %d", record.code, responseRecorder.Code)
-		}
-
-		assertions.JSONEq(
-			fmt.Sprintf(`{"message": "%s"}`, record.message),
-			responseRecorder.Body.String(),
-		)
+		response := httptest.NewRecorder()
+		WriteJsonError(response, record.code, record.message)
+		assertJsonErrorResponse(assert, response, record.code, record.message)
 	}
 }
 
 func TestWriteErrorUsingHttpError(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	for _, record := range httpErrorData {
-		responseRecorder := httptest.NewRecorder()
-		WriteError(responseRecorder, NewHttpError(record.code, record.message))
-
-		if responseRecorder.Header().Get(ContentTypeHeader) != JsonContentType {
-			t.Errorf("JSON content type not set")
-		}
-
-		if responseRecorder.Header().Get(ContentTypeOptionsHeader) != NoSniff {
-			t.Errorf("nosniff content options not set")
-		}
-
-		if record.code != responseRecorder.Code {
-			t.Errorf("Expected response code %d, but got %d", record.code, responseRecorder.Code)
-		}
-
-		assertions.JSONEq(
-			fmt.Sprintf(`{"message": "%s"}`, record.message),
-			responseRecorder.Body.String(),
-		)
+		response := httptest.NewRecorder()
+		WriteError(response, NewHttpError(record.code, record.message))
+		assertJsonErrorResponse(assert, response, record.code, record.message)
 	}
 }
 
 func TestWriteErrorUsingInt(t *testing.T) {
-	responseRecorder := httptest.NewRecorder()
-	WriteError(responseRecorder, http.StatusInternalServerError)
-
-	if responseRecorder.Header().Get(ContentTypeOptionsHeader) != NoSniff {
-		t.Errorf("nosniff content options not set")
-	}
-
-	if http.StatusInternalServerError != responseRecorder.Code {
-		t.Errorf("Expected response code %d, but got %d", http.StatusInternalServerError, responseRecorder.Code)
-	}
+	assert := assert.New(t)
+	response := httptest.NewRecorder()
+	WriteError(response, http.StatusInternalServerError)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+	assert.Equal(response.Header().Get(ContentTypeOptionsHeader), NoSniff)
+	assert.Empty(response.Body.String())
 }
 
 func TestWriteErrorUsingString(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	const errorMessage string = "this is an error message"
-	responseRecorder := httptest.NewRecorder()
-	WriteError(responseRecorder, errorMessage)
-
-	if responseRecorder.Header().Get(ContentTypeHeader) != JsonContentType {
-		t.Errorf("JSON content type not set")
-	}
-
-	if responseRecorder.Header().Get(ContentTypeOptionsHeader) != NoSniff {
-		t.Errorf("nosniff content options not set")
-	}
-
-	if http.StatusInternalServerError != responseRecorder.Code {
-		t.Errorf("Expected response code %d, but got %d", http.StatusInternalServerError, responseRecorder.Code)
-	}
-
-	assertions.JSONEq(
-		fmt.Sprintf(`{"message": "%s"}`, errorMessage),
-		responseRecorder.Body.String(),
-	)
+	response := httptest.NewRecorder()
+	WriteError(response, errorMessage)
+	assertJsonErrorResponse(assert, response, http.StatusInternalServerError, errorMessage)
 }
 
 func TestWriteErrorUsingStringer(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	const errorMessage string = "this is an error message from a fmt.Stringer"
-	responseRecorder := httptest.NewRecorder()
-	WriteError(responseRecorder, bytes.NewBufferString(errorMessage))
-
-	if responseRecorder.Header().Get(ContentTypeHeader) != JsonContentType {
-		t.Errorf("JSON content type not set")
-	}
-
-	if responseRecorder.Header().Get(ContentTypeOptionsHeader) != NoSniff {
-		t.Errorf("nosniff content options not set")
-	}
-
-	if http.StatusInternalServerError != responseRecorder.Code {
-		t.Errorf("Expected response code %d, but got %d", http.StatusInternalServerError, responseRecorder.Code)
-	}
-
-	assertions.JSONEq(
-		fmt.Sprintf(`{"message": "%s"}`, errorMessage),
-		responseRecorder.Body.String(),
-	)
+	response := httptest.NewRecorder()
+	WriteError(response, bytes.NewBufferString(errorMessage))
+	assertJsonErrorResponse(assert, response, http.StatusInternalServerError, errorMessage)
 }
 
 func TestRecoverFromPanic(t *testing.T) {
+	assert := assert.New(t)
 	var testData = []struct {
 		panicValue         interface{}
 		expectedStatusCode int
@@ -172,7 +100,7 @@ func TestRecoverFromPanic(t *testing.T) {
 			panic(record.panicValue)
 		}()
 
-		assertJsonErrorResponse(t, response, record.expectedStatusCode, record.expectedMessage)
+		assertJsonErrorResponse(assert, response, record.expectedStatusCode, record.expectedMessage)
 
 		var output bytes.Buffer
 		logger := &logging.LoggerWriter{&output}
@@ -185,7 +113,7 @@ func TestRecoverFromPanic(t *testing.T) {
 			panic(record.panicValue)
 		}()
 
-		assertJsonErrorResponse(t, response, record.expectedStatusCode, record.expectedMessage)
+		assertJsonErrorResponse(assert, response, record.expectedStatusCode, record.expectedMessage)
 		if output.Len() == 0 {
 			t.Error("Logger did not receive an error message")
 		}

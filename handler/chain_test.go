@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 )
@@ -18,15 +18,9 @@ type chainExpect struct {
 	message              string
 }
 
-func (expect *chainExpect) assert(t *testing.T, response *httptest.ResponseRecorder, contextHandler *testContextHandler) {
-	contextHandler.assertCalled(expect.contextHandlerCalled)
-
-	if len(expect.message) > 0 {
-		assertJsonErrorResponse(t, response, expect.statusCode, expect.message)
-	}
-}
-
 func TestDecorate(t *testing.T) {
+	assert := assert.New(t)
+
 	var testData = []struct {
 		chain          Chain
 		contextHandler *testContextHandler
@@ -35,7 +29,7 @@ func TestDecorate(t *testing.T) {
 		{
 			Chain{},
 			&testContextHandler{
-				t: t,
+				assert: assert,
 			},
 			chainExpect{
 				contextHandlerCalled: true,
@@ -49,7 +43,7 @@ func TestDecorate(t *testing.T) {
 				},
 			},
 			&testContextHandler{
-				t:               t,
+				assert:          assert,
 				expectedContext: map[interface{}]interface{}{123: "foobar"},
 			},
 			chainExpect{
@@ -64,7 +58,7 @@ func TestDecorate(t *testing.T) {
 				},
 			},
 			&testContextHandler{
-				t: t,
+				assert: assert,
 			},
 			chainExpect{
 				contextHandlerCalled: false,
@@ -85,7 +79,7 @@ func TestDecorate(t *testing.T) {
 				},
 			},
 			&testContextHandler{
-				t:               t,
+				assert:          assert,
 				expectedContext: map[interface{}]interface{}{123: "foobar", 456: "asdf", "test": "giggity"},
 			},
 			chainExpect{
@@ -103,7 +97,7 @@ func TestDecorate(t *testing.T) {
 				},
 			},
 			&testContextHandler{
-				t: t,
+				assert: assert,
 			},
 			chainExpect{
 				contextHandlerCalled: false,
@@ -113,12 +107,10 @@ func TestDecorate(t *testing.T) {
 		},
 		{
 			Chain{
-				panicHandler{
-					"an error message",
-				},
+				&panicChainHandler{value: "an error message"},
 			},
 			&testContextHandler{
-				t: t,
+				assert: assert,
 			},
 			chainExpect{
 				contextHandlerCalled: false,
@@ -128,12 +120,10 @@ func TestDecorate(t *testing.T) {
 		},
 		{
 			Chain{
-				panicHandler{
-					NewHttpError(598, "it's on fire!"),
-				},
+				&panicChainHandler{value: NewHttpError(598, "it's on fire!")},
 			},
 			&testContextHandler{
-				t: t,
+				assert: assert,
 			},
 			chainExpect{
 				contextHandlerCalled: false,
@@ -147,8 +137,13 @@ func TestDecorate(t *testing.T) {
 		ctx := context.Background()
 
 		decorated := record.chain.Decorate(ctx, record.contextHandler)
-		response, _ := invokeServeHttp(t, decorated)
-		record.expect.assert(t, response, record.contextHandler)
+		response, request := dummyHttpOperation()
+		decorated.ServeHTTP(response, request)
+		assert.Equal(record.expect.contextHandlerCalled, record.contextHandler.wasCalled)
+
+		if len(record.expect.message) > 0 {
+			assertJsonErrorResponse(assert, response, record.expect.statusCode, record.expect.message)
+		}
 	}
 }
 
@@ -168,13 +163,7 @@ func ExampleTypicalChain() {
 		logger.Info("%s", fact.MustDeviceId(ctx))
 	})
 
-	response := httptest.NewRecorder()
-	request, err := http.NewRequest("GET", "", nil)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create request: %v\n", err)
-		return
-	}
-
+	response, request := dummyHttpOperation()
 	request.Header.Add(ConveyHeader, "eyJuYW1lIjoidmFsdWUifQ==")
 	request.Header.Add(DeviceNameHeader, "mac:111122223333")
 
