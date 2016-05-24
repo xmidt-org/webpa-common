@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"errors"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,16 @@ func TestWriteJsonError(t *testing.T) {
 		response := httptest.NewRecorder()
 		WriteJsonError(response, record.code, record.message)
 		assertJsonErrorResponse(assert, response, record.code, record.message)
+	}
+}
+
+func TestWriteErrorUsingError(t *testing.T) {
+	assert := assert.New(t)
+	for _, record := range httpErrorData {
+		response := httptest.NewRecorder()
+		err := errors.New(record.message)
+		WriteError(response, err)
+		assertJsonErrorResponse(assert, response, http.StatusInternalServerError, record.message)
 	}
 }
 
