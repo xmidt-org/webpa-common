@@ -14,7 +14,9 @@ func Hash(serviceHash hash.ServiceHash, code int) ContextHandler {
 		address, err := serviceHash.Get(fact.MustDeviceId(ctx).Bytes())
 		if err != nil {
 			message := fmt.Sprintf("No nodes available: %s", err.Error())
-			fact.MustLogger(ctx).Warn(message)
+			if logger, ok := fact.Logger(ctx); ok {
+				logger.Warn(message)
+			}
 
 			// service hash errors should be http.StatusServiceUnavailable, since
 			// they almost always indicate that no nodes are in the hash due to no
