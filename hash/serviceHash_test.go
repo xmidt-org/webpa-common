@@ -3,6 +3,7 @@ package hash
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/concurrent"
+	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"
 	"time"
@@ -32,19 +33,17 @@ func (hash successServiceHash) Get([]byte) (string, error) {
 }
 
 func TestServiceHashHolderUninitialized(t *testing.T) {
+	assert := assert.New(t)
 	var holder ServiceHashHolder
+	assert.False(holder.Connected())
+
 	value, err := holder.Get([]byte(testKey))
-
-	if len(value) > 0 {
-		t.Error("Get() should return an empty string when uninitialized")
-	}
-
-	if err != ServiceHashHolderUninitialized {
-		t.Error("Get() should return ServiceHashHolderUninitialized when uninitialized")
-	}
+	assert.Equal(ServiceHashHolderUninitialized, err)
+	assert.Empty(value)
 }
 
 func TestServiceHashHolderGet(t *testing.T) {
+	assert := assert.New(t)
 	var gets = []struct {
 		value        *string
 		errorMessage *string
@@ -59,33 +58,28 @@ func TestServiceHashHolderGet(t *testing.T) {
 	}
 
 	var holder ServiceHashHolder
+	assert.False(holder.Connected())
+
 	for _, record := range gets {
 		if record.value != nil {
 			holder.Update(successServiceHash(*record.value))
 			actual, err := holder.Get([]byte(testKey))
-			if *record.value != actual {
-				t.Errorf("Expected value %s, but got %s", *record.value, actual)
-			}
-
-			if err != nil {
-				t.Error("Get() should not have returned an error, but instead returned %v", err)
-			}
+			assert.Equal(*record.value, actual)
+			assert.Nil(err)
 		} else {
 			holder.Update(errorServiceHash(*record.errorMessage))
 			actual, err := holder.Get([]byte(testKey))
-			if len(actual) > 0 {
-				t.Errorf("Get() should have returned an empty string, but instead returned %s", actual)
-			}
-
-			if err == nil {
-				t.Error("Get() should have returned an error for a successful hash")
-			}
+			assert.Empty(actual)
+			assert.NotNil(err)
 		}
 	}
 }
 
 func TestServiceHashHolderConcurrent(t *testing.T) {
+	assert := assert.New(t)
+
 	var holder ServiceHashHolder
+	assert.False(holder.Connected())
 
 	available := []ServiceHash{
 		successServiceHash(successMessage1),
@@ -116,7 +110,5 @@ func TestServiceHashHolderConcurrent(t *testing.T) {
 		}()
 	}
 
-	if !concurrent.WaitTimeout(waitGroup, 15*time.Second) {
-		t.Fatal("Failed to finish within the timeout")
-	}
+	assert.True(concurrent.WaitTimeout(waitGroup, 15*time.Second))
 }

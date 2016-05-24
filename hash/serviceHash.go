@@ -26,8 +26,13 @@ type ServiceHashHolder struct {
 
 var _ ServiceHash = (*ServiceHashHolder)(nil)
 
+// reference returns the current, unsafe reference
+func (holder *ServiceHashHolder) reference() *ServiceHash {
+	return (*ServiceHash)(atomic.LoadPointer(&holder.current))
+}
+
 func (holder *ServiceHashHolder) Get(key []byte) (string, error) {
-	reference := (*ServiceHash)(atomic.LoadPointer(&holder.current))
+	reference := holder.reference()
 	if reference == nil {
 		return "", ServiceHashHolderUninitialized
 	}
@@ -39,4 +44,11 @@ func (holder *ServiceHashHolder) Get(key []byte) (string, error) {
 // will use the newHash instance.
 func (holder *ServiceHashHolder) Update(newHash ServiceHash) {
 	atomic.StorePointer(&holder.current, unsafe.Pointer(&newHash))
+}
+
+// Connected checks whether this holder has any hash entries.
+// This implementations handler.Connection, which allows this holder
+// to participate in request gating.
+func (holder *ServiceHashHolder) Connected() bool {
+	return holder.reference() != nil
 }

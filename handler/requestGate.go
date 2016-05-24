@@ -21,6 +21,20 @@ func (f ConnectionFunc) Connected() bool {
 	return f()
 }
 
+// MergeConnections returns an aggregate Connection object
+// that returns false if any of the given Connection objects return false.
+func MergeConnections(connections ...Connection) Connection {
+	return ConnectionFunc(func() bool {
+		for _, connection := range connections {
+			if !connection.Connected() {
+				return false
+			}
+		}
+
+		return true
+	})
+}
+
 // RequestGate returns a ChainHandler whose requests are gated by the given RequestGate
 func RequestGate(connection Connection, unavailableStatus int, unavailableMessage string) ChainHandler {
 	return ChainHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
