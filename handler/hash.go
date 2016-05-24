@@ -8,11 +8,20 @@ import (
 	"net/http"
 )
 
-// Hash provides a ContextHandler that redirects requests based on a ServiceHash.
-func Hash(serviceHash hash.ServiceHash, code int) ContextHandler {
+// Hash returns a redirector using the default status code of http.StatusTemporaryRedirect.
+func Hash(serviceHash hash.ServiceHash) ContextHandler {
+	return HashCustom(serviceHash, http.StatusTemporaryRedirect)
+}
+
+// HashCustom provides a ContextHandler that redirects requests based on a ServiceHash.
+// The context must have a device identifier, which is then used as the key supplied to the hash.
+func HashCustom(serviceHash hash.ServiceHash, redirectCode int) ContextHandler {
 	return ContextHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request) {
 		address, err := serviceHash.Get(fact.MustDeviceId(ctx).Bytes())
-		if err != nil {
+		if err == nil {
+			target := address + request.URL.Path
+			http.Redirect(response, request, target, redirectCode)
+		} else {
 			message := fmt.Sprintf("No nodes available: %s", err.Error())
 			if logger, ok := fact.Logger(ctx); ok {
 				logger.Warn(message)
@@ -26,11 +35,6 @@ func Hash(serviceHash hash.ServiceHash, code int) ContextHandler {
 				http.StatusServiceUnavailable,
 				message,
 			)
-
-			return
 		}
-
-		target := address + request.URL.Path
-		http.Redirect(response, request, target, code)
 	})
 }
