@@ -38,8 +38,12 @@ func MergeConnections(connections ...Connection) Connection {
 // RequestGate returns a ChainHandler whose requests are gated by the given RequestGate
 func RequestGate(connection Connection, unavailableStatus int, unavailableMessage string) ChainHandler {
 	return ChainHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-		if !connection.Connected() {
-			fact.MustLogger(ctx).Error("Request denied: %s", unavailableMessage)
+		if connection.Connected() {
+			next.ServeHTTP(ctx, response, request)
+		} else {
+			if logger, ok := fact.Logger(ctx); ok {
+				logger.Error("Request denied: %s", unavailableMessage)
+			}
 
 			WriteJsonError(
 				response,
@@ -47,7 +51,5 @@ func RequestGate(connection Connection, unavailableStatus int, unavailableMessag
 				unavailableMessage,
 			)
 		}
-
-		next.ServeHTTP(ctx, response, request)
 	})
 }
