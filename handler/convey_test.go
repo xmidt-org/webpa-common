@@ -67,3 +67,51 @@ func TestConveyCustom(t *testing.T) {
 		}
 	}
 }
+
+// BUG: https://www.teamccp.com/jira/browse/WEBPA-787
+func TestConveyNotAvailable(t *testing.T) {
+	assert := assert.New(t)
+
+	contextHandlerCalled := false
+	contextHandler := ContextHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request) {
+		contextHandlerCalled = true
+		payload, ok := fact.Convey(ctx)
+		assert.Nil(payload)
+		assert.False(ok)
+	})
+
+	response, request := dummyHttpOperation()
+	request.Header.Add(ConveyHeader, "not-available")
+	Convey().ServeHTTP(
+		context.Background(),
+		response,
+		request,
+		contextHandler,
+	)
+
+	assert.True(contextHandlerCalled)
+}
+
+func TestConveyInvalid(t *testing.T) {
+	assert := assert.New(t)
+
+	contextHandlerCalled := false
+	contextHandler := ContextHandlerFunc(func(ctx context.Context, response http.ResponseWriter, request *http.Request) {
+		contextHandlerCalled = true
+		payload, ok := fact.Convey(ctx)
+		assert.Nil(payload)
+		assert.False(ok)
+	})
+
+	response, request := dummyHttpOperation()
+	request.Header.Add(ConveyHeader, "this is an invalid convey value")
+	Convey().ServeHTTP(
+		context.Background(),
+		response,
+		request,
+		contextHandler,
+	)
+
+	assert.False(contextHandlerCalled)
+	assertValidJsonErrorResponse(assert, response, http.StatusBadRequest)
+}
