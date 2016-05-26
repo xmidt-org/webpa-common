@@ -62,9 +62,9 @@ func (t *Token) String() string {
 	return fmt.Sprintf("%s %s", t.tokenType, t.value)
 }
 
-// TokenType returns the type discriminator for this token.  Note that
+// Type returns the type discriminator for this token.  Note that
 // the functions in this package will never create a Token with an Invalid type.
-func (t *Token) TokenType() TokenType {
+func (t *Token) Type() TokenType {
 	return t.tokenType
 }
 
