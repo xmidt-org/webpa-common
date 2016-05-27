@@ -11,6 +11,7 @@ var durationStrings = []struct {
 	expected string
 }{
 	{Duration(0), "0"},
+	{Duration(-1), "-1ns"},
 	{Duration(10 * time.Second), "10s"},
 	{Duration(-7 * time.Minute), "-7m0s"},
 	{Duration(1500 * time.Millisecond), "1.5s"},
