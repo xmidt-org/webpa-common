@@ -3,59 +3,60 @@ package key
 import (
 	"errors"
 	"fmt"
+	"github.com/Comcast/webpa-common/store"
 )
 
-// Resolver provides the behavior for obtaining keys for a particular purpose.
-// A Resolver instance is considered immutable after construction.
-type Resolver interface {
-	ResolveKey(name string, purpose Purpose) (interface{}, error)
-}
+var (
+	NoSuchKey = errors.New("Key not found")
+)
 
-// loaderKey is used as the composite key for MapResolver
-type loaderKey struct {
+type keyId struct {
 	name    string
 	purpose Purpose
 }
 
-// mapResolver holds an in-memory map of Loader instances.  Internally, the tuple
-// of (keyName, keyPurpose) is used as the key for each Loader.
-type mapResolver struct {
-	loaders map[loaderKey]Loader
-}
+type ResolverFactory []ValueFactory
 
-// ResolveKey implementation for mapResolver.  This method looks up the key in an in-memory
-// data structure, returning a nil key if no such key is found.
-func (resolver *mapResolver) ResolveKey(name string, purpose Purpose) (interface{}, error) {
-	if resolver.loaders != nil {
-		if loader := resolver.loaders[loaderKey{name, purpose}]; loader != nil {
-			return loader.LoadKey()
-		}
+func (rf ResolverFactory) NewResolver() (*Resolver, error) {
+	resolver := &Resolver{
+		values: make(map[keyId]store.Value, 10),
 	}
 
-	return nil, nil
-}
-
-// ResolverBuilder implements both a builder for Resolver instances and the
-// external JSON representation of a Resolver.
-type ResolverBuilder []LoaderBuilder
-
-// NewResolver creates a new, immutable Resolver from this builder's configuration
-func (builder *ResolverBuilder) NewResolver() (Resolver, error) {
-	loaders := make(map[loaderKey]Loader, len(*builder))
-
-	for _, loaderBuilder := range *builder {
-		loader, err := loaderBuilder.NewLoader()
+	for _, valueFactory := range rf {
+		value, err := valueFactory.NewValue()
 		if err != nil {
 			return nil, err
 		}
 
-		mapKey := loaderKey{loader.Name(), loader.Purpose()}
-		if _, duplicate := loaders[mapKey]; duplicate {
-			return nil, errors.New(fmt.Sprintf("Duplicate key name: %s", loader.Name()))
+		valueId := keyId{
+			name:    valueFactory.Name,
+			purpose: valueFactory.Purpose,
 		}
 
-		loaders[mapKey] = loader
+		if _, ok := resolver.values[valueId]; !ok {
+			resolver.values[valueId] = value
+		} else {
+			return nil,
+				fmt.Errorf("Duplicate key: %s, %s", valueId.name, valueId.purpose)
+		}
 	}
 
-	return &mapResolver{loaders: loaders}, nil
+	return resolver, nil
+}
+
+type Resolver struct {
+	values map[keyId]store.Value
+}
+
+func (r *Resolver) ResolveKeyValue(name string, purpose Purpose) (store.Value, error) {
+	valueId := keyId{
+		name:    name,
+		purpose: purpose,
+	}
+
+	if value, ok := r.values[valueId]; ok {
+		return value, nil
+	}
+
+	return nil, NoSuchKey
 }

@@ -6,17 +6,18 @@ env:
     - TEST_DIR=canonical
     - TEST_DIR=concurrent
     - TEST_DIR=convey
+    - TEST_DIR=fact
     - TEST_DIR=handler
     - TEST_DIR=hash
     - TEST_DIR=health
     - TEST_DIR=resource
     - TEST_DIR=secure
     - TEST_DIR=secure/key
+    - TEST_DIR=server
     - TEST_DIR=logging
     - TEST_DIR=logging/golog
-    - TEST_DIR=server
+    - TEST_DIR=store
     - TEST_DIR=types
-    - TEST_DIR=fact
 
 before_install:
     - sudo pip install --user codecov
