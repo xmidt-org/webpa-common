@@ -9,6 +9,7 @@ env:
     - TEST_DIR=handler
     - TEST_DIR=hash
     - TEST_DIR=health
+    - TEST_DIR=resource
     - TEST_DIR=secure
     - TEST_DIR=secure/key
     - TEST_DIR=logging
