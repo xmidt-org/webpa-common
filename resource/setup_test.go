@@ -34,6 +34,8 @@ func TestMain(m *testing.M) {
 		)
 
 		defer httpServer.Close()
+
+		fmt.Printf("Running test server at: %s\n", httpServer.URL)
 		return m.Run()
 	}())
 }
