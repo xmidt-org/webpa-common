@@ -2,7 +2,7 @@ package secure
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/Comcast/webpa-common/store"
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
@@ -45,14 +45,14 @@ func ExactMatch(match string) Validator {
 
 // Verify returns a Validator closure that will verify JWT tokens using a given
 // key, signing method, and JWT-specific validators.
-func Verify(keyName string, resolver key.Resolver, method crypto.SigningMethod, validators ...*jwt.Validator) Validator {
+func Verify(keyName string, key store.Value, method crypto.SigningMethod, validators ...*jwt.Validator) Validator {
 	return ValidatorFunc(func(token *Token) (interface{}, error) {
 		jwt, err := jws.ParseJWT(token.Bytes())
 		if err != nil {
 			return nil, err
 		}
 
-		key, err := resolver.ResolveKey(keyName, key.PurposeVerify)
+		key, err := key.Load()
 		if err != nil {
 			return jwt, err
 		}

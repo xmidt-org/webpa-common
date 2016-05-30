@@ -18,30 +18,30 @@ type keyId struct {
 
 // ResolverFactory provides a JSON representation of a collection of keys together
 // with a factory interface for creating distinct Resolver instances.
-type ResolverFactory []ValueFactory
+type ResolverFactory []Factory
 
 // NewResolver creates a distinct Resolver using this factory's configuration.
 func (rf ResolverFactory) NewResolver() (*Resolver, error) {
 	resolver := &Resolver{
-		values: make(map[keyId]store.Value, 10),
+		keys: make(map[keyId]store.Value, 10),
 	}
 
-	for _, valueFactory := range rf {
-		value, err := valueFactory.NewValue()
+	for _, factory := range rf {
+		key, err := factory.NewKey()
 		if err != nil {
 			return nil, err
 		}
 
-		valueId := keyId{
-			name:    valueFactory.Name,
-			purpose: valueFactory.Purpose,
+		keyId := keyId{
+			name:    factory.Name,
+			purpose: factory.Purpose,
 		}
 
-		if _, ok := resolver.values[valueId]; !ok {
-			resolver.values[valueId] = value
+		if _, ok := resolver.keys[keyId]; !ok {
+			resolver.keys[keyId] = key
 		} else {
 			return nil,
-				fmt.Errorf("Duplicate key: %s, %s", valueId.name, valueId.purpose)
+				fmt.Errorf("Duplicate key: %s, %s", keyId.name, keyId.purpose)
 		}
 	}
 
@@ -50,18 +50,18 @@ func (rf ResolverFactory) NewResolver() (*Resolver, error) {
 
 // Resolver maintains an immutable registry of keys
 type Resolver struct {
-	values map[keyId]store.Value
+	keys map[keyId]store.Value
 }
 
-// ResolveKey returns the parsed key.
-func (r *Resolver) ResolveKey(name string, purpose Purpose) (interface{}, error) {
-	valueId := keyId{
+// ResolveKey returns the store.Value containing the actual key.
+func (r *Resolver) ResolveKey(name string, purpose Purpose) (store.Value, error) {
+	keyId := keyId{
 		name:    name,
 		purpose: purpose,
 	}
 
-	if value, ok := r.values[valueId]; ok {
-		return value.Load()
+	if key, ok := r.keys[keyId]; ok {
+		return key, nil
 	}
 
 	return nil, NoSuchKey

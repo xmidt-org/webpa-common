@@ -20,20 +20,20 @@ func (s *source) Load() (interface{}, error) {
 	return s.purpose.ParseKey(data)
 }
 
-// ValueFactory acts as the factory for store.Value instances that load keys.
+// Factory creates store.Value instances that load keys.
 // This type also exposes a JSON representation for configuration.
-type ValueFactory struct {
+type Factory struct {
 	Name        string                 `json:"name"`
 	Purpose     Purpose                `json:"purpose"`
 	Resource    resource.LoaderFactory `json:"resource"`
 	CachePeriod store.CachePeriod      `json:"cachePeriod"`
 }
 
-func (vf *ValueFactory) NewValue() (store.Value, error) {
+func (f *Factory) NewKey() (store.Value, error) {
 	source := &source{
-		purpose: vf.Purpose,
-		raw:     vf.Resource.NewLoader(),
+		purpose: f.Purpose,
+		raw:     f.Resource.NewLoader(),
 	}
 
-	return store.NewValue(source, vf.CachePeriod)
+	return store.NewValue(source, f.CachePeriod)
 }
