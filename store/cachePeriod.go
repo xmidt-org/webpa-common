@@ -43,6 +43,19 @@ func (c CachePeriod) Next(base time.Time) time.Time {
 	return base.Add(time.Duration(c))
 }
 
+// MarshalJSON provides the custom JSON format for a cache period.
+func (c CachePeriod) MarshalJSON() (data []byte, err error) {
+	if c == CachePeriodForever {
+		data = []byte(`"` + CachePeriodForeverValue + `"`)
+	} else if c < 0 {
+		data = []byte(`"` + CachePeriodNeverValue + `"`)
+	} else {
+		data = []byte(`"` + time.Duration(c).String() + `"`)
+	}
+
+	return
+}
+
 // UnmarshalJSON parses the custom JSON format for a cache period.
 // Raw integers are interpreted as seconds.
 func (c *CachePeriod) UnmarshalJSON(data []byte) error {
@@ -61,6 +74,13 @@ func (c *CachePeriod) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
+	// first, try to parse the value as a time.Duration
+	if duration, err := time.ParseDuration(value); err == nil {
+		*c = CachePeriod(duration)
+		return nil
+	}
+
+	// next, try to parse the value as a number of seconds
 	seconds, err := strconv.ParseInt(value, 10, 64)
 	if err != nil {
 		return fmt.Errorf("Invalid cache period %s: %v", string(data), err)
