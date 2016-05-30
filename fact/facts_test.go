@@ -5,31 +5,31 @@ import (
 	"github.com/Comcast/webpa-common/canonical"
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/secure"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
+	"net/http"
 	"os"
-	"reflect"
 	"testing"
 )
 
 const (
 	conveyPayload string = "eyAicGFyYW1ldGVycyI6IFsgeyAibmFtZSI6ICJEZXZpY2UuRGV2aWNlSW5mby5XZWJwYS5YX0NPTUNBU1QtQ09NX0NJRCIsICJ2YWx1ZSI6ICIwIiwgImRhdGFUeXBlIjogMCB9LCB7ICJuYW1lIjogIkRldmljZS5EZXZpY2VJbmZvLldlYnBhLlhfQ09NQ0FTVC1DT01fQ01DIiwgInZhbHVlIjogIjI2OSIsICJkYXRhVHlwZSI6IDIgfSBdIH0K"
+	basicAuth     string = "Basic dXNlcjpwYXNzd29yZA=="
 )
 
 func TestLogger(t *testing.T) {
+	assert := assert.New(t)
 	ctx := context.Background()
-	if value, ok := Logger(ctx); value != nil {
-		t.Error("Logger() must return nil when no logger is present")
-	} else if ok {
-		t.Error("Logger() must return false when no logger is present")
+
+	value, ok := Logger(ctx)
+	if !assert.Nil(value) || !assert.False(ok) {
+		return
 	}
 
 	func() {
 		defer func() {
-			if recovered := recover(); recovered == nil {
-				t.Error("MustLogger() must panic when no logger is present")
-			} else if recovered != NoLogger {
-				t.Errorf("MustLogger() must panic with [%v] when no logger is present", NoLogger)
-			}
+			assert.Equal(NoLogger, recover())
 		}()
 
 		MustLogger(ctx)
@@ -37,89 +37,136 @@ func TestLogger(t *testing.T) {
 
 	logger := &logging.LoggerWriter{os.Stdout}
 	ctx = SetLogger(ctx, logger)
-	if value, ok := Logger(ctx); value != logger {
-		t.Error("Logger() must return the previously set value")
-	} else if !ok {
-		t.Error("Logger() must return true when a logger is present")
-	}
 
-	if MustLogger(ctx) != logger {
-		t.Error("MustLogger() must return the previously set value")
-	}
+	value, ok = Logger(ctx)
+	assert.Equal(logger, value)
+	assert.True(ok)
+
+	func() {
+		defer func() {
+			assert.Nil(recover())
+		}()
+
+		assert.Equal(logger, MustLogger(ctx))
+	}()
 }
 
 func TestDeviceId(t *testing.T) {
+	assert := assert.New(t)
 	ctx := context.Background()
-	if value, ok := DeviceId(ctx); value != nil {
-		t.Error("DeviceId() must return nil when no device id is present")
-	} else if ok {
-		t.Error("DeviceId() must return false when no device id is present")
+
+	value, ok := DeviceId(ctx)
+	if !assert.Nil(value) || !assert.False(ok) {
+		return
 	}
 
 	func() {
 		defer func() {
-			if recovered := recover(); recovered == nil {
-				t.Error("MustDeviceId() must panic when no device id is present")
-			} else if recovered != NoDeviceId {
-				t.Errorf("MustDeviceId() must panic with [%v] when no device id is present", NoLogger)
-			}
+			assert.Equal(NoDeviceId, recover())
 		}()
 
 		MustDeviceId(ctx)
 	}()
 
 	deviceId, err := canonical.ParseId("mac:111122223333")
-	if err != nil {
-		t.Fatalf("Could not parse device id: %v", err)
+	if !assert.NotNil(deviceId) || !assert.Nil(err) {
+		return
 	}
 
 	t.Logf("Parsed device id: %v", deviceId)
 	ctx = SetDeviceId(ctx, deviceId)
-	if value, ok := DeviceId(ctx); value != deviceId {
-		t.Error("DeviceId() must return the previously set value")
-	} else if !ok {
-		t.Error("DeviceId() must return true when a device id is present")
-	}
 
-	if MustDeviceId(ctx) != deviceId {
-		t.Error("MustDeviceId() must return the previously set value")
-	}
+	value, ok = DeviceId(ctx)
+	assert.Equal(deviceId, value)
+	assert.True(ok)
+
+	func() {
+		defer func() {
+			assert.Nil(recover())
+		}()
+
+		assert.Equal(deviceId, MustDeviceId(ctx))
+	}()
 }
 
 func TestConvey(t *testing.T) {
+	assert := assert.New(t)
 	ctx := context.Background()
-	if value, ok := Convey(ctx); value != nil {
-		t.Error("Convey() must return nil when no convey payload is present")
-	} else if ok {
-		t.Error("Convey() must return false when no convey payload is present")
+
+	value, ok := Convey(ctx)
+	if !assert.Nil(value) || !assert.False(ok) {
+		return
 	}
 
 	func() {
 		defer func() {
-			if recovered := recover(); recovered == nil {
-				t.Error("MustConvey() must panic when no convey payload is present")
-			} else if recovered != NoConvey {
-				t.Errorf("MustConvey() must panic with [%v] when no convey payload is present", NoConvey)
-			}
+			assert.Equal(NoConvey, recover())
 		}()
 
 		MustConvey(ctx)
 	}()
 
 	payload, err := convey.ParsePayload(base64.StdEncoding, conveyPayload)
-	if err != nil {
-		t.Fatalf("Could not parse convey payload: %v", err)
+	if !assert.NotNil(payload) || !assert.Nil(err) {
+		return
 	}
 
 	t.Logf("Parsed payload: %v", payload)
 	ctx = SetConvey(ctx, payload)
-	if value, ok := Convey(ctx); !reflect.DeepEqual(value, payload) {
-		t.Error("Convey() must return the previously set value")
-	} else if !ok {
-		t.Error("Convey() must return true when a convey payload is present")
+
+	value, ok = Convey(ctx)
+	assert.Equal(value, payload)
+	assert.True(ok)
+
+	func() {
+		defer func() {
+			assert.Nil(recover())
+		}()
+
+		assert.Equal(payload, MustConvey(ctx))
+	}()
+}
+
+func TestToken(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+
+	value, ok := Token(ctx)
+	if !assert.Nil(value) || !assert.False(ok) {
+		return
 	}
 
-	if !reflect.DeepEqual(MustConvey(ctx), payload) {
-		t.Error("MustConvey() must return the previously set value")
+	func() {
+		defer func() {
+			assert.Equal(NoToken, recover())
+		}()
+
+		MustToken(ctx)
+	}()
+
+	request, err := http.NewRequest("GET", "", nil)
+	if !assert.Nil(err) {
+		return
 	}
+
+	request.Header.Add("Authorization", basicAuth)
+	token, err := secure.NewToken(request)
+	if !assert.NotNil(token) || !assert.Nil(err) {
+		return
+	}
+
+	t.Logf("Parsed token: %v", token)
+	ctx = SetToken(ctx, token)
+
+	value, ok = Token(ctx)
+	assert.Equal(value, token)
+	assert.True(ok)
+
+	func() {
+		defer func() {
+			assert.Nil(recover())
+		}()
+
+		assert.Equal(token, MustToken(ctx))
+	}()
 }

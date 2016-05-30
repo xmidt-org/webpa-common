@@ -5,6 +5,7 @@ import (
 	"github.com/Comcast/webpa-common/canonical"
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/secure"
 	"golang.org/x/net/context"
 )
 
@@ -12,12 +13,14 @@ const (
 	loggerKey int = iota
 	deviceIdKey
 	conveyKey
+	tokenKey
 )
 
 var (
 	NoLogger   = errors.New("No Logger found in context")
 	NoDeviceId = errors.New("No deviceId found in context")
 	NoConvey   = errors.New("No convey payload found in context")
+	NoToken    = errors.New("No secure token found in context")
 )
 
 // Logger retrieves the logging.Logger from the enclosing context
@@ -84,4 +87,26 @@ func MustConvey(ctx context.Context) convey.Payload {
 // SetConvey sets the convey.Payload in the enclosing context
 func SetConvey(ctx context.Context, value convey.Payload) context.Context {
 	return context.WithValue(ctx, conveyKey, value)
+}
+
+// Token retrieves the secure.Token from the enclosing context
+func Token(ctx context.Context) (*secure.Token, bool) {
+	value, ok := ctx.Value(tokenKey).(*secure.Token)
+	return value, ok
+}
+
+// MustToken retrieves the secure token from the context, panicking
+// if no such token is found.
+func MustToken(ctx context.Context) *secure.Token {
+	value, ok := Token(ctx)
+	if !ok {
+		panic(NoToken)
+	}
+
+	return value
+}
+
+// SetToken sets the secure.Token in the enclosing context
+func SetToken(ctx context.Context, value *secure.Token) context.Context {
+	return context.WithValue(ctx, tokenKey, value)
 }
