@@ -59,25 +59,37 @@ func TestFactory(t *testing.T) {
 				continue
 			}
 
-			if key, err := factory.NewKey(); err != nil {
-				// the value may not be cached, so the error will be upfront
+			expectCreateError := !record.valid && cachePeriod == store.CachePeriodForever
+			expectLoadError := !record.valid && cachePeriod != store.CachePeriodForever
+
+			// the value may not be cached, so the error will be upfront
+			key, err := factory.NewKey()
+			if expectCreateError {
 				assert.Nil(key)
-				assert.False(record.valid)
-			} else if assert.NotNil(key) {
-				if value, err := key.Load(); err != nil {
-					// this will be the actual, uncached key
-					assert.Nil(value)
-					assert.False(record.valid)
-				} else if assert.NotNil(value) {
-					switch value.(type) {
-					case *rsa.PublicKey:
-						assert.True(factory.Purpose == PurposeVerify || factory.Purpose == PurposeDecrypt)
-					case *rsa.PrivateKey:
-						assert.True(factory.Purpose == PurposeSign || factory.Purpose == PurposeEncrypt)
-					default:
-						t.Error("Invalid key type")
-					}
-				}
+				assert.NotNil(err)
+				continue
+			}
+
+			if !assert.NotNil(key) || !assert.Nil(err) {
+				continue
+			}
+
+			value, err := key.Load()
+			if expectLoadError {
+				assert.Nil(value)
+				assert.NotNil(err)
+				continue
+			}
+
+			assert.NotNil(value)
+			assert.Nil(err)
+
+			if factory.Purpose == PurposeVerify || factory.Purpose == PurposeDecrypt {
+				_, ok := value.(*rsa.PublicKey)
+				assert.True(ok)
+			} else {
+				_, ok := value.(*rsa.PrivateKey)
+				assert.True(ok)
 			}
 		}
 	}

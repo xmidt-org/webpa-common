@@ -29,6 +29,9 @@ type Factory struct {
 	CachePeriod store.CachePeriod      `json:"cachePeriod"`
 }
 
+// NewKey creates a store.Value that retrieves the actual key object itself.
+// The returned Value object may or may not be cached, based on the configuration
+// of the Factory.
 func (f *Factory) NewKey() (store.Value, error) {
 	source := &source{
 		purpose: f.Purpose,
