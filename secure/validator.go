@@ -45,7 +45,7 @@ func ExactMatch(match string) Validator {
 
 // Verify returns a Validator closure that will verify JWT tokens using a given
 // key, signing method, and JWT-specific validators.
-func Verify(keyName string, key store.Value, method crypto.SigningMethod, validators ...*jwt.Validator) Validator {
+func Verify(key store.Value, method crypto.SigningMethod, validators ...*jwt.Validator) Validator {
 	return ValidatorFunc(func(token *Token) (interface{}, error) {
 		jwt, err := jws.ParseJWT(token.Bytes())
 		if err != nil {
