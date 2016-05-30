@@ -10,13 +10,17 @@ var (
 	NoSuchKey = errors.New("Key not found")
 )
 
+// keyId is an internal type used as a composite map key
 type keyId struct {
 	name    string
 	purpose Purpose
 }
 
+// ResolverFactory provides a JSON representation of a collection of keys together
+// with a factory interface for creating distinct Resolver instances.
 type ResolverFactory []ValueFactory
 
+// NewResolver creates a distinct Resolver using this factory's configuration.
 func (rf ResolverFactory) NewResolver() (*Resolver, error) {
 	resolver := &Resolver{
 		values: make(map[keyId]store.Value, 10),
@@ -44,18 +48,20 @@ func (rf ResolverFactory) NewResolver() (*Resolver, error) {
 	return resolver, nil
 }
 
+// Resolver maintains an immutable registry of keys
 type Resolver struct {
 	values map[keyId]store.Value
 }
 
-func (r *Resolver) ResolveKeyValue(name string, purpose Purpose) (store.Value, error) {
+// ResolveKey returns the parsed key.
+func (r *Resolver) ResolveKey(name string, purpose Purpose) (interface{}, error) {
 	valueId := keyId{
 		name:    name,
 		purpose: purpose,
 	}
 
 	if value, ok := r.values[valueId]; ok {
-		return value, nil
+		return value.Load()
 	}
 
 	return nil, NoSuchKey
