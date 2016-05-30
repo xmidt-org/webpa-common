@@ -28,7 +28,7 @@ var (
 func TestMain(m *testing.M) {
 	testDirectory, err := os.Getwd()
 	if err != nil {
-		fmt.Fprint(os.Stderr, "Unable to obtain current working directory: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to obtain current working directory: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -37,7 +37,7 @@ func TestMain(m *testing.M) {
 	fmt.Printf("started test server at %s\n", httpServer.URL)
 	publicKeyURL, err = url.Parse(httpServer.URL + "/" + publicKeyFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not parse public key URL: %v\n")
+		fmt.Fprintf(os.Stderr, "Could not parse public key URL: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -47,7 +47,7 @@ func TestMain(m *testing.M) {
 
 	privateKeyURL, err = url.Parse(httpServer.URL + "/" + privateKeyFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not parse private key URL: %v\n")
+		fmt.Fprintf(os.Stderr, "Could not parse private key URL: %v\n", err)
 		os.Exit(1)
 	}
 
