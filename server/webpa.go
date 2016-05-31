@@ -79,19 +79,16 @@ func (w *WebPA) MarshalJSON() ([]byte, error) {
 
 // Run executes this WebPA server.  If both certificateFile and keyFile are non-empty, this method will start
 // an HTTPS server using the configured certificate and key.  Otherwise, it will
-// start an HTTP server.
+// start an HTTP server on a separate goroutine and return.
 //
-// This method spawns a goroutine that actually executes the appropriate serverExecutor.ListenXXX method.
-// The supplied sync.WaitGroup is incremented, and sync.WaitGroup.Done() is called when the
-// spawned goroutine exits.
+// This method allows WebPA to implement concurrent.Runnable.  However, neither parameter to this method
+// is used.  Because of the way net/http starts servers, there's no controlled way to shut them down.
 //
 // Run is idemptotent.  It can only be execute once, and subsequent invocations have
 // no effect.
 func (w *WebPA) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	w.once.Do(func() {
-		waitGroup.Add(1)
 		go func() {
-			defer waitGroup.Done()
 			var err error
 			w.logger.Info("Starting [%s]", w.name)
 			if w.Secure() {
