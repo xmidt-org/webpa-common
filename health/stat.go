@@ -13,10 +13,15 @@ const (
 	MaxMemoryUtilizationAlloc       Stat = "MaxMemoryUtilizationAlloc"
 	MaxMemoryUtilizationHeapSys     Stat = "MaxMemoryUtilizationHeapSys"
 	MaxMemoryUtilizationActive      Stat = "MaxMemoryUtilizationActive"
+
+	TotalRequestsReceived            Stat = "TotalRequestsReceived"
+	TotalRequestSuccessfullyServiced Stat = "TotalRequestSuccessfullyServiced"
+	TotalRequestDenied               Stat = "TotalRequestDenied"
 )
 
 var (
 	// commonStats is the Stats used to seed the initial set of stats
+	// the request-specific stats are not included
 	commonStats = Stats{
 		CurrentMemoryUtilizationAlloc:   0,
 		CurrentMemoryUtilizationHeapSys: 0,
