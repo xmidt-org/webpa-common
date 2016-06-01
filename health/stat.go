@@ -13,10 +13,6 @@ const (
 	MaxMemoryUtilizationAlloc       Stat = "MaxMemoryUtilizationAlloc"
 	MaxMemoryUtilizationHeapSys     Stat = "MaxMemoryUtilizationHeapSys"
 	MaxMemoryUtilizationActive      Stat = "MaxMemoryUtilizationActive"
-
-	TotalRequestsReceived            Stat = "TotalRequestsReceived"
-	TotalRequestSuccessfullyServiced Stat = "TotalRequestSuccessfullyServiced"
-	TotalRequestDenied               Stat = "TotalRequestDenied"
 )
 
 var (
