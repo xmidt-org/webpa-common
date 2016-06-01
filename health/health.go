@@ -101,21 +101,24 @@ func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error 
 }
 
 func (h *Health) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	ch := make(chan Stats)
-	defer close(ch)
+	output := make(chan Stats, 1)
+	defer close(output)
 
 	h.SendEvent(func(stats Stats) {
 		stats.UpdateMemory(h.memInfoReader)
-		jsonmsg, err := json.Marshal(stats)
-		response.Header().Set("Content-Type", "application/json")
-
-		// TODO: leverage the standard error writing elsewhere in webpa-common
-		if err != nil {
-			h.log.Error("Could not marshal stats: %v", err)
-			response.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(response, `{"message": "%s"}\n`, err.Error())
-		} else {
-			fmt.Fprintf(response, "%s", jsonmsg)
-		}
+		output <- stats.Clone()
 	})
+
+	stats := <-output
+	response.Header().Set("Content-Type", "application/json")
+	data, err := json.Marshal(stats)
+
+	// TODO: leverage the standard error writing elsewhere in webpa-common
+	if err != nil {
+		h.log.Error("Could not marshal stats: %v", err)
+		response.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintf(response, `{"message": "%s"}\n`, err.Error())
+	} else {
+		fmt.Fprintf(response, "%s", data)
+	}
 }
