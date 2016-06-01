@@ -16,14 +16,14 @@ type healthEventSink interface {
 	SendEvent(health.HealthFunc)
 }
 
-// NewHealthRequestListener returns a new RequestListener which dispatches request stats
-func NewHealthRequestListener(sink healthEventSink) RequestListener {
-	return &healthRequestListener{sink}
-}
-
 // healthRequestListener is a handler.RequestListener that updates the health-related stats.
 type healthRequestListener struct {
 	sink healthEventSink
+}
+
+// NewHealthRequestListener returns a new RequestListener which dispatches request stats
+func NewHealthRequestListener(sink healthEventSink) RequestListener {
+	return &healthRequestListener{sink}
 }
 
 func (listener *healthRequestListener) RequestReceived(request *http.Request) {
