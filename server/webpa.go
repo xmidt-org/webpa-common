@@ -90,14 +90,14 @@ func (w *WebPA) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	w.once.Do(func() {
 		go func() {
 			var err error
-			w.logger.Info("Starting [%s]", w.name)
+			w.logger.Info("Starting [%s]", w)
 			if w.Secure() {
 				err = w.serverExecutor.ListenAndServeTLS(w.certificateFile, w.keyFile)
 			} else {
 				err = w.serverExecutor.ListenAndServe()
 			}
 
-			w.logger.Error("%s exiting: %v", w.name, err)
+			w.logger.Error("%s exiting: %v", w, err)
 		}()
 	})
 

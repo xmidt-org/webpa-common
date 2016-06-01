@@ -34,6 +34,16 @@ type Configuration struct {
 	KeyFile string `json:"key"`
 }
 
+// String returns the JSON representation of this configuration, useful for debugging
+func (c *Configuration) String() string {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return err.Error()
+	}
+
+	return string(data)
+}
+
 // PrimaryAddress returns the listen address for the primary server, i.e.
 // the server that listens on c.Port.
 func (c *Configuration) PrimaryAddress() string {
