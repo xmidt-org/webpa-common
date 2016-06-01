@@ -31,15 +31,22 @@ func (link *chainLink) ServeHTTP(requestContext context.Context, response http.R
 // Chain represents an ordered slice of ChainHandlers that will be applied to each request.
 type Chain []ChainHandler
 
+// Len returns the number of handlers in this chain
+func (chain Chain) Len() int {
+	return len(chain)
+}
+
 // Decorate produces a single http.Handler that executes each handler in the chain in sequence
 // before finally executing a ContextHandler.  The given Context is passed through the chain,
 // and may be modified at each step.
 func (chain Chain) Decorate(initial context.Context, contextHandler ContextHandler) http.Handler {
 	var decorated ContextHandler = contextHandler
 
-	for _, link := range chain {
+	// have to decorate in reverse order in order to guarantee that the decorators
+	// execute in declared order.
+	for index := len(chain) - 1; index >= 0; index-- {
 		decorated = &chainLink{
-			current: link,
+			current: chain[index],
 			next:    decorated,
 		}
 	}

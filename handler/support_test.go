@@ -76,54 +76,6 @@ func assertContext(assert *assert.Assertions, expected map[interface{}]interface
 	}
 }
 
-// errorChainHandler is a ChainHandler that always writes an error to the response.
-// It does not invoke the next handler.
-type errorChainHandler struct {
-	statusCode int
-	message    string
-}
-
-func (e errorChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-	WriteJsonError(response, e.statusCode, e.message)
-}
-
-// successChainHandler is a ChainHandler that always succeeds.  It invokes the next handler
-// after first modifying the context with a key/value pair.
-type successChainHandler struct {
-	key   interface{}
-	value interface{}
-}
-
-func (s successChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-	next.ServeHTTP(
-		context.WithValue(ctx, s.key, s.value),
-		response,
-		request,
-	)
-}
-
-// panicContextHandler is a ContextHandler that always panics
-type panicContextHandler struct {
-	wasCalled bool
-	value     interface{}
-}
-
-func (p *panicContextHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request) {
-	p.wasCalled = true
-	panic(p.value)
-}
-
-// panicChainHandler is a ChainHandler that always panics
-type panicChainHandler struct {
-	wasCalled bool
-	value     interface{}
-}
-
-func (p *panicChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
-	p.wasCalled = true
-	panic(p.value)
-}
-
 type testContextHandler struct {
 	assert          *assert.Assertions
 	wasCalled       bool
@@ -138,4 +90,15 @@ func (handler *testContextHandler) ServeHTTP(ctx context.Context, response http.
 	}
 
 	assertContext(handler.assert, handler.expectedContext, ctx)
+}
+
+// panicContextHandler is a ContextHandler that always panics
+type panicContextHandler struct {
+	wasCalled bool
+	value     interface{}
+}
+
+func (p *panicContextHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request) {
+	p.wasCalled = true
+	panic(p.value)
 }

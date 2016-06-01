@@ -12,6 +12,63 @@ import (
 	"testing"
 )
 
+type testChainHandler interface {
+	setHandlers(chan<- testChainHandler)
+}
+
+// errorChainHandler is a ChainHandler that always writes an error to the response.
+// It does not invoke the next handler.
+type errorChainHandler struct {
+	handlers   chan<- testChainHandler
+	statusCode int
+	message    string
+}
+
+func (e *errorChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+	e.handlers <- e
+	WriteJsonError(response, e.statusCode, e.message)
+}
+
+func (e *errorChainHandler) setHandlers(handlers chan<- testChainHandler) {
+	e.handlers = handlers
+}
+
+// successChainHandler is a ChainHandler that always succeeds.  It invokes the next handler
+// after first modifying the context with a key/value pair.
+type successChainHandler struct {
+	handlers chan<- testChainHandler
+	key      interface{}
+	value    interface{}
+}
+
+func (s *successChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+	s.handlers <- s
+	next.ServeHTTP(
+		context.WithValue(ctx, s.key, s.value),
+		response,
+		request,
+	)
+}
+
+func (s *successChainHandler) setHandlers(handlers chan<- testChainHandler) {
+	s.handlers = handlers
+}
+
+// panicChainHandler is a ChainHandler that always panics
+type panicChainHandler struct {
+	handlers chan<- testChainHandler
+	value    interface{}
+}
+
+func (p *panicChainHandler) ServeHTTP(ctx context.Context, response http.ResponseWriter, request *http.Request, next ContextHandler) {
+	p.handlers <- p
+	panic(p.value)
+}
+
+func (p *panicChainHandler) setHandlers(handlers chan<- testChainHandler) {
+	p.handlers = handlers
+}
+
 type chainExpect struct {
 	contextHandlerCalled bool
 	statusCode           int
@@ -38,8 +95,9 @@ func TestDecorate(t *testing.T) {
 		},
 		{
 			Chain{
-				successChainHandler{
-					123, "foobar",
+				&successChainHandler{
+					key:   123,
+					value: "foobar",
 				},
 			},
 			&testContextHandler{
@@ -53,8 +111,9 @@ func TestDecorate(t *testing.T) {
 		},
 		{
 			Chain{
-				errorChainHandler{
-					555, "an error message",
+				&errorChainHandler{
+					statusCode: 555,
+					message:    "an error message",
 				},
 			},
 			&testContextHandler{
@@ -68,14 +127,17 @@ func TestDecorate(t *testing.T) {
 		},
 		{
 			Chain{
-				successChainHandler{
-					123, "foobar",
+				&successChainHandler{
+					key:   123,
+					value: "foobar",
 				},
-				successChainHandler{
-					456, "asdf",
+				&successChainHandler{
+					key:   456,
+					value: "asdf",
 				},
-				successChainHandler{
-					"test", "giggity",
+				&successChainHandler{
+					key:   "test",
+					value: "giggity",
 				},
 			},
 			&testContextHandler{
@@ -89,11 +151,13 @@ func TestDecorate(t *testing.T) {
 		},
 		{
 			Chain{
-				successChainHandler{
-					123, "foobar",
+				&successChainHandler{
+					key:   123,
+					value: "foobar",
 				},
-				errorChainHandler{
-					555, "an error message",
+				&errorChainHandler{
+					statusCode: 555,
+					message:    "an error message",
 				},
 			},
 			&testContextHandler{
@@ -134,7 +198,14 @@ func TestDecorate(t *testing.T) {
 	}
 
 	for _, record := range testData {
+		t.Logf("%#v", record)
 		ctx := context.Background()
+		assert.Equal(len(record.chain), record.chain.Len())
+
+		handlers := make(chan testChainHandler, record.chain.Len())
+		for _, handler := range record.chain {
+			handler.(testChainHandler).setHandlers(handlers)
+		}
 
 		decorated := record.chain.Decorate(ctx, record.contextHandler)
 		response, request := dummyHttpOperation()
@@ -143,6 +214,20 @@ func TestDecorate(t *testing.T) {
 
 		if len(record.expect.message) > 0 {
 			assertJsonErrorResponse(assert, response, record.expect.statusCode, record.expect.message)
+		}
+
+		// verify the order of handlers
+		close(handlers)
+		index := 0
+		for calledHandler := range handlers {
+			assert.Equal(
+				record.chain[index],
+				calledHandler,
+				"Unexpected handler at %d",
+				index,
+			)
+
+			index++
 		}
 	}
 }
