@@ -147,7 +147,7 @@ func TestDecorate(t *testing.T) {
 	}
 }
 
-func ExampleTypicalChain() {
+func ExampleChain() {
 	logger := &logging.LoggerWriter{os.Stdout}
 	ctx := fact.SetLogger(context.Background(), logger)
 

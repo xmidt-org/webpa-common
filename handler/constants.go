@@ -30,7 +30,7 @@ const (
 
 	// InvalidConveyPattern is the format pattern used to create an error message indicating that
 	// a convey payload was invalid.
-	InvalidConveyPattern string = "Invalid " + ConveyHeader + " header: %s"
+	InvalidConveyPattern string = "Invalid " + ConveyHeader + " header [%s]: %v"
 
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
