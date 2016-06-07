@@ -137,3 +137,65 @@ func TestKeyValueBasics(t *testing.T) {
 		assert.Equal(expectedValues, actualValues)
 	}
 }
+
+func BenchmarkKeyValueConcurrency(b *testing.B) {
+	keyValue := NewKeyValue()
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			key := 0
+			for pb.Next() {
+				keyValue.Add(key, "value")
+				key++
+			}
+		},
+	)
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			key := b.N
+			for pb.Next() {
+				keyValue.Delete(key)
+				key--
+			}
+		},
+	)
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			key := 0
+			for pb.Next() {
+				<-keyValue.Get(key)
+				key++
+			}
+		},
+	)
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			for pb.Next() {
+				<-keyValue.Keys()
+			}
+		},
+	)
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			for pb.Next() {
+				<-keyValue.Values()
+			}
+		},
+	)
+
+	b.RunParallel(
+		func(pb *testing.PB) {
+			for pb.Next() {
+				keyValue.Do(
+					KeyValueOperationFunc(func(storage KeyValueStorage) {
+						storage[239847129] = "another value"
+					}),
+				)
+			}
+		},
+	)
+}
