@@ -40,7 +40,7 @@ func TestDecode(t *testing.T) {
 		TransactionUUID: "9447241c-5238-4cb9-9baa-7076e3232899",
 		Payload:         []byte("{ \"names\": [ \"Device.X_CISCO_COM_Security.Firewall.FirewallLevel\" ] }")}
 
-	v, err := WrpDecode(in)
+	v, err := Decode(in)
 	if nil != err {
 		t.Error("error not nil.")
 	}
@@ -57,12 +57,12 @@ func TestSimpleEvent(t *testing.T) {
 		Dest:    "mac:112233445566",
 		Payload: []byte("{ \"whatever i want")}
 
-	encoded, e1 := start.WrpEncode()
+	encoded, e1 := start.Encode()
 	if nil != e1 {
 		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
 	}
 
-	got, e2 := WrpDecode(encoded)
+	got, e2 := Decode(encoded)
 	if nil != e2 {
 		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
 	}
@@ -81,12 +81,12 @@ func TestSimpleReqResponse(t *testing.T) {
 		TransactionUUID: "23o234u234ioasdflk",
 		Payload:         []byte("{ \"whatever i want!\" }")}
 
-	encoded, e1 := start.WrpEncode()
+	encoded, e1 := start.Encode()
 	if nil != e1 {
 		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
 	}
 
-	got, e2 := WrpDecode(encoded)
+	got, e2 := Decode(encoded)
 	if nil != e2 {
 		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
 	}
@@ -102,12 +102,12 @@ func TestSimpleReqResponse(t *testing.T) {
 func TestAuthStatus(t *testing.T) {
 	start := AuthStatusMsg{Status: 123}
 
-	encoded, e1 := start.WrpEncode()
+	encoded, e1 := start.Encode()
 	if nil != e1 {
 		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
 	}
 
-	got, e2 := WrpDecode(encoded)
+	got, e2 := Decode(encoded)
 	if nil != e2 {
 		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
 	}
@@ -149,7 +149,7 @@ func TestInvalidMsgType(t *testing.T) {
 		0x77, 0x61, 0x6c, 0x6c, 0x4c, 0x65, 0x76, 0x65,
 		0x6c, 0x22, 0x20, 0x5d, 0x20, 0x7d}
 
-	got, err := WrpDecode(in)
+	got, err := Decode(in)
 	if (nil != got) || (nil == err) {
 		t.Error("Testing for invalid msg type 9 failed.")
 	}
@@ -169,7 +169,7 @@ func TestTruncatedMsg(t *testing.T) {
 		0x70, 0x61, 0x2e, 0x63, 0x6f, 0x6d, 0x63, 0x61,
 		0x6c, 0x22, 0x20, 0x5d, 0x20, 0x7d}
 
-	got, err := WrpDecode(in)
+	got, err := Decode(in)
 	if (nil != got) || (nil == err) {
 		t.Error("Testing for truncated message failed.")
 	}
