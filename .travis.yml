@@ -18,6 +18,7 @@ env:
     - TEST_DIR=logging/golog
     - TEST_DIR=store
     - TEST_DIR=types
+    - TEST_DIR=wrp
 
 before_install:
     - sudo pip install --user codecov
