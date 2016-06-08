@@ -3,7 +3,6 @@
 package wrp
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"github.com/ugorji/go/codec"
