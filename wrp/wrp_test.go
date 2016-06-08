@@ -1,7 +1,7 @@
 /*
  *	Copyright (c) 2015 Comcast
  */
-package main
+package wrp
 
 import (
 	"fmt"
