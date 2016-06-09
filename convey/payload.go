@@ -10,6 +10,16 @@ import (
 // Payload represents the decoded payload of the convey header
 type Payload map[string]interface{}
 
+// Json formats this payload as a JSON message
+func (payload *Payload) Json() string {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err.Error()
+	}
+
+	return string(data)
+}
+
 // DecodeBase64 assumes that the value parameter is Base64-encoded JSON
 func (payload *Payload) DecodeBase64(encoding *base64.Encoding, value string) error {
 	input := bytes.NewBufferString(value)

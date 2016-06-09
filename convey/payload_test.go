@@ -91,7 +91,7 @@ var payloadTestData = []struct {
 }
 
 func TestDecodeBase64(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	for _, record := range payloadTestData {
 		var actual Payload
 		if err := actual.DecodeBase64(record.encoding, record.value); err != nil {
@@ -108,12 +108,12 @@ func TestDecodeBase64(t *testing.T) {
 			t.Fatalf("Unable to marshal actual JSON: %v", err)
 		}
 
-		assertions.JSONEq(string(expectedJson), string(actualJson))
+		assert.JSONEq(string(expectedJson), string(actualJson))
 	}
 }
 
 func TestEncodeBase64(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	for _, record := range payloadTestData {
 		// perform the reverse test: use the expected as our actual JSON
 		actualEncoded, err := record.expected.EncodeBase64(record.encoding)
@@ -136,12 +136,12 @@ func TestEncodeBase64(t *testing.T) {
 			t.Fatalf("Unable to decode expected value: %v", err)
 		}
 
-		assertions.JSONEq(string(expectedJson), string(actualJson))
+		assert.JSONEq(string(expectedJson), string(actualJson))
 	}
 }
 
 func TestParsePayload(t *testing.T) {
-	assertions := assert.New(t)
+	assert := assert.New(t)
 	for _, record := range payloadTestData {
 		actualPayload, err := ParsePayload(record.encoding, record.value)
 		if err != nil {
@@ -158,6 +158,7 @@ func TestParsePayload(t *testing.T) {
 			t.Fatalf("Failed to marshal expected JSON: %v", err)
 		}
 
-		assertions.JSONEq(string(expectedJson), string(actualJson))
+		assert.JSONEq(string(expectedJson), string(actualJson))
+		assert.JSONEq(string(expectedJson), record.expected.Json())
 	}
 }
