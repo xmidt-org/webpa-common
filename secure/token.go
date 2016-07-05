@@ -8,44 +8,27 @@ import (
 )
 
 // TokenType is a discriminator for the contents of a secure token.
-type TokenType int
+type TokenType string
 
 const (
-	Invalid TokenType = iota
-	Basic
-	Bearer
-	Digest
-
-	AuthorizationHeader string = "Authorization"
+	AuthorizationHeader string    = "Authorization"
+	Invalid             TokenType = "!! INVALID !!"
+	Basic               TokenType = "Basic"
+	Bearer              TokenType = "Bearer"
+	Digest              TokenType = "Digest"
 )
-
-// String returns the canonical string value for a TokenType.
-// This will be the prefix to an Authorization header value.
-func (tt TokenType) String() string {
-	switch tt {
-	case Invalid:
-		return "!! INVALID !!"
-	case Basic:
-		return "Basic"
-	case Bearer:
-		return "Bearer"
-	case Digest:
-		return "Digest"
-	default:
-		return "Unknown"
-	}
-}
 
 // ParseTokenType returns the TokenType corresponding to a string.
 // This function is case-insensitive.
 func ParseTokenType(value string) (TokenType, error) {
-	if strings.EqualFold(Basic.String(), value) {
+	switch {
+	case strings.EqualFold(string(Basic), value):
 		return Basic, nil
-	} else if strings.EqualFold(Bearer.String(), value) {
+	case strings.EqualFold(string(Bearer), value):
 		return Bearer, nil
-	} else if strings.EqualFold(Digest.String(), value) {
+	case strings.EqualFold(string(Digest), value):
 		return Digest, nil
-	} else {
+	default:
 		return Invalid, fmt.Errorf("Invalid token type: %s", value)
 	}
 }
@@ -59,7 +42,10 @@ type Token struct {
 // String returns an on-the-wire representation of this token, suitable
 // for placing into an Authorization header.
 func (t *Token) String() string {
-	return fmt.Sprintf("%s %s", t.tokenType, t.value)
+	return strings.Join(
+		[]string{string(t.tokenType), t.value},
+		" ",
+	)
 }
 
 // Type returns the type discriminator for this token.  Note that
@@ -81,9 +67,9 @@ func (t *Token) Bytes() []byte {
 var authorizationPattern = regexp.MustCompile(
 	fmt.Sprintf(
 		`(?P<tokenType>(?i)%s|%s|%s)\s+(?P<value>.*)`,
-		Basic.String(),
-		Bearer.String(),
-		Digest.String(),
+		Basic,
+		Bearer,
+		Digest,
 	),
 )
 
