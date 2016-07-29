@@ -4,15 +4,20 @@ package wrp
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/ugorji/go/codec"
 	"reflect"
 )
 
 const (
-	AuthMsgType              = int64(1)
+	AuthMsgType              = int64(2)
 	SimpleReqResponseMsgType = int64(3)
 	SimpleEventMsgType       = int64(4)
+)
+
+var (
+	ErrorGetInt64 = errors.New("GetInt64 error casting value")
 )
 
 /*-- Authorization Message Type Handling -------------------------------------*/
@@ -110,6 +115,33 @@ func wrpEncode(mt int64, v interface{}) ([]byte, error) {
 	return buf, nil
 }
 
+// helper function to convert the different integer value types to
+// int64; useful for scenarios where we don't know what type it is we're getting
+func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
+	switch valueType := m[key].(type) {
+	case int8:
+		return int64(valueType), nil
+	case int16:
+		return int64(valueType), nil
+	case int32:
+		return int64(valueType), nil
+	case int64:
+		return valueType, nil
+	case uint8:
+		return int64(valueType), nil
+	case uint16:
+		return int64(valueType), nil
+	case uint32:
+		return int64(valueType), nil
+	case uint64:
+		return int64(valueType), nil
+	default:
+		return -1, ErrorGetInt64
+	}
+
+	return -1, ErrorGetInt64
+}
+
 /* Decode the array of bytes into the right wrp structure. */
 func Decode(buf []byte) (interface{}, error) {
 	mh := new(codec.MsgpackHandle)
@@ -131,7 +163,11 @@ func Decode(buf []byte) (interface{}, error) {
 
 	switch msg_type {
 	case AuthMsgType:
-		v = AuthStatusMsg{Status: m["status"].(int64)}
+		status, err := GetInt64(m, "status")
+		if err != nil {
+			return nil, fmt.Errorf("Error retrieving status: %v", err)
+		}
+		v = AuthStatusMsg{Status: status}
 	case SimpleReqResponseMsgType:
 		v = SimpleReqResponseMsg{Source: m["source"].(string),
 			Dest:            m["dest"].(string),
