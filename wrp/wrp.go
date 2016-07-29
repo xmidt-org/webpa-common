@@ -127,6 +127,8 @@ func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 		return int64(valueType), nil
 	case int64:
 		return valueType, nil
+	case int:
+		return int64(valueType), nil
 	case uint8:
 		return int64(valueType), nil
 	case uint16:
@@ -134,6 +136,8 @@ func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 	case uint32:
 		return int64(valueType), nil
 	case uint64:
+		return int64(valueType), nil
+	case uint:
 		return int64(valueType), nil
 	default:
 		return -1, ErrorGetInt64
@@ -163,7 +167,7 @@ func Decode(buf []byte) (interface{}, error) {
 
 	switch msg_type {
 	case AuthMsgType:
-		status, err := GetInt64(m, "status")
+		status, err := GetInt64(m, "status");
 		if err != nil {
 			return nil, fmt.Errorf("Error retrieving status: %v", err)
 		}
