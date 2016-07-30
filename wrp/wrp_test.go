@@ -174,3 +174,68 @@ func TestTruncatedMsg(t *testing.T) {
 		t.Error("Testing for truncated message failed.")
 	}
 }
+
+func TestGetInt64(t *testing.T) {
+	intTypes := map[interface{}]interface{} {
+		"string_int": 	 -8,
+		"string_int8": 	 -8,
+		"string_int16":  -8,
+		"string_int32":  -8,
+		"string_int64":  -8,
+		"string_uint": 	 15,
+		"string_uint8":  15,
+		"string_uint16": 15,
+		"string_uint32": 15,
+		"string_uint64": 15,
+	}
+
+	intToCheck, _ := GetInt64(intTypes, "string_int")
+	if intToCheck != -8 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_int8")
+	if intToCheck != -8 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_int16")
+	if intToCheck != -8 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_int32")
+	if intToCheck != -8 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_int64")
+	if intToCheck != -8 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_uint")
+	if intToCheck != 15 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_uint8")
+	if intToCheck != 15 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_uint16")
+	if intToCheck != 15 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_uint32")
+	if intToCheck != 15 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+
+	intToCheck, _ = GetInt64(intTypes, "string_uint64")
+	if intToCheck != 15 {
+		t.Error("Testing for casting to int64 failed.")
+	}
+}
