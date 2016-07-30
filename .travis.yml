@@ -7,6 +7,7 @@ env:
     - TEST_DIR=concurrent
     - TEST_DIR=convey
     - TEST_DIR=fact
+    - TEST_DIR=garbagetruck
     - TEST_DIR=handler
     - TEST_DIR=hash
     - TEST_DIR=health
