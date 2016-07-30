@@ -1,19 +1,25 @@
 package garbagetruck
 
 import (
-	"github.com/ian-kent/go-log/logger"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 )
 
+type testLogger struct {
+	Logger
+}
+
+func (l *testLogger) Debug(params ...interface{}) { fmt.Println(params) }
+func (l *testLogger) Error(params ...interface{}) { fmt.Println(params) }
+
 func setupGarbageTruck() *GarbageTruck {
 	tm := time.Duration(30 * time.Second)
-	lg := logger.New("TestLog")
+	lg := new(testLogger)
 	wg := &sync.WaitGroup{}
 	
 	gt := New(tm, lg, wg)
-	gt.Start()
 	
 	return gt
 }
@@ -30,7 +36,7 @@ func TestSetInterval(t *testing.T) {
 
 func TestSetLog(t *testing.T) {
 	gt := new(GarbageTruck)
-	lg := logger.New("TestLog")
+	lg := new(testLogger)
 	gt.SetLog(lg)
 	
 	if gt.log != lg {

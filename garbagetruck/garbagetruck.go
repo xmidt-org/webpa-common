@@ -1,7 +1,6 @@
 package garbagetruck
 
 import (
-	"github.com/ian-kent/go-log/logger"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -10,22 +9,28 @@ import (
 // GarbageTruck contains all the information for running it.
 type GarbageTruck struct {
 	interval time.Duration
-	log      logger.Logger
+	log      Logger
 	wg       *sync.WaitGroup
 	stop     chan bool
+}
+
+// Logger interface for GarbageTruck
+type Logger interface {
+	Debug(params ...interface{})
+	Error(params ...interface{})
 }
 
 // SetInterval sets the time a which the ticker will tick.
 func (gt *GarbageTruck) SetInterval(t time.Duration) {gt.interval = t}
 
 // SetLog sets the logger.
-func (gt *GarbageTruck) SetLog(lg logger.Logger) {gt.log = lg}
+func (gt *GarbageTruck) SetLog(lg Logger) {gt.log = lg}
 
 // SetWaitGroup sets a sync.WaitGroup.
 func (gt *GarbageTruck) SetWaitGroup(wg *sync.WaitGroup) {gt.wg = wg}
 
 // New creates new GarbageTruck and starts it.
-func New(t time.Duration, lg logger.Logger, wg *sync.WaitGroup) *GarbageTruck {
+func New(t time.Duration, lg Logger, wg *sync.WaitGroup) *GarbageTruck {
 	gt := new(GarbageTruck)
 	gt.SetInterval(t)
 	gt.SetLog(lg)
@@ -44,14 +49,14 @@ func (gt *GarbageTruck) Stop() {
 
 // Start the GarbageTruck.  Logs the garbage collection stats.
 func (gt *GarbageTruck) Start() {
-	gt.log.Trace("Garbage Truck Started")
+	gt.log.Debug("Garbage Truck Started")
 	
 	gt.wg.Add(1)
 	go func() {
 		ticker := time.NewTicker(gt.interval)
 		
 		defer gt.wg.Done()
-		defer gt.log.Trace("Garbage Truck Stopped")
+		defer gt.log.Debug("Garbage Truck Stopped")
 		defer ticker.Stop()
 		
 		gcStats := new(debug.GCStats)
