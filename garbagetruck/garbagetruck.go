@@ -23,6 +23,7 @@ func New(t time.Duration, lg logger.Logger, wg *sync.WaitGroup) *GarbageTruck {
 	gt.SetInterval(t)
 	gt.SetLog(lg)
 	gt.SetWaitGroup(wg)
+	gt.stop = make( chan bool, 1 )
 	
 	return gt
 }
@@ -36,13 +37,13 @@ func (gt *GarbageTruck) Start() {
 	
 	gt.wg.Add(1)
 	go func() {
-		gcStats := new(debug.GCStats)
 		ticker := time.NewTicker(gt.interval)
 		
-		defer ticker.Stop()
-		defer gt.log.Trace("Garbage Truck Stopped")
 		defer gt.wg.Done()
+		defer gt.log.Trace("Garbage Truck Stopped")
+		defer ticker.Stop()
 		
+		gcStats := new(debug.GCStats)
 		for {
 			select {
 				case _, ok := <- gt.stop:
@@ -52,7 +53,7 @@ func (gt *GarbageTruck) Start() {
 				case <- ticker.C:
 					debug.FreeOSMemory()
 					debug.ReadGCStats(gcStats)
-					gt.log.Error("garbage collection stats LastGC: %v, NumGC: %v, PauseTotal: %v", gcStats.LastGC, gcStats.NumGC, gcStats.PauseTotal)
+					gt.log.Error("garbage collection stats, LastGC: %v, NumGC: %v, PauseTotal: %v", gcStats.LastGC, gcStats.NumGC, gcStats.PauseTotal)
 			}
 		}
 	}()
