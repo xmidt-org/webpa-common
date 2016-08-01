@@ -1,7 +1,9 @@
 package resource
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,14 +11,48 @@ import (
 )
 
 const (
-	testFile     string = "testfile.txt"
-	testContents string = "here is a lovely little test file"
+	fileNameParameter = "filename"
+	testFile          = "testfile.txt"
+	testContents      = "here is a lovely little test file"
 )
 
 var (
 	currentDirectory string
 	httpServer       *httptest.Server
+
+	testFilePath string
+	testFileURL  string
 )
+
+type readCloser struct {
+	reader io.Reader
+	closed bool
+}
+
+func (r *readCloser) Read(buffer []byte) (int, error) {
+	if r.closed {
+		return 0, errors.New("ReadCloser has been closed")
+	}
+
+	return r.reader.Read(buffer)
+}
+
+func (r *readCloser) Close() error {
+	if r.closed {
+		return errors.New("ReadCloser already closed")
+	}
+
+	r.closed = true
+	return nil
+}
+
+type testHTTPClient struct {
+	transport func(*http.Request) (*http.Response, error)
+}
+
+func (c *testHTTPClient) Do(request *http.Request) (*http.Response, error) {
+	return c.transport(request)
+}
 
 func TestMain(m *testing.M) {
 	os.Exit(func() int {
@@ -35,7 +71,10 @@ func TestMain(m *testing.M) {
 
 		defer httpServer.Close()
 
-		fmt.Printf("Running test server at: %s\n", httpServer.URL)
+		testFilePath = fmt.Sprintf("%s/%s", currentDirectory, testFile)
+		testFileURL = fmt.Sprintf("%s/%s", httpServer.URL, testFile)
+
+		fmt.Printf("Running test HTTP server at: %s\n", httpServer.URL)
 		return m.Run()
 	}())
 }
