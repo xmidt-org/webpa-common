@@ -44,6 +44,54 @@ func TestFactoryNoResource(t *testing.T) {
 	assert.Equal(ErrorURIRequired, err)
 }
 
+func TestFactoryUnsupportedScheme(t *testing.T) {
+	assert := assert.New(t)
+
+	factory := &Factory{
+		URI: "whatisthis://foo/bar.txt",
+	}
+
+	url, err := factory.URL()
+	assert.Nil(url)
+	assert.NotNil(err)
+
+	loader, err := factory.NewLoader()
+	assert.Nil(loader)
+	assert.NotNil(err)
+}
+
+func TestFactoryBadURI(t *testing.T) {
+	assert := assert.New(t)
+
+	factory := &Factory{
+		URI: "http://        /what/\t",
+	}
+
+	url, err := factory.URL()
+	assert.Nil(url)
+	assert.NotNil(err)
+
+	loader, err := factory.NewLoader()
+	assert.Nil(loader)
+	assert.NotNil(err)
+}
+
+func TestFactoryBadTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	factory := &Factory{
+		URI: "http://example.com/{bad",
+	}
+
+	url, err := factory.URL()
+	assert.NotNil(url)
+	assert.Nil(err)
+
+	template, err := factory.NewTemplate()
+	assert.Nil(template)
+	assert.NotNil(err)
+}
+
 func TestFactoryData(t *testing.T) {
 	assert := assert.New(t)
 
