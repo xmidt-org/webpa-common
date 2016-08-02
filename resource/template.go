@@ -15,6 +15,10 @@ type Template struct {
 	HTTPClient  httpClient
 }
 
+func (t *Template) String() string {
+	return t.URITemplate.String()
+}
+
 // Expand uses the supplied value to expand the URITemplate.  Internally, a Factory
 // instance wraps the expanded URI and is then used to produce the Loader.
 //

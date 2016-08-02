@@ -16,10 +16,12 @@ func TestTemplateFile(t *testing.T) {
 
 		templates := make([]*Template, 0, 2)
 		if template, err := factory.NewTemplate(); assert.NotNil(template) && assert.Nil(err) {
+			assert.Equal(fileTemplate, template.String())
 			templates = append(templates, template)
 		}
 
 		if template, err := factory.NewTemplate(fileNameParameter); assert.NotNil(template) && assert.Nil(err) {
+			assert.Equal(fileTemplate, template.String())
 			templates = append(templates, template)
 		}
 
