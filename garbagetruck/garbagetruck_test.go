@@ -18,8 +18,9 @@ func setupGarbageTruck() *GarbageTruck {
 	tm := time.Duration(30 * time.Second)
 	lg := new(testLogger)
 	wg := &sync.WaitGroup{}
+	sd := make(chan struct{})
 
-	gt := New(tm, lg, wg)
+	gt := New(tm, lg, wg, sd)
 
 	return gt
 }
@@ -44,25 +45,6 @@ func TestSetLog(t *testing.T) {
 	}
 }
 
-func TestSetWaitGroup(t *testing.T) {
-	gt := new(GarbageTruck)
-	wg := &sync.WaitGroup{}
-	gt.SetWaitGroup(wg)
-
-	if gt.wg != wg {
-		t.Error("Failed to set sync.WaitGroup correctly.  expected: %v, got: %v", wg, gt.wg)
-	}
-}
-
-func TestStop(t *testing.T) {
-	gt := setupGarbageTruck()
-	gt.Stop()
-
-	if _, ok := <-gt.stop; ok {
-		t.Error("Failed to close channel")
-	}
-}
-
-func TestStart(t *testing.T) {
+func TestRun(t *testing.T) {
 
 }

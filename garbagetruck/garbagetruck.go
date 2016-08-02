@@ -10,8 +10,6 @@ import (
 type GarbageTruck struct {
 	interval time.Duration
 	log      Logger
-	wg       *sync.WaitGroup
-	stop     chan bool
 }
 
 // Logger interface for GarbageTruck
@@ -26,46 +24,34 @@ func (gt *GarbageTruck) SetInterval(t time.Duration) { gt.interval = t }
 // SetLog sets the logger.
 func (gt *GarbageTruck) SetLog(lg Logger) { gt.log = lg }
 
-// SetWaitGroup sets a sync.WaitGroup.
-func (gt *GarbageTruck) SetWaitGroup(wg *sync.WaitGroup) { gt.wg = wg }
-
 // New creates new GarbageTruck and starts it.
-func New(t time.Duration, lg Logger, wg *sync.WaitGroup) *GarbageTruck {
+func New(t time.Duration, lg Logger, wg *sync.WaitGroup, shutdown <-chan struct{}) *GarbageTruck {
 	gt := new(GarbageTruck)
 	gt.SetInterval(t)
 	gt.SetLog(lg)
-	gt.SetWaitGroup(wg)
-	gt.stop = make(chan bool, 1)
 
-	gt.Start()
+	gt.Run(wg, shutdown)
 
 	return gt
 }
 
-// Stop the GarbageTruck
-func (gt *GarbageTruck) Stop() {
-	close(gt.stop)
-}
-
 // Start the GarbageTruck.  Logs the garbage collection stats.
-func (gt *GarbageTruck) Start() {
+func (gt *GarbageTruck) Run(wg *sync.WaitGroup, shutdown <-chan struct{}) error {
 	gt.log.Debug("Garbage Truck Started")
 
-	gt.wg.Add(1)
+	wg.Add(1)
 	go func() {
 		ticker := time.NewTicker(gt.interval)
 
-		defer gt.wg.Done()
+		defer wg.Done()
 		defer gt.log.Debug("Garbage Truck Stopped")
 		defer ticker.Stop()
 
 		gcStats := new(debug.GCStats)
 		for {
 			select {
-			case _, ok := <-gt.stop:
-				if !ok {
-					return
-				}
+			case <-shutdown:
+				return
 			case <-ticker.C:
 				debug.FreeOSMemory()
 				debug.ReadGCStats(gcStats)
@@ -73,4 +59,6 @@ func (gt *GarbageTruck) Start() {
 			}
 		}
 	}()
+	
+	return nil
 }
