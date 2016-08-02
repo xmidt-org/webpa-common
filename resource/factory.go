@@ -6,16 +6,26 @@ import (
 	"github.com/jtacoma/uritemplates"
 	"net/http"
 	"net/url"
+	"sort"
 )
 
 const (
-	NoScheme    = ""
-	FileScheme  = "file"
-	HttpScheme  = "http"
+	// NoScheme indicates the value of a URI without a scheme prefix, e.g. "/etc/appname/config.json"
+	NoScheme = ""
+
+	// FileScheme indicates a file URI according to https://en.wikipedia.org/wiki/File_URI_scheme.
+	// When a URL is parsed that has no scheme, url.URL.Scheme is set to this value.
+	FileScheme = "file"
+
+	// HttpScheme is plain old HTTP
+	HttpScheme = "http"
+
+	// HttpsScheme is secure HTTP
 	HttpsScheme = "https"
 )
 
 var (
+	// supportedSchemes provides a quick, map-based way to test for a valid scheme
 	supportedSchemes = map[string]bool{
 		FileScheme:  true,
 		HttpScheme:  true,
@@ -112,7 +122,10 @@ func (f *Factory) NewLoader() (Loader, error) {
 
 // NewTemplate treats URI as a URI template and produces a Template object
 // which can be used to expand the URI template into Loader instances.
-func (f *Factory) NewTemplate() (*Template, error) {
+//
+// If any requiredNames are supplied, an error will be returned if the URI template
+// does not contain only those names.
+func (f *Factory) NewTemplate(requiredNames ...string) (*Template, error) {
 	if len(f.URI) == 0 {
 		return nil, ErrorURIRequired
 	} else if len(f.Data) > 0 {
@@ -122,6 +135,22 @@ func (f *Factory) NewTemplate() (*Template, error) {
 	uriTemplate, err := uritemplates.Parse(f.URI)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(requiredNames) > 0 {
+		missingNames := make([]string, 0, len(requiredNames))
+		actualNames := sort.StringSlice(uriTemplate.Names())
+		actualNames.Sort()
+
+		for _, requiredName := range requiredNames {
+			if position := actualNames.Search(requiredName); position >= actualNames.Len() || actualNames[position] != requiredName {
+				missingNames = append(missingNames, requiredName)
+			}
+		}
+
+		if len(missingNames) > 0 {
+			return nil, fmt.Errorf("URI template %s does not contain names %s", uriTemplate, missingNames)
+		}
 	}
 
 	return &Template{
