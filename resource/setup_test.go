@@ -20,8 +20,14 @@ var (
 	currentDirectory string
 	httpServer       *httptest.Server
 
-	testFilePath string
-	testFileURL  string
+	testFilePath         string
+	testFilePathTemplate string
+
+	testFileURI         string
+	testFileURITemplate string
+
+	testFileURL         string
+	testFileURLTemplate string
 )
 
 type readCloser struct {
@@ -72,7 +78,13 @@ func TestMain(m *testing.M) {
 		defer httpServer.Close()
 
 		testFilePath = fmt.Sprintf("%s/%s", currentDirectory, testFile)
+		testFilePathTemplate = fmt.Sprintf("%s/{%s}", currentDirectory, fileNameParameter)
+
+		testFileURI = fmt.Sprintf("file://%s/%s", currentDirectory, testFile)
+		testFileURITemplate = fmt.Sprintf("file://%s/{%s}", currentDirectory, fileNameParameter)
+
 		testFileURL = fmt.Sprintf("%s/%s", httpServer.URL, testFile)
+		testFileURLTemplate = fmt.Sprintf("%s/{%s}", httpServer.URL, fileNameParameter)
 
 		fmt.Printf("Running test HTTP server at: %s\n", httpServer.URL)
 		return m.Run()

@@ -1,0 +1,125 @@
+package resource
+
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
+
+func TestFactoryAmbiguousResource(t *testing.T) {
+	assert := assert.New(t)
+
+	factory := &Factory{
+		URI:  "http://someplace.com/foobar.txt",
+		Data: "here is some content",
+	}
+
+	url, err := factory.URL()
+	assert.Nil(url)
+	assert.Equal(ErrorAmbiguousResource, err)
+
+	loader, err := factory.NewLoader()
+	assert.Nil(loader)
+	assert.Equal(ErrorAmbiguousResource, err)
+
+	template, err := factory.NewTemplate()
+	assert.Nil(template)
+	assert.Equal(ErrorAmbiguousResource, err)
+}
+
+func TestFactoryNoResource(t *testing.T) {
+	assert := assert.New(t)
+
+	factory := &Factory{}
+
+	url, err := factory.URL()
+	assert.Nil(url)
+	assert.Equal(ErrorNoResource, err)
+
+	loader, err := factory.NewLoader()
+	assert.Nil(loader)
+	assert.Equal(ErrorNoResource, err)
+
+	template, err := factory.NewTemplate()
+	assert.Nil(template)
+	assert.Equal(ErrorURIRequired, err)
+}
+
+func TestFactoryData(t *testing.T) {
+	assert := assert.New(t)
+
+	message := "here is some lovely content"
+	factory := &Factory{
+		Data: message,
+	}
+
+	url, err := factory.URL()
+	assert.Nil(url)
+	assert.Nil(err)
+
+	if loader, err := factory.NewLoader(); assert.NotNil(loader) && assert.Nil(err) {
+		assert.Equal(message, loader.Location())
+		data, err := ReadAll(loader)
+		assert.Equal(message, string(data))
+		assert.Nil(err)
+	}
+
+	template, err := factory.NewTemplate()
+	assert.Nil(template)
+	assert.Equal(ErrorURIRequired, err)
+}
+
+func TestFactoryFileLoader(t *testing.T) {
+	assert := assert.New(t)
+
+	for _, fileURI := range []string{testFilePath, testFileURI} {
+		t.Logf("fileURI: %s", fileURI)
+		factory := &Factory{
+			URI: fileURI,
+		}
+
+		if url, err := factory.URL(); assert.NotNil(url) && assert.Nil(err) {
+			assert.Equal(FileScheme, url.Scheme)
+
+			if loader, err := factory.NewLoader(); assert.NotNil(loader) && assert.Nil(err) {
+				assert.Equal(url.Path, loader.Location())
+				data, err := ReadAll(loader)
+				assert.Equal(testContents, string(data))
+				assert.Nil(err)
+			}
+
+			if template, err := factory.NewTemplate(); assert.NotNil(template) && assert.Nil(err) {
+				assert.Len(template.URITemplate.Names(), 0)
+			}
+
+			template, err := factory.NewTemplate("key")
+			assert.Nil(template)
+			assert.NotNil(err)
+		}
+	}
+}
+
+func TestFactoryHTTPLoader(t *testing.T) {
+	assert := assert.New(t)
+	factory := &Factory{
+		URI: testFileURL,
+	}
+
+	if url, err := factory.URL(); assert.NotNil(url) && assert.Nil(err) {
+		assert.Equal(HttpScheme, url.Scheme)
+	}
+
+	if loader, err := factory.NewLoader(); assert.NotNil(loader) && assert.Nil(err) {
+		assert.Equal(testFileURL, loader.Location())
+		data, err := ReadAll(loader)
+		assert.Equal(testContents, string(data))
+		assert.Nil(err)
+	}
+
+	if template, err := factory.NewTemplate(); assert.NotNil(template) && assert.Nil(err) {
+		assert.Len(template.URITemplate.Names(), 0)
+	}
+
+	template, err := factory.NewTemplate("key")
+	assert.Nil(template)
+	assert.NotNil(err)
+}
