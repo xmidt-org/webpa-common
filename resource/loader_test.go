@@ -120,6 +120,19 @@ func TestHTTPSimple(t *testing.T) {
 	assert.True(newClientUsed)
 }
 
+func TestHTTPInvalidRequest(t *testing.T) {
+	assert := assert.New(t)
+
+	var loader Loader = &HTTP{
+		URL:    testFileURL,
+		Method: "INVALID METHOD",
+	}
+
+	data, err := ReadAll(loader)
+	assert.Len(data, 0)
+	assert.NotNil(err)
+}
+
 func TestHTTP(t *testing.T) {
 	assert := assert.New(t)
 
