@@ -6,6 +6,26 @@ import (
 	"testing"
 )
 
+func TestMustParseValidTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	if template := MustParse("/etc/{key}.txt"); assert.NotNil(template) {
+		result, err := template.Expand(map[string]interface{}{"key": "value"})
+		assert.Equal(result, "/etc/value.txt")
+		assert.Nil(err)
+	}
+}
+
+func TestMustParseInvalidTemplate(t *testing.T) {
+	assert := assert.New(t)
+	defer func() {
+		r := recover()
+		assert.NotNil(r)
+	}()
+
+	MustParse("/invalid/{bad")
+}
+
 func TestTemplateFile(t *testing.T) {
 	assert := assert.New(t)
 
