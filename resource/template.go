@@ -5,6 +5,17 @@ import (
 	"net/http"
 )
 
+// MustParse parses the given URI template and panics if there is an error.
+// Useful for initializing global variables or struct literals.
+func MustParse(uriTemplate string) *uritemplates.UriTemplate {
+	template, err := uritemplates.Parse(uriTemplate)
+	if err != nil {
+		panic(err)
+	}
+
+	return template
+}
+
 // Expander is a strategy for expanding URI templates into resource Loaders.
 type Expander interface {
 	// Names returns a slice containing the parameter names in the URI template.
