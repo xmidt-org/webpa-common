@@ -21,7 +21,7 @@ func TestFactoryAmbiguousResource(t *testing.T) {
 	assert.Nil(loader)
 	assert.Equal(ErrorAmbiguousResource, err)
 
-	template, err := factory.NewTemplate()
+	template, err := factory.NewExpander()
 	assert.Nil(template)
 	assert.Equal(ErrorAmbiguousResource, err)
 }
@@ -39,7 +39,7 @@ func TestFactoryNoResource(t *testing.T) {
 	assert.Nil(loader)
 	assert.Equal(ErrorNoResource, err)
 
-	template, err := factory.NewTemplate()
+	template, err := factory.NewExpander()
 	assert.Nil(template)
 	assert.Equal(ErrorURIRequired, err)
 }
@@ -87,7 +87,7 @@ func TestFactoryBadTemplate(t *testing.T) {
 	assert.NotNil(url)
 	assert.Nil(err)
 
-	template, err := factory.NewTemplate()
+	template, err := factory.NewExpander()
 	assert.Nil(template)
 	assert.NotNil(err)
 }
@@ -111,7 +111,7 @@ func TestFactoryData(t *testing.T) {
 		assert.Nil(err)
 	}
 
-	template, err := factory.NewTemplate()
+	template, err := factory.NewExpander()
 	assert.Nil(template)
 	assert.Equal(ErrorURIRequired, err)
 }
@@ -135,12 +135,14 @@ func TestFactoryFileLoader(t *testing.T) {
 				assert.Nil(err)
 			}
 
-			if template, err := factory.NewTemplate(); assert.NotNil(template) && assert.Nil(err) {
-				assert.Len(template.URITemplate.Names(), 0)
+			if expander, err := factory.NewExpander(); assert.NotNil(expander) && assert.Nil(err) {
+				if template, ok := expander.(*Template); assert.True(ok) {
+					assert.Len(template.URITemplate.Names(), 0)
+				}
 			}
 
-			template, err := factory.NewTemplate("key")
-			assert.Nil(template)
+			expander, err := factory.NewExpander("key")
+			assert.Nil(expander)
 			assert.NotNil(err)
 		}
 	}
@@ -163,11 +165,13 @@ func TestFactoryHTTPLoader(t *testing.T) {
 		assert.Nil(err)
 	}
 
-	if template, err := factory.NewTemplate(); assert.NotNil(template) && assert.Nil(err) {
-		assert.Len(template.URITemplate.Names(), 0)
+	if expander, err := factory.NewExpander(); assert.NotNil(expander) && assert.Nil(err) {
+		if template, ok := expander.(*Template); assert.True(ok) {
+			assert.Len(template.URITemplate.Names(), 0)
+		}
 	}
 
-	template, err := factory.NewTemplate("key")
-	assert.Nil(template)
+	expander, err := factory.NewExpander("key")
+	assert.Nil(expander)
 	assert.NotNil(err)
 }

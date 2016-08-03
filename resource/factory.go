@@ -40,6 +40,11 @@ var (
 // Factory provides a common way to configure all types of resources
 // supported by this package.  This type allows client code to use JSON configuration
 // to specify resources in an abstract way.
+//
+// The primary purpose for this type is to allow external configuration of application
+// resources in a file or other source of JSON.  For code which does not require this
+// level of abstraction, the other resources types in this package (e.g. HTTP, Data, Template, etc)
+// can be used directly.
 type Factory struct {
 	// URI specifies the external resource's location.  This can be a filesystem
 	// path, which is a valid URI.  file:// resources are also supported.
@@ -120,12 +125,12 @@ func (f *Factory) NewLoader() (Loader, error) {
 	}
 }
 
-// NewTemplate treats URI as a URI template and produces a Template object
+// NewExpander treats URI as a URI template and produces an Expander object
 // which can be used to expand the URI template into Loader instances.
 //
 // If any requiredNames are supplied, an error will be returned if the URI template
 // does not contain only those names.
-func (f *Factory) NewTemplate(requiredNames ...string) (*Template, error) {
+func (f *Factory) NewExpander(requiredNames ...string) (Expander, error) {
 	if len(f.URI) == 0 {
 		return nil, ErrorURIRequired
 	} else if len(f.Data) > 0 {
