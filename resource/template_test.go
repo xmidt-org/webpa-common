@@ -27,6 +27,10 @@ func TestTemplateFile(t *testing.T) {
 		}
 
 		for _, expander := range expanders {
+			names := expander.Names()
+			assert.Len(names, 1)
+			assert.Equal(fileNameParameter, names[0])
+
 			values := map[string]interface{}{
 				fileNameParameter: testFile,
 			}
@@ -64,6 +68,10 @@ func TestTemplateHTTP(t *testing.T) {
 	}
 
 	for _, expander := range expanders {
+		names := expander.Names()
+		assert.Len(names, 1)
+		assert.Equal(fileNameParameter, names[0])
+
 		values := map[string]interface{}{
 			fileNameParameter: testFile,
 		}
