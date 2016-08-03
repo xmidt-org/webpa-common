@@ -4,57 +4,52 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
-	"path/filepath"
 	"testing"
 )
 
 const (
-	publicKeyFile  string = "testkey.pub"
-	privateKeyFile string = "testkey"
+	keyId = "testkey"
 )
 
 var (
 	httpServer *httptest.Server
 
-	publicKeyURL  *url.URL
-	publicKeyPath string
+	publicKeyFilePath         string
+	publicKeyFilePathTemplate string
 
-	privateKeyURL  *url.URL
-	privateKeyPath string
+	publicKeyURL         string
+	publicKeyURLTemplate string
+
+	privateKeyFilePath         string
+	privateKeyFilePathTemplate string
+
+	privateKeyURL         string
+	privateKeyURLTemplate string
 )
 
 func TestMain(m *testing.M) {
-	testDirectory, err := os.Getwd()
+	currentDirectory, err := os.Getwd()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to obtain current working directory: %v\n", err)
 		os.Exit(1)
 	}
 
-	httpServer = httptest.NewServer(http.FileServer(http.Dir(testDirectory)))
-
-	fmt.Printf("started test server at %s\n", httpServer.URL)
-	publicKeyURL, err = url.Parse(httpServer.URL + "/" + publicKeyFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not parse public key URL: %v\n", err)
-		os.Exit(1)
-	}
-
-	publicKeyPath = filepath.Join(testDirectory, publicKeyFile)
-	fmt.Printf("test public key URL: %s\n", publicKeyURL)
-	fmt.Printf("test public key path: %s\n", publicKeyPath)
-
-	privateKeyURL, err = url.Parse(httpServer.URL + "/" + privateKeyFile)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not parse private key URL: %v\n", err)
-		os.Exit(1)
-	}
-
-	privateKeyPath = filepath.Join(testDirectory, privateKeyFile)
-	fmt.Printf("test private key URL: %s\n", privateKeyURL)
-	fmt.Printf("test private key path: %s\n", privateKeyPath)
-
+	httpServer = httptest.NewServer(http.FileServer(http.Dir(currentDirectory)))
 	defer httpServer.Close()
+	fmt.Printf("started test server at %s\n", httpServer.URL)
+
+	publicKeyFilePath = fmt.Sprintf("%s/%s.pub", currentDirectory, keyId)
+	publicKeyFilePathTemplate = fmt.Sprintf("%s/{%s}.pub", currentDirectory, KeyIdParameterName)
+
+	publicKeyURL = fmt.Sprintf("%s/%s.pub", httpServer.URL, keyId)
+	publicKeyURLTemplate = fmt.Sprintf("%s/{%s}.pub", httpServer.URL, KeyIdParameterName)
+
+	privateKeyFilePath = fmt.Sprintf("%s/%s", currentDirectory, keyId)
+	privateKeyFilePathTemplate = fmt.Sprintf("%s/{%s}", currentDirectory, KeyIdParameterName)
+
+	privateKeyURL = fmt.Sprintf("%s/%s", httpServer.URL, keyId)
+	privateKeyURLTemplate = fmt.Sprintf("%s/{%s}", httpServer.URL, KeyIdParameterName)
+
 	os.Exit(m.Run())
 }
