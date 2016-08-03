@@ -5,9 +5,22 @@ import (
 	"net/http"
 )
 
-// Template is a factory type which allows URI template expansion
-// to produce Loaders.  A Template instance acts as a sort of "factory of factories",
-// delegating to a Factory instance to deal with expanded resource URIs.
+// Expander is a strategy for expanding URI templates into resource Loaders.
+type Expander interface {
+	// Expand uses the supplied object as a source for name/value pairs to use
+	// when expanding the URI template.  Typically, this method is called with
+	// a map[string]interface{} or a struct whose exported members supply the name/value
+	// pairs.
+	Expand(interface{}) (Loader, error)
+}
+
+// Template is an Expander implementation which uses a uritemplates.UriTemplate
+// to generate URIs.  The URIs are then supplied to a Factory which is used to
+// produce the Loaders.
+//
+// Typically, a Factory will be used to create instances of this type, which are
+// used through the Expander interface.  However, this type is exported for simple
+// use cases which do not require the full configuration logic of a Factory.
 type Template struct {
 	URITemplate *uritemplates.UriTemplate
 	Header      http.Header
@@ -19,11 +32,6 @@ func (t *Template) String() string {
 	return t.URITemplate.String()
 }
 
-// Expand uses the supplied value to expand the URITemplate.  Internally, a Factory
-// instance wraps the expanded URI and is then used to produce the Loader.
-//
-// The value used to expand the URI template is passed to UriTemplate.Expand().  It
-// can be a map or a struct.
 func (t *Template) Expand(value interface{}) (Loader, error) {
 	uri, err := t.URITemplate.Expand(value)
 	if err != nil {
