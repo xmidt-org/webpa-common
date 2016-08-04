@@ -180,9 +180,9 @@ func (cache *multiKeyCache) UpdateKeys() (count int, errors []error) {
 // updateInterval is positive, and (2) resolver implements KeyCache, then this
 // method returns a non-nil function that will spawn a goroutine to update
 // the cache in the background.  Otherwise, this method returns nil.
-func NewUpdater(updateInterval time.Duration, resolver Resolver) concurrent.Runnable {
+func NewUpdater(updateInterval time.Duration, resolver Resolver) (concurrent.Runnable, bool) {
 	if updateInterval < 1 {
-		return nil
+		return nil, false
 	}
 
 	if keyCache, ok := resolver.(KeyCache); ok {
@@ -210,8 +210,8 @@ func NewUpdater(updateInterval time.Duration, resolver Resolver) concurrent.Runn
 			}()
 
 			return nil
-		})
+		}), true
 	}
 
-	return nil
+	return nil, false
 }

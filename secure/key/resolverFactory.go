@@ -86,6 +86,6 @@ func (rf *ResolverFactory) NewResolver() (Resolver, error) {
 
 // NewUpdater uses this factory's configured UpdatedInterval and invokes the
 // standalone NewUpdater function.
-func (rf *ResolverFactory) NewUpdater(resolver Resolver) concurrent.Runnable {
+func (rf *ResolverFactory) NewUpdater(resolver Resolver) (concurrent.Runnable, bool) {
 	return NewUpdater(time.Duration(rf.UpdateInterval), resolver)
 }
