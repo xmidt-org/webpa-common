@@ -2,7 +2,10 @@ package key
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/resource"
+	"github.com/Comcast/webpa-common/types"
+	"time"
 )
 
 const (
@@ -30,9 +33,15 @@ type ResolverFactory struct {
 	// All keys resolved by this factory will have this purpose, which affects
 	// how keys are parsed.
 	Purpose Purpose `json:"purpose"`
+
+	// UpdateInterval specifies how often keys should be refreshed.
+	// If negative or zero, keys are never refreshed and are cached forever.
+	UpdateInterval types.Duration `json:"updateInterval"`
 }
 
-// NewResolver creates a distinct Resolver using this factory's configuration.
+// NewResolver creates a Resolver using this factory's configuration.  The
+// returned Resolver always caches keys forever once they have been loaded.
+// Use NewUpdater to create an updater to freshen keys using this factory's configuration.
 func (rf *ResolverFactory) NewResolver() (Resolver, error) {
 	expander, err := rf.NewExpander()
 	if err != nil {
@@ -47,16 +56,24 @@ func (rf *ResolverFactory) NewResolver() (Resolver, error) {
 			return nil, err
 		}
 
-		return &singleResolver{
-			loader: loader,
-			parser: rf.Purpose,
+		return &singleKeyCache{
+			basicCache{
+				delegate: &singleResolver{
+					loader: loader,
+					parser: rf.Purpose,
+				},
+			},
 		}, nil
 
 	case 1:
 		if names[0] == KeyIdParameterName {
-			return &multiResolver{
-				expander: expander,
-				parser:   rf.Purpose,
+			return &multiKeyCache{
+				basicCache{
+					delegate: &multiResolver{
+						expander: expander,
+						parser:   rf.Purpose,
+					},
+				},
 			}, nil
 		}
 
@@ -65,4 +82,10 @@ func (rf *ResolverFactory) NewResolver() (Resolver, error) {
 	default:
 		return nil, ErrorInvalidTemplate
 	}
+}
+
+// NewUpdater uses this factory's configured UpdatedInterval and invokes the
+// standalone NewUpdater function.
+func (rf *ResolverFactory) NewUpdater(resolver Resolver) concurrent.Runnable {
+	return NewUpdater(time.Duration(rf.UpdateInterval), resolver)
 }
