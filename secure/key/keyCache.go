@@ -1,7 +1,6 @@
 package key
 
 import (
-	"fmt"
 	"github.com/Comcast/webpa-common/concurrent"
 	"sync"
 	"sync/atomic"
@@ -159,15 +158,23 @@ func (cache *multiKeyCache) UpdateKeys() (count int, errors []error) {
 	if existingKeys, ok := cache.load().(map[string]interface{}); ok {
 		count = len(existingKeys)
 		cache.update(func() {
+			newCount := 0
 			newKeys := make(map[string]interface{}, len(existingKeys))
 			for keyId, oldKey := range existingKeys {
 				if newKey, err := cache.delegate.ResolveKey(keyId); err == nil {
+					newCount++
 					newKeys[keyId] = newKey
 				} else {
 					// keep the old key in the event of an error
 					newKeys[keyId] = oldKey
 					errors = append(errors, err)
 				}
+			}
+
+			// small optimization: don't bother doing the atomic swap
+			// if every key operation failed
+			if newCount > 0 {
+				cache.store(newKeys)
 			}
 		})
 	}
@@ -187,10 +194,6 @@ func NewUpdater(updateInterval time.Duration, resolver Resolver) (concurrent.Run
 
 	if keyCache, ok := resolver.(KeyCache); ok {
 		return concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-			if updateInterval < 1 {
-				return fmt.Errorf("Invalid duration: %s", updateInterval)
-			}
-
 			waitGroup.Add(1)
 
 			go func() {
