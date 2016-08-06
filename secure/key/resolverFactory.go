@@ -42,50 +42,48 @@ type ResolverFactory struct {
 	UpdateInterval types.Duration `json:"updateInterval"`
 }
 
-// New creates a Resolver using this factory's configuration.  The
+// NewResolver() creates a Resolver using this factory's configuration.  The
 // returned Resolver always caches keys forever once they have been loaded.
-//
-// The second, optional return value is a Runnable which will update the given
-// Resolver's keys on this factory's configured UpdateInterval.  This Runnable
-// will be nil if this factory does not have a positive UpdateInterval.
-func (rf *ResolverFactory) New() (resolver Resolver, updater concurrent.Runnable, err error) {
-	expander, err := rf.NewExpander()
+func (factory *ResolverFactory) NewResolver() (Resolver, error) {
+	expander, err := factory.NewExpander()
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	names := expander.Names()
 	nameCount := len(names)
 	if nameCount == 0 {
 		// the template had no parameters, so we can create a simpler object
-		var loader resource.Loader
-		loader, err = rf.Factory.NewLoader()
+		loader, err := factory.NewLoader()
 		if err != nil {
-			return
+			return nil, err
 		}
 
-		resolver = &singleKeyCache{
+		return &singleKeyCache{
 			basicCache{
 				delegate: &singleResolver{
 					loader: loader,
-					parser: rf.Purpose,
+					parser: factory.Purpose,
 				},
 			},
-		}
+		}, nil
 	} else if nameCount == 1 && names[0] == KeyIdParameterName {
-		resolver = &multiKeyCache{
+		return &multiKeyCache{
 			basicCache{
 				delegate: &multiResolver{
 					expander: expander,
-					parser:   rf.Purpose,
+					parser:   factory.Purpose,
 				},
 			},
-		}
-	} else {
-		err = ErrorInvalidTemplate
-		return
+		}, nil
 	}
 
-	updater = NewUpdater(time.Duration(rf.UpdateInterval), resolver)
-	return
+	return nil, ErrorInvalidTemplate
+}
+
+// NewUpdater uses this factory's configuration to conditionally create a Runnable updater
+// for the given resolver.  This method delegates to the NewUpdater function, and may
+// return a nil Runnable if no updates are necessary.
+func (factory *ResolverFactory) NewUpdater(resolver Resolver) concurrent.Runnable {
+	return NewUpdater(time.Duration(factory.UpdateInterval), resolver)
 }
