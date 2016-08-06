@@ -8,11 +8,6 @@ type mockResolver struct {
 	mock.Mock
 }
 
-func (resolver *mockResolver) UsesKeyId() bool {
-	args := resolver.Called()
-	return args.Bool(0)
-}
-
 func (resolver *mockResolver) ResolveKey(keyId string) (interface{}, error) {
 	args := resolver.Called(keyId)
 	return args.Get(0), args.Error(1)
@@ -20,11 +15,6 @@ func (resolver *mockResolver) ResolveKey(keyId string) (interface{}, error) {
 
 type mockKeyCache struct {
 	mock.Mock
-}
-
-func (keyCache *mockKeyCache) UsesKeyId() bool {
-	args := keyCache.Called()
-	return args.Bool(0)
 }
 
 func (keyCache *mockKeyCache) ResolveKey(keyId string) (interface{}, error) {
