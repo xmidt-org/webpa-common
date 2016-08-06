@@ -7,12 +7,6 @@ import (
 
 // Resolver loads and parses keys associated with key identifiers.
 type Resolver interface {
-	// UsesKeyId returns true if ResolveKey uses the keyId parameter to return potentially different
-	// keys, false if ResolveKey will ignore the keyId and always return the same key.
-	//
-	// This method is primarily for optimization, particularly around caching.
-	UsesKeyId() bool
-
 	// ResolveKey returns a key with the given identifier.  The exact mechanics of resolving
 	// a keyId into the raw key data are implementation-specific.  Implementations are free
 	// to ignore the keyId parameter altogether.
@@ -27,10 +21,6 @@ type singleResolver struct {
 
 func (r *singleResolver) String() string {
 	return fmt.Sprintf("%s: %s", r.parser, r.loader)
-}
-
-func (r *singleResolver) UsesKeyId() bool {
-	return false
 }
 
 func (r *singleResolver) ResolveKey(keyId string) (interface{}, error) {
@@ -51,10 +41,6 @@ type multiResolver struct {
 
 func (r *multiResolver) String() string {
 	return fmt.Sprintf("%s: %s", r.parser, r.expander)
-}
-
-func (r *multiResolver) UsesKeyId() bool {
-	return true
 }
 
 func (r *multiResolver) ResolveKey(keyId string) (interface{}, error) {

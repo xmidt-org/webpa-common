@@ -35,22 +35,6 @@ func init() {
 	}
 }
 
-func TestBasicCacheUsesKeyId(t *testing.T) {
-	assert := assert.New(t)
-
-	for _, expected := range []bool{true, false} {
-		resolver := &mockResolver{}
-		resolver.On("UsesKeyId").Return(expected).Once()
-
-		cache := &basicCache{
-			delegate: resolver,
-		}
-
-		assert.Equal(expected, cache.UsesKeyId())
-		mock.AssertExpectationsForObjects(t, resolver.Mock)
-	}
-}
-
 func TestBasicCacheStoreAndLoad(t *testing.T) {
 	assert := assert.New(t)
 
@@ -412,9 +396,8 @@ func TestNewUpdaterNoRunnable(t *testing.T) {
 
 	for _, record := range testData {
 		t.Log(record)
-		updater, ok := NewUpdater(record.updateInterval, record.keyCache)
+		updater := NewUpdater(record.updateInterval, record.keyCache)
 		assert.Nil(updater)
-		assert.False(ok)
 	}
 
 	mock.AssertExpectationsForObjects(t, keyCache.Mock)
@@ -435,7 +418,7 @@ func TestNewUpdater(t *testing.T) {
 	keyCache := &mockKeyCache{}
 	keyCache.On("UpdateKeys").Return(0, nil).Run(runner)
 
-	if updater, ok := NewUpdater(100*time.Millisecond, keyCache); assert.NotNil(updater) && assert.True(ok) {
+	if updater := NewUpdater(100*time.Millisecond, keyCache); assert.NotNil(updater) {
 		waitGroup := &sync.WaitGroup{}
 		shutdown := make(chan struct{})
 		updater.Run(waitGroup, shutdown)

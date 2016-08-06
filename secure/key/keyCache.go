@@ -58,10 +58,6 @@ func (b *basicCache) update(operation func()) {
 	operation()
 }
 
-func (b *basicCache) UsesKeyId() bool {
-	return b.delegate.UsesKeyId()
-}
-
 // singleKeyCache assumes that the delegate Resolver
 // only returns (1) key.
 type singleKeyCache struct {
@@ -187,13 +183,13 @@ func (cache *multiKeyCache) UpdateKeys() (count int, errors []error) {
 // updateInterval is positive, and (2) resolver implements KeyCache, then this
 // method returns a non-nil function that will spawn a goroutine to update
 // the cache in the background.  Otherwise, this method returns nil.
-func NewUpdater(updateInterval time.Duration, resolver Resolver) (concurrent.Runnable, bool) {
+func NewUpdater(updateInterval time.Duration, resolver Resolver) (updater concurrent.Runnable) {
 	if updateInterval < 1 {
-		return nil, false
+		return
 	}
 
 	if keyCache, ok := resolver.(KeyCache); ok {
-		return concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		updater = concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 			waitGroup.Add(1)
 
 			go func() {
@@ -213,8 +209,8 @@ func NewUpdater(updateInterval time.Duration, resolver Resolver) (concurrent.Run
 			}()
 
 			return nil
-		}), true
+		})
 	}
 
-	return nil, false
+	return
 }

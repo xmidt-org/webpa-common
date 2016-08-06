@@ -33,8 +33,6 @@ func TestSingleResolverPublicKey(t *testing.T) {
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURI)
 
-			assert.False(resolver.UsesKeyId())
-
 			key, err := resolver.ResolveKey("does not matter")
 			assert.NotNil(key)
 			assert.Nil(err)
@@ -70,8 +68,6 @@ func TestSingleResolverPrivateKey(t *testing.T) {
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURI)
 
-			assert.False(resolver.UsesKeyId())
-
 			key, err := resolver.ResolveKey("does not matter")
 			assert.NotNil(key)
 			assert.Nil(err)
@@ -92,8 +88,6 @@ func TestSingleResolverBadResource(t *testing.T) {
 		},
 		parser: PurposeVerify,
 	}
-
-	assert.False(resolver.UsesKeyId())
 
 	key, err := resolver.ResolveKey("does not matter")
 	assert.Nil(key)
@@ -123,8 +117,6 @@ func TestMultiResolverPublicKey(t *testing.T) {
 			stringValue := fmt.Sprintf("%s", resolver)
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURITemplate)
-
-			assert.True(resolver.UsesKeyId())
 
 			key, err := resolver.ResolveKey(keyId)
 			assert.NotNil(key)
@@ -157,8 +149,6 @@ func TestMultiResolverPrivateKey(t *testing.T) {
 				parser:   purpose,
 			}
 
-			assert.True(resolver.UsesKeyId())
-
 			stringValue := fmt.Sprintf("%s", resolver)
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURITemplate)
@@ -182,8 +172,6 @@ func TestMultiResolverBadResource(t *testing.T) {
 			URITemplate: resource.MustParse("/this/does/not/exist/{key}"),
 		},
 	}
-
-	assert.True(resolver.UsesKeyId())
 
 	key, err := resolver.ResolveKey("this isn't valid")
 	assert.Nil(key)
@@ -209,8 +197,6 @@ func TestMultiResolverBadExpander(t *testing.T) {
 	var resolver Resolver = &multiResolver{
 		expander: &badExpander{expectedError},
 	}
-
-	assert.True(resolver.UsesKeyId())
 
 	key, err := resolver.ResolveKey("does not matter")
 	assert.Nil(key)

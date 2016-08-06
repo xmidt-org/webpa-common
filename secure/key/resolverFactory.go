@@ -9,11 +9,14 @@ import (
 )
 
 const (
+	// KeyIdParameterName is the template parameter that must be present in URI templates
+	// if there are any parameters.  URI templates accepted by this package have either no parameters
+	// or exactly one (1) parameter with this name.
 	KeyIdParameterName = "keyId"
-	DefaultContentType = "text/plain"
 )
 
 var (
+	// ErrorInvalidTemplate is the error returned when a URI template is invalid for a key resource
 	ErrorInvalidTemplate = fmt.Errorf(
 		"Key resource template must support either no parameters are the %s parameter",
 		KeyIdParameterName,
@@ -23,10 +26,10 @@ var (
 // ResolverFactory provides a JSON representation of a collection of keys together
 // with a factory interface for creating distinct Resolver instances.
 //
-// This factory uses NewTemplate() to create a resource template used in resolving keys.
+// This factory uses resource.NewExpander() to create a resource template used in resolving keys.
 // This template can have no parameters, in which case the same resource is used regardless
 // of the key id.  If the template has any parameters, it must have exactly (1) parameter
-// and that parameter must be called "keyId".
+// and that parameter's name must be equal to KeyIdParameterName.
 type ResolverFactory struct {
 	resource.Factory
 
@@ -39,53 +42,50 @@ type ResolverFactory struct {
 	UpdateInterval types.Duration `json:"updateInterval"`
 }
 
-// NewResolver creates a Resolver using this factory's configuration.  The
+// New creates a Resolver using this factory's configuration.  The
 // returned Resolver always caches keys forever once they have been loaded.
-// Use NewUpdater to create an updater to freshen keys using this factory's configuration.
-func (rf *ResolverFactory) NewResolver() (Resolver, error) {
+//
+// The second, optional return value is a Runnable which will update the given
+// Resolver's keys on this factory's configured UpdateInterval.  This Runnable
+// will be nil if this factory does not have a positive UpdateInterval.
+func (rf *ResolverFactory) New() (resolver Resolver, updater concurrent.Runnable, err error) {
 	expander, err := rf.NewExpander()
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	names := expander.Names()
-	switch len(names) {
-	case 0:
-		loader, err := rf.Factory.NewLoader()
+	nameCount := len(names)
+	if nameCount == 0 {
+		// the template had no parameters, so we can create a simpler object
+		var loader resource.Loader
+		loader, err = rf.Factory.NewLoader()
 		if err != nil {
-			return nil, err
+			return
 		}
 
-		return &singleKeyCache{
+		resolver = &singleKeyCache{
 			basicCache{
 				delegate: &singleResolver{
 					loader: loader,
 					parser: rf.Purpose,
 				},
 			},
-		}, nil
-
-	case 1:
-		if names[0] == KeyIdParameterName {
-			return &multiKeyCache{
-				basicCache{
-					delegate: &multiResolver{
-						expander: expander,
-						parser:   rf.Purpose,
-					},
-				},
-			}, nil
 		}
-
-		fallthrough
-
-	default:
-		return nil, ErrorInvalidTemplate
+	} else if nameCount == 1 && names[0] == KeyIdParameterName {
+		resolver = &multiKeyCache{
+			basicCache{
+				delegate: &multiResolver{
+					expander: expander,
+					parser:   rf.Purpose,
+				},
+			},
+		}
+	} else {
+		err = ErrorInvalidTemplate
+		return
 	}
-}
 
-// NewUpdater uses this factory's configured UpdatedInterval and invokes the
-// standalone NewUpdater function.
-func (rf *ResolverFactory) NewUpdater(resolver Resolver) (concurrent.Runnable, bool) {
-	return NewUpdater(time.Duration(rf.UpdateInterval), resolver)
+	updater = NewUpdater(time.Duration(rf.UpdateInterval), resolver)
+	return
 }
