@@ -3,8 +3,19 @@ package secure
 import (
 	"fmt"
 	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
+)
+
+const (
+	// DefaultKeyId is the keyId used when no kid is present in the protected
+	// header of a JWS
+	DefaultKeyId = "current"
+)
+
+var (
+	DefaultSigningMethod = jws.GetSigningMethod("RS256")
 )
 
 // Validator describes the behavior of a type which can validate tokens
@@ -35,7 +46,7 @@ func ValidateExactMatch(match string) Validator {
 }
 
 // ValidateJWS produces a Validator for JWS tokens.  Comcast SAT tokens are JWS tokens.
-func ValidateJWS(resolver key.Resolver, defaultKeyId string, jwtValidators ...*jwt.Validator) Validator {
+func ValidateJWS(resolver key.Resolver, jwtValidators ...*jwt.Validator) Validator {
 	return ValidatorFunc(func(token *Token) (bool, error) {
 		if token.Type() != Bearer {
 			return false, nil
@@ -46,25 +57,29 @@ func ValidateJWS(resolver key.Resolver, defaultKeyId string, jwtValidators ...*j
 			return false, err
 		}
 
-		jwsToken, ok := jwtToken.(jws.JWS)
-		if !ok {
-			return false, fmt.Errorf("Token is not a valid JWS: %s", token)
-		}
+		var (
+			keyId         string
+			signingMethod crypto.SigningMethod
+		)
 
-		header := jwsToken.Protected()
-		signingMethodName, ok := header.Get("alg").(string)
-		if !ok {
-			return false, fmt.Errorf("Token does not define a signing method in the header: %s", token)
-		}
+		// casting to a jws.JWS is the only way to get access to the protected header
+		if jwsToken, ok := jwtToken.(jws.JWS); ok {
+			// TODO: Support multiple protected headers?
+			header := jwsToken.Protected()
+			if alg, ok := header.Get("alg").(string); ok {
+				signingMethod = jws.GetSigningMethod(alg)
+			}
 
-		signingMethod := jws.GetSigningMethod(signingMethodName)
-		if signingMethod == nil {
-			return false, fmt.Errorf("Unknown signing method: %s", signingMethodName)
-		}
+			if signingMethod == nil {
+				signingMethod = DefaultSigningMethod
+			}
 
-		keyId, ok := header.Get("kid").(string)
-		if len(keyId) == 0 {
-			keyId = defaultKeyId
+			if keyId, _ = header.Get("kid").(string); len(keyId) == 0 {
+				keyId = DefaultKeyId
+			}
+		} else {
+			// we require a JWS token, since that is essentially a signed JWT
+			return false, fmt.Errorf("Token is not a JWS: %s", token.String())
 		}
 
 		key, err := resolver.ResolveKey(keyId)
@@ -72,7 +87,6 @@ func ValidateJWS(resolver key.Resolver, defaultKeyId string, jwtValidators ...*j
 			return false, fmt.Errorf("Unable to resolve key with id: %s", keyId)
 		}
 
-		// Have to invoke Validate on the JWT type due to bad interface design in SermoDigital
 		if err := jwtToken.Validate(key, signingMethod, jwtValidators...); err != nil {
 			return false, err
 		}
