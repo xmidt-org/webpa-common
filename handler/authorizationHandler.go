@@ -62,6 +62,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			}
 		}
 
+		a.Logger.Error("Request denied: %s", request)
 		response.WriteHeader(forbiddenStatusCode)
 	})
 }
