@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ugorji/go/codec"
+	"io"
 	"reflect"
 )
 
@@ -19,6 +20,32 @@ const (
 var (
 	ErrorGetInt64 = errors.New("GetInt64 error casting value")
 )
+
+// Encoder is implemented by any wrp message
+type Encoder interface {
+	Encode() ([]byte, error)
+}
+
+// writerTo is an internal type that adapts Encoder onto io.WriterTo
+type writerTo struct {
+	Encoder
+}
+
+func (w writerTo) WriteTo(output io.Writer) (int64, error) {
+	data, err := w.Encode()
+	if err != nil {
+		return 0, err
+	}
+
+	count, err := output.Write(data)
+	return int64(count), err
+}
+
+// WriterTo is a constructor function that produces an
+// io.WriterTo from any Encoder.
+func WriterTo(encoder Encoder) io.WriterTo {
+	return writerTo{encoder}
+}
 
 /*-- Authorization Message Type Handling -------------------------------------*/
 
@@ -167,7 +194,7 @@ func Decode(buf []byte) (interface{}, error) {
 
 	switch msg_type {
 	case AuthMsgType:
-		status, err := GetInt64(m, "status");
+		status, err := GetInt64(m, "status")
 		if err != nil {
 			return nil, fmt.Errorf("Error retrieving status: %v", err)
 		}
