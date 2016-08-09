@@ -110,14 +110,14 @@ func TestClientDispatcher(t *testing.T) {
 		tasks := make([]Task, 0, taskCount)
 
 		for taskNumber := 0; taskNumber < taskCount; taskNumber++ {
-			request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
-			assert.NotNil(request)
-			assert.Nil(err)
-
 			var task Task
 
 			switch taskNumber % 3 {
 			case 0:
+				request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
+				assert.NotNil(request)
+				assert.Nil(err)
+
 				task = Task(func() (*http.Request, error) {
 					defer taskWaitGroup.Done()
 					return request, nil
@@ -132,6 +132,10 @@ func TestClientDispatcher(t *testing.T) {
 				})
 
 			default:
+				request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
+				assert.NotNil(request)
+				assert.Nil(err)
+
 				task = Task(func() (*http.Request, error) {
 					defer taskWaitGroup.Done()
 					return request, nil
