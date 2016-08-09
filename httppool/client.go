@@ -1,8 +1,8 @@
 package httppool
 
 import (
-	"errors"
 	"github.com/Comcast/webpa-common/logging"
+	"net/http"
 	"os"
 	"time"
 )
@@ -12,16 +12,13 @@ const (
 	DefaultQueueSize = 100
 )
 
-var (
-	ErrorAlreadyRunning = errors.New("This client is already running")
-)
-
 // Client is an asynchronous, pooled HTTP transaction handler.  This type
 // acts as a factory for Dispatcher implementations that manage a pool of
 // workers, each handling HTTP transactions.  Support for rate limiting
 // is also provided, via the Period member.
 type Client struct {
 	// Handler is any type that has a method with the signature Do(*http.Request) (*http.Response, error)
+	// If not supplied, the http.DefaultClient is used.
 	Handler transactionHandler
 
 	// Logger is the logging strategy used by this client.  If not supplied, all output will
@@ -41,27 +38,51 @@ type Client struct {
 	Period time.Duration
 }
 
+func (client *Client) queueSize() int {
+	if client.QueueSize > 0 {
+		return client.QueueSize
+	}
+
+	return DefaultQueueSize
+}
+
+func (client *Client) workers() int {
+	if client.Workers > 0 {
+		return client.Workers
+	}
+
+	return DefaultWorkers
+}
+
+func (client *Client) logger() logging.Logger {
+	if client.Logger != nil {
+		return client.Logger
+	}
+
+	return &logging.LoggerWriter{os.Stdout}
+}
+
+func (client *Client) handler() transactionHandler {
+	if client.Handler != nil {
+		return client.Handler
+	}
+
+	return http.DefaultClient
+}
+
 // Start starts the pool of goroutines and returns a DispatcherCloser which
 // can be used to send tasks and shut down the pool.
 func (client *Client) Start() (dispatcher DispatchCloser) {
-	queueSize := client.QueueSize
-	if queueSize < 1 {
-		queueSize = DefaultQueueSize
-	}
-
-	logger := client.Logger
-	if logger == nil {
-		logger = &logging.LoggerWriter{os.Stdout}
-	}
+	logger := client.logger()
+	logger.Debug("Start()")
 
 	var worker func(int)
-
 	if client.Period > 0 {
 		limited := &limitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				handler: client.Handler,
+				handler: client.handler(),
 				logger:  logger,
-				tasks:   make(chan Task, queueSize),
+				tasks:   make(chan Task, client.queueSize()),
 			},
 			ticker: time.NewTicker(client.Period),
 		}
@@ -71,9 +92,9 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	} else {
 		unlimited := &unlimitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				handler: client.Handler,
+				handler: client.handler(),
 				logger:  logger,
-				tasks:   make(chan Task, queueSize),
+				tasks:   make(chan Task, client.queueSize()),
 			},
 		}
 
@@ -81,11 +102,7 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 		dispatcher = unlimited
 	}
 
-	workers := client.Workers
-	if workers < 1 {
-		workers = DefaultWorkers
-	}
-
+	workers := client.workers()
 	for workerId := 0; workerId < workers; workerId++ {
 		go worker(workerId)
 	}
