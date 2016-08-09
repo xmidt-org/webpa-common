@@ -1,7 +1,9 @@
 package wrp
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
@@ -75,6 +77,23 @@ func TestSimpleEvent(t *testing.T) {
 	start.String()
 }
 
+func TestSimpleEventUsingWriterTo(t *testing.T) {
+	assert := assert.New(t)
+
+	start := SimpleEventMsg{Source: "dns:scytale.webpa.comcast.net/foo",
+		Dest:    "mac:112233445566",
+		Payload: []byte("{ \"whatever i want")}
+
+	var buffer bytes.Buffer
+	if written, err := WriterTo(start).WriteTo(&buffer); assert.Nil(err) {
+		assert.True(written > 0)
+		encoded := buffer.Bytes()
+		if decoded, err := Decode(encoded); assert.Nil(err) {
+			assert.Equal(start, decoded)
+		}
+	}
+}
+
 func TestSimpleReqResponse(t *testing.T) {
 	start := SimpleReqResponseMsg{Source: "dns:scytale.webpa.comcast.net/foo",
 		Dest:            "mac:112233445566",
@@ -99,6 +118,24 @@ func TestSimpleReqResponse(t *testing.T) {
 	start.String()
 }
 
+func TestSimpleReqResponseUsingWriterTo(t *testing.T) {
+	assert := assert.New(t)
+
+	start := SimpleReqResponseMsg{Source: "dns:scytale.webpa.comcast.net/foo",
+		Dest:            "mac:112233445566",
+		TransactionUUID: "23o234u234ioasdflk",
+		Payload:         []byte("{ \"whatever i want!\" }")}
+
+	var buffer bytes.Buffer
+	if written, err := WriterTo(start).WriteTo(&buffer); assert.Nil(err) {
+		assert.True(written > 0)
+		encoded := buffer.Bytes()
+		if decoded, err := Decode(encoded); assert.Nil(err) {
+			assert.Equal(start, decoded)
+		}
+	}
+}
+
 func TestAuthStatus(t *testing.T) {
 	start := AuthStatusMsg{Status: 123}
 
@@ -118,6 +155,21 @@ func TestAuthStatus(t *testing.T) {
 	}
 
 	start.String()
+}
+
+func TestAuthStatusUsingWriterTo(t *testing.T) {
+	assert := assert.New(t)
+
+	start := AuthStatusMsg{Status: 123}
+
+	var buffer bytes.Buffer
+	if written, err := WriterTo(start).WriteTo(&buffer); assert.Nil(err) {
+		assert.True(written > 0)
+		encoded := buffer.Bytes()
+		if decoded, err := Decode(encoded); assert.Nil(err) {
+			assert.Equal(start, decoded)
+		}
+	}
 }
 
 func TestInvalidMsgType(t *testing.T) {
@@ -176,13 +228,13 @@ func TestTruncatedMsg(t *testing.T) {
 }
 
 func TestGetInt64(t *testing.T) {
-	intTypes := map[interface{}]interface{} {
-		"string_int": 	 -8,
-		"string_int8": 	 -8,
+	intTypes := map[interface{}]interface{}{
+		"string_int":    -8,
+		"string_int8":   -8,
 		"string_int16":  -8,
 		"string_int32":  -8,
 		"string_int64":  -8,
-		"string_uint": 	 15,
+		"string_uint":   15,
 		"string_uint8":  15,
 		"string_uint16": 15,
 		"string_uint32": 15,
