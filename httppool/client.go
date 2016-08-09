@@ -1,6 +1,7 @@
 package httppool
 
 import (
+	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 	"os"
@@ -10,6 +11,10 @@ import (
 const (
 	DefaultWorkers   = 10
 	DefaultQueueSize = 100
+)
+
+var (
+	ErrorClosed = errors.New("Dispatcher has been closed")
 )
 
 // Client is factory for asynchronous, pooled HTTP transaction dispatchers.
@@ -79,10 +84,9 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	if client.Period > 0 {
 		limited := &limitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				handler:  client.handler(),
-				logger:   logger,
-				tasks:    make(chan Task, client.queueSize()),
-				shutdown: make(chan struct{}),
+				handler: client.handler(),
+				logger:  logger,
+				tasks:   make(chan Task, client.queueSize()),
 			},
 			period: client.Period,
 		}
@@ -92,10 +96,9 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	} else {
 		unlimited := &unlimitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				handler:  client.handler(),
-				logger:   logger,
-				tasks:    make(chan Task, client.queueSize()),
-				shutdown: make(chan struct{}),
+				handler: client.handler(),
+				logger:  logger,
+				tasks:   make(chan Task, client.queueSize()),
 			},
 		}
 
@@ -117,27 +120,28 @@ type pooledDispatcher struct {
 	handler transactionHandler
 	logger  logging.Logger
 	tasks   chan Task
-
-	// shutdown is used to ensure workers exit in a timely fashion,
-	// without bothering to consume remaining tasks
-	shutdown chan struct{}
 }
 
 // Close halts the consumption of tasks for all worker goroutines.
 // Any remaining tasks are abandoned.
 func (pooled *pooledDispatcher) Close() error {
 	pooled.logger.Debug("Close()")
-	close(pooled.shutdown)
 	close(pooled.tasks)
 	return nil
 }
 
-// Send drops the task onto the inbound channel.  This method will
-// panic if this dispatcher has been closed.
-func (pooled *pooledDispatcher) Send(task Task) error {
+// Send drops the task onto the inbound channel.  This method will block
+// if the task queue is full.
+func (pooled *pooledDispatcher) Send(task Task) (err error) {
 	pooled.logger.Debug("Send(%v)", task)
+	defer func() {
+		if r := recover(); r != nil {
+			err = ErrorClosed
+		}
+	}()
+
 	pooled.tasks <- task
-	return nil
+	return
 }
 
 // handleTask takes care of using a task to create the request
@@ -162,17 +166,10 @@ type unlimitedClientDispatcher struct {
 }
 
 func (unlimited *unlimitedClientDispatcher) worker(workerId int) {
-	unlimited.logger.Debug("Worker %d starting", workerId)
+	unlimited.logger.Debug("Unlimited Worker %d starting", workerId)
 
-	for {
-		select {
-		case <-unlimited.shutdown:
-			unlimited.logger.Debug("Worker %d shutting down", workerId)
-			return
-
-		case task := <-unlimited.tasks:
-			unlimited.handleTask(workerId, task)
-		}
+	for task := range unlimited.tasks {
+		unlimited.handleTask(workerId, task)
 	}
 }
 
@@ -184,19 +181,12 @@ type limitedClientDispatcher struct {
 }
 
 func (limited *limitedClientDispatcher) worker(workerId int) {
-	limited.logger.Debug("Worker %d starting", workerId)
+	limited.logger.Debug("Rate-limited Worker %d starting", workerId)
 	ticker := time.NewTicker(limited.period)
 	defer ticker.Stop()
 
-	for {
-		select {
-		case <-limited.shutdown:
-			limited.logger.Debug("Worker %d shutting down", workerId)
-			return
-
-		case task := <-limited.tasks:
-			<-ticker.C
-			limited.handleTask(workerId, task)
-		}
+	for task := range limited.tasks {
+		<-ticker.C
+		limited.handleTask(workerId, task)
 	}
 }
