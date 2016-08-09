@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	requestCount = 100
+	taskCount = 100
 )
 
 var (
@@ -55,7 +55,7 @@ func TestClientNonDefaults(t *testing.T) {
 	expectedHandler := &http.Client{}
 	expectedLogger := &logging.LoggerWriter{os.Stderr}
 
-	// all these clients should use real values, not the defaults
+	// none of these clients should use default values
 	var testData = []Client{
 		Client{
 			Handler:   expectedHandler,
@@ -102,21 +102,21 @@ func TestClientDispatcher(t *testing.T) {
 
 	for _, client := range testData {
 		taskWaitGroup := &sync.WaitGroup{}
-		taskWaitGroup.Add(requestCount)
+		taskWaitGroup.Add(taskCount)
 
 		handler := &mockTransactionHandler{}
 		client.Handler = handler
 
-		tasks := make([]Task, 0, requestCount)
+		tasks := make([]Task, 0, taskCount)
 
-		for requestNumber := 0; requestNumber < requestCount; requestNumber++ {
-			request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", requestNumber), nil)
+		for taskNumber := 0; taskNumber < taskCount; taskNumber++ {
+			request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
 			assert.NotNil(request)
 			assert.Nil(err)
 
 			var task Task
 
-			switch requestNumber % 3 {
+			switch taskNumber % 3 {
 			case 0:
 				task = Task(func() (*http.Request, error) {
 					defer taskWaitGroup.Done()
