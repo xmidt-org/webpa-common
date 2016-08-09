@@ -12,10 +12,9 @@ const (
 	DefaultQueueSize = 100
 )
 
-// Client is an asynchronous, pooled HTTP transaction handler.  This type
-// acts as a factory for Dispatcher implementations that manage a pool of
-// workers, each handling HTTP transactions.  Support for rate limiting
-// is also provided, via the Period member.
+// Client is factory for asynchronous, pooled HTTP transaction dispatchers.
+// An optional Period may be specified which limits the rate at which each worker goroutine
+// sends requests.
 type Client struct {
 	// Handler is any type that has a method with the signature Do(*http.Request) (*http.Response, error)
 	// If not supplied, the http.DefaultClient is used.
@@ -33,7 +32,7 @@ type Client struct {
 	// If this value is less than one (1), DefaultWorkers is used.
 	Workers int
 
-	// Period is the interval between requests on each worker.  If this
+	// Period is the interval between requests on EACH worker.  If this
 	// value is zero or negative, the workers will not be rate-limited.
 	Period time.Duration
 }
@@ -80,11 +79,12 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	if client.Period > 0 {
 		limited := &limitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				handler: client.handler(),
-				logger:  logger,
-				tasks:   make(chan Task, client.queueSize()),
+				handler:  client.handler(),
+				logger:   logger,
+				tasks:    make(chan Task, client.queueSize()),
+				shutdown: make(chan struct{}),
 			},
-			ticker: time.NewTicker(client.Period),
+			period: client.Period,
 		}
 
 		worker = limited.worker
@@ -92,9 +92,10 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	} else {
 		unlimited := &unlimitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				handler: client.handler(),
-				logger:  logger,
-				tasks:   make(chan Task, client.queueSize()),
+				handler:  client.handler(),
+				logger:   logger,
+				tasks:    make(chan Task, client.queueSize()),
+				shutdown: make(chan struct{}),
 			},
 		}
 
@@ -116,14 +117,23 @@ type pooledDispatcher struct {
 	handler transactionHandler
 	logger  logging.Logger
 	tasks   chan Task
+
+	// shutdown is used to ensure workers exit in a timely fashion,
+	// without bothering to consume remaining tasks
+	shutdown chan struct{}
 }
 
+// Close halts the consumption of tasks for all worker goroutines.
+// Any remaining tasks are abandoned.
 func (pooled *pooledDispatcher) Close() error {
 	pooled.logger.Debug("Close()")
+	close(pooled.shutdown)
 	close(pooled.tasks)
 	return nil
 }
 
+// Send drops the task onto the inbound channel.  This method will
+// panic if this dispatcher has been closed.
 func (pooled *pooledDispatcher) Send(task Task) error {
 	pooled.logger.Debug("Send(%v)", task)
 	pooled.tasks <- task
@@ -152,26 +162,41 @@ type unlimitedClientDispatcher struct {
 }
 
 func (unlimited *unlimitedClientDispatcher) worker(workerId int) {
-	for task := range unlimited.tasks {
-		unlimited.handleTask(workerId, task)
+	unlimited.logger.Debug("Worker %d starting", workerId)
+
+	for {
+		select {
+		case <-unlimited.shutdown:
+			unlimited.logger.Debug("Worker %d shutting down", workerId)
+			return
+
+		case task := <-unlimited.tasks:
+			unlimited.handleTask(workerId, task)
+		}
 	}
 }
 
 // limitedClientDispatcher is a DispatcherCloser whose pooled goroutines
-// are limited by a time channel.
+// send requests on a fixed interval (period).
 type limitedClientDispatcher struct {
 	pooledDispatcher
-	ticker *time.Ticker
-}
-
-func (limited *limitedClientDispatcher) Close() error {
-	defer limited.ticker.Stop()
-	return limited.pooledDispatcher.Close()
+	period time.Duration
 }
 
 func (limited *limitedClientDispatcher) worker(workerId int) {
-	for task := range limited.tasks {
-		<-limited.ticker.C
-		limited.handleTask(workerId, task)
+	limited.logger.Debug("Worker %d starting", workerId)
+	ticker := time.NewTicker(limited.period)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-limited.shutdown:
+			limited.logger.Debug("Worker %d shutting down", workerId)
+			return
+
+		case task := <-limited.tasks:
+			<-ticker.C
+			limited.handleTask(workerId, task)
+		}
 	}
 }
