@@ -122,8 +122,8 @@ type pooledDispatcher struct {
 	tasks   chan Task
 }
 
-// Close halts the consumption of tasks for all worker goroutines.
-// Any remaining tasks are abandoned.
+// Close shuts down the task channel.  Workers are allowed to finish
+// and exit gracefully.
 func (pooled *pooledDispatcher) Close() error {
 	pooled.logger.Debug("Close()")
 	close(pooled.tasks)
@@ -132,6 +132,8 @@ func (pooled *pooledDispatcher) Close() error {
 
 // Send drops the task onto the inbound channel.  This method will block
 // if the task queue is full.
+//
+// This method will return ErrorClosed if the task channel has been closed.
 func (pooled *pooledDispatcher) Send(task Task) (err error) {
 	pooled.logger.Debug("Send(%v)", task)
 	defer func() {
