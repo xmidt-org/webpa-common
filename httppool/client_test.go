@@ -42,6 +42,7 @@ func TestClientDefaults(t *testing.T) {
 
 	for _, client := range testData {
 		t.Logf("client: %#v", client)
+		assert.NotEmpty(client.name())
 		assert.Equal(http.DefaultClient, client.handler())
 		assert.Equal(DefaultQueueSize, client.queueSize())
 		assert.Equal(DefaultWorkers, client.workers())
@@ -54,18 +55,21 @@ func TestClientDefaults(t *testing.T) {
 func TestClientNonDefaults(t *testing.T) {
 	assert := assert.New(t)
 
+	expectedName := "expected"
 	expectedHandler := &http.Client{}
 	expectedLogger := &logging.LoggerWriter{os.Stderr}
 
 	// none of these clients should use default values
 	var testData = []Client{
 		Client{
+			Name:      expectedName,
 			Handler:   expectedHandler,
 			Logger:    expectedLogger,
 			Workers:   1234,
 			QueueSize: 7983481,
 		},
 		Client{
+			Name:      expectedName,
 			Handler:   expectedHandler,
 			Logger:    expectedLogger,
 			Workers:   2956,
@@ -76,6 +80,7 @@ func TestClientNonDefaults(t *testing.T) {
 
 	for _, client := range testData {
 		t.Logf("client: %#v", client)
+		assert.Equal(expectedName, client.name())
 		assert.Equal(expectedHandler, client.handler())
 		assert.Equal(expectedLogger, client.logger())
 		assert.Equal(client.QueueSize, client.queueSize())
@@ -198,6 +203,7 @@ func TestOffer(t *testing.T) {
 	mockTransactionHandler.On("Do", quickRequest).Return(quickResponse, nil).Once()
 
 	dispatcher := (&Client{
+		Name:      "TestOffer",
 		Handler:   mockTransactionHandler,
 		Workers:   1,
 		QueueSize: 1,

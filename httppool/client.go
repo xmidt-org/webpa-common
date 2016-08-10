@@ -2,6 +2,7 @@ package httppool
 
 import (
 	"errors"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"io"
 	"io/ioutil"
@@ -31,6 +32,11 @@ type transactionHandler interface {
 // An optional Period may be specified which limits the rate at which each worker goroutine
 // sends requests.
 type Client struct {
+	// Name is a human-readable label for dispatchers created via this Client instance.
+	// This name shows up in logs to distinguish one pool from another.  If this string
+	// has length 0, a default name using the address of this Client instance is generated.
+	Name string
+
 	// Handler is any type that has a method with the signature Do(*http.Request) (*http.Response, error)
 	// If not supplied, the http.DefaultClient is used.
 	Handler transactionHandler
@@ -50,6 +56,14 @@ type Client struct {
 	// Period is the interval between requests on EACH worker.  If this
 	// value is zero or negative, the workers will not be rate-limited.
 	Period time.Duration
+}
+
+func (client *Client) name() string {
+	if len(client.Name) > 0 {
+		return client.Name
+	}
+
+	return fmt.Sprintf("Pool[%p]", client)
 }
 
 func (client *Client) queueSize() int {
@@ -87,13 +101,15 @@ func (client *Client) handler() transactionHandler {
 // Start starts the pool of goroutines and returns a DispatchCloser which
 // can be used to send tasks and shut down the pool.
 func (client *Client) Start() (dispatcher DispatchCloser) {
+	name := client.name()
 	logger := client.logger()
-	logger.Debug("Start()")
+	logger.Debug("%s.Start()", name)
 
 	var worker func(*workerContext)
 	if client.Period > 0 {
 		limited := &limitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
+				name:    name,
 				handler: client.handler(),
 				logger:  logger,
 				tasks:   make(chan Task, client.queueSize()),
@@ -106,6 +122,7 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	} else {
 		unlimited := &unlimitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
+				name:    name,
 				handler: client.handler(),
 				logger:  logger,
 				tasks:   make(chan Task, client.queueSize()),
@@ -142,6 +159,7 @@ type workerContext struct {
 // pooledDispatcher supplies the common state and logic for all
 // Client-based dispatchers
 type pooledDispatcher struct {
+	name    string
 	handler transactionHandler
 	logger  logging.Logger
 	tasks   chan Task
@@ -150,7 +168,7 @@ type pooledDispatcher struct {
 // Close shuts down the task channel.  Workers are allowed to finish
 // and exit gracefully.
 func (pooled *pooledDispatcher) Close() (err error) {
-	pooled.logger.Debug("Close()")
+	pooled.logger.Debug("%s.Close()", pooled.name)
 	defer func() {
 		if r := recover(); r != nil {
 			err = ErrorClosed
@@ -166,7 +184,7 @@ func (pooled *pooledDispatcher) Close() (err error) {
 //
 // This method will return ErrorClosed if the task channel has been closed.
 func (pooled *pooledDispatcher) Send(task Task) (err error) {
-	pooled.logger.Debug("Send(%v)", task)
+	pooled.logger.Debug("%s.Send(%v)", pooled.name, task)
 	defer func() {
 		if r := recover(); r != nil {
 			err = ErrorClosed
@@ -179,7 +197,7 @@ func (pooled *pooledDispatcher) Send(task Task) (err error) {
 
 // Offer attempts to send the task via a nonblocking select.
 func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
-	pooled.logger.Debug("Offer(%v)", task)
+	pooled.logger.Debug("%s.Offer(%v)", pooled.name, task)
 	defer func() {
 		if r := recover(); r != nil {
 			taken = false
@@ -200,18 +218,18 @@ func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
 // handleTask takes care of using a task to create the request
 // and then sending that request to the handler
 func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
-	pooled.logger.Debug("handleTask(%d, %v)", context.id, task)
+	pooled.logger.Debug("%s.handleTask(%d, %v)", pooled.name, context.id, task)
 
 	// prevent panics from killing a worker
 	defer func() {
 		if r := recover(); r != nil {
-			pooled.logger.Error("Worker %d encountered a panic: %s", context.id, r)
+			pooled.logger.Error("%s[%d] encountered a panic: %s", pooled.name, context.id, r)
 		}
 	}()
 
 	request, consumer, err := task()
 	if err != nil {
-		pooled.logger.Error("Worker %d received an error from a task: %s", context.id, err)
+		pooled.logger.Error("%s[%d] received an error from a task: %s", pooled.name, context.id, err)
 		return
 	} else if request == nil {
 		pooled.logger.Error("Worker %d received a nil request", context.id)
@@ -224,7 +242,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 			// if the consumer already cleaned things up, CopyBuffer will return EOF
 			// use a canonical cleanup buffer to ease GC pressure
 			if _, err := io.CopyBuffer(ioutil.Discard, response.Body, context.cleanupBuffer); err != nil && err != io.EOF {
-				pooled.logger.Error("Worker %d encountered an error while consuming the response body: %s", err)
+				pooled.logger.Error("%s[%d] encountered an error while consuming the response body: %s", pooled.name, context.id, err)
 			}
 
 			response.Body.Close()
@@ -232,7 +250,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 	}
 
 	if err != nil {
-		pooled.logger.Error("HTTP transaction resulted in error: %s", err)
+		pooled.logger.Error("%s[%d] HTTP transaction resulted in error: %s", pooled.name, context.id, err)
 		return
 	}
 
@@ -248,7 +266,7 @@ type unlimitedClientDispatcher struct {
 }
 
 func (unlimited *unlimitedClientDispatcher) worker(context *workerContext) {
-	unlimited.logger.Debug("Unlimited Worker %d starting", context.id)
+	unlimited.logger.Debug("%s Unlimited Worker %d starting", unlimited.name, context.id)
 
 	for task := range unlimited.tasks {
 		unlimited.handleTask(context, task)
@@ -263,7 +281,7 @@ type limitedClientDispatcher struct {
 }
 
 func (limited *limitedClientDispatcher) worker(context *workerContext) {
-	limited.logger.Debug("Rate-limited Worker %d starting", context.id)
+	limited.logger.Debug("%s Rate-limited Worker %d starting", limited.name, context.id)
 	ticker := time.NewTicker(limited.period)
 	defer ticker.Stop()
 
