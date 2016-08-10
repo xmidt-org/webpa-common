@@ -83,7 +83,7 @@ func TestClientNonDefaults(t *testing.T) {
 	}
 }
 
-func TestClientDispatcher(t *testing.T) {
+func TestClientDispatcherUsingSend(t *testing.T) {
 	assert := assert.New(t)
 
 	var testData = []Client{
@@ -172,6 +172,66 @@ func TestClientDispatcher(t *testing.T) {
 
 		handler.AssertExpectations(t)
 	}
+}
+
+func TestOffer(t *testing.T) {
+	fmt.Println("Start")
+	assert := assert.New(t)
+
+	consumerBlocker := make(chan struct{})
+	consumerWaitGroup := &sync.WaitGroup{}
+	consumerWaitGroup.Add(2)
+	consumer := func(*http.Response, *http.Request) {
+		defer consumerWaitGroup.Done()
+		<-consumerBlocker
+	}
+
+	longRunningRequest := MustNewRequest("GET", "http//longrunning.com")
+	longRunningResponse := &http.Response{}
+
+	quickRequest := MustNewRequest("GET", "http//quick.com")
+	quickResponse := &http.Response{}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockTransactionHandler.On("Do", longRunningRequest).Return(longRunningResponse, nil).Once()
+	mockTransactionHandler.On("Do", quickRequest).Return(quickResponse, nil).Once()
+
+	dispatcher := (&Client{
+		Handler:   mockTransactionHandler,
+		Workers:   1,
+		QueueSize: 1,
+		Logger:    testLogger,
+	}).Start()
+
+	// first, hold up the dispatcher with a long running request we control
+	taken, err := dispatcher.Offer(RequestTask(longRunningRequest, consumer))
+	assert.True(taken)
+	assert.Nil(err)
+
+	// now, send a quick request, to block until its accepted
+	// we know this will be accepted because the queue size is 1 and we have sent 1 task that
+	// should now (or will be soon) executing
+	err = dispatcher.Send(RequestTask(quickRequest, consumer))
+	assert.Nil(err)
+
+	// offer up a random task that should be rejected since the queue is now full
+	taken, err = dispatcher.Offer(RequestTask(quickRequest, nil))
+	assert.False(taken)
+	assert.Nil(err)
+
+	// now let all consumers run
+	close(consumerBlocker)
+
+	// wait for our 2 consumers to run
+	consumerWaitGroup.Wait()
+
+	// now offer something when closed, which should return an error
+	dispatcher.Close()
+	taken, err = dispatcher.Offer(RequestTask(quickRequest, nil))
+	assert.False(taken)
+	assert.Equal(ErrorClosed, err)
+
+	mockTransactionHandler.AssertExpectations(t)
 }
 
 func TestHandleTaskWhenTaskPanics(t *testing.T) {

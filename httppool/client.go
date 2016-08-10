@@ -171,6 +171,26 @@ func (pooled *pooledDispatcher) Send(task Task) (err error) {
 	return
 }
 
+// Offer attempts to send the task via a nonblocking select.
+func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
+	pooled.logger.Debug("Offer(%v)", task)
+	defer func() {
+		if r := recover(); r != nil {
+			taken = false
+			err = ErrorClosed
+		}
+	}()
+
+	select {
+	case pooled.tasks <- task:
+		taken = true
+	default:
+		taken = false
+	}
+
+	return
+}
+
 // handleTask takes care of using a task to create the request
 // and then sending that request to the handler
 func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
