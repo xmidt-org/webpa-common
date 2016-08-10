@@ -41,7 +41,8 @@ type Dispatcher interface {
 	Offer(Task) (bool, error)
 }
 
-// DispatchCloser is a Dispatcher that can be closed.
+// DispatchCloser is a Dispatcher that can be closed.  The Close() method implemented
+// by any DispatchCloser must be idempotent.  It should not panic when called multiple times.
 type DispatchCloser interface {
 	Dispatcher
 	io.Closer

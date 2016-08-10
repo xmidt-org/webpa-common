@@ -149,10 +149,16 @@ type pooledDispatcher struct {
 
 // Close shuts down the task channel.  Workers are allowed to finish
 // and exit gracefully.
-func (pooled *pooledDispatcher) Close() error {
+func (pooled *pooledDispatcher) Close() (err error) {
 	pooled.logger.Debug("Close()")
+	defer func() {
+		if r := recover(); r != nil {
+			err = ErrorClosed
+		}
+	}()
+
 	close(pooled.tasks)
-	return nil
+	return
 }
 
 // Send drops the task onto the inbound channel.  This method will block
@@ -235,7 +241,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 	}
 }
 
-// unlimitedClientDispatcher is a DispatcherCloser that provides
+// unlimitedClientDispatcher is a DispatchCloser that provides
 // access to a pool of goroutines that is not rate limited.
 type unlimitedClientDispatcher struct {
 	pooledDispatcher
@@ -249,7 +255,7 @@ func (unlimited *unlimitedClientDispatcher) worker(context *workerContext) {
 	}
 }
 
-// limitedClientDispatcher is a DispatcherCloser whose pooled goroutines
+// limitedClientDispatcher is a DispatchCloser whose pooled goroutines
 // send requests on a fixed interval (period).
 type limitedClientDispatcher struct {
 	pooledDispatcher

@@ -159,6 +159,7 @@ func TestClientDispatcherUsingSend(t *testing.T) {
 
 		taskWaitGroup.Wait()
 		assert.Nil(dispatcher.Close())
+		assert.Equal(ErrorClosed, dispatcher.Close())
 
 		assert.Equal(
 			ErrorClosed,
@@ -226,7 +227,9 @@ func TestOffer(t *testing.T) {
 	consumerWaitGroup.Wait()
 
 	// now offer something when closed, which should return an error
-	dispatcher.Close()
+	assert.Nil(dispatcher.Close())
+	assert.Equal(ErrorClosed, dispatcher.Close())
+
 	taken, err = dispatcher.Offer(RequestTask(quickRequest, nil))
 	assert.False(taken)
 	assert.Equal(ErrorClosed, err)
