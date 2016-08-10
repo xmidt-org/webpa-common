@@ -118,17 +118,17 @@ func TestClientDispatcher(t *testing.T) {
 				assert.NotNil(request)
 				assert.Nil(err)
 
-				task = Task(func() (*http.Request, error) {
+				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
-					return request, nil
+					return request, nil, nil
 				})
 
 				handler.On("Do", request).Return(&http.Response{}, nil)
 
 			case 1:
-				task = Task(func() (*http.Request, error) {
+				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
-					return nil, taskError
+					return nil, nil, taskError
 				})
 
 			default:
@@ -136,9 +136,9 @@ func TestClientDispatcher(t *testing.T) {
 				assert.NotNil(request)
 				assert.Nil(err)
 
-				task = Task(func() (*http.Request, error) {
+				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
-					return request, nil
+					return request, nil, nil
 				})
 
 				handler.On("Do", request).Return(nil, transactionError)
@@ -160,9 +160,9 @@ func TestClientDispatcher(t *testing.T) {
 		assert.Equal(
 			ErrorClosed,
 			dispatcher.Send(
-				Task(func() (*http.Request, error) {
+				Task(func() (*http.Request, Consumer, error) {
 					assert.Fail("Task should not have been called after Close()")
-					return nil, errors.New("Task should not have been called after Close()")
+					return nil, nil, errors.New("Task should not have been called after Close()")
 				}),
 			),
 		)

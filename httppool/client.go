@@ -3,6 +3,8 @@ package httppool
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -16,6 +18,14 @@ const (
 var (
 	ErrorClosed = errors.New("Dispatcher has been closed")
 )
+
+// transactionHandler defines the methods required of something that actually
+// handles HTTP transactions.  http.Client satisfies this interface.
+type transactionHandler interface {
+	// Do synchronously handles the HTTP transaction.  Any type that supplies
+	// this method may be used with this infrastructure.
+	Do(*http.Request) (*http.Response, error)
+}
 
 // Client is factory for asynchronous, pooled HTTP transaction dispatchers.
 // An optional Period may be specified which limits the rate at which each worker goroutine
@@ -80,7 +90,7 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	logger := client.logger()
 	logger.Debug("Start()")
 
-	var worker func(int)
+	var worker func(*workerContext)
 	if client.Period > 0 {
 		limited := &limitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
@@ -108,10 +118,25 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 
 	workers := client.workers()
 	for workerId := 0; workerId < workers; workerId++ {
-		go worker(workerId)
+		// create a unique context for each worker, especially
+		// preallocated buffer for doing HTTP response cleanup.
+		go worker(
+			&workerContext{
+				id:            workerId,
+				cleanupBuffer: make([]byte, 8*1024),
+			},
+		)
 	}
 
 	return
+}
+
+// workerContext defines the contextual information associated
+// with each pooled goroutine.  Any data that would be "goroutine-local"
+// is stored here.
+type workerContext struct {
+	id            int
+	cleanupBuffer []byte
 }
 
 // pooledDispatcher supplies the common state and logic for all
@@ -148,16 +173,45 @@ func (pooled *pooledDispatcher) Send(task Task) (err error) {
 
 // handleTask takes care of using a task to create the request
 // and then sending that request to the handler
-func (pooled *pooledDispatcher) handleTask(workerId int, task Task) {
-	pooled.logger.Debug("handleTask(%d, %v)", workerId, task)
-	if request, err := task(); err == nil {
-		if response, err := pooled.handler.Do(request); err == nil {
-			pooled.logger.Debug("response: %v", response)
-		} else {
-			pooled.logger.Error("HTTP transaction failed: %s", err)
+func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
+	pooled.logger.Debug("handleTask(%d, %v)", context.id, task)
+
+	// prevent panics from killing a worker
+	defer func() {
+		if r := recover(); r != nil {
+			pooled.logger.Error("Worker %d encountered a panic: %s", context.id, r)
 		}
-	} else {
-		pooled.logger.Error("Unable to create request: %s", err)
+	}()
+
+	request, consumer, err := task()
+	if err != nil {
+		pooled.logger.Error("Worker %d was received an error from a task: %s", context.id, err)
+		return
+	} else if request == nil {
+		pooled.logger.Error("Worker %d received a nil request", context.id)
+		return
+	}
+
+	response, err := pooled.handler.Do(request)
+	if response != nil && response.Body != nil {
+		defer func() {
+			// if the consumer already cleaned things up, CopyBuffer will return EOF
+			// use a canonical cleanup buffer to ease GC pressure
+			if _, err := io.CopyBuffer(ioutil.Discard, response.Body, context.cleanupBuffer); err != nil && err != io.EOF {
+				pooled.logger.Error("Worker %d encountered an error while consuming the response body: %s", err)
+			}
+
+			response.Body.Close()
+		}()
+	}
+
+	if err != nil {
+		pooled.logger.Error("HTTP transaction resulted in error: %s", err)
+		return
+	}
+
+	if response != nil && consumer != nil {
+		consumer(response, request)
 	}
 }
 
@@ -167,11 +221,11 @@ type unlimitedClientDispatcher struct {
 	pooledDispatcher
 }
 
-func (unlimited *unlimitedClientDispatcher) worker(workerId int) {
-	unlimited.logger.Debug("Unlimited Worker %d starting", workerId)
+func (unlimited *unlimitedClientDispatcher) worker(context *workerContext) {
+	unlimited.logger.Debug("Unlimited Worker %d starting", context.id)
 
 	for task := range unlimited.tasks {
-		unlimited.handleTask(workerId, task)
+		unlimited.handleTask(context, task)
 	}
 }
 
@@ -182,13 +236,13 @@ type limitedClientDispatcher struct {
 	period time.Duration
 }
 
-func (limited *limitedClientDispatcher) worker(workerId int) {
-	limited.logger.Debug("Rate-limited Worker %d starting", workerId)
+func (limited *limitedClientDispatcher) worker(context *workerContext) {
+	limited.logger.Debug("Rate-limited Worker %d starting", context.id)
 	ticker := time.NewTicker(limited.period)
 	defer ticker.Stop()
 
 	for task := range limited.tasks {
 		<-ticker.C
-		limited.handleTask(workerId, task)
+		limited.handleTask(context, task)
 	}
 }

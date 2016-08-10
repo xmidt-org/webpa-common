@@ -5,23 +5,26 @@ import (
 	"net/http"
 )
 
-// transactionHandler defines the methods required of something that actually
-// handles HTTP transactions.  http.Client satisfies this interface.
-type transactionHandler interface {
-	// Do synchronously handles the HTTP transaction.  Any type that supplies
-	// this method may be used with this infrastructure.
-	Do(*http.Request) (*http.Response, error)
-}
+// Consumer is a function type which is invoked with the results of an HTTP transaction.
+// Normally, this function will be invoked asynchronously.
+//
+// Dispatchers will never invoke this function if either parameter is nil.
+type Consumer func(*http.Response, *http.Request)
 
 // Task is a constructor function type that creates http.Request objects
 // A task is used, rather than a request directly, to allow lazy instantiation
 // of requests at the time the request is to be sent.
-type Task func() (*http.Request, error)
+//
+// Each Task may optionally return a Consumer.  If non-nil, this function is
+// invoked with the request/response pair.  The Dispatcher will always cleanup
+// the http.Response, regardless of whether the Consumer does anything with
+// the response body.
+type Task func() (*http.Request, Consumer, error)
 
 // RequestTask allows an already-formed http.Request to be used as a Task.
-func RequestTask(request *http.Request) Task {
-	return Task(func() (*http.Request, error) {
-		return request, nil
+func RequestTask(request *http.Request, consumer Consumer) Task {
+	return Task(func() (*http.Request, Consumer, error) {
+		return request, consumer, nil
 	})
 }
 
