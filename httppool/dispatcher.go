@@ -32,12 +32,13 @@ func RequestTask(request *http.Request, consumer Consumer) Task {
 type Dispatcher interface {
 	// Send uses the task to create a request and sends that along to a server.
 	// This method may be asynchronous or synchronous, depending on the underlying implementation.
-	// A caller of this method will block until the Dispatcher is able to handle the task.
+	// The caller will block until the Dispatcher is able to handle the task.
 	Send(Task) error
 
 	// Offer is similar to Send, except that the Dispatcher can reject the task.  A false
 	// return value indicates that the task was not executed, regardless of the error return value.
 	// Typically, Offer will reject tasks because an underlying queue or buffer is full.
+	// This method will never block.
 	Offer(Task) (bool, error)
 }
 
