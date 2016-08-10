@@ -84,7 +84,7 @@ func (client *Client) handler() transactionHandler {
 	return http.DefaultClient
 }
 
-// Start starts the pool of goroutines and returns a DispatcherCloser which
+// Start starts the pool of goroutines and returns a DispatchCloser which
 // can be used to send tasks and shut down the pool.
 func (client *Client) Start() (dispatcher DispatchCloser) {
 	logger := client.logger()
