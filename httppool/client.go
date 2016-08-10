@@ -185,7 +185,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 
 	request, consumer, err := task()
 	if err != nil {
-		pooled.logger.Error("Worker %d was received an error from a task: %s", context.id, err)
+		pooled.logger.Error("Worker %d received an error from a task: %s", context.id, err)
 		return
 	} else if request == nil {
 		pooled.logger.Error("Worker %d received a nil request", context.id)
