@@ -5,23 +5,26 @@ import (
 	"net/http"
 )
 
-// transactionHandler defines the methods required of something that actually
-// handles HTTP transactions.  http.Client satisfies this interface.
-type transactionHandler interface {
-	// Do synchronously handles the HTTP transaction.  Any type that supplies
-	// this method may be used with this infrastructure.
-	Do(*http.Request) (*http.Response, error)
-}
+// Consumer is a function type which is invoked with the results of an HTTP transaction.
+// Normally, this function will be invoked asynchronously.
+//
+// Dispatchers will never invoke this function if either parameter is nil.
+type Consumer func(*http.Response, *http.Request)
 
 // Task is a constructor function type that creates http.Request objects
 // A task is used, rather than a request directly, to allow lazy instantiation
 // of requests at the time the request is to be sent.
-type Task func() (*http.Request, error)
+//
+// Each Task may optionally return a Consumer.  If non-nil, this function is
+// invoked with the request/response pair.  The Dispatcher will always cleanup
+// the http.Response, regardless of whether the Consumer does anything with
+// the response body.
+type Task func() (*http.Request, Consumer, error)
 
 // RequestTask allows an already-formed http.Request to be used as a Task.
-func RequestTask(request *http.Request) Task {
-	return Task(func() (*http.Request, error) {
-		return request, nil
+func RequestTask(request *http.Request, consumer Consumer) Task {
+	return Task(func() (*http.Request, Consumer, error) {
+		return request, consumer, nil
 	})
 }
 
@@ -29,10 +32,18 @@ func RequestTask(request *http.Request) Task {
 type Dispatcher interface {
 	// Send uses the task to create a request and sends that along to a server.
 	// This method may be asynchronous or synchronous, depending on the underlying implementation.
+	// The caller will block until the Dispatcher is able to handle the task.
 	Send(Task) error
+
+	// Offer is similar to Send, except that the Dispatcher can reject the task.  A false
+	// return value indicates that the task was not executed, regardless of the error return value.
+	// Typically, Offer will reject tasks because an underlying queue or buffer is full.
+	// This method will never block.
+	Offer(Task) (bool, error)
 }
 
-// DispatchCloser is a Dispatcher that can be closed.
+// DispatchCloser is a Dispatcher that can be closed.  The Close() method implemented
+// by any DispatchCloser must be idempotent.  It should not panic when called multiple times.
 type DispatchCloser interface {
 	Dispatcher
 	io.Closer

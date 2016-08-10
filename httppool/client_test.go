@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"io"
 	"net/http"
 	"os"
 	"sync"
@@ -40,6 +42,7 @@ func TestClientDefaults(t *testing.T) {
 
 	for _, client := range testData {
 		t.Logf("client: %#v", client)
+		assert.NotEmpty(client.name())
 		assert.Equal(http.DefaultClient, client.handler())
 		assert.Equal(DefaultQueueSize, client.queueSize())
 		assert.Equal(DefaultWorkers, client.workers())
@@ -52,18 +55,21 @@ func TestClientDefaults(t *testing.T) {
 func TestClientNonDefaults(t *testing.T) {
 	assert := assert.New(t)
 
+	expectedName := "expected"
 	expectedHandler := &http.Client{}
 	expectedLogger := &logging.LoggerWriter{os.Stderr}
 
 	// none of these clients should use default values
 	var testData = []Client{
 		Client{
+			Name:      expectedName,
 			Handler:   expectedHandler,
 			Logger:    expectedLogger,
 			Workers:   1234,
 			QueueSize: 7983481,
 		},
 		Client{
+			Name:      expectedName,
 			Handler:   expectedHandler,
 			Logger:    expectedLogger,
 			Workers:   2956,
@@ -74,6 +80,7 @@ func TestClientNonDefaults(t *testing.T) {
 
 	for _, client := range testData {
 		t.Logf("client: %#v", client)
+		assert.Equal(expectedName, client.name())
 		assert.Equal(expectedHandler, client.handler())
 		assert.Equal(expectedLogger, client.logger())
 		assert.Equal(client.QueueSize, client.queueSize())
@@ -81,19 +88,24 @@ func TestClientNonDefaults(t *testing.T) {
 	}
 }
 
-func TestClientDispatcher(t *testing.T) {
+func TestClientDispatcherUsingSend(t *testing.T) {
 	assert := assert.New(t)
 
 	var testData = []Client{
-		Client{},
 		Client{
+			Logger: testLogger,
+		},
+		Client{
+			Logger:    testLogger,
 			Workers:   1,
 			QueueSize: 5,
 		},
 		Client{
+			Logger: testLogger,
 			Period: 100 * time.Millisecond,
 		},
 		Client{
+			Logger:    testLogger,
 			Workers:   12,
 			QueueSize: 200,
 			Period:    100 * time.Millisecond,
@@ -114,31 +126,27 @@ func TestClientDispatcher(t *testing.T) {
 
 			switch taskNumber % 3 {
 			case 0:
-				request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
-				assert.NotNil(request)
-				assert.Nil(err)
+				request := MustNewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber))
 
-				task = Task(func() (*http.Request, error) {
+				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
-					return request, nil
+					return request, nil, nil
 				})
 
 				handler.On("Do", request).Return(&http.Response{}, nil)
 
 			case 1:
-				task = Task(func() (*http.Request, error) {
+				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
-					return nil, taskError
+					return nil, nil, taskError
 				})
 
 			default:
-				request, err := http.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
-				assert.NotNil(request)
-				assert.Nil(err)
+				request := MustNewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber))
 
-				task = Task(func() (*http.Request, error) {
+				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
-					return request, nil
+					return request, nil, nil
 				})
 
 				handler.On("Do", request).Return(nil, transactionError)
@@ -156,17 +164,206 @@ func TestClientDispatcher(t *testing.T) {
 
 		taskWaitGroup.Wait()
 		assert.Nil(dispatcher.Close())
+		assert.Equal(ErrorClosed, dispatcher.Close())
 
 		assert.Equal(
 			ErrorClosed,
 			dispatcher.Send(
-				Task(func() (*http.Request, error) {
+				Task(func() (*http.Request, Consumer, error) {
 					assert.Fail("Task should not have been called after Close()")
-					return nil, errors.New("Task should not have been called after Close()")
+					return nil, nil, errors.New("Task should not have been called after Close()")
 				}),
 			),
 		)
 
 		handler.AssertExpectations(t)
 	}
+}
+
+func TestOffer(t *testing.T) {
+	fmt.Println("Start")
+	assert := assert.New(t)
+
+	consumerBlocker := make(chan struct{})
+	consumerWaitGroup := &sync.WaitGroup{}
+	consumerWaitGroup.Add(2)
+	consumer := func(*http.Response, *http.Request) {
+		defer consumerWaitGroup.Done()
+		<-consumerBlocker
+	}
+
+	longRunningRequest := MustNewRequest("GET", "http//longrunning.com")
+	longRunningResponse := &http.Response{}
+
+	quickRequest := MustNewRequest("GET", "http//quick.com")
+	quickResponse := &http.Response{}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockTransactionHandler.On("Do", longRunningRequest).Return(longRunningResponse, nil).Once()
+	mockTransactionHandler.On("Do", quickRequest).Return(quickResponse, nil).Once()
+
+	dispatcher := (&Client{
+		Name:      "TestOffer",
+		Handler:   mockTransactionHandler,
+		Workers:   1,
+		QueueSize: 1,
+		Logger:    testLogger,
+	}).Start()
+
+	// first, hold up the dispatcher with a long running request we control
+	taken, err := dispatcher.Offer(RequestTask(longRunningRequest, consumer))
+	assert.True(taken)
+	assert.Nil(err)
+
+	// now, send a quick request, to block until its accepted
+	// we know this will be accepted because the queue size is 1 and we have sent 1 task that
+	// should now (or will be soon) executing
+	err = dispatcher.Send(RequestTask(quickRequest, consumer))
+	assert.Nil(err)
+
+	// offer up a random task that should be rejected since the queue is now full
+	taken, err = dispatcher.Offer(RequestTask(quickRequest, nil))
+	assert.False(taken)
+	assert.Nil(err)
+
+	// now let all consumers run
+	close(consumerBlocker)
+
+	// wait for our 2 consumers to run
+	consumerWaitGroup.Wait()
+
+	// now offer something when closed, which should return an error
+	assert.Nil(dispatcher.Close())
+	assert.Equal(ErrorClosed, dispatcher.Close())
+
+	taken, err = dispatcher.Offer(RequestTask(quickRequest, nil))
+	assert.False(taken)
+	assert.Equal(ErrorClosed, err)
+
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestHandleTaskWhenTaskPanics(t *testing.T) {
+	assert := assert.New(t)
+
+	panickingTask := func() (*http.Request, Consumer, error) {
+		panic("ow!")
+	}
+
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	defer dispatcher.Close()
+
+	assert.NotPanics(func() {
+		dispatcher.handleTask(workerContext, panickingTask)
+	})
+
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestHandleTaskWhenTaskReturnsNilRequest(t *testing.T) {
+	mockConsumer := &mockConsumer{}
+
+	nilRequestTask := func() (*http.Request, Consumer, error) {
+		return nil, mockConsumer.Consumer, nil
+	}
+
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	defer dispatcher.Close()
+
+	dispatcher.handleTask(workerContext, nilRequestTask)
+	mockConsumer.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestHandleTaskWhenTransactionError(t *testing.T) {
+	mockConsumer := &mockConsumer{}
+	request := MustNewRequest("GET", "http://example.com")
+
+	task := func() (*http.Request, Consumer, error) {
+		return request, mockConsumer.Consumer, nil
+	}
+
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	defer dispatcher.Close()
+
+	expectedError := errors.New("expected")
+	mockTransactionHandler.On("Do", request).Return(nil, expectedError).Once()
+
+	dispatcher.handleTask(workerContext, task)
+	mockConsumer.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestHandleTaskWhenNonNilResponseAndError(t *testing.T) {
+	mockConsumer := &mockConsumer{}
+	mockResponseBody := &mockResponseBody{}
+	request := MustNewRequest("GET", "http://example.com")
+	response := &http.Response{Body: mockResponseBody}
+
+	task := func() (*http.Request, Consumer, error) {
+		return request, mockConsumer.Consumer, nil
+	}
+
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	defer dispatcher.Close()
+
+	expectedError := errors.New("expected")
+	mockTransactionHandler.On("Do", request).Return(response, expectedError).Once()
+	mockResponseBody.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, io.EOF).Once()
+	mockResponseBody.On("Close").Return(nil).Once()
+
+	dispatcher.handleTask(workerContext, task)
+	mockConsumer.AssertExpectations(t)
+	mockResponseBody.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestHandleTaskCleanupError(t *testing.T) {
+	mockConsumer := &mockConsumer{}
+	mockResponseBody := &mockResponseBody{}
+	request := MustNewRequest("GET", "http://example.com")
+	response := &http.Response{Body: mockResponseBody}
+
+	task := func() (*http.Request, Consumer, error) {
+		return request, mockConsumer.Consumer, nil
+	}
+
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	defer dispatcher.Close()
+
+	mockTransactionHandler.On("Do", request).Return(response, nil).Once()
+	mockConsumer.Expect(response, request)
+	mockResponseBody.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, io.ErrNoProgress).Once()
+	mockResponseBody.On("Close").Return(nil).Once()
+
+	mockConsumer.Consumer(response, request)
+	dispatcher.handleTask(workerContext, task)
+	mockConsumer.AssertExpectations(t)
+	mockResponseBody.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestHandleTask(t *testing.T) {
+	mockConsumer := &mockConsumer{}
+	mockResponseBody := &mockResponseBody{}
+	request := MustNewRequest("GET", "http://example.com")
+	response := &http.Response{Body: mockResponseBody}
+
+	task := func() (*http.Request, Consumer, error) {
+		return request, mockConsumer.Consumer, nil
+	}
+
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	defer dispatcher.Close()
+
+	mockTransactionHandler.On("Do", request).Return(response, nil).Once()
+	mockConsumer.Expect(response, request)
+	mockResponseBody.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, io.EOF).Once()
+	mockResponseBody.On("Close").Return(nil).Once()
+
+	mockConsumer.Consumer(response, request)
+	dispatcher.handleTask(workerContext, task)
+	mockConsumer.AssertExpectations(t)
+	mockResponseBody.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
 }
