@@ -21,13 +21,6 @@ type Consumer func(*http.Response, *http.Request)
 // the response body.
 type Task func() (*http.Request, Consumer, error)
 
-// RequestTask allows an already-formed http.Request to be used as a Task.
-func RequestTask(request *http.Request, consumer Consumer) Task {
-	return Task(func() (*http.Request, Consumer, error) {
-		return request, consumer, nil
-	})
-}
-
 // Dispatcher represents anything that can receive and process tasks.
 type Dispatcher interface {
 	// Send uses the task to create a request and sends that along to a server.
