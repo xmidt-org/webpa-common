@@ -41,12 +41,15 @@ type Pool interface {
 // The main difference between CircularPool and sync.Pool is that objects within
 // a CircularPool will not get deallocated.  This makes a CircularPool appropriate
 // for times when a statically-sized pool of permanent objects is desired.
+//
+// A CircularPool is a very flexible concurrent data structure.  It can be used as a simple pool
+// of objects for canonicalization.  It can also be used for rate limiting or any situation where
+// a lease is required.
 type CircularPool interface {
 	Pool
 
 	// GetTimeout will wait for an available object for the specified timeout.
-	// If the timeout is negative, this method immediately returns false.
-	// If the timeout is zero, it behaves exactly as TryGet.  Otherwise, this
+	// If the timeout is not positive, it behaves exactly as TryGet.  Otherwise, this
 	// method waits the given duration for an available object, returning nil
 	// and false if the timeout elapses without an available object.
 	GetTimeout(time.Duration) (interface{}, bool)
@@ -74,10 +77,6 @@ type CircularPool interface {
 // For an initially empty pool, be aware that Get will block forever.  In that case, another
 // goroutine must call Put in order to release the goroutine waiting on Get.  Initially empty
 // pools are appropriate as concurrent barriers, for example.
-//
-// A CircularPool is a very flexible concurrent data structure.  It can be used as a simple pool
-// of objects for canonicalization.  It can also be used for rate limiting or any situation where
-// a lease is required.
 func NewCircularPool(initialSize, maxSize int, new func() interface{}) (CircularPool, error) {
 	if maxSize < 1 {
 		return nil, ErrorInvalidMaxSize
@@ -111,22 +110,20 @@ func (pool *circularPool) Get() interface{} {
 }
 
 func (pool *circularPool) GetTimeout(timeout time.Duration) (interface{}, bool) {
-	switch {
-	case timeout == 0:
+	if timeout < 1 {
 		return pool.TryGet()
-	case timeout > 0:
-		timer := time.NewTimer(timeout)
+	}
 
-		// Stop() performs a tiny cleanup in the event
-		// that a value was obtained before the timer fired
-		defer timer.Stop()
+	timer := time.NewTimer(timeout)
 
-		select {
-		case value := <-pool.objects:
-			return value, true
-		case <-timer.C:
-			// fallthrough
-		}
+	// Stop() performs a tiny cleanup in the event
+	// that a value was obtained before the timer fired
+	defer timer.Stop()
+
+	select {
+	case value := <-pool.objects:
+		return value, true
+	case <-timer.C:
 	}
 
 	return nil, false
