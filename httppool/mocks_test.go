@@ -102,3 +102,12 @@ func newPooledDispatcher(queueSize int) (*pooledDispatcher, *mockTransactionHand
 		tasks:   make(chan Task, queueSize),
 	}, handler, workerContext
 }
+
+type mockRequestFilter struct {
+	mock.Mock
+}
+
+func (filter *mockRequestFilter) Accept(request *http.Request) bool {
+	arguments := filter.Called(request)
+	return arguments.Bool(0)
+}
