@@ -19,9 +19,8 @@ type Pool interface {
 	// the behavior of an empty pool.
 	Get() interface{}
 
-	// Put inserts and object into the pool.  Both Get and Set must agree on
-	// object type.  It is implementation-specific whether the object inserted
-	// into the pool can be rejected, as when the pool is full.
+	// Put inserts and object into the pool.  Get and Put are typically used
+	// with the same type, though that is not necessarily enforced.
 	Put(value interface{})
 }
 
@@ -48,15 +47,20 @@ type Pool interface {
 type CircularPool interface {
 	Pool
 
+	// TryGet will never block.  It will attempt to grab an object from the pool,
+	// returning nil and false if it cannot do so.
+	TryGet() (interface{}, bool)
+
+	// GetCancel will wait for an available object with cancellation semantics
+	// similar to golang's Context.  Any activity, such as close, on the supplied
+	// channel will interrupt the wait and this method will return nil and false.
+	GetCancel(<-chan struct{}) (interface{}, bool)
+
 	// GetTimeout will wait for an available object for the specified timeout.
 	// If the timeout is not positive, it behaves exactly as TryGet.  Otherwise, this
 	// method waits the given duration for an available object, returning nil
 	// and false if the timeout elapses without an available object.
 	GetTimeout(time.Duration) (interface{}, bool)
-
-	// TryGet will never block.  It will attempt to grab an object from the pool,
-	// returning nil and false if it cannot do so.
-	TryGet() (interface{}, bool)
 
 	// GetOrNew will never block.  If the pool is exhausted, the new function
 	// will be used to create a new object.  This can be used to allow the number
@@ -109,6 +113,24 @@ func (pool *circularPool) Get() interface{} {
 	return <-pool.objects
 }
 
+func (pool *circularPool) TryGet() (interface{}, bool) {
+	select {
+	case value := <-pool.objects:
+		return value, true
+	default:
+		return nil, false
+	}
+}
+
+func (pool *circularPool) GetCancel(done <-chan struct{}) (interface{}, bool) {
+	select {
+	case value := <-pool.objects:
+		return value, true
+	case <-done:
+		return nil, false
+	}
+}
+
 func (pool *circularPool) GetTimeout(timeout time.Duration) (interface{}, bool) {
 	if timeout < 1 {
 		return pool.TryGet()
@@ -124,16 +146,6 @@ func (pool *circularPool) GetTimeout(timeout time.Duration) (interface{}, bool) 
 	case value := <-pool.objects:
 		return value, true
 	case <-timer.C:
-	}
-
-	return nil, false
-}
-
-func (pool *circularPool) TryGet() (interface{}, bool) {
-	select {
-	case value := <-pool.objects:
-		return value, true
-	default:
 		return nil, false
 	}
 }

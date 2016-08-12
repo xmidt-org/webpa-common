@@ -255,3 +255,45 @@ func TestCircularPoolTryGetOrNewPreallocated(t *testing.T) {
 	assert.Nil(value)
 	assert.False(ok)
 }
+
+func TestCircularPoolGetCancel(t *testing.T) {
+	assert := assert.New(t)
+	pool, err := NewCircularPool(poolSize, poolSize, resourceFunc)
+	assert.NotNil(pool)
+	assert.Nil(err)
+
+	// Put on a full pool should not alter its size
+	pool.Put(resource)
+
+	done := make(chan struct{})
+
+	// GetOrNew should drain the pool poolSize times
+	for repeat := 0; repeat < poolSize; repeat++ {
+		value, ok := pool.GetCancel(done)
+		assert.Equal(resource, value)
+		assert.True(ok)
+	}
+
+	// the pool should be empty
+	value, ok := pool.TryGet()
+	assert.Nil(value)
+	assert.False(ok)
+
+	value, ok = pool.GetTimeout(timeout)
+	assert.Nil(value)
+	assert.False(ok)
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	go func() {
+		defer waitGroup.Done()
+
+		// this should unblock when done is closed
+		value, ok := pool.GetCancel(done)
+		assert.Nil(value)
+		assert.False(ok)
+	}()
+
+	close(done)
+	waitGroup.Wait()
+}
