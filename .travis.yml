@@ -5,11 +5,14 @@ go:
 env:
     - TEST_DIR=canonical
     - TEST_DIR=concurrent
+    - TEST_DIR=conlimiter
     - TEST_DIR=convey
     - TEST_DIR=fact
+    - TEST_DIR=garbagetruck
     - TEST_DIR=handler
     - TEST_DIR=hash
     - TEST_DIR=health
+    - TEST_DIR=httppool
     - TEST_DIR=resource
     - TEST_DIR=secure
     - TEST_DIR=secure/key
