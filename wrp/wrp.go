@@ -19,6 +19,7 @@ const (
 
 var (
 	ErrorGetInt64 = errors.New("GetInt64 error casting value")
+	ErrorInvalidType = errors.New("Invalid input type to wrp.Decode")
 )
 
 // Encoder is implemented by any wrp message
@@ -169,8 +170,6 @@ func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 	default:
 		return -1, ErrorGetInt64
 	}
-
-	return -1, ErrorGetInt64
 }
 
 /* Decode the array of bytes into the right wrp structure. */
@@ -185,6 +184,13 @@ func Decode(buf []byte) (interface{}, error) {
 
 	if err := dec.Decode(&tmp); nil != err {
 		return nil, err
+	}
+
+	switch tmp.(type) {
+	case map[interface{}]interface{}:
+		// continue in the function
+	default:
+		return nil, ErrorInvalidType
 	}
 
 	m := tmp.(map[interface{}]interface{})
