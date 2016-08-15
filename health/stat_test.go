@@ -328,7 +328,7 @@ func TestUpdateMemory(t *testing.T) {
 	stats.UpdateMemory(memInfoReader)
 
 	// each key in commonStats should be present in the output
-	for key, _ := range commonStats {
+	for key := range commonStats {
 		if _, ok := stats[key]; !ok {
 			t.Errorf("Key %s not present in ServeHTTP results", key)
 		}

@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	// General memory stats
 	CurrentMemoryUtilizationAlloc   Stat = "CurrentMemoryUtilizationAlloc"
 	CurrentMemoryUtilizationHeapSys Stat = "CurrentMemoryUtilizationHeapSys"
 	CurrentMemoryUtilizationActive  Stat = "CurrentMemoryUtilizationActive"
@@ -27,6 +28,7 @@ var (
 		MaxMemoryUtilizationActive:      0,
 	}
 
+	// Invalid stat option error
 	ErrorInvalidOption = errors.New("Invalid stat option")
 )
 
@@ -39,6 +41,7 @@ type Option interface {
 // Stat is a named piece of data to be tracked
 type Stat string
 
+// Create/Set the stat initially
 func (s Stat) Set(stats Stats) {
 	if _, ok := stats[s]; !ok {
 		stats[s] = 0
