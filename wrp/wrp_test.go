@@ -49,8 +49,8 @@ func TestDecode(t *testing.T) {
 
 	got := v.(SimpleReqResponseMsg)
 	if false == reflect.DeepEqual(got, expected) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			expected, got))
+		t.ErrorF("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			expected, got)
 	}
 }
 
@@ -71,17 +71,17 @@ func TestSimpleEvent(t *testing.T) {
 
 	encoded, e1 := start.Encode()
 	if nil != e1 {
-		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
+		t.Errorf("e1 is not nil! %v\n", e1)
 	}
 
 	got, e2 := Decode(encoded)
 	if nil != e2 {
-		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
+		t.Errorf("e2 is not nil! %v\n", e2)
 	}
 
 	if false == reflect.DeepEqual(got, start) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			start, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			start, got)
 	}
 
 	start.String()
@@ -112,17 +112,17 @@ func TestSimpleReqResponse(t *testing.T) {
 
 	encoded, e1 := start.Encode()
 	if nil != e1 {
-		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
+		t.Errorf("e1 is not nil! %v\n", e1)
 	}
 
 	got, e2 := Decode(encoded)
 	if nil != e2 {
-		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
+		t.Errorf("e2 is not nil! %v\n", e2)
 	}
 
 	if false == reflect.DeepEqual(got, start) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			start, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			start, got)
 	}
 
 	start.String()
@@ -151,17 +151,17 @@ func TestAuthStatus(t *testing.T) {
 
 	encoded, e1 := start.Encode()
 	if nil != e1 {
-		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
+		t.Errorf("e1 is not nil! %v\n", e1)
 	}
 
 	got, e2 := Decode(encoded)
 	if nil != e2 {
-		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
+		t.Error("e2 is not nil! %v\n", e2)
 	}
 
 	if false == reflect.DeepEqual(got, start) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			start, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			start, got)
 	}
 
 	start.String()
