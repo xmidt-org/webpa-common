@@ -2,7 +2,6 @@ package wrp
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -49,7 +48,7 @@ func TestDecode(t *testing.T) {
 
 	got := v.(SimpleReqResponseMsg)
 	if false == reflect.DeepEqual(got, expected) {
-		t.ErrorF("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
 			expected, got)
 	}
 }
