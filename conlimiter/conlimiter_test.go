@@ -58,26 +58,23 @@ func TestLimit(t *testing.T) {
 	cl := &ConLimiter{Max: 10}
 	cl.Limit(s)
 
-	var zero int32 = 0
-	var one int32 = 1
-
 	for i := 0; i < 10; i++ {
 		(s.ConnState)(testObj, http.StateNew)
-		assert.Equal(zero, atomic.LoadInt32(&testObj.CloseCalled), "Expecting no call.")
+		assert.Equal(int32(0), atomic.LoadInt32(&testObj.CloseCalled), "Expecting no call.")
 	}
 	for i := 0; i < 10; i++ {
 		(s.ConnState)(testObj, http.StateNew)
-		assert.Equal(one, atomic.LoadInt32(&testObj.CloseCalled), "Expecting 1 call.")
+		assert.Equal(int32(1), atomic.LoadInt32(&testObj.CloseCalled), "Expecting 1 call.")
 		atomic.StoreInt32(&testObj.CloseCalled, 0)
 		(s.ConnState)(testObj, http.StateClosed)
-		assert.Equal(zero, atomic.LoadInt32(&testObj.CloseCalled), "Expecting no call.")
+		assert.Equal(int32(0), atomic.LoadInt32(&testObj.CloseCalled), "Expecting no call.")
 	}
 	for i := 0; i < 10; i++ {
 		(s.ConnState)(testObj, http.StateHijacked)
-		assert.Equal(zero, atomic.LoadInt32(&testObj.CloseCalled), "Expecting no call.")
+		assert.Equal(int32(0), atomic.LoadInt32(&testObj.CloseCalled), "Expecting no call.")
 	}
 
-	assert.Equal(zero, atomic.LoadInt32(&testObj.CloseCalled), "Expecting it to be 0.")
+	assert.Equal(int32(0), atomic.LoadInt32(&testObj.CloseCalled), "Expecting it to be 0.")
 	wg := &sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
 		wg.Add(3)
@@ -106,5 +103,5 @@ func TestLimit(t *testing.T) {
 		})()
 	}
 	wg.Wait()
-	assert.Equal(zero, cl.current, "Expecting it to be 0.")
+	assert.Equal(int32(0), cl.current, "Expecting it to be 0.")
 }
