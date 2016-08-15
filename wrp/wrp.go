@@ -196,9 +196,9 @@ func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 		return int64(valueType), nil
 	case uint:
 		return int64(valueType), nil
-	default:
-		return -1, ErrorGetInt64
 	}
+
+	return -1, ErrorGetInt64
 }
 
 /* Decode the array of bytes into the right wrp structure. */
