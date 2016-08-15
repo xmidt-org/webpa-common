@@ -236,6 +236,27 @@ func TestTruncatedMsg(t *testing.T) {
 	}
 }
 
+func TestWrpMsgInterface(t *testing.T) {
+	assert := assert.New(t)
+
+	reqResponse := SimpleReqResponseMsg{Source: "dns:scytale.webpa.comcast.net/foo",
+		Dest:            "mac:112233445566",
+		TransactionUUID: "23o234u234ioasdflk",
+		Payload:         []byte("{ \"whatever i want!\" }")}
+	assert.Equal(reqResponse.Dest, reqResponse.Destination())
+	assert.Equal(reqResponse.Source, reqResponse.Origin())
+
+	event := SimpleEventMsg{Source: "dns:scytale.webpa.comcast.net/foo",
+		Dest:    "mac:112233445566",
+		Payload: []byte("{ \"whatever i want!\" }")}
+	assert.Equal(event.Dest, event.Destination())
+	assert.Equal(event.Source, event.Origin())
+
+	authStatus := AuthStatusMsg{Status: 123}
+	assert.Equal("", authStatus.Destination())
+	assert.Equal("", authStatus.Origin())
+}
+
 func TestGetInt64(t *testing.T) {
 	intTypes := map[interface{}]interface{}{
 		"string_int":    -8,

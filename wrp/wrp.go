@@ -22,6 +22,11 @@ var (
 	ErrorInvalidType = errors.New("Invalid input type to wrp.Decode")
 )
 
+type WrpMsg interface {
+	Origin() string
+	Destination() string
+}
+
 // Encoder is implemented by any wrp message
 type Encoder interface {
 	Encode() ([]byte, error)
@@ -58,6 +63,14 @@ func (m AuthStatusMsg) String() string {
 	return fmt.Sprintf("SimpleReqResponseMsg{ Status: %d }\n", m.Status)
 }
 
+func (m AuthStatusMsg) Origin() string {
+	return ""
+}
+
+func (m AuthStatusMsg) Destination() string {
+	return ""
+}
+
 /* Provide an encoder tied to the object type. */
 func (m AuthStatusMsg) Encode() ([]byte, error) {
 	return wrpEncode(AuthMsgType, m)
@@ -85,6 +98,14 @@ func (m SimpleReqResponseMsg) String() string {
 		hex.Dump(m.Payload))
 }
 
+func (m SimpleReqResponseMsg) Origin() string {
+	return m.Source
+}
+
+func (m SimpleReqResponseMsg) Destination() string {
+	return m.Dest
+}
+
 /* Provide an encoder tied to the object type. */
 func (m SimpleReqResponseMsg) Encode() ([]byte, error) {
 	return wrpEncode(SimpleReqResponseMsgType, m)
@@ -106,6 +127,14 @@ func (m SimpleEventMsg) String() string {
 		m.Source,
 		m.Dest,
 		hex.Dump(m.Payload))
+}
+
+func (m SimpleEventMsg) Origin() string {
+	return m.Source
+}
+
+func (m SimpleEventMsg) Destination() string {
+	return m.Dest
 }
 
 /* Provide an encoder tied to the object type. */
@@ -167,9 +196,9 @@ func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 		return int64(valueType), nil
 	case uint:
 		return int64(valueType), nil
+	default:
+		return -1, ErrorGetInt64
 	}
-
-	return -1, ErrorGetInt64
 }
 
 /* Decode the array of bytes into the right wrp structure. */
