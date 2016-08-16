@@ -367,3 +367,82 @@ func TestHandleTask(t *testing.T) {
 	mockResponseBody.AssertExpectations(t)
 	mockTransactionHandler.AssertExpectations(t)
 }
+
+func TestSendUsingListener(t *testing.T) {
+	assert := assert.New(t)
+	request := MustNewRequest("GET", "http://example.com")
+	response := &http.Response{}
+	task := func() (*http.Request, Consumer, error) {
+		return request, nil, nil
+	}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockListener := &mockListener{}
+
+	dispatcher := (&Client{
+		Name:      "TestSendUsingListener",
+		Handler:   mockTransactionHandler,
+		Listeners: []Listener{mockListener},
+		Logger:    testLogger,
+		QueueSize: 1,
+		Workers:   1,
+	}).Start()
+
+	defer dispatcher.Close()
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	mockListener.Mock.On("On", matchEvent(EventTypeQueue, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
+	mockTransactionHandler.On("Do", request).Return(response, nil)
+	mockListener.Mock.On("On", matchEvent(EventTypeFinish, nil)).
+		Run(func(mock.Arguments) { waitGroup.Done() }).
+		Once()
+
+	err := dispatcher.Send(task)
+	assert.Nil(err)
+
+	waitGroup.Wait()
+	mockListener.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestOfferUsingListener(t *testing.T) {
+	assert := assert.New(t)
+	request := MustNewRequest("GET", "http://example.com")
+	response := &http.Response{}
+	task := func() (*http.Request, Consumer, error) {
+		return request, nil, nil
+	}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockListener := &mockListener{}
+
+	dispatcher := (&Client{
+		Name:      "TestOfferUsingListener",
+		Handler:   mockTransactionHandler,
+		Listeners: []Listener{mockListener},
+		Logger:    testLogger,
+		QueueSize: 1,
+		Workers:   1,
+	}).Start()
+
+	defer dispatcher.Close()
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	mockListener.Mock.On("On", matchEvent(EventTypeQueue, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
+	mockTransactionHandler.On("Do", request).Return(response, nil)
+	mockListener.Mock.On("On", matchEvent(EventTypeFinish, nil)).
+		Run(func(mock.Arguments) { waitGroup.Done() }).
+		Once()
+
+	taken, err := dispatcher.Offer(task)
+	assert.True(taken)
+	assert.Nil(err)
+
+	waitGroup.Wait()
+	mockListener.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
