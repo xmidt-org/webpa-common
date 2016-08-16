@@ -25,7 +25,7 @@ type Logger interface {
 // PrintLogger exposes a Printf method for infrastructure that uses that method
 // for logging.
 type PrintLogger struct {
-	logger Logger
+	Delegate Logger
 }
 
 func (printLogger PrintLogger) Printf(format string, parameters ...interface{}) {
@@ -33,7 +33,7 @@ func (printLogger PrintLogger) Printf(format string, parameters ...interface{}) 
 	allParameters[0] = format
 	copy(allParameters[1:], parameters)
 
-	printLogger.logger.Info(allParameters...)
+	printLogger.Delegate.Info(allParameters...)
 }
 
 const (
