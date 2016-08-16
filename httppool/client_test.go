@@ -407,6 +407,82 @@ func TestSendUsingListener(t *testing.T) {
 	mockTransactionHandler.AssertExpectations(t)
 }
 
+func TestSendUsingListenerWhenTaskError(t *testing.T) {
+	assert := assert.New(t)
+	taskError := errors.New("expected")
+	task := func() (*http.Request, Consumer, error) {
+		return nil, nil, taskError
+	}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockListener := &mockListener{}
+
+	dispatcher := (&Client{
+		Name:      "TestSendUsingListenerWhenTaskError",
+		Handler:   mockTransactionHandler,
+		Listeners: []Listener{mockListener},
+		Logger:    testLogger,
+		QueueSize: 1,
+		Workers:   1,
+	}).Start()
+
+	defer dispatcher.Close()
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	mockListener.Mock.On("On", matchEvent(EventTypeQueue, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeFinish, taskError)).
+		Run(func(mock.Arguments) { waitGroup.Done() }).
+		Once()
+
+	err := dispatcher.Send(task)
+	assert.Nil(err)
+
+	waitGroup.Wait()
+	mockListener.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestSendUsingListenerWhenTransactionError(t *testing.T) {
+	assert := assert.New(t)
+	request := MustNewRequest("GET", "http://example.com")
+	transactionError := errors.New("expected")
+	task := func() (*http.Request, Consumer, error) {
+		return request, nil, nil
+	}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockListener := &mockListener{}
+
+	dispatcher := (&Client{
+		Name:      "TestSendUsingListenerWhenTransactionError",
+		Handler:   mockTransactionHandler,
+		Listeners: []Listener{mockListener},
+		Logger:    testLogger,
+		QueueSize: 1,
+		Workers:   1,
+	}).Start()
+
+	defer dispatcher.Close()
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	mockListener.Mock.On("On", matchEvent(EventTypeQueue, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
+	mockTransactionHandler.On("Do", request).Return(nil, transactionError)
+	mockListener.Mock.On("On", matchEvent(EventTypeFinish, transactionError)).
+		Run(func(mock.Arguments) { waitGroup.Done() }).
+		Once()
+
+	err := dispatcher.Send(task)
+	assert.Nil(err)
+
+	waitGroup.Wait()
+	mockListener.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
 func TestOfferUsingListener(t *testing.T) {
 	assert := assert.New(t)
 	request := MustNewRequest("GET", "http://example.com")
@@ -435,6 +511,84 @@ func TestOfferUsingListener(t *testing.T) {
 	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
 	mockTransactionHandler.On("Do", request).Return(response, nil)
 	mockListener.Mock.On("On", matchEvent(EventTypeFinish, nil)).
+		Run(func(mock.Arguments) { waitGroup.Done() }).
+		Once()
+
+	taken, err := dispatcher.Offer(task)
+	assert.True(taken)
+	assert.Nil(err)
+
+	waitGroup.Wait()
+	mockListener.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestOfferUsingListenerWhenTaskError(t *testing.T) {
+	assert := assert.New(t)
+	taskError := errors.New("expected")
+	task := func() (*http.Request, Consumer, error) {
+		return nil, nil, taskError
+	}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockListener := &mockListener{}
+
+	dispatcher := (&Client{
+		Name:      "TestOfferUsingListenerWhenTaskError",
+		Handler:   mockTransactionHandler,
+		Listeners: []Listener{mockListener},
+		Logger:    testLogger,
+		QueueSize: 1,
+		Workers:   1,
+	}).Start()
+
+	defer dispatcher.Close()
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	mockListener.Mock.On("On", matchEvent(EventTypeQueue, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeFinish, taskError)).
+		Run(func(mock.Arguments) { waitGroup.Done() }).
+		Once()
+
+	taken, err := dispatcher.Offer(task)
+	assert.True(taken)
+	assert.Nil(err)
+
+	waitGroup.Wait()
+	mockListener.AssertExpectations(t)
+	mockTransactionHandler.AssertExpectations(t)
+}
+
+func TestOfferUsingListenerWhenTransactionError(t *testing.T) {
+	assert := assert.New(t)
+	request := MustNewRequest("GET", "http://example.com")
+	transactionError := errors.New("expected")
+	task := func() (*http.Request, Consumer, error) {
+		return request, nil, nil
+	}
+
+	mockTransactionHandler := &mockTransactionHandler{}
+	mockListener := &mockListener{}
+
+	dispatcher := (&Client{
+		Name:      "TestOfferUsingListenerWhenTransactionError",
+		Handler:   mockTransactionHandler,
+		Listeners: []Listener{mockListener},
+		Logger:    testLogger,
+		QueueSize: 1,
+		Workers:   1,
+	}).Start()
+
+	defer dispatcher.Close()
+
+	waitGroup := &sync.WaitGroup{}
+	waitGroup.Add(1)
+	mockListener.Mock.On("On", matchEvent(EventTypeQueue, nil)).Once()
+	mockListener.Mock.On("On", matchEvent(EventTypeStart, nil)).Once()
+	mockTransactionHandler.On("Do", request).Return(nil, transactionError)
+	mockListener.Mock.On("On", matchEvent(EventTypeFinish, transactionError)).
 		Run(func(mock.Arguments) { waitGroup.Done() }).
 		Once()
 
