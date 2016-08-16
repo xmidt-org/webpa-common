@@ -41,6 +41,10 @@ type Client struct {
 	// If not supplied, the http.DefaultClient is used.
 	Handler transactionHandler
 
+	// Listeners is the slice of Listener instances that will be notified of task events.
+	// Each Dispatcher will use a distinct copy created with Start() is called.
+	Listeners []Listener
+
 	// Logger is the logging strategy used by this client.  If not supplied, all output will
 	// go to the console.
 	Logger logging.Logger
@@ -105,14 +109,24 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	logger := client.logger()
 	logger.Debug("%s.Start()", name)
 
-	var worker func(*workerContext)
+	var (
+		worker    func(*workerContext)
+		listeners []Listener
+	)
+
+	if len(client.Listeners) > 0 {
+		listeners = make([]Listener, len(client.Listeners))
+		copy(listeners, client.Listeners)
+	}
+
 	if client.Period > 0 {
 		limited := &limitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				name:    name,
-				handler: client.handler(),
-				logger:  logger,
-				tasks:   make(chan Task, client.queueSize()),
+				name:      name,
+				handler:   client.handler(),
+				listeners: listeners,
+				logger:    logger,
+				tasks:     make(chan Task, client.queueSize()),
 			},
 			period: client.Period,
 		}
@@ -122,10 +136,11 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 	} else {
 		unlimited := &unlimitedClientDispatcher{
 			pooledDispatcher: pooledDispatcher{
-				name:    name,
-				handler: client.handler(),
-				logger:  logger,
-				tasks:   make(chan Task, client.queueSize()),
+				name:      name,
+				handler:   client.handler(),
+				listeners: listeners,
+				logger:    logger,
+				tasks:     make(chan Task, client.queueSize()),
 			},
 		}
 
@@ -140,6 +155,7 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 		go worker(
 			&workerContext{
 				id:            workerId,
+				listeners:     listeners,
 				cleanupBuffer: make([]byte, 8*1024),
 			},
 		)
@@ -153,16 +169,44 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 // is stored here.
 type workerContext struct {
 	id            int
+	event         event
+	listeners     []Listener
 	cleanupBuffer []byte
+}
+
+// dispatch handles dispatching an event to any registered listeners.
+// This method uses an internal, shared Event instance so as to ease
+// pressure on the garbage collector.
+func (w *workerContext) dispatch(eventType EventType, eventError error) {
+	w.event.eventType = eventType
+	w.event.eventError = eventError
+
+	for _, listener := range w.listeners {
+		listener.On(&w.event)
+	}
 }
 
 // pooledDispatcher supplies the common state and logic for all
 // Client-based dispatchers
 type pooledDispatcher struct {
-	name    string
-	handler transactionHandler
-	logger  logging.Logger
-	tasks   chan Task
+	state     int32
+	name      string
+	handler   transactionHandler
+	logger    logging.Logger
+	listeners []Listener
+	tasks     chan Task
+}
+
+// dispatch sends the given event to all configured listeners
+func (pooled *pooledDispatcher) dispatch(eventType EventType, eventError error) {
+	event := &event{
+		eventType:  eventType,
+		eventError: eventError,
+	}
+
+	for _, listener := range pooled.listeners {
+		listener.On(event)
+	}
 }
 
 // Close shuts down the task channel.  Workers are allowed to finish
@@ -186,9 +230,13 @@ func (pooled *pooledDispatcher) Close() (err error) {
 func (pooled *pooledDispatcher) Send(task Task) (err error) {
 	pooled.logger.Debug("%s.Send(%v)", pooled.name, task)
 	defer func() {
+		eventType := EventTypeQueue
 		if r := recover(); r != nil {
+			eventType = EventTypeReject
 			err = ErrorClosed
 		}
+
+		pooled.dispatch(eventType, err)
 	}()
 
 	pooled.tasks <- task
@@ -199,10 +247,16 @@ func (pooled *pooledDispatcher) Send(task Task) (err error) {
 func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
 	pooled.logger.Debug("%s.Offer(%v)", pooled.name, task)
 	defer func() {
+		eventType := EventTypeQueue
 		if r := recover(); r != nil {
 			taken = false
 			err = ErrorClosed
+			eventType = EventTypeReject
+		} else if !taken {
+			eventType = EventTypeReject
 		}
+
+		pooled.dispatch(eventType, err)
 	}()
 
 	select {
@@ -219,11 +273,17 @@ func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
 // and then sending that request to the handler
 func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 	pooled.logger.Debug("%s.handleTask(%d, %v)", pooled.name, context.id, task)
+	context.dispatch(EventTypeStart, nil)
 
-	// prevent panics from killing a worker
+	var err error
+
 	defer func() {
+		// prevent panics from killing a worker
 		if r := recover(); r != nil {
 			pooled.logger.Error("%s[%d] encountered a panic: %s", pooled.name, context.id, r)
+			context.dispatch(EventTypeFinish, fmt.Errorf("%s", r))
+		} else {
+			context.dispatch(EventTypeFinish, err)
 		}
 	}()
 

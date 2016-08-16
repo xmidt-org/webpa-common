@@ -111,3 +111,19 @@ func (filter *mockRequestFilter) Accept(request *http.Request) bool {
 	arguments := filter.Called(request)
 	return arguments.Bool(0)
 }
+
+type mockListener struct {
+	mock.Mock
+}
+
+func (listener *mockListener) On(event Event) {
+	listener.Called(event)
+}
+
+func matchEvent(eventType EventType, eventError error) interface{} {
+	return mock.MatchedBy(
+		func(event Event) bool {
+			return event.Type() == eventType && event.Err() == eventError
+		},
+	)
+}
