@@ -29,7 +29,7 @@ type PrintLogger struct {
 }
 
 func (printLogger PrintLogger) Printf(format string, parameters ...interface{}) {
-	allParameters := make([]interface{}, 0, len(parameters)+1)
+	allParameters := make([]interface{}, len(parameters)+1)
 	allParameters[0] = format
 	copy(allParameters[1:], parameters)
 
