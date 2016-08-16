@@ -281,11 +281,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 		// prevent panics from killing a worker
 		if r := recover(); r != nil {
 			pooled.logger.Error("%s[%d] encountered a panic: %s", pooled.name, context.id, r)
-			if err, ok := r.(error); ok {
-				context.dispatch(EventTypeFinish, err)
-			} else {
-				context.dispatch(EventTypeFinish, fmt.Errorf("%s", r))
-			}
+			context.dispatch(EventTypeFinish, fmt.Errorf("%s", r))
 		} else {
 			context.dispatch(EventTypeFinish, err)
 		}
