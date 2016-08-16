@@ -25,18 +25,16 @@ type Logger interface {
 // PrintLogger exposes a Printf method for infrastructure that uses that method
 // for logging.
 type PrintLogger struct {
-	Logger
+	logger Logger
 }
 
-func (logger PrintLogger) Printf(format string, parameters ...interface{}) {
+func (printLogger PrintLogger) Printf(format string, parameters ...interface{}) {
 	allParameters := make([]interface{}, 0, len(parameters)+1)
 	allParameters[0] = format
 	copy(allParameters[1:], parameters)
 
-	logger.Info(allParameters...)
+	printLogger.logger.Info(allParameters...)
 }
-
-var _ Logger = PrintLogger{}
 
 const (
 	traceLevel string = "[TRACE] "
