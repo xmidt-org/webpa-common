@@ -23,6 +23,15 @@ func (f StatsListenerFunc) OnStats(stats Stats) {
 	f(stats)
 }
 
+// Monitor is the basic interface implemented by health event sinks
+type Monitor interface {
+	SendEvent(HealthFunc)
+
+	// HACK HACK HACK
+	// This should be moved to another package
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}
+
 // Health is the central type of this package.  It defines and endpoint for tracking
 // and updating various statistics.  It also dispatches events to one or more StatsListeners
 // at regular intervals.
@@ -35,6 +44,8 @@ type Health struct {
 	memInfoReader    *MemInfoReader
 	once             sync.Once
 }
+
+var _ Monitor = (*Health)(nil)
 
 // AddStatsListener adds a new listener to this Health.  This method
 // is asynchronous.  The listener will eventually receive events, but callers

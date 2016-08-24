@@ -2,7 +2,6 @@ package wrp
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -49,9 +48,19 @@ func TestDecode(t *testing.T) {
 
 	got := v.(SimpleReqResponseMsg)
 	if false == reflect.DeepEqual(got, expected) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			expected, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			expected, got)
 	}
+}
+
+func TestDecodeWithInvalidType(t *testing.T) {
+	assert := assert.New(t)
+
+	badMsg := []byte("Time to break things!")
+
+	_, err := Decode(badMsg)
+
+	assert.NotNil(err)
 }
 
 func TestSimpleEvent(t *testing.T) {
@@ -61,17 +70,17 @@ func TestSimpleEvent(t *testing.T) {
 
 	encoded, e1 := start.Encode()
 	if nil != e1 {
-		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
+		t.Errorf("e1 is not nil! %v\n", e1)
 	}
 
 	got, e2 := Decode(encoded)
 	if nil != e2 {
-		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
+		t.Errorf("e2 is not nil! %v\n", e2)
 	}
 
 	if false == reflect.DeepEqual(got, start) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			start, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			start, got)
 	}
 
 	start.String()
@@ -102,17 +111,17 @@ func TestSimpleReqResponse(t *testing.T) {
 
 	encoded, e1 := start.Encode()
 	if nil != e1 {
-		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
+		t.Errorf("e1 is not nil! %v\n", e1)
 	}
 
 	got, e2 := Decode(encoded)
 	if nil != e2 {
-		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
+		t.Errorf("e2 is not nil! %v\n", e2)
 	}
 
 	if false == reflect.DeepEqual(got, start) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			start, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			start, got)
 	}
 
 	start.String()
@@ -141,17 +150,17 @@ func TestAuthStatus(t *testing.T) {
 
 	encoded, e1 := start.Encode()
 	if nil != e1 {
-		t.Error(fmt.Sprintf("e1 is not nil! %v\n", e1))
+		t.Errorf("e1 is not nil! %v\n", e1)
 	}
 
 	got, e2 := Decode(encoded)
 	if nil != e2 {
-		t.Error(fmt.Sprintf("e2 is not nil! %v\n", e2))
+		t.Error("e2 is not nil! %v\n", e2)
 	}
 
 	if false == reflect.DeepEqual(got, start) {
-		t.Error(fmt.Sprintf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
-			start, got))
+		t.Errorf("Two structs are not equal:\nexpected:\n%s\ngot:\n%s\n",
+			start, got)
 	}
 
 	start.String()
@@ -227,18 +236,40 @@ func TestTruncatedMsg(t *testing.T) {
 	}
 }
 
+func TestWrpMsgInterface(t *testing.T) {
+	assert := assert.New(t)
+
+	reqResponse := SimpleReqResponseMsg{Source: "dns:scytale.webpa.comcast.net/foo",
+		Dest:            "mac:112233445566",
+		TransactionUUID: "23o234u234ioasdflk",
+		Payload:         []byte("{ \"whatever i want!\" }")}
+	assert.Equal(reqResponse.Dest, reqResponse.Destination())
+	assert.Equal(reqResponse.Source, reqResponse.Origin())
+
+	event := SimpleEventMsg{Source: "dns:scytale.webpa.comcast.net/foo",
+		Dest:    "mac:112233445566",
+		Payload: []byte("{ \"whatever i want!\" }")}
+	assert.Equal(event.Dest, event.Destination())
+	assert.Equal(event.Source, event.Origin())
+
+	authStatus := AuthStatusMsg{Status: 123}
+	assert.Equal("", authStatus.Destination())
+	assert.Equal("", authStatus.Origin())
+}
+
 func TestGetInt64(t *testing.T) {
 	intTypes := map[interface{}]interface{}{
 		"string_int":    -8,
-		"string_int8":   -8,
-		"string_int16":  -8,
-		"string_int32":  -8,
-		"string_int64":  -8,
-		"string_uint":   15,
-		"string_uint8":  15,
-		"string_uint16": 15,
-		"string_uint32": 15,
-		"string_uint64": 15,
+		"string_int8":   int8(-8),
+		"string_int16":  int16(-8),
+		"string_int32":  int32(-8),
+		"string_int64":  int64(-8),
+		"string_uint":   uint(15),
+		"string_uint8":  uint8(15),
+		"string_uint16": uint16(15),
+		"string_uint32": uint32(15),
+		"string_uint64": uint64(15),
+		"just_a_string": "bad-input",
 	}
 
 	intToCheck, _ := GetInt64(intTypes, "string_int")
@@ -289,5 +320,10 @@ func TestGetInt64(t *testing.T) {
 	intToCheck, _ = GetInt64(intTypes, "string_uint64")
 	if intToCheck != 15 {
 		t.Error("Testing for casting to int64 failed.")
+	}
+
+	_, err := GetInt64(intTypes, "just_a_string")
+	if err == nil {
+		t.Error("Testing for passing in an unchecked type failed.")
 	}
 }

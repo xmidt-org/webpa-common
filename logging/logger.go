@@ -20,11 +20,20 @@ type Logger interface {
 	Debug(parameters ...interface{})
 	Info(parameters ...interface{})
 	Warn(parameters ...interface{})
+}
 
-	// Printf is a synonym for Info, though Printf only permits a string as
-	// its first parameter.  This method is supplied so that this Logger implements
-	// common interfaces used by other libraries.
-	Printf(format string, parameters ...interface{})
+// PrintLogger exposes a Printf method for infrastructure that uses that method
+// for logging.
+type PrintLogger struct {
+	Delegate Logger
+}
+
+func (printLogger PrintLogger) Printf(format string, parameters ...interface{}) {
+	allParameters := make([]interface{}, len(parameters)+1)
+	allParameters[0] = format
+	copy(allParameters[1:], parameters)
+
+	printLogger.Delegate.Info(allParameters...)
 }
 
 const (
