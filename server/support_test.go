@@ -12,7 +12,7 @@ const (
 	unexpectedListenAndServeTLS string = "Unexpected call to ListenAndServeTLS"
 	unexpectedNewLogger         string = "Unexpected call to NewLogger"
 	expectedCertificateFile     string = "/etc/myapp/cert"
-	expectedKeyFile             string = "/etc/myapp/cert"
+	expectedKeyFile             string = "/etc/myapp/key"
 )
 
 // testServerExecutor provides a test implementation of serverExecutor
