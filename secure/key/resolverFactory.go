@@ -59,7 +59,7 @@ func (factory *ResolverFactory) NewResolver() (Resolver, error) {
 			return nil, err
 		}
 
-		return &singleKeyCache{
+		return &singleCache{
 			basicCache{
 				delegate: &singleResolver{
 					loader: loader,
@@ -68,7 +68,7 @@ func (factory *ResolverFactory) NewResolver() (Resolver, error) {
 			},
 		}, nil
 	} else if nameCount == 1 && names[0] == KeyIdParameterName {
-		return &multiKeyCache{
+		return &multiCache{
 			basicCache{
 				delegate: &multiResolver{
 					expander: expander,

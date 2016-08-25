@@ -3,6 +3,7 @@ package key
 import (
 	"errors"
 	"fmt"
+	"github.com/Comcast/webpa-common/secure/key/keymock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"sync"
@@ -44,13 +45,13 @@ func TestBasicCacheStoreAndLoad(t *testing.T) {
 	assert.Equal(123, cache.load())
 }
 
-func TestSingleKeyCacheResolveKey(t *testing.T) {
+func TestSingleCacheResolveKey(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	resolver.On("ResolveKey", testKeyIds[0]).Return(oldKeys[0], nil).Once()
 
-	cache := singleKeyCache{
+	cache := singleCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -77,13 +78,13 @@ func TestSingleKeyCacheResolveKey(t *testing.T) {
 	assert.Equal(oldKeys[0], cache.load())
 }
 
-func TestSingleKeyCacheResolveKeyError(t *testing.T) {
+func TestSingleCacheResolveKeyError(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	resolver.On("ResolveKey", testKeyIds[0]).Return(nil, resolveKeyError).Times(routineCount)
 
-	cache := singleKeyCache{
+	cache := singleCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -110,13 +111,13 @@ func TestSingleKeyCacheResolveKeyError(t *testing.T) {
 	assert.Nil(cache.load())
 }
 
-func TestSingleKeyCacheUpdateKeys(t *testing.T) {
+func TestSingleCacheUpdateKeys(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	resolver.On("ResolveKey", dummyKeyId).Return(oldKeys[0], nil).Once()
 
-	cache := singleKeyCache{
+	cache := singleCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -128,13 +129,13 @@ func TestSingleKeyCacheUpdateKeys(t *testing.T) {
 	assert.Nil(errors)
 }
 
-func TestSingleKeyCacheUpdateKeysError(t *testing.T) {
+func TestSingleCacheUpdateKeysError(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	resolver.On("ResolveKey", dummyKeyId).Return(nil, resolveKeyError).Once()
 
-	cache := singleKeyCache{
+	cache := singleCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -148,15 +149,15 @@ func TestSingleKeyCacheUpdateKeysError(t *testing.T) {
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 }
 
-func TestSingleKeyCacheUpdateKeysSequence(t *testing.T) {
+func TestSingleCacheUpdateKeysSequence(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	resolver.On("ResolveKey", testKeyIds[0]).Return(oldKeys[0], nil).Once()
 	resolver.On("ResolveKey", dummyKeyId).Return(nil, resolveKeyError).Once()
 	resolver.On("ResolveKey", dummyKeyId).Return(newKeys[0], nil).Once()
 
-	cache := singleKeyCache{
+	cache := singleCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -188,15 +189,15 @@ func TestSingleKeyCacheUpdateKeysSequence(t *testing.T) {
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 }
 
-func TestMultiKeyCacheResolveKey(t *testing.T) {
+func TestMultiCacheResolveKey(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	for index, keyId := range testKeyIds {
 		resolver.On("ResolveKey", keyId).Return(oldKeys[index], nil).Once()
 	}
 
-	cache := multiKeyCache{
+	cache := multiCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -227,15 +228,15 @@ func TestMultiKeyCacheResolveKey(t *testing.T) {
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 }
 
-func TestMultiKeyCacheResolveKeyError(t *testing.T) {
+func TestMultiCacheResolveKeyError(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	for _, keyId := range testKeyIds {
 		resolver.On("ResolveKey", keyId).Return(nil, resolveKeyError).Twice()
 	}
 
-	cache := multiKeyCache{
+	cache := multiCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -266,15 +267,15 @@ func TestMultiKeyCacheResolveKeyError(t *testing.T) {
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 }
 
-func TestMultiKeyCacheUpdateKeys(t *testing.T) {
+func TestMultiCacheUpdateKeys(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	for index, keyId := range testKeyIds {
 		resolver.On("ResolveKey", keyId).Return(oldKeys[index], nil).Twice()
 	}
 
-	cache := multiKeyCache{
+	cache := multiCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -297,15 +298,15 @@ func TestMultiKeyCacheUpdateKeys(t *testing.T) {
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 }
 
-func TestMultiKeyCacheUpdateKeysError(t *testing.T) {
+func TestMultiCacheUpdateKeysError(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	for _, keyId := range testKeyIds {
 		resolver.On("ResolveKey", keyId).Return(nil, resolveKeyError).Once()
 	}
 
-	cache := multiKeyCache{
+	cache := multiCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -330,15 +331,15 @@ func TestMultiKeyCacheUpdateKeysError(t *testing.T) {
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 }
 
-func TestMultiKeyCacheUpdateKeysSequence(t *testing.T) {
+func TestMultiCacheUpdateKeysSequence(t *testing.T) {
 	assert := assert.New(t)
 
-	resolver := &mockResolver{}
+	resolver := &keymock.Resolver{}
 	resolver.On("ResolveKey", testKeyIds[0]).Return(oldKeys[0], nil).Once()
 	resolver.On("ResolveKey", testKeyIds[0]).Return(nil, resolveKeyError).Once()
 	resolver.On("ResolveKey", testKeyIds[0]).Return(newKeys[0], nil).Once()
 
-	cache := multiKeyCache{
+	cache := multiCache{
 		basicCache{
 			delegate: resolver,
 		},
@@ -374,11 +375,11 @@ func TestMultiKeyCacheUpdateKeysSequence(t *testing.T) {
 func TestNewUpdaterNoRunnable(t *testing.T) {
 	assert := assert.New(t)
 
-	keyCache := &mockKeyCache{}
+	keyCache := &keymock.Cache{}
 
 	var testData = []struct {
 		updateInterval time.Duration
-		keyCache       KeyCache
+		keyCache       Cache
 	}{
 		{
 			updateInterval: -1,
@@ -415,7 +416,7 @@ func TestNewUpdater(t *testing.T) {
 		close(updateKeysCalled)
 	}
 
-	keyCache := &mockKeyCache{}
+	keyCache := &keymock.Cache{}
 	keyCache.On("UpdateKeys").Return(0, nil).Run(runner)
 
 	if updater := NewUpdater(100*time.Millisecond, keyCache); assert.NotNil(updater) {

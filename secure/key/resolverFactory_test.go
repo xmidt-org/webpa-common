@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/resource"
+	"github.com/Comcast/webpa-common/secure/key/keymock"
 	"github.com/Comcast/webpa-common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -130,7 +131,7 @@ func TestResolverFactoryNewUpdater(t *testing.T) {
 		close(updateKeysCalled)
 	}
 
-	keyCache := &mockKeyCache{}
+	keyCache := &keymock.Cache{}
 	keyCache.On("UpdateKeys").Return(0, nil).Run(runner)
 
 	resolverFactory := ResolverFactory{

@@ -12,13 +12,13 @@ const (
 	dummyKeyId = ""
 )
 
-// KeyCache is a Resolver type which provides caching for keys based on keyId.
+// Cache is a Resolver type which provides caching for keys based on keyId.
 //
 // All implementations will block the first time a particular key is accessed
 // and will initialize the value for that key.  Thereafter, all updates happen
 // in a separate goroutine.  This allows HTTP transactions to avoid paying
 // the cost of loading a key after the initial fetch.
-type KeyCache interface {
+type Cache interface {
 	Resolver
 
 	// UpdateKeys updates all keys known to this cache.  This method makes
@@ -58,13 +58,13 @@ func (b *basicCache) update(operation func()) {
 	operation()
 }
 
-// singleKeyCache assumes that the delegate Resolver
+// singleCache assumes that the delegate Resolver
 // only returns (1) key.
-type singleKeyCache struct {
+type singleCache struct {
 	basicCache
 }
 
-func (cache *singleKeyCache) ResolveKey(keyId string) (key interface{}, err error) {
+func (cache *singleCache) ResolveKey(keyId string) (key interface{}, err error) {
 	key = cache.load()
 	if key == nil {
 		cache.update(func() {
@@ -81,7 +81,7 @@ func (cache *singleKeyCache) ResolveKey(keyId string) (key interface{}, err erro
 	return
 }
 
-func (cache *singleKeyCache) UpdateKeys() (count int, errors []error) {
+func (cache *singleCache) UpdateKeys() (count int, errors []error) {
 	count = 1
 	cache.update(func() {
 		// this type of cache is specifically for resolvers which don't use the keyId,
@@ -96,18 +96,18 @@ func (cache *singleKeyCache) UpdateKeys() (count int, errors []error) {
 	return
 }
 
-// multiKeyCache uses an atomic map reference to store keys.
+// multiCache uses an atomic map reference to store keys.
 // Once created, each internal map instance will never be written
 // to again, thus removing the need to lock for reads.  This approach
 // does consume more memory, however.  The updateLock ensures that only
 // (1) goroutine will ever be updating the map at anytime.
-type multiKeyCache struct {
+type multiCache struct {
 	basicCache
 }
 
 // fetchKey uses the atomic reference to the keys map and attempts
 // to fetch the key from the cache.
-func (cache *multiKeyCache) fetchKey(keyId string) (key interface{}, ok bool) {
+func (cache *multiCache) fetchKey(keyId string) (key interface{}, ok bool) {
 	if keys, hasKeys := cache.load().(map[string]interface{}); hasKeys {
 		key, ok = keys[keyId]
 	}
@@ -117,7 +117,7 @@ func (cache *multiKeyCache) fetchKey(keyId string) (key interface{}, ok bool) {
 
 // copyKeys creates a copy of the current key cache.  If no keys are present
 // yet, this method returns a non-nil empty map.
-func (cache *multiKeyCache) copyKeys() map[string]interface{} {
+func (cache *multiCache) copyKeys() map[string]interface{} {
 	keys, _ := cache.load().(map[string]interface{})
 
 	// make the capacity 1 larger, since this method is almost always
@@ -131,7 +131,7 @@ func (cache *multiKeyCache) copyKeys() map[string]interface{} {
 	return newKeys
 }
 
-func (cache *multiKeyCache) ResolveKey(keyId string) (key interface{}, err error) {
+func (cache *multiCache) ResolveKey(keyId string) (key interface{}, err error) {
 	key, ok := cache.fetchKey(keyId)
 	if !ok {
 		cache.update(func() {
@@ -150,7 +150,7 @@ func (cache *multiKeyCache) ResolveKey(keyId string) (key interface{}, err error
 	return
 }
 
-func (cache *multiKeyCache) UpdateKeys() (count int, errors []error) {
+func (cache *multiCache) UpdateKeys() (count int, errors []error) {
 	if existingKeys, ok := cache.load().(map[string]interface{}); ok {
 		count = len(existingKeys)
 		cache.update(func() {
@@ -180,7 +180,7 @@ func (cache *multiKeyCache) UpdateKeys() (count int, errors []error) {
 
 // NewUpdater conditionally creates a Runnable which will update the keys in
 // the given resolver on the configured updateInterval.  If both (1) the
-// updateInterval is positive, and (2) resolver implements KeyCache, then this
+// updateInterval is positive, and (2) resolver implements Cache, then this
 // method returns a non-nil function that will spawn a goroutine to update
 // the cache in the background.  Otherwise, this method returns nil.
 func NewUpdater(updateInterval time.Duration, resolver Resolver) (updater concurrent.Runnable) {
@@ -188,7 +188,7 @@ func NewUpdater(updateInterval time.Duration, resolver Resolver) (updater concur
 		return
 	}
 
-	if keyCache, ok := resolver.(KeyCache); ok {
+	if keyCache, ok := resolver.(Cache); ok {
 		updater = concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 			waitGroup.Add(1)
 
