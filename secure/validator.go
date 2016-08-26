@@ -29,6 +29,21 @@ func (v ValidatorFunc) Validate(token *Token) (bool, error) {
 	return v(token)
 }
 
+// Validators is an aggregate Validator.  A Validators instance considers a token
+// valid if any of its validators considers it valid.  An empty Validators rejects
+// all tokens.
+type Validators []Validator
+
+func (v Validators) Validate(token *Token) (valid bool, err error) {
+	for _, validator := range v {
+		if valid, err = validator.Validate(token); valid && err == nil {
+			return
+		}
+	}
+
+	return
+}
+
 // ExactMatchValidator simply matches a token's value (exluding the prefix, such as "Basic"),
 // to a string.
 type ExactMatchValidator string

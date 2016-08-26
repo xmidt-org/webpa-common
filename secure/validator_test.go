@@ -26,12 +26,10 @@ func ExampleSimpleJWSValidator() {
 	}
 
 	valid, err := validator.Validate(token)
-	fmt.Println(valid)
-	fmt.Println(err)
+	fmt.Println(valid, err)
 
 	// Output:
-	// true
-	// <nil>
+	// true <nil>
 }
 
 func TestValidatorFunc(t *testing.T) {
@@ -42,6 +40,58 @@ func TestValidatorFunc(t *testing.T) {
 	valid, err := validator.Validate(nil)
 	assert.False(valid)
 	assert.Equal(expectedError, err)
+}
+
+func TestValidators(t *testing.T) {
+	assert := assert.New(t)
+	var testData = [][]bool{
+		[]bool{true},
+		[]bool{false},
+		[]bool{true, false},
+		[]bool{false, true},
+		[]bool{true, false, false},
+		[]bool{false, true, false},
+		[]bool{false, false, true},
+	}
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+		token := &Token{}
+		mocks := make([]interface{}, 0, len(record))
+		validators := make(Validators, 0, len(record))
+
+		// synthesize a chain of validators:
+		// one mock for each entry.  until "true" is found,
+		// validators should be called.  afterward, none
+		// should be called.
+		var (
+			expectedValid bool
+			expectedError error
+		)
+
+		for index, success := range record {
+			mockValidator := &MockValidator{}
+			mocks = append(mocks, mockValidator.Mock)
+			validators = append(validators, mockValidator)
+
+			if !expectedValid {
+				expectedValid = success
+				if success {
+					expectedError = nil
+				} else {
+					expectedError = fmt.Errorf("expected validator error #%d", index)
+				}
+
+				mockValidator.On("Validate", token).Return(expectedValid, expectedError).Once()
+			}
+		}
+
+		valid, err := validators.Validate(token)
+		assert.Equal(expectedValid, valid)
+		assert.Equal(expectedError, err)
+
+		mock.AssertExpectationsForObjects(t, mocks...)
+	}
 }
 
 func TestExactMatchValidator(t *testing.T) {
