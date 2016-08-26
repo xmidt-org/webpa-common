@@ -26,11 +26,11 @@ var (
 	// ripped these test claims from the SATS swagger example
 	testClaims = jws.Claims{
 		"valid": true,
-		"scope": []string{"x1:capability:read"},
+		"scope": []interface{}{"x1:capability:read"},
 		"allowedResources": map[string]interface{}{
-			"allowedDeviceIds":         []string{"1641529834193109183"},
-			"allowedPartners":          []string{"comcast, cox"},
-			"allowedServiceAccountIds": []string{"4924346887352567847"},
+			"allowedDeviceIds":         []interface{}{"1641529834193109183"},
+			"allowedPartners":          []interface{}{"comcast, cox"},
+			"allowedServiceAccountIds": []interface{}{"4924346887352567847"},
 		},
 	}
 

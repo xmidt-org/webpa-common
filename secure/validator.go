@@ -1,21 +1,15 @@
 package secure
 
 import (
-	"fmt"
+	"errors"
 	"github.com/Comcast/webpa-common/secure/key"
-	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
 )
 
-const (
-	// DefaultKeyId is the keyId used when no kid is present in the protected
-	// header of a JWS
-	DefaultKeyId = "current"
-)
-
 var (
-	DefaultSigningMethod = jws.GetSigningMethod("RS256")
+	ErrorNoProtectedHeader = errors.New("Missing protected header")
+	ErrorNoSigningMethod   = errors.New("Signing method (alg) is missing or unrecognized")
 )
 
 // Validator describes the behavior of a type which can validate tokens
@@ -35,62 +29,64 @@ func (v ValidatorFunc) Validate(token *Token) (bool, error) {
 	return v(token)
 }
 
-// ValidateExactMatch produces a closure which validates that a token matches
-// a given value exactly.  This validator simply returns the original
-// token as the result along with a possible error indicating that the
-// match was a failure.
-func ValidateExactMatch(match string) Validator {
+// NewExactMatchValidator produces a closure which validates that a token matches
+// a given value exactly.  This type of validation is typically used with Basic
+// authentication to match the user:password encoded string.  It can be used with
+// any type of token, however.
+func NewExactMatchValidator(match string) Validator {
 	return ValidatorFunc(func(token *Token) (bool, error) {
 		return match == token.value, nil
 	})
 }
 
-// ValidateJWS produces a Validator for JWS tokens.  Comcast SAT tokens are JWS tokens.
-func ValidateJWS(resolver key.Resolver, jwtValidators ...*jwt.Validator) Validator {
-	return ValidatorFunc(func(token *Token) (bool, error) {
-		if token.Type() != Bearer {
-			return false, nil
-		}
+// JWSValidator provides validation for JWT tokens encoded as JWS.
+type JWSValidator struct {
+	DefaultKeyId  string
+	Resolver      key.Resolver
+	Parser        JWSParser
+	JWTValidators []*jwt.Validator
+}
 
-		jwtToken, err := jws.ParseJWT(token.Bytes())
-		if err != nil {
-			return false, err
-		}
+func (v *JWSValidator) Validate(token *Token) (valid bool, err error) {
+	if token.Type() != Bearer {
+		return
+	}
 
-		var (
-			keyId         string
-			signingMethod crypto.SigningMethod
-		)
+	jwsToken, err := v.Parser.ParseJWS(token)
+	if err != nil {
+		return
+	}
 
-		// casting to a jws.JWS is the only way to get access to the protected header
-		if jwsToken, ok := jwtToken.(jws.JWS); ok {
-			// TODO: Support multiple protected headers?
-			header := jwsToken.Protected()
-			if alg, ok := header.Get("alg").(string); ok {
-				signingMethod = jws.GetSigningMethod(alg)
-			}
+	protected := jwsToken.Protected()
+	if len(protected) == 0 {
+		err = ErrorNoProtectedHeader
+		return
+	}
 
-			if signingMethod == nil {
-				signingMethod = DefaultSigningMethod
-			}
+	alg, _ := protected.Get("alg").(string)
+	signingMethod := jws.GetSigningMethod(alg)
+	if signingMethod == nil {
+		err = ErrorNoSigningMethod
+		return
+	}
 
-			if keyId, _ = header.Get("kid").(string); len(keyId) == 0 {
-				keyId = DefaultKeyId
-			}
-		} else {
-			// we require a JWS token, since that is essentially a signed JWT
-			return false, fmt.Errorf("Token is not a JWS: %s", token.String())
-		}
+	keyId, _ := protected.Get("kid").(string)
+	if len(keyId) == 0 {
+		keyId = v.DefaultKeyId
+	}
 
-		key, err := resolver.ResolveKey(keyId)
-		if err != nil {
-			return false, fmt.Errorf("Unable to resolve key with id: %s", keyId)
-		}
+	key, err := v.Resolver.ResolveKey(keyId)
+	if err != nil {
+		return
+	}
 
-		if err := jwtToken.Validate(key, signingMethod, jwtValidators...); err != nil {
-			return false, err
-		}
+	if len(v.JWTValidators) > 0 {
+		// all JWS implementations also implement jwt.JWT
+		err = jwsToken.(jwt.JWT).Validate(key, signingMethod, v.JWTValidators...)
+	} else {
+		err = jwsToken.Verify(key, signingMethod)
+	}
 
-		return true, nil
-	})
+	valid = (err == nil)
+	return
 }
