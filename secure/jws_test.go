@@ -3,7 +3,6 @@ package secure
 import (
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/stretchr/testify/assert"
-	"reflect"
 	"testing"
 )
 
