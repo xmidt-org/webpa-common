@@ -14,17 +14,16 @@ type mockJWSParser struct {
 
 func (parser *mockJWSParser) ParseJWS(token *Token) (jws.JWS, error) {
 	arguments := parser.Called(token)
-	first := arguments.Get(0)
-	if jwsToken, ok := first.(jws.JWS); ok {
-		return jwsToken, arguments.Error(1)
-	} else {
-		return nil, arguments.Error(1)
-	}
+	jwsToken, _ := arguments.Get(0).(jws.JWS)
+	return jwsToken, arguments.Error(1)
 }
 
 type mockJWS struct {
 	mock.Mock
 }
+
+var _ jwt.JWT = (*mockJWS)(nil)
+var _ jws.JWS = (*mockJWS)(nil)
 
 func (j *mockJWS) Claims() jwt.Claims {
 	arguments := j.Called()
@@ -52,7 +51,8 @@ func (j *mockJWS) SetPayload(p interface{}) {
 
 func (j *mockJWS) Protected() jose.Protected {
 	arguments := j.Called()
-	return arguments.Get(0).(jose.Protected)
+	protected, _ := arguments.Get(0).(jose.Protected)
+	return protected
 }
 
 func (j *mockJWS) ProtectedAt(i int) jose.Protected {
@@ -90,13 +90,13 @@ func (j *mockJWS) General(keys ...interface{}) ([]byte, error) {
 	return arguments.Get(0).([]byte), arguments.Error(1)
 }
 
-func (j *mockJWS) Flat(keys ...interface{}) ([]byte, error) {
-	arguments := j.Called(keys)
+func (j *mockJWS) Flat(key interface{}) ([]byte, error) {
+	arguments := j.Called(key)
 	return arguments.Get(0).([]byte), arguments.Error(1)
 }
 
-func (j *mockJWS) Compact(keys ...interface{}) ([]byte, error) {
-	arguments := j.Called(keys)
+func (j *mockJWS) Compact(key interface{}) ([]byte, error) {
+	arguments := j.Called(key)
 	return arguments.Get(0).([]byte), arguments.Error(1)
 }
 

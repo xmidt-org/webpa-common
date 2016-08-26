@@ -29,14 +29,12 @@ func (v ValidatorFunc) Validate(token *Token) (bool, error) {
 	return v(token)
 }
 
-// NewExactMatchValidator produces a closure which validates that a token matches
-// a given value exactly.  This type of validation is typically used with Basic
-// authentication to match the user:password encoded string.  It can be used with
-// any type of token, however.
-func NewExactMatchValidator(match string) Validator {
-	return ValidatorFunc(func(token *Token) (bool, error) {
-		return match == token.value, nil
-	})
+// ExactMatchValidator simply matches a token's value (exluding the prefix, such as "Basic"),
+// to a string.
+type ExactMatchValidator string
+
+func (v ExactMatchValidator) Validate(token *Token) (bool, error) {
+	return string(v) == token.value, nil
 }
 
 // JWSValidator provides validation for JWT tokens encoded as JWS.
@@ -47,12 +45,17 @@ type JWSValidator struct {
 	JWTValidators []*jwt.Validator
 }
 
-func (v *JWSValidator) Validate(token *Token) (valid bool, err error) {
+func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
 	if token.Type() != Bearer {
 		return
 	}
 
-	jwsToken, err := v.Parser.ParseJWS(token)
+	parser := v.Parser
+	if parser == nil {
+		parser = DefaultJWSParser
+	}
+
+	jwsToken, err := parser.ParseJWS(token)
 	if err != nil {
 		return
 	}
