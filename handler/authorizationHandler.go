@@ -5,64 +5,86 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"net/http"
+	"os"
 )
 
 // AuthorizationHandler provides decoration for http.Handler instances and will
-// ensure that requests pass one or more validators.
+// ensure that requests pass the validator.  Note that secure.Validators is a Validator
+// implementation that allows chaining validators together via logical OR.
 type AuthorizationHandler struct {
 	HeaderName          string
 	ForbiddenStatusCode int
-	Validators          []secure.Validator
+	Validator           secure.Validator
 	Logger              logging.Logger
+}
+
+// headerName returns the authorization header to use, either a.HeaderName
+// or secure.AuthorizationHeader if no header is supplied
+func (a AuthorizationHandler) headerName() string {
+	if len(a.HeaderName) > 0 {
+		return a.HeaderName
+	}
+
+	return secure.AuthorizationHeader
+}
+
+// forbiddenStatusCode returns a.ForbiddenStatusCode if supplied, otherwise
+// http.StatusForbidden is returned
+func (a AuthorizationHandler) forbiddenStatusCode() int {
+	if a.ForbiddenStatusCode > 0 {
+		return a.ForbiddenStatusCode
+	}
+
+	return http.StatusForbidden
+}
+
+func (a AuthorizationHandler) logger() logging.Logger {
+	if a.Logger != nil {
+		return a.Logger
+	}
+
+	return &logging.LoggerWriter{os.Stdout}
 }
 
 // Decorate provides an Alice-compatible constructor that validates requests
 // using the configuration specified.
 func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
-	// if there are no validators, there's no point in decorating anything
-	if len(a.Validators) == 0 {
+	// if there is no validator, there's no point in decorating anything
+	if a.Validator == nil {
 		return delegate
 	}
 
-	headerName := a.HeaderName
-	if len(headerName) == 0 {
-		headerName = secure.AuthorizationHeader
-	}
-
-	forbiddenStatusCode := a.ForbiddenStatusCode
-	if forbiddenStatusCode < 100 {
-		forbiddenStatusCode = http.StatusForbidden
-	}
+	headerName := a.headerName()
+	forbiddenStatusCode := a.forbiddenStatusCode()
+	logger := a.logger()
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		headerValue := request.Header.Get(headerName)
 		if len(headerValue) == 0 {
 			message := fmt.Sprintf("No %s header", headerName)
-			a.Logger.Error(message)
+			logger.Error(message)
 			WriteJsonError(response, forbiddenStatusCode, message)
 			return
 		}
 
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
-			message := fmt.Sprintf("Invalid authorization header [%s]: %s", headerValue, err.Error())
-			a.Logger.Error(message)
+			message := fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error())
+			logger.Error(message)
 			WriteJsonError(response, forbiddenStatusCode, message)
 			return
 		}
 
-		for _, validator := range a.Validators {
-			valid, err := validator.Validate(token)
-			if err != nil {
-				a.Logger.Error("Validation error: %s", err.Error())
-			} else if valid {
-				// if any validator approves, stop and invoke the delegate
-				delegate.ServeHTTP(response, request)
-				return
-			}
+		valid, err := a.Validator.Validate(token)
+		if err != nil {
+			logger.Error("Validation error: %s", err.Error())
+		} else if valid {
+			// if any validator approves, stop and invoke the delegate
+			delegate.ServeHTTP(response, request)
+			return
 		}
 
-		a.Logger.Error("Request denied: %s", request)
+		logger.Error("Request denied: %s", request)
 		response.WriteHeader(forbiddenStatusCode)
 	})
 }
