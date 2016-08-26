@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
@@ -28,6 +29,37 @@ type mockHttpHandler struct {
 
 func (h *mockHttpHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	h.Called(response, request)
+}
+
+func ExampleBasicAuthorization() {
+	// typical usage: just take the defaults for header and code
+	authorizationHandler := AuthorizationHandler{
+		Logger:    &logging.LoggerWriter{ioutil.Discard},
+		Validator: secure.ExactMatchValidator(tokenValue),
+	}
+
+	myHandler := http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		fmt.Println("Authorized!")
+	})
+
+	decorated := authorizationHandler.Decorate(myHandler)
+
+	validRequest, _ := http.NewRequest("GET", "http://example.org/basic/auth", nil)
+	validRequest.Header.Set(secure.AuthorizationHeader, authorizationValue)
+	validResponse := httptest.NewRecorder()
+	decorated.ServeHTTP(validResponse, validRequest)
+	fmt.Println(validResponse.Code)
+
+	rejectedRequest, _ := http.NewRequest("GET", "http://example.org/basic/auth/rejected", nil)
+	rejectedRequest.Header.Set(secure.AuthorizationHeader, "Basic cmVqZWN0bWU6cmVqZWN0ZWQK")
+	rejectedResponse := httptest.NewRecorder()
+	decorated.ServeHTTP(rejectedResponse, rejectedRequest)
+	fmt.Println(rejectedResponse.Code)
+
+	// Output:
+	// Authorized!
+	// 200
+	// 403
 }
 
 func TestAuthorizationHandlerNoDecoration(t *testing.T) {
