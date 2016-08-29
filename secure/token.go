@@ -82,6 +82,9 @@ func ParseAuthorization(value string) (*Token, error) {
 
 	tokenType, err := ParseTokenType(matches[1])
 	if err != nil {
+		// There's no case where the value matches the authorizationPattern
+		// will result in ParseTokenType returning an error in the current codebase.
+		// This is just being very defensive ...
 		return nil, err
 	}
 
