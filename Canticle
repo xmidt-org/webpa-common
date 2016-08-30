@@ -24,6 +24,10 @@
         "Revision": "6cb3b85ef5a0efef77caef88363ec4d4b5c0976d"
     },
     {
+        "Root": "github.com/jtacoma/uritemplates",
+        "Revision": "307ae868f90f4ee1b73ebe4596e0394237dacce8"
+    },
+    {
         "Root": "github.com/c9s/goprocinfo",
         "Revision": "19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c"
     },
