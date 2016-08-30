@@ -5,6 +5,7 @@ import (
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
+	"time"
 )
 
 var (
@@ -107,4 +108,54 @@ func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
 
 	valid = (err == nil)
 	return
+}
+
+// JWTValidatorFactory is a configurable factory for *jwt.Validator instances
+type JWTValidatorFactory struct {
+	Expected  jwt.Claims `json:"expected"`
+	ExpLeeway int        `json:"expLeeway"`
+	NbfLeeway int        `json:"nbfLeeway"`
+}
+
+func (f *JWTValidatorFactory) expLeeway() time.Duration {
+	if f.ExpLeeway > 0 {
+		return time.Duration(f.ExpLeeway) * time.Second
+	}
+
+	return 0
+}
+
+func (f *JWTValidatorFactory) nbfLeeway() time.Duration {
+	if f.NbfLeeway > 0 {
+		return time.Duration(f.NbfLeeway) * time.Second
+	}
+
+	return 0
+}
+
+// New returns a jwt.Validator using the configuration expected claims (if any)
+// and a validator function that checks the exp and nbf claims.
+//
+// The SermoDigital library doesn't appear to do anything with the EXP and NBF
+// members of jwt.Validator, but this Factory Method populates them anyway.
+func (f *JWTValidatorFactory) New(custom ...jwt.ValidateFunc) *jwt.Validator {
+	expLeeway := f.expLeeway()
+	nbfLeeway := f.nbfLeeway()
+	customCount := len(custom)
+
+	return &jwt.Validator{
+		Expected: f.Expected,
+		EXP:      expLeeway,
+		NBF:      nbfLeeway,
+		Fn: func(claims jwt.Claims) (err error) {
+			err = claims.Validate(time.Now(), expLeeway, nbfLeeway)
+			if err == nil {
+				for index := 0; index < customCount && err == nil; index++ {
+					err = custom[index](claims)
+				}
+			}
+
+			return
+		},
+	}
 }
