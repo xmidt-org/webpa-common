@@ -10,21 +10,25 @@ import (
 )
 
 func addRoutes(errorLogger *log.Logger, keyStore *KeyStore, router *mux.Router) {
-	router.Handle(
-		fmt.Sprintf("/keys/{%s}", KeyIDVariableName),
-		&KeyHandler{
-			keyStore:    keyStore,
-			errorLogger: errorLogger,
-		},
-	)
+	handler := BasicHandler{
+		keyStore:    keyStore,
+		errorLogger: errorLogger,
+	}
 
-	router.Handle(
+	router.HandleFunc(
+		fmt.Sprintf("/keys/{%s}", KeyIDVariableName),
+		handler.GetKey,
+	).Methods("GET")
+
+	router.HandleFunc(
 		"/keys",
-		&ListKeysHandler{
-			keyStore:    keyStore,
-			errorLogger: errorLogger,
-		},
-	)
+		handler.ListKeys,
+	).Methods("GET")
+
+	router.HandleFunc(
+		"/jwt",
+		handler.GenerateJWTFromBody,
+	).Methods("GET", "POST", "PUT").HeadersRegexp("Content-Type", "application/json.*")
 }
 
 func main() {
