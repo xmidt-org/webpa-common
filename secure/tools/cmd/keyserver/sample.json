@@ -1,4 +1,9 @@
 {
+	"keys": {
+		"sample": {
+			"uri": "./sample.key"
+		}
+	},
 	"generate": ["test"]
 }
 

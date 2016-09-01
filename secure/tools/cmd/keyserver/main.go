@@ -11,7 +11,7 @@ import (
 
 func addRoutes(errorLogger *log.Logger, keyStore *KeyStore, router *mux.Router) {
 	router.Handle(
-		fmt.Sprintf("/keys/{%s}", KeyIdVariableName),
+		fmt.Sprintf("/keys/{%s}", KeyIDVariableName),
 		&KeyHandler{
 			keyStore:    keyStore,
 			errorLogger: errorLogger,
@@ -28,7 +28,7 @@ func addRoutes(errorLogger *log.Logger, keyStore *KeyStore, router *mux.Router) 
 }
 
 func main() {
-	mainLogger := log.New(os.Stdout, "[INFO]  ", log.LstdFlags|log.LUTC)
+	infoLogger := log.New(os.Stdout, "[INFO]  ", log.LstdFlags|log.LUTC)
 	errorLogger := log.New(os.Stderr, "[ERROR] ", log.LstdFlags|log.LUTC)
 
 	var configurationFileName string
@@ -40,10 +40,12 @@ func main() {
 		errorLogger.Fatalf("Unable to parse configuration file: %s\n", err)
 	}
 
-	keyStore, err := NewKeyStore(configuration)
+	keyStore, err := NewKeyStore(infoLogger, configuration)
 	if err != nil {
 		errorLogger.Fatalf("Unable to initialize key store: %s\n", err)
 	}
+
+	infoLogger.Printf("Initialized key store with %d keys: %s\n", keyStore.Len(), keyStore.KeyIDs())
 
 	router := mux.NewRouter()
 	addRoutes(errorLogger, keyStore, router)
@@ -59,6 +61,6 @@ func main() {
 		ErrorLog: errorLogger,
 	}
 
-	mainLogger.Printf("Listening on %s\n", bindAddress)
+	infoLogger.Printf("Listening on %s\n", bindAddress)
 	log.Fatalln(server.ListenAndServe())
 }

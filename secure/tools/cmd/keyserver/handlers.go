@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	KeyIdVariableName = "keyId"
+	KeyIDVariableName = "keyId"
 )
 
 // KeyHandler handles serving up public keys from a key store
@@ -20,20 +20,20 @@ type KeyHandler struct {
 
 func (kh *KeyHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	variables := mux.Vars(request)
-	keyId := variables[KeyIdVariableName]
-	if len(keyId) == 0 {
+	keyID := variables[KeyIDVariableName]
+	if len(keyID) == 0 {
 		kh.errorLogger.Println("No key identifier supplied")
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	key, ok := kh.keyStore.PublicKey(keyId)
+	key, ok := kh.keyStore.PublicKey(keyID)
 	if ok {
 		// Should we use application/x-pem-file instead?
 		response.Header().Set("Content-Type", "text/plain;charset=UTF-8")
 		response.Write(key)
 	} else {
-		message := fmt.Sprintf("No such key: %s", keyId)
+		message := fmt.Sprintf("No such key: %s", keyID)
 		kh.errorLogger.Println(message)
 
 		response.Header().Set("Content-Type", "application/json;charset=UTF-8")

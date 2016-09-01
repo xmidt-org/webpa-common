@@ -8,6 +8,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/Comcast/webpa-common/secure/key"
+	"log"
 )
 
 // KeyStore provides a single access point for a set of keys, keyed by their key identifiers
@@ -16,6 +17,10 @@ type KeyStore struct {
 	keyIDs      []string
 	privateKeys map[string]*rsa.PrivateKey
 	publicKeys  map[string][]byte
+}
+
+func (ks *KeyStore) Len() int {
+	return len(ks.keyIDs)
 }
 
 func (ks *KeyStore) KeyIDs() []string {
@@ -33,17 +38,17 @@ func (ks *KeyStore) PublicKey(keyID string) (data []byte, ok bool) {
 }
 
 // NewKeyStore exchanges a Configuration for a KeyStore.
-func NewKeyStore(c *Configuration) (*KeyStore, error) {
+func NewKeyStore(infoLogger *log.Logger, c *Configuration) (*KeyStore, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
 
 	privateKeys := make(map[string]*rsa.PrivateKey, len(c.Keys)+len(c.Generate))
-	if err := resolveKeys(c, privateKeys); err != nil {
+	if err := resolveKeys(infoLogger, c, privateKeys); err != nil {
 		return nil, err
 	}
 
-	if err := generateKeys(c, privateKeys); err != nil {
+	if err := generateKeys(infoLogger, c, privateKeys); err != nil {
 		return nil, err
 	}
 
@@ -64,8 +69,10 @@ func NewKeyStore(c *Configuration) (*KeyStore, error) {
 	}, nil
 }
 
-func resolveKeys(c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
+func resolveKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
 	for keyID, resourceFactory := range c.Keys {
+		infoLogger.Printf("Key [%s]: loading from resource %#v\n", keyID, resourceFactory)
+
 		keyResolver, err := (&key.ResolverFactory{
 			Factory: *resourceFactory,
 			Purpose: key.PurposeSign,
@@ -90,13 +97,15 @@ func resolveKeys(c *Configuration, privateKeys map[string]*rsa.PrivateKey) error
 	return nil
 }
 
-func generateKeys(c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
+func generateKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
 	bits := c.Bits
 	if bits < 1 {
 		bits = DefaultBits
 	}
 
 	for _, keyID := range c.Generate {
+		infoLogger.Printf("Key [%s]: generating ...", keyID)
+
 		if generatedKey, err := rsa.GenerateKey(rand.Reader, bits); err == nil {
 			privateKeys[keyID] = generatedKey
 		} else {
