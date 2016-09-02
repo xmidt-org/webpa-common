@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	DefaultIssuer      = "test"
 	DefaultBits        = 4096
 	DefaultBindAddress = ":8080"
 )
@@ -24,6 +25,10 @@ var (
 // Configuration provides the basic, JSON-marshallable configuration for
 // the keyserver.
 type Configuration struct {
+	// Issuer is the string used for the iss field for any JWTs issued
+	// by this server.  If not supplied, DefaultIssuer is used.
+	Issuer string `json:"issuer"`
+
 	// BindAddress is the local address on which the server listens
 	BindAddress string `json:"bindAddress"`
 

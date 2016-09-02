@@ -4,31 +4,44 @@ import (
 	"flag"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/schema"
 	"log"
 	"net/http"
 	"os"
 )
 
-func addRoutes(errorLogger *log.Logger, keyStore *KeyStore, router *mux.Router) {
-	handler := BasicHandler{
-		keyStore:    keyStore,
-		errorLogger: errorLogger,
+func addRoutes(issuer string, errorLogger *log.Logger, keyStore *KeyStore, router *mux.Router) {
+	keyHandler := KeyHandler{
+		BasicHandler{
+			keyStore:    keyStore,
+			errorLogger: errorLogger,
+		},
 	}
 
-	router.HandleFunc(
-		fmt.Sprintf("/keys/{%s}", KeyIDVariableName),
-		handler.GetKey,
-	).Methods("GET")
+	keysRouter := router.Methods("GET").Subrouter()
+	keysRouter.HandleFunc("/keys", keyHandler.ListKeys)
+	keysRouter.HandleFunc(fmt.Sprintf("/keys/{%s}", KeyIDVariableName), keyHandler.GetKey)
 
-	router.HandleFunc(
-		"/keys",
-		handler.ListKeys,
-	).Methods("GET")
+	issueHandler := IssueHandler{
+		BasicHandler: BasicHandler{
+			keyStore:    keyStore,
+			errorLogger: errorLogger,
+		},
+		decoder: schema.NewDecoder(),
+		issuer:  issuer,
+	}
 
-	router.HandleFunc(
-		"/jwt",
-		handler.GenerateJWTFromBody,
-	).Methods("GET", "POST", "PUT").HeadersRegexp("Content-Type", "application/json.*")
+	issueRouter := router.
+		Path("/jws").
+		Queries(KeyIDVariableName, "").
+		Subrouter()
+
+	issueRouter.Methods("GET").
+		HandlerFunc(issueHandler.SimpleIssue)
+
+	issueRouter.Methods("PUT", "POST").
+		Headers("Content-Type", "application/json").
+		HandlerFunc(issueHandler.IssueUsingBody)
 }
 
 func main() {
@@ -51,8 +64,13 @@ func main() {
 
 	infoLogger.Printf("Initialized key store with %d keys: %s\n", keyStore.Len(), keyStore.KeyIDs())
 
+	issuer := configuration.Issuer
+	if len(issuer) == 0 {
+		issuer = DefaultIssuer
+	}
+
 	router := mux.NewRouter()
-	addRoutes(errorLogger, keyStore, router)
+	addRoutes(issuer, errorLogger, keyStore, router)
 
 	bindAddress := configuration.BindAddress
 	if len(bindAddress) == 0 {

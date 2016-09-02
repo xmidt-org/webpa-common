@@ -4,6 +4,6 @@
 			"uri": "./sample.key"
 		}
 	},
-	"generate": ["test"]
+	"generate": ["generated"]
 }
 
