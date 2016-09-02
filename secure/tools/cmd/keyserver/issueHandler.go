@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/SermoDigital/jose/crypto"
@@ -20,6 +22,7 @@ const (
 var (
 	ErrorMissingKeyID = errors.New("A kid parameter is required")
 
+	zeroTime                                  = time.Time{}
 	defaultSigningMethod crypto.SigningMethod = crypto.SigningMethodRS256
 
 	supportedSigningMethods = map[string]crypto.SigningMethod{
@@ -46,7 +49,7 @@ var (
 // (3) An absolute date specified in RFC33399 or RFC822 formates.  See the time package for details.
 type NumericDate struct {
 	duration time.Duration
-	absolute int64
+	absolute time.Time
 }
 
 func (nd *NumericDate) UnmarshalText(raw []byte) error {
@@ -58,18 +61,18 @@ func (nd *NumericDate) UnmarshalText(raw []byte) error {
 	text := string(raw)
 
 	if value, err := strconv.ParseInt(text, 10, 64); err == nil {
-		*nd = NumericDate{duration: 0, absolute: value}
+		*nd = NumericDate{duration: 0, absolute: time.Unix(value, 0)}
 		return nil
 	}
 
 	if duration, err := time.ParseDuration(text); err == nil {
-		*nd = NumericDate{duration: duration, absolute: 0}
+		*nd = NumericDate{duration: duration, absolute: zeroTime}
 		return nil
 	}
 
 	for _, layout := range supportedNumericDateLayouts {
 		if value, err := time.Parse(layout, text); err == nil {
-			*nd = NumericDate{duration: 0, absolute: value.Unix()}
+			*nd = NumericDate{duration: 0, absolute: value}
 			return nil
 		}
 	}
@@ -77,15 +80,15 @@ func (nd *NumericDate) UnmarshalText(raw []byte) error {
 	return fmt.Errorf("Unparseable datetime: %s", text)
 }
 
-// Compute calculates the NumericDate value given a point in time
+// Compute calculates the time.Time value given a point in time
 // assumed to be "now".  Use of this level of indirection allows a
 // single time value to be used in all calculations when issuing JWTs.
-func (nd *NumericDate) Compute(now time.Time) int64 {
-	if nd.absolute != 0 {
-		return nd.absolute
+func (nd *NumericDate) Compute(now time.Time) time.Time {
+	if nd.duration != 0 {
+		return now.Add(nd.duration)
 	}
 
-	return now.Add(nd.duration).Unix()
+	return nd.absolute
 }
 
 // SigningMethod is a custom type which holds the alg value.
@@ -118,11 +121,11 @@ type IssueRequest struct {
 	Algorithm *SigningMethod `schema:"alg"`
 
 	Expires   *NumericDate `schema:"exp"`
-	NotBefore NumericDate  `schema:"nbf"`
+	NotBefore *NumericDate `schema:"nbf"`
 
 	JWTID    *string   `schema:"jti"`
-	Subject  *string   `scheme:"sub"`
-	Audience *[]string `scheme:"aud"`
+	Subject  string    `schema:"sub"`
+	Audience *[]string `schema:"aud"`
 }
 
 func (ir *IssueRequest) SigningMethod() crypto.SigningMethod {
@@ -144,6 +147,42 @@ func (ir *IssueRequest) AddToHeader(header map[string]interface{}) error {
 // appropriately into a supplied jwt.Claims object.
 func (ir *IssueRequest) AddToClaims(claims jwt.Claims) error {
 	claims.SetIssuedAt(ir.Now)
+
+	if ir.Expires != nil {
+		claims.SetExpiration(ir.Expires.Compute(ir.Now))
+	}
+
+	if ir.NotBefore != nil {
+		claims.SetNotBefore(ir.NotBefore.Compute(ir.Now))
+	}
+
+	if ir.JWTID != nil {
+		jti := *ir.JWTID
+		if len(jti) == 0 {
+			// generate a type 4 UUID
+			buffer := make([]byte, 16)
+			if _, err := rand.Read(buffer); err != nil {
+				return err
+			}
+
+			buffer[6] = (buffer[6] | 0x40) & 0x4F
+			buffer[8] = (buffer[8] | 0x80) & 0x8F
+
+			// dashes are just noise!
+			jti = fmt.Sprintf("%X", buffer)
+		}
+
+		claims.SetJWTID(jti)
+	}
+
+	if len(ir.Subject) > 0 {
+		claims.SetSubject(ir.Subject)
+	}
+
+	if ir.Audience != nil {
+		claims.SetAudience((*ir.Audience)...)
+	}
+
 	return nil
 }
 
@@ -239,13 +278,14 @@ func (handler *IssueHandler) IssueUsingBody(response http.ResponseWriter, reques
 	if request.Body != nil {
 		body, err := ioutil.ReadAll(request.Body)
 		if err != nil {
-			handler.httpError(response, http.StatusBadRequest, err.Error())
+			handler.httpError(response, http.StatusBadRequest, fmt.Sprintf("Unable to read request body: %s", err))
 			return
 		}
 
 		if len(body) > 0 {
-			if err := claims.UnmarshalJSON(body); err != nil {
-				handler.httpError(response, http.StatusBadRequest, err.Error())
+			// we don't want to uses the Claims unmarshalling logic, as that assumes base64
+			if err := json.Unmarshal(body, (*map[string]interface{})(&claims)); err != nil {
+				handler.httpError(response, http.StatusBadRequest, fmt.Sprintf("Unable to parse JSON in request body: %s", err))
 				return
 			}
 		}
