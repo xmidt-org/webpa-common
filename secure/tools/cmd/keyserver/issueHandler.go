@@ -200,7 +200,7 @@ func NewIssueRequest(decoder *schema.Decoder, source map[string][]string) (*Issu
 	return issueRequest, nil
 }
 
-// BasicHandler handles all keyserver requests
+// IssueHandler issues JWS tokens
 type IssueHandler struct {
 	BasicHandler
 	issuer  string
