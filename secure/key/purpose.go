@@ -3,16 +3,7 @@ package key
 import (
 	"bytes"
 	"fmt"
-	"github.com/SermoDigital/jose/crypto"
 )
-
-// Parser is a strategy interface that supplies the logic to turn the
-// raw bytes of a key into the runtime data structure representing the key.
-// A Parser instance is responsible for dealing with encoding formats,
-// such as PEM or JSON.
-type Parser interface {
-	ParseKey(data []byte) (interface{}, error)
-}
 
 // Purpose is an enumerated type describing the reason a given
 // key is being used.  This type implements Parser.
@@ -90,16 +81,4 @@ func (p Purpose) MarshalJSON() ([]byte, error) {
 // false if it requires a public key.
 func (p Purpose) RequiresPrivateKey() bool {
 	return p == PurposeSign || p == PurposeEncrypt
-}
-
-// ParseKey handles parsing a key based on its purpose.  Sign and encrypt
-// keys must be RSA private keys, while verify and decrypt keys must be
-// RSA public keys.  For unknown purpose values, the key purpose is assumed
-// to be verify.
-func (p Purpose) ParseKey(data []byte) (interface{}, error) {
-	if p.RequiresPrivateKey() {
-		return crypto.ParseRSAPrivateKeyFromPEM(data)
-	} else {
-		return crypto.ParseRSAPublicKeyFromPEM(data)
-	}
 }

@@ -40,6 +40,17 @@ type ResolverFactory struct {
 	// UpdateInterval specifies how often keys should be refreshed.
 	// If negative or zero, keys are never refreshed and are cached forever.
 	UpdateInterval types.Duration `json:"updateInterval"`
+
+	// Parser is a custom key parser.  If omitted, DefaultParser is used.
+	Parser Parser `json:"-"`
+}
+
+func (factory *ResolverFactory) parser() Parser {
+	if factory.Parser != nil {
+		return factory.Parser
+	}
+
+	return DefaultParser
 }
 
 // NewResolver() creates a Resolver using this factory's configuration.  The
@@ -62,8 +73,11 @@ func (factory *ResolverFactory) NewResolver() (Resolver, error) {
 		return &singleCache{
 			basicCache{
 				delegate: &singleResolver{
+					basicResolver: basicResolver{
+						parser:  factory.parser(),
+						purpose: factory.Purpose,
+					},
 					loader: loader,
-					parser: factory.Purpose,
 				},
 			},
 		}, nil
@@ -71,8 +85,11 @@ func (factory *ResolverFactory) NewResolver() (Resolver, error) {
 		return &multiCache{
 			basicCache{
 				delegate: &multiResolver{
+					basicResolver: basicResolver{
+						parser:  factory.parser(),
+						purpose: factory.Purpose,
+					},
 					expander: expander,
-					parser:   factory.Purpose,
 				},
 			},
 		}, nil
