@@ -25,21 +25,29 @@ func TestSingleResolverPublicKey(t *testing.T) {
 			}
 
 			var resolver Resolver = &singleResolver{
+				basicResolver: basicResolver{
+					parser:  DefaultParser,
+					purpose: purpose,
+				},
+
 				loader: loader,
-				parser: purpose,
 			}
 
 			stringValue := fmt.Sprintf("%s", resolver)
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURI)
 
-			key, err := resolver.ResolveKey("does not matter")
-			assert.NotNil(key)
+			pair, err := resolver.ResolveKey("does not matter")
+			assert.NotNil(pair)
 			assert.Nil(err)
 
-			publicKey, ok := key.(*rsa.PublicKey)
+			publicKey, ok := pair.Public().(*rsa.PublicKey)
 			assert.NotNil(publicKey)
 			assert.True(ok)
+
+			assert.False(pair.HasPrivate())
+			assert.Nil(pair.Private())
+			assert.Equal(purpose, pair.Purpose())
 		}
 	}
 }
@@ -60,21 +68,30 @@ func TestSingleResolverPrivateKey(t *testing.T) {
 			}
 
 			var resolver Resolver = &singleResolver{
+				basicResolver: basicResolver{
+					parser:  DefaultParser,
+					purpose: purpose,
+				},
 				loader: loader,
-				parser: purpose,
 			}
 
 			stringValue := fmt.Sprintf("%s", resolver)
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURI)
 
-			key, err := resolver.ResolveKey("does not matter")
-			assert.NotNil(key)
+			pair, err := resolver.ResolveKey("does not matter")
+			assert.NotNil(pair)
 			assert.Nil(err)
 
-			privateKey, ok := key.(*rsa.PrivateKey)
-			assert.NotNil(privateKey)
+			publicKey, ok := pair.Public().(*rsa.PublicKey)
+			assert.NotNil(publicKey)
 			assert.True(ok)
+
+			assert.True(pair.HasPrivate())
+			assert.Equal(purpose, pair.Purpose())
+
+			privateKey, ok := pair.Private().(*rsa.PrivateKey)
+			assert.NotNil(privateKey)
 		}
 	}
 }
@@ -83,10 +100,13 @@ func TestSingleResolverBadResource(t *testing.T) {
 	assert := assert.New(t)
 
 	var resolver Resolver = &singleResolver{
+		basicResolver: basicResolver{
+			parser:  DefaultParser,
+			purpose: PurposeVerify,
+		},
 		loader: &resource.File{
 			Path: "does not exist",
 		},
-		parser: PurposeVerify,
 	}
 
 	key, err := resolver.ResolveKey("does not matter")
@@ -110,21 +130,28 @@ func TestMultiResolverPublicKey(t *testing.T) {
 			}
 
 			var resolver Resolver = &multiResolver{
+				basicResolver: basicResolver{
+					parser:  DefaultParser,
+					purpose: purpose,
+				},
 				expander: expander,
-				parser:   purpose,
 			}
 
 			stringValue := fmt.Sprintf("%s", resolver)
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURITemplate)
 
-			key, err := resolver.ResolveKey(keyId)
-			assert.NotNil(key)
+			pair, err := resolver.ResolveKey(keyId)
+			assert.NotNil(pair)
 			assert.Nil(err)
 
-			publicKey, ok := key.(*rsa.PublicKey)
+			publicKey, ok := pair.Public().(*rsa.PublicKey)
 			assert.NotNil(publicKey)
 			assert.True(ok)
+
+			assert.False(pair.HasPrivate())
+			assert.Nil(pair.Private())
+			assert.Equal(purpose, pair.Purpose())
 		}
 	}
 }
@@ -145,19 +172,29 @@ func TestMultiResolverPrivateKey(t *testing.T) {
 			}
 
 			var resolver Resolver = &multiResolver{
+				basicResolver: basicResolver{
+					parser:  DefaultParser,
+					purpose: purpose,
+				},
 				expander: expander,
-				parser:   purpose,
 			}
 
 			stringValue := fmt.Sprintf("%s", resolver)
 			assert.Contains(stringValue, purpose.String())
 			assert.Contains(stringValue, keyURITemplate)
 
-			key, err := resolver.ResolveKey(keyId)
-			assert.NotNil(key)
+			pair, err := resolver.ResolveKey(keyId)
+			assert.NotNil(pair)
 			assert.Nil(err)
 
-			privateKey, ok := key.(*rsa.PrivateKey)
+			publicKey, ok := pair.Public().(*rsa.PublicKey)
+			assert.NotNil(publicKey)
+			assert.True(ok)
+
+			assert.Equal(purpose, pair.Purpose())
+			assert.True(pair.HasPrivate())
+
+			privateKey, ok := pair.Private().(*rsa.PrivateKey)
 			assert.NotNil(privateKey)
 			assert.True(ok)
 		}

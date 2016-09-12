@@ -47,8 +47,9 @@ func TestBasicCacheStoreAndLoad(t *testing.T) {
 func TestSingleCacheResolveKey(t *testing.T) {
 	assert := assert.New(t)
 
+	expectedPair := &MockPair{}
 	resolver := &MockResolver{}
-	resolver.On("ResolveKey", testKeyIds[0]).Return(oldKeys[0], nil).Once()
+	resolver.On("ResolveKey", testKeyIds[0]).Return(expectedPair, nil).Once()
 
 	cache := singleCache{
 		basicCache{
@@ -64,8 +65,8 @@ func TestSingleCacheResolveKey(t *testing.T) {
 		go func() {
 			defer waitGroup.Done()
 			<-barrier
-			key, err := cache.ResolveKey(testKeyIds[0])
-			assert.Equal(oldKeys[0], key)
+			actualPair, err := cache.ResolveKey(testKeyIds[0])
+			assert.Equal(expectedPair, actualPair)
 			assert.Nil(err)
 		}()
 	}
@@ -73,8 +74,9 @@ func TestSingleCacheResolveKey(t *testing.T) {
 	close(barrier)
 	waitGroup.Wait()
 
+	mock.AssertExpectationsForObjects(t, expectedPair.Mock)
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
-	assert.Equal(oldKeys[0], cache.load())
+	assert.Equal(expectedPair, cache.load())
 }
 
 func TestSingleCacheResolveKeyError(t *testing.T) {
@@ -113,8 +115,9 @@ func TestSingleCacheResolveKeyError(t *testing.T) {
 func TestSingleCacheUpdateKeys(t *testing.T) {
 	assert := assert.New(t)
 
+	expectedPair := &MockPair{}
 	resolver := &MockResolver{}
-	resolver.On("ResolveKey", dummyKeyId).Return(oldKeys[0], nil).Once()
+	resolver.On("ResolveKey", dummyKeyId).Return(expectedPair, nil).Once()
 
 	cache := singleCache{
 		basicCache{
@@ -123,6 +126,7 @@ func TestSingleCacheUpdateKeys(t *testing.T) {
 	}
 
 	count, errors := cache.UpdateKeys()
+	mock.AssertExpectationsForObjects(t, expectedPair.Mock)
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
 	assert.Equal(1, count)
 	assert.Nil(errors)
@@ -151,10 +155,13 @@ func TestSingleCacheUpdateKeysError(t *testing.T) {
 func TestSingleCacheUpdateKeysSequence(t *testing.T) {
 	assert := assert.New(t)
 
+	const keyId = "TestSingleCacheUpdateKeysSequence"
+	oldPair := &MockPair{}
+	newPair := &MockPair{}
 	resolver := &MockResolver{}
-	resolver.On("ResolveKey", testKeyIds[0]).Return(oldKeys[0], nil).Once()
+	resolver.On("ResolveKey", keyId).Return(oldPair, nil).Once()
 	resolver.On("ResolveKey", dummyKeyId).Return(nil, resolveKeyError).Once()
-	resolver.On("ResolveKey", dummyKeyId).Return(newKeys[0], nil).Once()
+	resolver.On("ResolveKey", dummyKeyId).Return(newPair, nil).Once()
 
 	cache := singleCache{
 		basicCache{
@@ -162,8 +169,8 @@ func TestSingleCacheUpdateKeysSequence(t *testing.T) {
 		},
 	}
 
-	key, err := cache.ResolveKey(testKeyIds[0])
-	assert.Equal(oldKeys[0], key)
+	firstPair, err := cache.ResolveKey(keyId)
+	assert.Equal(oldPair, firstPair)
 	assert.Nil(err)
 
 	count, errors := cache.UpdateKeys()
@@ -171,8 +178,8 @@ func TestSingleCacheUpdateKeysSequence(t *testing.T) {
 	assert.Equal([]error{resolveKeyError}, errors)
 
 	// resolving should pull the key from the cache
-	key, err = cache.ResolveKey(testKeyIds[0])
-	assert.Equal(oldKeys[0], key)
+	firstPair, err = cache.ResolveKey(keyId)
+	assert.Equal(oldPair, firstPair)
 	assert.Nil(err)
 
 	// this time, the mock will succeed
@@ -181,8 +188,8 @@ func TestSingleCacheUpdateKeysSequence(t *testing.T) {
 	assert.Len(errors, 0)
 
 	// resolving should pull the *new* key from the cache
-	key, err = cache.ResolveKey(testKeyIds[0])
-	assert.Equal(newKeys[0], key)
+	secondPair, err := cache.ResolveKey(keyId)
+	assert.Equal(newPair, secondPair)
 	assert.Nil(err)
 
 	mock.AssertExpectationsForObjects(t, resolver.Mock)
