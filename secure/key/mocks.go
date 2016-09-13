@@ -65,3 +65,16 @@ func (pair *MockPair) Private() interface{} {
 	arguments := pair.Called()
 	return arguments.Get(0)
 }
+
+type MockParser struct {
+	mock.Mock
+}
+
+func (parser *MockParser) ParseKey(purpose Purpose, data []byte) (Pair, error) {
+	arguments := parser.Called(purpose, data)
+	if pair, ok := arguments.Get(0).(Pair); ok {
+		return pair, arguments.Error(1)
+	}
+
+	return nil, arguments.Error(1)
+}

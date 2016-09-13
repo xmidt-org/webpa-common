@@ -148,3 +148,32 @@ func TestResolverFactoryNewUpdater(t *testing.T) {
 		waitGroup.Wait()
 	}
 }
+
+func TestResolverFactoryDefaultParser(t *testing.T) {
+	assert := assert.New(t)
+
+	parser := &MockParser{}
+	resolverFactory := ResolverFactory{
+		Factory: resource.Factory{
+			URI: publicKeyFilePath,
+		},
+	}
+
+	assert.Equal(DefaultParser, resolverFactory.parser())
+	mock.AssertExpectationsForObjects(t, parser.Mock)
+}
+
+func TestResolverFactoryCustomParser(t *testing.T) {
+	assert := assert.New(t)
+
+	parser := &MockParser{}
+	resolverFactory := ResolverFactory{
+		Factory: resource.Factory{
+			URI: publicKeyFilePath,
+		},
+		Parser: parser,
+	}
+
+	assert.Equal(parser, resolverFactory.parser())
+	mock.AssertExpectationsForObjects(t, parser.Mock)
+}
