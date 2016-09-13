@@ -37,9 +37,13 @@ func (rp *rsaPair) Public() interface{} {
 }
 
 func (rp *rsaPair) HasPrivate() bool {
-	return rp.private == nil
+	return rp.private != nil
 }
 
 func (rp *rsaPair) Private() interface{} {
-	return rp.private
+	if rp.private != nil {
+		return rp.private
+	}
+
+	return nil
 }

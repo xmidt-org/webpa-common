@@ -2,6 +2,7 @@ package key
 
 import (
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
@@ -90,5 +91,24 @@ func TestPurposeUnmarshalJSON(t *testing.T) {
 		if err == nil {
 			t.Errorf("Should have failed to marshal JSON [%s]", invalidJSON)
 		}
+	}
+}
+
+func TestPurposeRequiresPrivateKey(t *testing.T) {
+	assert := assert.New(t)
+
+	var testData = []struct {
+		purpose                    Purpose
+		expectedRequiresPrivateKey bool
+	}{
+		{PurposeVerify, false},
+		{PurposeSign, true},
+		{PurposeEncrypt, true},
+		{PurposeDecrypt, false},
+	}
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		assert.Equal(record.expectedRequiresPrivateKey, record.purpose.RequiresPrivateKey())
 	}
 }

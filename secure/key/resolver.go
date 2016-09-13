@@ -30,7 +30,12 @@ type singleResolver struct {
 }
 
 func (r *singleResolver) String() string {
-	return fmt.Sprintf("singleResolver{parser: %s, purpose: %s}", r.parser, r.purpose)
+	return fmt.Sprintf(
+		"singleResolver{parser: %s, purpose: %s, loader: %s}",
+		r.parser,
+		r.purpose,
+		r.loader,
+	)
 }
 
 func (r *singleResolver) ResolveKey(keyId string) (Pair, error) {
@@ -50,7 +55,12 @@ type multiResolver struct {
 }
 
 func (r *multiResolver) String() string {
-	return fmt.Sprintf("multiResolver{parser: %s, purpose: %s}", r.parser, r.purpose)
+	return fmt.Sprintf(
+		"multiResolver{parser: %s, purpose: %s}",
+		r.parser,
+		r.purpose,
+		r.expander,
+	)
 }
 
 func (r *multiResolver) ResolveKey(keyId string) (Pair, error) {
