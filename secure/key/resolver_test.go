@@ -1,81 +1,52 @@
 package key
 
 import (
-	"crypto/rsa"
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/resource"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"testing"
 )
 
-func TestSingleResolverPublicKey(t *testing.T) {
+func TestSingleResolver(t *testing.T) {
 	assert := assert.New(t)
 
-	for _, purpose := range []Purpose{PurposeVerify, PurposeDecrypt} {
-		for _, keyURI := range []string{publicKeyFilePath, publicKeyURL} {
-			t.Logf("purpose: %s, keyURI: %s", purpose, keyURI)
+	loader, err := (&resource.Factory{
+		URI: publicKeyFilePath,
+	}).NewLoader()
 
-			loader, err := (&resource.Factory{
-				URI: keyURI,
-			}).NewLoader()
-
-			if !assert.Nil(err) {
-				continue
-			}
-
-			var resolver Resolver = &singleResolver{
-				loader: loader,
-				parser: purpose,
-			}
-
-			stringValue := fmt.Sprintf("%s", resolver)
-			assert.Contains(stringValue, purpose.String())
-			assert.Contains(stringValue, keyURI)
-
-			key, err := resolver.ResolveKey("does not matter")
-			assert.NotNil(key)
-			assert.Nil(err)
-
-			publicKey, ok := key.(*rsa.PublicKey)
-			assert.NotNil(publicKey)
-			assert.True(ok)
-		}
+	if !assert.Nil(err) {
+		return
 	}
-}
 
-func TestSingleResolverPrivateKey(t *testing.T) {
-	assert := assert.New(t)
+	expectedData, err := resource.ReadAll(loader)
+	assert.NotEmpty(expectedData)
+	assert.Nil(err)
 
-	for _, purpose := range []Purpose{PurposeSign, PurposeEncrypt} {
-		for _, keyURI := range []string{privateKeyFilePath, privateKeyURL} {
-			t.Logf("purpose: %s, keyURI: %s", purpose, keyURI)
+	for _, purpose := range []Purpose{PurposeVerify, PurposeDecrypt, PurposeSign, PurposeEncrypt} {
+		t.Logf("purpose: %s", purpose)
 
-			loader, err := (&resource.Factory{
-				URI: keyURI,
-			}).NewLoader()
+		expectedPair := &MockPair{}
+		parser := &MockParser{}
+		parser.On("ParseKey", purpose, expectedData).Return(expectedPair, nil).Once()
 
-			if !assert.Nil(err) {
-				continue
-			}
+		var resolver Resolver = &singleResolver{
+			basicResolver: basicResolver{
+				parser:  parser,
+				purpose: purpose,
+			},
 
-			var resolver Resolver = &singleResolver{
-				loader: loader,
-				parser: purpose,
-			}
-
-			stringValue := fmt.Sprintf("%s", resolver)
-			assert.Contains(stringValue, purpose.String())
-			assert.Contains(stringValue, keyURI)
-
-			key, err := resolver.ResolveKey("does not matter")
-			assert.NotNil(key)
-			assert.Nil(err)
-
-			privateKey, ok := key.(*rsa.PrivateKey)
-			assert.NotNil(privateKey)
-			assert.True(ok)
+			loader: loader,
 		}
+
+		assert.Contains(fmt.Sprintf("%s", resolver), publicKeyFilePath)
+
+		pair, err := resolver.ResolveKey("does not matter")
+		assert.Equal(expectedPair, pair)
+		assert.Nil(err)
+
+		mock.AssertExpectationsForObjects(t, expectedPair.Mock, parser.Mock)
 	}
 }
 
@@ -83,10 +54,13 @@ func TestSingleResolverBadResource(t *testing.T) {
 	assert := assert.New(t)
 
 	var resolver Resolver = &singleResolver{
+		basicResolver: basicResolver{
+			parser:  DefaultParser,
+			purpose: PurposeVerify,
+		},
 		loader: &resource.File{
 			Path: "does not exist",
 		},
-		parser: PurposeVerify,
 	}
 
 	key, err := resolver.ResolveKey("does not matter")
@@ -94,73 +68,47 @@ func TestSingleResolverBadResource(t *testing.T) {
 	assert.NotNil(err)
 }
 
-func TestMultiResolverPublicKey(t *testing.T) {
+func TestMultiResolver(t *testing.T) {
 	assert := assert.New(t)
 
-	for _, purpose := range []Purpose{PurposeVerify, PurposeDecrypt} {
-		for _, keyURITemplate := range []string{publicKeyFilePathTemplate, publicKeyURLTemplate} {
-			t.Logf("purpose: %s, keyURITemplate: %s", purpose, keyURITemplate)
+	expander, err := (&resource.Factory{
+		URI: publicKeyFilePathTemplate,
+	}).NewExpander()
 
-			expander, err := (&resource.Factory{
-				URI: keyURITemplate,
-			}).NewExpander()
-
-			if !assert.Nil(err) {
-				continue
-			}
-
-			var resolver Resolver = &multiResolver{
-				expander: expander,
-				parser:   purpose,
-			}
-
-			stringValue := fmt.Sprintf("%s", resolver)
-			assert.Contains(stringValue, purpose.String())
-			assert.Contains(stringValue, keyURITemplate)
-
-			key, err := resolver.ResolveKey(keyId)
-			assert.NotNil(key)
-			assert.Nil(err)
-
-			publicKey, ok := key.(*rsa.PublicKey)
-			assert.NotNil(publicKey)
-			assert.True(ok)
-		}
+	if !assert.Nil(err) {
+		return
 	}
-}
 
-func TestMultiResolverPrivateKey(t *testing.T) {
-	assert := assert.New(t)
+	loader, err := expander.Expand(
+		map[string]interface{}{KeyIdParameterName: keyId},
+	)
 
-	for _, purpose := range []Purpose{PurposeSign, PurposeEncrypt} {
-		for _, keyURITemplate := range []string{privateKeyFilePathTemplate, privateKeyURLTemplate} {
-			t.Logf("purpose: %s, keyURITemplate: %s", purpose, keyURITemplate)
+	expectedData, err := resource.ReadAll(loader)
+	assert.NotEmpty(expectedData)
+	assert.Nil(err)
 
-			expander, err := (&resource.Factory{
-				URI: keyURITemplate,
-			}).NewExpander()
+	for _, purpose := range []Purpose{PurposeVerify, PurposeDecrypt, PurposeSign, PurposeEncrypt} {
+		t.Logf("purpose: %s", purpose)
 
-			if !assert.Nil(err) {
-				continue
-			}
+		expectedPair := &MockPair{}
+		parser := &MockParser{}
+		parser.On("ParseKey", purpose, expectedData).Return(expectedPair, nil).Once()
 
-			var resolver Resolver = &multiResolver{
-				expander: expander,
-				parser:   purpose,
-			}
-
-			stringValue := fmt.Sprintf("%s", resolver)
-			assert.Contains(stringValue, purpose.String())
-			assert.Contains(stringValue, keyURITemplate)
-
-			key, err := resolver.ResolveKey(keyId)
-			assert.NotNil(key)
-			assert.Nil(err)
-
-			privateKey, ok := key.(*rsa.PrivateKey)
-			assert.NotNil(privateKey)
-			assert.True(ok)
+		var resolver Resolver = &multiResolver{
+			basicResolver: basicResolver{
+				parser:  parser,
+				purpose: purpose,
+			},
+			expander: expander,
 		}
+
+		assert.Contains(fmt.Sprintf("%s", resolver), publicKeyFilePathTemplate)
+
+		pair, err := resolver.ResolveKey(keyId)
+		assert.Equal(expectedPair, pair)
+		assert.Nil(err)
+
+		mock.AssertExpectationsForObjects(t, expectedPair.Mock, parser.Mock)
 	}
 }
 

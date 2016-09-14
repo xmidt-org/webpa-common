@@ -8,11 +8,11 @@ import (
 )
 
 const (
-	// dummyKeyId is used when no actual keyId is necessary.
+	// dummyKeyId is used when no actual keyID is necessary.
 	dummyKeyId = ""
 )
 
-// Cache is a Resolver type which provides caching for keys based on keyId.
+// Cache is a Resolver type which provides caching for keys based on keyID.
 //
 // All implementations will block the first time a particular key is accessed
 // and will initialize the value for that key.  Thereafter, all updates happen
@@ -64,15 +64,16 @@ type singleCache struct {
 	basicCache
 }
 
-func (cache *singleCache) ResolveKey(keyId string) (key interface{}, err error) {
-	key = cache.load()
-	if key == nil {
+func (cache *singleCache) ResolveKey(keyID string) (pair Pair, err error) {
+	var ok bool
+	pair, ok = cache.load().(Pair)
+	if !ok {
 		cache.update(func() {
-			key = cache.load()
-			if key == nil {
-				key, err = cache.delegate.ResolveKey(keyId)
+			pair, ok = cache.load().(Pair)
+			if !ok {
+				pair, err = cache.delegate.ResolveKey(keyID)
 				if err == nil {
-					cache.store(key)
+					cache.store(pair)
 				}
 			}
 		})
@@ -84,10 +85,10 @@ func (cache *singleCache) ResolveKey(keyId string) (key interface{}, err error) 
 func (cache *singleCache) UpdateKeys() (count int, errors []error) {
 	count = 1
 	cache.update(func() {
-		// this type of cache is specifically for resolvers which don't use the keyId,
+		// this type of cache is specifically for resolvers which don't use the keyID,
 		// so just pass an empty string in
-		if key, err := cache.delegate.ResolveKey(dummyKeyId); err == nil {
-			cache.store(key)
+		if pair, err := cache.delegate.ResolveKey(dummyKeyId); err == nil {
+			cache.store(pair)
 		} else {
 			errors = []error{err}
 		}
@@ -105,43 +106,45 @@ type multiCache struct {
 	basicCache
 }
 
-// fetchKey uses the atomic reference to the keys map and attempts
+// fetchPair uses the atomic reference to the keys map and attempts
 // to fetch the key from the cache.
-func (cache *multiCache) fetchKey(keyId string) (key interface{}, ok bool) {
-	if keys, hasKeys := cache.load().(map[string]interface{}); hasKeys {
-		key, ok = keys[keyId]
+func (cache *multiCache) fetchPair(keyID string) (pair Pair, ok bool) {
+	pairs, ok := cache.load().(map[string]Pair)
+	if ok {
+		pair, ok = pairs[keyID]
 	}
 
 	return
 }
 
-// copyKeys creates a copy of the current key cache.  If no keys are present
+// copyPairs creates a copy of the current key cache.  If no keys are present
 // yet, this method returns a non-nil empty map.
-func (cache *multiCache) copyKeys() map[string]interface{} {
-	keys, _ := cache.load().(map[string]interface{})
+func (cache *multiCache) copyPairs() map[string]Pair {
+	pairs, _ := cache.load().(map[string]Pair)
 
 	// make the capacity 1 larger, since this method is almost always
 	// going to be invoked prior to doing a copy-on-write update.
-	newKeys := make(map[string]interface{}, len(keys)+1)
+	newPairs := make(map[string]Pair, len(pairs)+1)
 
-	for currentId, currentKey := range keys {
-		newKeys[currentId] = currentKey
+	for keyID, pair := range pairs {
+		newPairs[keyID] = pair
 	}
 
-	return newKeys
+	return newPairs
 }
 
-func (cache *multiCache) ResolveKey(keyId string) (key interface{}, err error) {
-	key, ok := cache.fetchKey(keyId)
+func (cache *multiCache) ResolveKey(keyID string) (pair Pair, err error) {
+	var ok bool
+	pair, ok = cache.fetchPair(keyID)
 	if !ok {
 		cache.update(func() {
-			key, ok = cache.fetchKey(keyId)
+			pair, ok = cache.fetchPair(keyID)
 			if !ok {
-				key, err = cache.delegate.ResolveKey(keyId)
+				pair, err = cache.delegate.ResolveKey(keyID)
 				if err == nil {
-					newKeys := cache.copyKeys()
-					newKeys[keyId] = key
-					cache.store(newKeys)
+					newPairs := cache.copyPairs()
+					newPairs[keyID] = pair
+					cache.store(newPairs)
 				}
 			}
 		})
@@ -151,18 +154,18 @@ func (cache *multiCache) ResolveKey(keyId string) (key interface{}, err error) {
 }
 
 func (cache *multiCache) UpdateKeys() (count int, errors []error) {
-	if existingKeys, ok := cache.load().(map[string]interface{}); ok {
-		count = len(existingKeys)
+	if existingPairs, ok := cache.load().(map[string]Pair); ok {
+		count = len(existingPairs)
 		cache.update(func() {
 			newCount := 0
-			newKeys := make(map[string]interface{}, len(existingKeys))
-			for keyId, oldKey := range existingKeys {
-				if newKey, err := cache.delegate.ResolveKey(keyId); err == nil {
+			newPairs := make(map[string]Pair, len(existingPairs))
+			for keyID, oldPair := range existingPairs {
+				if newPair, err := cache.delegate.ResolveKey(keyID); err == nil {
 					newCount++
-					newKeys[keyId] = newKey
+					newPairs[keyID] = newPair
 				} else {
 					// keep the old key in the event of an error
-					newKeys[keyId] = oldKey
+					newPairs[keyID] = oldPair
 					errors = append(errors, err)
 				}
 			}
@@ -170,7 +173,7 @@ func (cache *multiCache) UpdateKeys() (count int, errors []error) {
 			// small optimization: don't bother doing the atomic swap
 			// if every key operation failed
 			if newCount > 0 {
-				cache.store(newKeys)
+				cache.store(newPairs)
 			}
 		})
 	}

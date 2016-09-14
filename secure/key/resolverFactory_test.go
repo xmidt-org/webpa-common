@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/resource"
-	"github.com/Comcast/webpa-common/secure/key/keymock"
 	"github.com/Comcast/webpa-common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -44,7 +43,7 @@ func ExampleSingleKeyConfiguration() {
 		return
 	}
 
-	publicKey, ok := key.(*rsa.PublicKey)
+	publicKey, ok := key.Public().(*rsa.PublicKey)
 	if !ok {
 		fmt.Println("Expected a public key")
 	}
@@ -82,7 +81,7 @@ func ExampleURITemplateConfiguration() {
 		return
 	}
 
-	publicKey, ok := key.(*rsa.PublicKey)
+	publicKey, ok := key.Public().(*rsa.PublicKey)
 	if !ok {
 		fmt.Println("Expected a public key")
 	}
@@ -131,7 +130,7 @@ func TestResolverFactoryNewUpdater(t *testing.T) {
 		close(updateKeysCalled)
 	}
 
-	keyCache := &keymock.Cache{}
+	keyCache := &MockCache{}
 	keyCache.On("UpdateKeys").Return(0, nil).Run(runner)
 
 	resolverFactory := ResolverFactory{
@@ -148,4 +147,33 @@ func TestResolverFactoryNewUpdater(t *testing.T) {
 		close(shutdown)
 		waitGroup.Wait()
 	}
+}
+
+func TestResolverFactoryDefaultParser(t *testing.T) {
+	assert := assert.New(t)
+
+	parser := &MockParser{}
+	resolverFactory := ResolverFactory{
+		Factory: resource.Factory{
+			URI: publicKeyFilePath,
+		},
+	}
+
+	assert.Equal(DefaultParser, resolverFactory.parser())
+	mock.AssertExpectationsForObjects(t, parser.Mock)
+}
+
+func TestResolverFactoryCustomParser(t *testing.T) {
+	assert := assert.New(t)
+
+	parser := &MockParser{}
+	resolverFactory := ResolverFactory{
+		Factory: resource.Factory{
+			URI: publicKeyFilePath,
+		},
+		Parser: parser,
+	}
+
+	assert.Equal(parser, resolverFactory.parser())
+	mock.AssertExpectationsForObjects(t, parser.Mock)
 }

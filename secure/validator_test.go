@@ -3,7 +3,7 @@ package secure
 import (
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/secure/key/keymock"
+	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
@@ -122,7 +122,7 @@ func TestJWSValidatorInvalidTokenType(t *testing.T) {
 	assert := assert.New(t)
 
 	mockJWSParser := &mockJWSParser{}
-	mockResolver := &keymock.Resolver{}
+	mockResolver := &key.MockResolver{}
 	validator := &JWSValidator{
 		Parser:   mockJWSParser,
 		Resolver: mockResolver,
@@ -145,7 +145,7 @@ func TestJWSValidatorInvalidJWT(t *testing.T) {
 	assert := assert.New(t)
 
 	mockJWSParser := &mockJWSParser{}
-	mockResolver := &keymock.Resolver{}
+	mockResolver := &key.MockResolver{}
 	validator := &JWSValidator{
 		Parser:   mockJWSParser,
 		Resolver: mockResolver,
@@ -172,7 +172,7 @@ func TestJWSValidatorNoProtectedHeader(t *testing.T) {
 	for _, empty := range []jose.Protected{nil, jose.Protected{}} {
 		t.Logf("empty Protected header: %v", empty)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
-		mockResolver := &keymock.Resolver{}
+		mockResolver := &key.MockResolver{}
 
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(empty).Once()
@@ -201,7 +201,7 @@ func TestJWSValidatorNoSigningMethod(t *testing.T) {
 	for _, badAlg := range []interface{}{nil, "", "this is not a valid signing method"} {
 		t.Logf("badAlg: %v", badAlg)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
-		mockResolver := &keymock.Resolver{}
+		mockResolver := &key.MockResolver{}
 
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": badAlg}).Once()
@@ -245,7 +245,7 @@ func TestJWSValidatorResolverError(t *testing.T) {
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
 		expectedResolverError := errors.New("expected resolver error")
-		mockResolver := &keymock.Resolver{}
+		mockResolver := &key.MockResolver{}
 		mockResolver.On("ResolveKey", record.expectedKeyId).Return(nil, expectedResolverError).Once()
 
 		mockJWS := &mockJWS{}
@@ -285,16 +285,19 @@ func TestJWSValidatorVerify(t *testing.T) {
 		t.Logf("%v", record)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
-		expectedKey := interface{}(123)
-		mockResolver := &keymock.Resolver{}
-		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(expectedKey, nil).Once()
+		mockPair := &key.MockPair{}
+		expectedPublicKey := interface{}(123)
+		mockPair.On("Public").Return(expectedPublicKey).Once()
+
+		mockResolver := &key.MockResolver{}
+		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(mockPair, nil).Once()
 
 		expectedSigningMethod := jws.GetSigningMethod("RS256")
 		assert.NotNil(expectedSigningMethod)
 
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
-		mockJWS.On("Verify", expectedKey, expectedSigningMethod).Return(record.expectedVerifyError).Once()
+		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(record.expectedVerifyError).Once()
 
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
@@ -308,6 +311,7 @@ func TestJWSValidatorVerify(t *testing.T) {
 		assert.Equal(record.expectedValid, valid)
 		assert.Equal(record.expectedVerifyError, err)
 
+		mockPair.AssertExpectations(t)
 		mockResolver.AssertExpectations(t)
 		mockJWS.AssertExpectations(t)
 		mockJWSParser.AssertExpectations(t)
@@ -332,16 +336,19 @@ func TestJWSValidatorValidate(t *testing.T) {
 		t.Logf("%v", record)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
-		expectedKey := interface{}(123)
-		mockResolver := &keymock.Resolver{}
-		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(expectedKey, nil).Once()
+		mockPair := &key.MockPair{}
+		expectedPublicKey := interface{}(123)
+		mockPair.On("Public").Return(expectedPublicKey).Once()
+
+		mockResolver := &key.MockResolver{}
+		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(mockPair, nil).Once()
 
 		expectedSigningMethod := jws.GetSigningMethod("RS256")
 		assert.NotNil(expectedSigningMethod)
 
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
-		mockJWS.On("Validate", expectedKey, expectedSigningMethod, record.expectedJWTValidators).
+		mockJWS.On("Validate", expectedPublicKey, expectedSigningMethod, record.expectedJWTValidators).
 			Return(record.expectedValidateError).
 			Once()
 
@@ -358,6 +365,7 @@ func TestJWSValidatorValidate(t *testing.T) {
 		assert.Equal(record.expectedValid, valid)
 		assert.Equal(record.expectedValidateError, err)
 
+		mockPair.AssertExpectations(t)
 		mockResolver.AssertExpectations(t)
 		mockJWS.AssertExpectations(t)
 		mockJWSParser.AssertExpectations(t)

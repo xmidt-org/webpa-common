@@ -7,43 +7,63 @@ import (
 
 // Resolver loads and parses keys associated with key identifiers.
 type Resolver interface {
-	// ResolveKey returns a key with the given identifier.  The exact mechanics of resolving
-	// a keyId into the raw key data are implementation-specific.  Implementations are free
+	// ResolveKey returns a key Pair associated with the given identifier.  The exact mechanics of resolving
+	// a keyId into a Pair are implementation-specific.  Implementations are free
 	// to ignore the keyId parameter altogether.
-	ResolveKey(keyId string) (interface{}, error)
+	ResolveKey(keyId string) (Pair, error)
+}
+
+// basicResolver contains common items for all resolvers.
+type basicResolver struct {
+	parser  Parser
+	purpose Purpose
+}
+
+func (b *basicResolver) parseKey(data []byte) (Pair, error) {
+	return b.parser.ParseKey(b.purpose, data)
 }
 
 // singleResolver is a Resolver which expects only (1) key for all key ids.
 type singleResolver struct {
+	basicResolver
 	loader resource.Loader
-	parser Parser
 }
 
 func (r *singleResolver) String() string {
-	return fmt.Sprintf("%s: %s", r.parser, r.loader)
+	return fmt.Sprintf(
+		"singleResolver{parser: %s, purpose: %s, loader: %s}",
+		r.parser,
+		r.purpose,
+		r.loader,
+	)
 }
 
-func (r *singleResolver) ResolveKey(keyId string) (interface{}, error) {
+func (r *singleResolver) ResolveKey(keyId string) (Pair, error) {
 	data, err := resource.ReadAll(r.loader)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.parser.ParseKey(data)
+	return r.parseKey(data)
 }
 
 // multiResolver is a Resolver which uses the key id and will most likely return
 // different keys for each key id value.
 type multiResolver struct {
+	basicResolver
 	expander resource.Expander
-	parser   Parser
 }
 
 func (r *multiResolver) String() string {
-	return fmt.Sprintf("%s: %s", r.parser, r.expander)
+	return fmt.Sprintf(
+		"multiResolver{parser: %s, purpose: %s}",
+		r.parser,
+		r.purpose,
+		r.expander,
+	)
 }
 
-func (r *multiResolver) ResolveKey(keyId string) (interface{}, error) {
+func (r *multiResolver) ResolveKey(keyId string) (Pair, error) {
 	values := map[string]interface{}{
 		KeyIdParameterName: keyId,
 	}
@@ -58,5 +78,5 @@ func (r *multiResolver) ResolveKey(keyId string) (interface{}, error) {
 		return nil, err
 	}
 
-	return r.parser.ParseKey(data)
+	return r.parseKey(data)
 }
