@@ -2,6 +2,7 @@ package key
 
 import (
 	"errors"
+	"fmt"
 	"github.com/Comcast/webpa-common/resource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -38,6 +39,8 @@ func TestSingleResolver(t *testing.T) {
 
 			loader: loader,
 		}
+
+		assert.Contains(fmt.Sprintf("%s", resolver), publicKeyFilePath)
 
 		pair, err := resolver.ResolveKey("does not matter")
 		assert.Equal(expectedPair, pair)
@@ -98,6 +101,8 @@ func TestMultiResolver(t *testing.T) {
 			},
 			expander: expander,
 		}
+
+		assert.Contains(fmt.Sprintf("%s", resolver), publicKeyFilePathTemplate)
 
 		pair, err := resolver.ResolveKey(keyId)
 		assert.Equal(expectedPair, pair)

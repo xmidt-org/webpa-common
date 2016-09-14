@@ -61,11 +61,7 @@ func (p defaultParser) parseRSAPublicKey(purpose Purpose, decoded []byte) (Pair,
 	)
 
 	if parsedKey, err = x509.ParsePKIXPublicKey(decoded); err != nil {
-		if certificate, err := x509.ParseCertificate(decoded); err == nil {
-			parsedKey = certificate.PublicKey
-		} else {
-			return nil, ErrorNotRSAPublicKey
-		}
+		return nil, err
 	}
 
 	publicKey, ok := parsedKey.(*rsa.PublicKey)
