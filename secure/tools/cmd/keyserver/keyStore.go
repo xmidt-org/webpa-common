@@ -82,13 +82,13 @@ func resolveKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[strin
 			return err
 		}
 
-		resolvedKey, err := keyResolver.ResolveKey(keyID)
+		resolvedPair, err := keyResolver.ResolveKey(keyID)
 		if err != nil {
 			return err
 		}
 
-		if privateKey, ok := resolvedKey.(*rsa.PrivateKey); ok {
-			privateKeys[keyID] = privateKey
+		if resolvedPair.HasPrivate() {
+			privateKeys[keyID] = resolvedPair.Private().(*rsa.PrivateKey)
 		} else {
 			return fmt.Errorf("The key %s did not resolve to an RSA private key")
 		}
