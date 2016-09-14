@@ -69,7 +69,7 @@ func TestMain(m *testing.M) {
 			return 1
 		}
 
-		privateKey, err := privateKeyResolver.ResolveKey("")
+		pair, err := privateKeyResolver.ResolveKey("")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to resolve private key: %s\n", err)
 			return 1
@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 		// generate a unique JWT for each run of the tests
 		// this also exercises our secure/key infrastructure
 		testJWT = jws.NewJWT(testClaims, crypto.SigningMethodRS256)
-		testSerializedJWT, err = testJWT.Serialize(privateKey)
+		testSerializedJWT, err = testJWT.Serialize(pair.Private())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Unable to serialize test JWT: %s\n", err)
 			return 1

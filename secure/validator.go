@@ -94,16 +94,16 @@ func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
 		keyId = v.DefaultKeyId
 	}
 
-	key, err := v.Resolver.ResolveKey(keyId)
+	pair, err := v.Resolver.ResolveKey(keyId)
 	if err != nil {
 		return
 	}
 
 	if len(v.JWTValidators) > 0 {
 		// all JWS implementations also implement jwt.JWT
-		err = jwsToken.(jwt.JWT).Validate(key, signingMethod, v.JWTValidators...)
+		err = jwsToken.(jwt.JWT).Validate(pair.Public(), signingMethod, v.JWTValidators...)
 	} else {
-		err = jwsToken.Verify(key, signingMethod)
+		err = jwsToken.Verify(pair.Public(), signingMethod)
 	}
 
 	valid = (err == nil)
