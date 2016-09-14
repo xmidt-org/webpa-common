@@ -8,6 +8,7 @@ import (
 // BasicHandler provides the common behaviors needed by all keyserver handlers
 type BasicHandler struct {
 	keyStore    *KeyStore
+	infoLogger  *log.Logger
 	errorLogger *log.Logger
 }
 

@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	KeyIDVariableName = "kid"
+	KeyIDVariableName        = "kid"
+	DefaultExpireDuration    = time.Duration(24 * time.Hour)
+	DefaultNotBeforeDuration = time.Duration(1 * time.Hour)
 )
 
 var (
@@ -36,6 +38,9 @@ var (
 		time.RFC822,
 		time.RFC822Z,
 	}
+
+	// zeroNumericDate is a singleton value indicating a blank value
+	zeroNumericDate = NumericDate{}
 )
 
 // NumericDate represents a JWT NumericDate as specified in:
@@ -54,7 +59,7 @@ type NumericDate struct {
 
 func (nd *NumericDate) UnmarshalText(raw []byte) error {
 	if len(raw) == 0 {
-		*nd = NumericDate{}
+		*nd = zeroNumericDate
 		return nil
 	}
 
@@ -78,6 +83,13 @@ func (nd *NumericDate) UnmarshalText(raw []byte) error {
 	}
 
 	return fmt.Errorf("Unparseable datetime: %s", text)
+}
+
+// IsZero tests whether this NumericDate is blank, as would be the case when
+// the original request assigns a value to the empty string.  This is useful to
+// have the server generate a default value appropriate for the field.
+func (nd *NumericDate) IsZero() bool {
+	return nd.duration == 0 && nd.absolute.IsZero()
 }
 
 // Compute calculates the time.Time value given a point in time
@@ -149,11 +161,19 @@ func (ir *IssueRequest) AddToClaims(claims jwt.Claims) error {
 	claims.SetIssuedAt(ir.Now)
 
 	if ir.Expires != nil {
-		claims.SetExpiration(ir.Expires.Compute(ir.Now))
+		if ir.Expires.IsZero() {
+			claims.SetExpiration(ir.Now.Add(DefaultExpireDuration))
+		} else {
+			claims.SetExpiration(ir.Expires.Compute(ir.Now))
+		}
 	}
 
 	if ir.NotBefore != nil {
-		claims.SetNotBefore(ir.NotBefore.Compute(ir.Now))
+		if ir.Expires.IsZero() {
+			claims.SetNotBefore(ir.Now.Add(DefaultNotBeforeDuration))
+		} else {
+			claims.SetNotBefore(ir.NotBefore.Compute(ir.Now))
+		}
 	}
 
 	if ir.JWTID != nil {

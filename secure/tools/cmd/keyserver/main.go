@@ -21,6 +21,7 @@ func (rb RouteBuilder) Build(router *mux.Router) {
 	keyHandler := KeyHandler{
 		BasicHandler{
 			keyStore:    rb.KeyStore,
+			infoLogger:  rb.InfoLogger,
 			errorLogger: rb.ErrorLogger,
 		},
 	}
@@ -36,6 +37,7 @@ func (rb RouteBuilder) Build(router *mux.Router) {
 	issueHandler := IssueHandler{
 		BasicHandler: BasicHandler{
 			keyStore:    rb.KeyStore,
+			infoLogger:  rb.InfoLogger,
 			errorLogger: rb.ErrorLogger,
 		},
 		decoder: schema.NewDecoder(),
