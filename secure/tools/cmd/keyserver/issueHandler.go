@@ -169,7 +169,7 @@ func (ir *IssueRequest) AddToClaims(claims jwt.Claims) error {
 	}
 
 	if ir.NotBefore != nil {
-		if ir.Expires.IsZero() {
+		if ir.NotBefore.IsZero() {
 			claims.SetNotBefore(ir.Now.Add(DefaultNotBeforeDuration))
 		} else {
 			claims.SetNotBefore(ir.NotBefore.Compute(ir.Now))
