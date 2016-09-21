@@ -6,6 +6,7 @@ import (
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
 	"time"
+	"strings"
 )
 
 var (
@@ -50,7 +51,13 @@ func (v Validators) Validate(token *Token) (valid bool, err error) {
 type ExactMatchValidator string
 
 func (v ExactMatchValidator) Validate(token *Token) (bool, error) {
-	return string(v) == token.value, nil
+	for _, value := range strings.Split(string(v), ",") {
+		if value == token.value {
+			return true, nil
+		}
+	}
+	
+	return false, nil
 }
 
 // JWSValidator provides validation for JWT tokens encoded as JWS.
