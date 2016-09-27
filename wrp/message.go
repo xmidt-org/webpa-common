@@ -104,11 +104,15 @@ func (m *Message) Valid() error {
 }
 
 // NewEncoder returns a codec.Encoder configured for WRP msgpack output.
+// Since Encoders can be reused via the reset methods, it's legal to pass a
+// nil writer to create an Encoder that cannot be used until reset.
 func NewEncoder(output io.Writer) *codec.Encoder {
 	return codec.NewEncoder(output, &wrpHandle)
 }
 
 // NewDecoder returns a codec.Decoder configured for WRP msgpack input.
+// Since Decoders can be reused via the reset methods, it's legal to pass a
+// nil reader to create a Decoder that cannot be used until reset.
 func NewDecoder(input io.Reader) *codec.Decoder {
 	return codec.NewDecoder(input, &wrpHandle)
 }
