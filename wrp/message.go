@@ -89,7 +89,7 @@ func (m *Message) Valid() error {
 
 	case SimpleEventMessageType:
 		if len(m.Destination) == 0 {
-			return fmt.Errorf("Missing destination for message type: %d", m.Type)
+			return fmt.Errorf("Missing destination for message type: %s", m.Type)
 		}
 
 	default:
