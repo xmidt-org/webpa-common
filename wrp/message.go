@@ -8,6 +8,8 @@ import (
 )
 
 var (
+	// wrpHandle is the global, shared configuration for the msgpack codec
+	// used by WRP messages
 	wrpHandle = codec.MsgpackHandle{
 		BasicHandle: codec.BasicHandle{
 			TypeInfos: codec.NewTypeInfos([]string{"wrp"}),
@@ -82,7 +84,9 @@ func (m *Message) String() string {
 func (m *Message) Valid() error {
 	switch m.Type {
 	case AuthMessageType:
-		// nothing to validate here
+		if m.Status == nil {
+			return fmt.Errorf("Missing status for message type: %s", m.Type)
+		}
 
 	case SimpleRequestResponseMessageType:
 		fallthrough

@@ -48,6 +48,8 @@ func TestMessageTypeString(t *testing.T) {
 
 func TestMessageValid(t *testing.T) {
 	assert := assert.New(t)
+	expectedStatus := int64(987)
+
 	var testData = []struct {
 		message       Message
 		expectedValid bool
@@ -58,7 +60,20 @@ func TestMessageValid(t *testing.T) {
 		},
 		{
 			Message{
+				Type: MessageType(12345),
+			},
+			false,
+		},
+		{
+			Message{
 				Type: AuthMessageType,
+			},
+			false,
+		},
+		{
+			Message{
+				Type:   AuthMessageType,
+				Status: &expectedStatus,
 			},
 			true,
 		},
