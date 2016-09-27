@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/ugorji/go/codec"
 	"io"
+	"strconv"
 )
 
 var (
@@ -54,6 +55,27 @@ type Message struct {
 	Source          string      `wrp:"source" json:"source,omitempty"`
 	Destination     string      `wrp:"dest" json:"dest,omitempty"`
 	Payload         []byte      `wrp:"payload" json:"payload,omitempty"`
+}
+
+// String returns a useful string representation of this message
+func (m *Message) String() string {
+	if m == nil {
+		return "nil"
+	}
+
+	status := "nil"
+	if m.Status != nil {
+		status = strconv.FormatInt(*m.Status, 10)
+	}
+
+	return fmt.Sprintf(
+		`{Type: %s, Status: %s, Source: %s, Destination: %s, Payload: %v}`,
+		m.Type,
+		status,
+		m.Source,
+		m.Destination,
+		m.Payload,
+	)
 }
 
 // Valid performs a basic validation check on a given message

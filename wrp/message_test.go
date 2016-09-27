@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 	"testing"
 )
 
@@ -95,7 +96,7 @@ func TestMessageValid(t *testing.T) {
 	}
 }
 
-func TestSimpleRequestResponseMessageDecode(t *testing.T) {
+func TestMessageSimpleRequestResponseDecode(t *testing.T) {
 	assert := assert.New(t)
 
 	input := bytes.NewReader(
@@ -230,5 +231,23 @@ func TestMessageSerialization(t *testing.T) {
 		rawJSON, err := json.Marshal(&record.original)
 		assert.Nil(err)
 		assert.JSONEq(record.expectedJSON, string(rawJSON))
+
+		stringValue := record.original.String()
+		assert.Contains(stringValue, record.original.Type.String())
+		assert.Contains(stringValue, record.original.Source)
+		assert.Contains(stringValue, record.original.Destination)
+		assert.Contains(stringValue, fmt.Sprintf("%v", record.original.Payload))
+
+		if record.original.Status != nil {
+			assert.Contains(stringValue, strconv.FormatInt(*record.original.Status, 10))
+		} else {
+			assert.Contains(stringValue, "nil")
+		}
 	}
+}
+
+func TestMessageNilString(t *testing.T) {
+	assert := assert.New(t)
+	var message *Message
+	assert.Equal("nil", message.String())
 }
