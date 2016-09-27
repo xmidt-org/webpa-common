@@ -26,14 +26,14 @@ const (
 	AuthMessageType                  = MessageType(2)
 	SimpleRequestResponseMessageType = MessageType(3)
 	SimpleEventMessageType           = MessageType(4)
-
-	InvalidMessageTypeString = "!!INVALID!!"
 )
 
 var (
+	invalidMessageTypeString = "!!INVALID!!"
+
 	messageTypeStrings = []string{
-		InvalidMessageTypeString,
-		InvalidMessageTypeString,
+		invalidMessageTypeString,
+		invalidMessageTypeString,
 		"Auth",
 		"SimpleRequestResponse",
 		"SimpleEvent",
@@ -45,7 +45,7 @@ func (mt MessageType) String() string {
 		return messageTypeStrings[mt]
 	}
 
-	return InvalidMessageTypeString
+	return invalidMessageTypeString
 }
 
 // Message represents a single WRP message.  The Type field determines how the other fields

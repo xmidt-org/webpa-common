@@ -32,12 +32,12 @@ func TestMessageTypeString(t *testing.T) {
 		messageType    MessageType
 		expectedString string
 	}{
-		{MessageType(0), InvalidMessageTypeString},
-		{MessageType(1), InvalidMessageTypeString},
+		{MessageType(0), invalidMessageTypeString},
+		{MessageType(1), invalidMessageTypeString},
 		{AuthMessageType, messageTypeStrings[AuthMessageType]},
 		{SimpleRequestResponseMessageType, messageTypeStrings[SimpleRequestResponseMessageType]},
 		{SimpleEventMessageType, messageTypeStrings[SimpleEventMessageType]},
-		{MessageType(999), InvalidMessageTypeString},
+		{MessageType(999), invalidMessageTypeString},
 	}
 
 	for _, record := range testData {
