@@ -2,21 +2,7 @@ package wrp
 
 import (
 	"fmt"
-	"github.com/ugorji/go/codec"
-	"io"
 	"strconv"
-)
-
-var (
-	// wrpHandle is the global, shared configuration for the msgpack codec
-	// used by WRP messages
-	wrpHandle = codec.MsgpackHandle{
-		BasicHandle: codec.BasicHandle{
-			TypeInfos: codec.NewTypeInfos([]string{"wrp"}),
-		},
-		WriteExt:    true,
-		RawToString: true,
-	}
 )
 
 // MessageType indicates the kind of WRP message
@@ -51,12 +37,12 @@ func (mt MessageType) String() string {
 // Message represents a single WRP message.  The Type field determines how the other fields
 // are interpreted.  For example, if the Type is AuthMessageType, then only Status will be set.
 type Message struct {
-	Type            MessageType `wrp:"msg_type" json:"-"`
-	Status          *int64      `wrp:"status" json:"status,omitempty"`
-	TransactionUUID string      `wrp:"transaction_uuid" json:"transaction_uuid,omitempty"`
-	Source          string      `wrp:"source" json:"source,omitempty"`
-	Destination     string      `wrp:"dest" json:"dest,omitempty"`
-	Payload         []byte      `wrp:"payload" json:"payload,omitempty"`
+	Type            MessageType `msgpack:"msg_type" json:"-"`
+	Status          *int64      `msgpack:"status,omitempty" json:"status,omitempty"`
+	TransactionUUID string      `msgpack:"transaction_uuid,omitempty" json:"transaction_uuid,omitempty"`
+	Source          string      `msgpack:"source,omitempty" json:"source,omitempty"`
+	Destination     string      `msgpack:"dest,omitempty" json:"dest,omitempty"`
+	Payload         []byte      `msgpack:"payload,omitempty" json:"payload,omitempty"`
 }
 
 // String returns a useful string representation of this message
@@ -101,18 +87,4 @@ func (m *Message) Valid() error {
 	}
 
 	return nil
-}
-
-// NewEncoder returns a codec.Encoder configured for WRP msgpack output.
-// Since Encoders can be reused via the reset methods, it's legal to pass a
-// nil writer to create an Encoder that cannot be used until reset.
-func NewEncoder(output io.Writer) *codec.Encoder {
-	return codec.NewEncoder(output, &wrpHandle)
-}
-
-// NewDecoder returns a codec.Decoder configured for WRP msgpack input.
-// Since Decoders can be reused via the reset methods, it's legal to pass a
-// nil reader to create a Decoder that cannot be used until reset.
-func NewDecoder(input io.Reader) *codec.Decoder {
-	return codec.NewDecoder(input, &wrpHandle)
 }
