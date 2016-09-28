@@ -46,7 +46,6 @@ func (f Format) handle() codec.Handle {
 // Encoder represents the underlying ugorji behavior that WRP supports
 type Encoder interface {
 	Encode(interface{}) error
-	MustEncode(interface{})
 	Reset(io.Writer)
 	ResetBytes(*[]byte)
 }
@@ -54,7 +53,6 @@ type Encoder interface {
 // Decoder represents the underlying ugorji behavior that WRP supports
 type Decoder interface {
 	Decode(interface{}) error
-	MustDecode(interface{})
 	Reset(io.Reader)
 	ResetBytes([]byte)
 }

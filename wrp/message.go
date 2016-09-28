@@ -36,6 +36,9 @@ func (mt MessageType) String() string {
 
 // Message represents a single WRP message.  The Type field determines how the other fields
 // are interpreted.  For example, if the Type is AuthMessageType, then only Status will be set.
+//
+// TODO: Type isn't serialized as JSON right now.  If it can be serialized without
+// breaking clients, that would simplify the Message mapping tags.
 type Message struct {
 	Type            MessageType `msgpack:"msg_type" json:"-"`
 	Status          *int64      `msgpack:"status,omitempty" json:"status,omitempty"`
@@ -64,6 +67,27 @@ func (m *Message) String() string {
 		m.Destination,
 		m.Payload,
 	)
+}
+
+// DeduceType examines the message fields other than Type to determine
+// what the message type is, then sets that type on the message.
+//
+// This method is a bit of a hack.  It allows for formats like JSON where
+// we don't deserialize the type from the message.
+func (m *Message) DeduceType() error {
+	if m.Status != nil {
+		m.Type = AuthMessageType
+	} else if len(m.Destination) > 0 {
+		if len(m.Source) > 0 {
+			m.Type = SimpleRequestResponseMessageType
+		} else {
+			m.Type = SimpleEventMessageType
+		}
+	} else {
+		return fmt.Errorf("Unable to deduce type for message: %s", m)
+	}
+
+	return nil
 }
 
 // Valid performs a basic validation check on a given message
