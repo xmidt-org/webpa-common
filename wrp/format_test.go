@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func encodeBase64(input string) []byte {
+func encodeBase64(input string) string {
 	var output bytes.Buffer
 	encoder := base64.NewEncoder(base64.StdEncoding, &output)
 	_, err := encoder.Write([]byte(input))
@@ -21,7 +21,7 @@ func encodeBase64(input string) []byte {
 		panic(err)
 	}
 
-	return output.Bytes()
+	return output.String()
 }
 
 var (
@@ -82,7 +82,7 @@ var (
 			original: Message{
 				Type:        SimpleEventMessageType,
 				Destination: expectedDestination,
-				Payload:     expectedPayloadBase64,
+				Payload:     []byte(expectedPayload),
 			},
 			expectedJSON: fmt.Sprintf(`{
 				"dest": "%s",

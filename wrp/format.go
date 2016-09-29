@@ -27,8 +27,6 @@ var (
 			BasicHandle: codec.BasicHandle{
 				TypeInfos: codec.NewTypeInfos([]string{"msgpack"}),
 			},
-			WriteExt:    true,
-			RawToString: true,
 		},
 	}
 )
