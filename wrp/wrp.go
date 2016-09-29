@@ -1,5 +1,3 @@
-// Package wrp provides a simple marshal/un-marshal interface for the wrp
-// protocol
 package wrp
 
 import (
@@ -12,31 +10,41 @@ import (
 )
 
 const (
-	AuthMsgType              = int64(2)
+	// DEPRECATED
+	AuthMsgType = int64(2)
+
+	// DEPRECATED
 	SimpleReqResponseMsgType = int64(3)
-	SimpleEventMsgType       = int64(4)
+
+	// DEPRECATED
+	SimpleEventMsgType = int64(4)
 )
 
 var (
-	ErrorGetInt64    = errors.New("GetInt64 error casting value")
+	// DEPRECATED
+	ErrorGetInt64 = errors.New("GetInt64 error casting value")
+
+	// DEPRECATED
 	ErrorInvalidType = errors.New("Invalid input type to wrp.Decode")
 )
 
+// DEPRECATED.  Use Message instead
 type WrpMsg interface {
 	Origin() string
 	Destination() string
 }
 
-// Encodable is implemented by any wrp message
+// DEPRECATED.  Use NewEncoder or NewEncoderBytes instead.
 type Encodable interface {
 	Encode() ([]byte, error)
 }
 
-// writerTo is an internal type that adapts Encodable onto io.WriterTo
+// DEPRECATED
 type writerTo struct {
 	Encodable
 }
 
+// DEPRECATED
 func (w writerTo) WriteTo(output io.Writer) (int64, error) {
 	data, err := w.Encode()
 	if err != nil {
@@ -47,37 +55,37 @@ func (w writerTo) WriteTo(output io.Writer) (int64, error) {
 	return int64(count), err
 }
 
-// WriterTo is a constructor function that produces an
-// io.WriterTo from any Encodable.
+// DEPRECATED
 func WriterTo(encodable Encodable) io.WriterTo {
 	return writerTo{encodable}
 }
 
-/*-- Authorization Message Type Handling -------------------------------------*/
-
+// DEPRECATED
 type AuthStatusMsg struct {
 	Status int64 `json:"status"   wrp:"status"`
 }
 
+// DEPRECATED
 func (m AuthStatusMsg) String() string {
 	return fmt.Sprintf("SimpleReqResponseMsg{ Status: %d }\n", m.Status)
 }
 
+// DEPRECATED
 func (m AuthStatusMsg) Origin() string {
 	return ""
 }
 
+// DEPRECATED
 func (m AuthStatusMsg) Destination() string {
 	return ""
 }
 
-/* Provide an encoder tied to the object type. */
+// DEPRECATED
 func (m AuthStatusMsg) Encode() ([]byte, error) {
 	return wrpEncode(AuthMsgType, m)
 }
 
-/*-- Simple Request/Response Message Type Handling ---------------------------*/
-
+// DEPRECATED
 type SimpleReqResponseMsg struct {
 	TransactionUUID string `json:"transaction_uuid" wrp:"transaction_uuid"`
 	Source          string `json:"source"           wrp:"source"`
@@ -85,6 +93,7 @@ type SimpleReqResponseMsg struct {
 	Payload         []byte `json:"payload"          wrp:"payload"`
 }
 
+// DEPRECATED
 func (m SimpleReqResponseMsg) String() string {
 	return fmt.Sprintf(
 		"SimpleReqResponseMsg{\n"+
@@ -98,26 +107,29 @@ func (m SimpleReqResponseMsg) String() string {
 		hex.Dump(m.Payload))
 }
 
+// DEPRECATED
 func (m SimpleReqResponseMsg) Origin() string {
 	return m.Source
 }
 
+// DEPRECATED
 func (m SimpleReqResponseMsg) Destination() string {
 	return m.Dest
 }
 
-/* Provide an encoder tied to the object type. */
+// DEPRECATED
 func (m SimpleReqResponseMsg) Encode() ([]byte, error) {
 	return wrpEncode(SimpleReqResponseMsgType, m)
 }
 
-/*-- Simple Event Message Type Handling --------------------------------------*/
+// DEPRECATED
 type SimpleEventMsg struct {
 	Source  string `wrp:"source"`
 	Dest    string `wrp:"dest"`
 	Payload []byte `wrp:"payload"`
 }
 
+// DEPRECATED
 func (m SimpleEventMsg) String() string {
 	return fmt.Sprintf(
 		"SimpleReqResponseMsg{\n"+
@@ -129,23 +141,22 @@ func (m SimpleEventMsg) String() string {
 		hex.Dump(m.Payload))
 }
 
+// DEPRECATED
 func (m SimpleEventMsg) Origin() string {
 	return m.Source
 }
 
+// DEPRECATED
 func (m SimpleEventMsg) Destination() string {
 	return m.Dest
 }
 
-/* Provide an encoder tied to the object type. */
+// DEPRECATED
 func (m SimpleEventMsg) Encode() ([]byte, error) {
 	return wrpEncode(SimpleEventMsgType, m)
 }
 
-/*-- The generic/global handlers follow --------------------------------------*/
-
-/* This is the actual encoder that converts the wrp structure into
- * an array of bytes. */
+// DEPRECATED
 func wrpEncode(mt int64, v interface{}) ([]byte, error) {
 
 	st := reflect.TypeOf(v)
@@ -172,8 +183,7 @@ func wrpEncode(mt int64, v interface{}) ([]byte, error) {
 	return buf, nil
 }
 
-// helper function to convert the different integer value types to
-// int64; useful for scenarios where we don't know what type it is we're getting
+// DEPRECATED
 func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 	switch valueType := m[key].(type) {
 	case int8:
@@ -201,7 +211,7 @@ func GetInt64(m map[interface{}]interface{}, key string) (int64, error) {
 	return -1, ErrorGetInt64
 }
 
-/* Decode the array of bytes into the right wrp structure. */
+// DEPRECATED
 func Decode(buf []byte) (interface{}, error) {
 	mh := new(codec.MsgpackHandle)
 	mh.WriteExt = true
