@@ -2,6 +2,7 @@ package wrp
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
@@ -335,5 +336,26 @@ func TestGetInt64(t *testing.T) {
 	_, err := GetInt64(intTypes, "just_a_string")
 	if err == nil {
 		t.Error("Testing for passing in an unchecked type failed.")
+	}
+}
+
+// BenchmarkMsgpackToJSONUsingLegacy benchmarks the msgpack -> JSON process
+// that WebPA software is currently using.
+func BenchmarkMsgpackToJSONUsingLegacy(b *testing.B) {
+	var (
+		message interface{}
+		err     error
+	)
+
+	for i := 0; i < b.N; i++ {
+		message, err = Decode(simpleRequestResponseMsgpack)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		_, err = json.Marshal(message)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }

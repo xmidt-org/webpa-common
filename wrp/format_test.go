@@ -1,6 +1,7 @@
 package wrp
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"fmt"
@@ -248,4 +249,34 @@ func TestFormatHandle(t *testing.T) {
 	assert.NotNil(JSON.handle())
 	assert.NotNil(Msgpack.handle())
 	assert.Nil(Format(999).handle())
+}
+
+// BenchmarkMsgpackToJSONUsingEncoder benchmarks the typical use case for a WebPA server:
+// reading a msgpack message then writing the JSON equivalent of that message.
+func BenchmarkMsgpackToJSONUsingEncoder(b *testing.B) {
+	b.StopTimer()
+
+	var (
+		decoder        = NewDecoder(nil, Msgpack)
+		encoder        = NewEncoder(nil, JSON)
+		bufferedReader = bufio.NewReader(nil)
+		message        Message
+		output         bytes.Buffer
+	)
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		bufferedReader.Reset(bytes.NewReader(simpleRequestResponseMsgpack))
+		decoder.Reset(bufferedReader)
+
+		if err := decoder.Decode(&message); err != nil {
+			b.Fatal(err)
+		}
+
+		output.Reset()
+		encoder.Reset(&output)
+		if err := encoder.Encode(&message); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
