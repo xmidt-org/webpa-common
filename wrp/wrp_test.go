@@ -2,11 +2,13 @@ package wrp
 
 import (
 	"bytes"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
 
+// DEPRECATED
 func TestDecode(t *testing.T) {
 	in := []byte{0x85, 0xa8, 0x6d, 0x73, 0x67, 0x5f, 0x74, 0x79,
 		0x70, 0x65, 0x03, 0xb0, 0x74, 0x72, 0x61, 0x6e,
@@ -53,6 +55,7 @@ func TestDecode(t *testing.T) {
 	}
 }
 
+// DEPRECATED
 func TestDecodeWithInvalidType(t *testing.T) {
 	assert := assert.New(t)
 
@@ -63,6 +66,7 @@ func TestDecodeWithInvalidType(t *testing.T) {
 	assert.NotNil(err)
 }
 
+// DEPRECATED
 func TestSimpleEvent(t *testing.T) {
 	start := SimpleEventMsg{Source: "dns:scytale.webpa.comcast.net/foo",
 		Dest:    "mac:112233445566",
@@ -86,6 +90,7 @@ func TestSimpleEvent(t *testing.T) {
 	start.String()
 }
 
+// DEPRECATED
 func TestSimpleEventUsingWriterTo(t *testing.T) {
 	assert := assert.New(t)
 
@@ -103,6 +108,7 @@ func TestSimpleEventUsingWriterTo(t *testing.T) {
 	}
 }
 
+// DEPRECATED
 func TestSimpleReqResponse(t *testing.T) {
 	start := SimpleReqResponseMsg{Source: "dns:scytale.webpa.comcast.net/foo",
 		Dest:            "mac:112233445566",
@@ -127,6 +133,7 @@ func TestSimpleReqResponse(t *testing.T) {
 	start.String()
 }
 
+// DEPRECATED
 func TestSimpleReqResponseUsingWriterTo(t *testing.T) {
 	assert := assert.New(t)
 
@@ -145,6 +152,7 @@ func TestSimpleReqResponseUsingWriterTo(t *testing.T) {
 	}
 }
 
+// DEPRECATED
 func TestAuthStatus(t *testing.T) {
 	start := AuthStatusMsg{Status: 123}
 
@@ -166,6 +174,7 @@ func TestAuthStatus(t *testing.T) {
 	start.String()
 }
 
+// DEPRECATED
 func TestAuthStatusUsingWriterTo(t *testing.T) {
 	assert := assert.New(t)
 
@@ -181,6 +190,7 @@ func TestAuthStatusUsingWriterTo(t *testing.T) {
 	}
 }
 
+// DEPRECATED
 func TestInvalidMsgType(t *testing.T) {
 	in := []byte{0x85, 0xa8, 0x6d, 0x73, 0x67, 0x5f, 0x74, 0x79,
 		0x70, 0x65, 0x09, 0xb0, 0x74, 0x72, 0x61, 0x6e,
@@ -216,6 +226,7 @@ func TestInvalidMsgType(t *testing.T) {
 	}
 }
 
+// DEPRECATED
 func TestTruncatedMsg(t *testing.T) {
 	in := []byte{0x85, 0xa8, 0x6d, 0x73, 0x67, 0x5f, 0x74, 0x79,
 		0x70, 0x65, 0x09, 0xb0, 0x74, 0x72, 0x61, 0x6e,
@@ -325,5 +336,26 @@ func TestGetInt64(t *testing.T) {
 	_, err := GetInt64(intTypes, "just_a_string")
 	if err == nil {
 		t.Error("Testing for passing in an unchecked type failed.")
+	}
+}
+
+// BenchmarkMsgpackToJSONUsingLegacy benchmarks the msgpack -> JSON process
+// that WebPA software is currently using.
+func BenchmarkMsgpackToJSONUsingLegacy(b *testing.B) {
+	var (
+		message interface{}
+		err     error
+	)
+
+	for i := 0; i < b.N; i++ {
+		message, err = Decode(simpleRequestResponseMsgpack)
+		if err != nil {
+			b.Fatal(err)
+		}
+
+		_, err = json.Marshal(message)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
