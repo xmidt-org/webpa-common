@@ -1,7 +1,4 @@
-// Package canonical provides a simple normalization for device identifiers.  These
-// identifiers have the form {prefix}:{id}/{service}/{ignored}, where only {prefix}
-// and {id} are required.
-package canonical
+package device
 
 import (
 	"errors"
@@ -12,20 +9,11 @@ import (
 )
 
 // Id represents a normalized identifer for a device.
-type Id interface {
-	// Bytes returns a distinct byte slice representation
-	// of this canonicalized identifier.
-	Bytes() []byte
+type Id string
+
+func (id Id) Bytes() []byte {
+	return []byte(id)
 }
-
-// id is the internal Id implementation
-type id string
-
-func (this id) Bytes() []byte {
-	return []byte(this)
-}
-
-var _ Id = id("")
 
 const (
 	hexDigits     = "0123456789abcdefABCDEF"
@@ -40,13 +28,15 @@ var (
 	idPattern = regexp.MustCompile(
 		`^(?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+)(?P<service>/[^/]+)?`,
 	)
+
+	invalidId Id = Id("")
 )
 
 // ParseId parses a raw string identifier into an Id
 func ParseId(value string) (Id, error) {
 	match := idPattern.FindStringSubmatch(value)
 	if match == nil {
-		return nil, errors.New(fmt.Sprintf("Invalid device id: %s", value))
+		return invalidId, errors.New(fmt.Sprintf("Invalid device id: %s", value))
 	}
 
 	var (
@@ -73,15 +63,15 @@ func ParseId(value string) (Id, error) {
 		)
 
 		if invalidCharacter != -1 {
-			return nil, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
+			return invalidId, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
 		} else if len(idPart) != macLength {
-			return nil, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
+			return invalidId, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
 		}
 	}
 
 	if len(service) > 0 {
-		return id(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
+		return Id(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
 	}
 
-	return id(fmt.Sprintf("%s:%s", prefix, idPart)), nil
+	return Id(fmt.Sprintf("%s:%s", prefix, idPart)), nil
 }
