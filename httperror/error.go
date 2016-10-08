@@ -48,7 +48,7 @@ func (err *httpError) Header() http.Header {
 // for infrastructure that needs to return HTTP metadata about an error from code not directly
 // part of an HTTP handler.
 //
-// For code that has access to the http.ResponseWriter, use WriteMessage or WriteFull instead.
+// For code that has access to the http.ResponseWriter, use WriteMessage instead
 func New(message string, status int, header http.Header) Interface {
 	if status < http.StatusBadRequest {
 		status = DefaultStatus
@@ -65,23 +65,22 @@ func New(message string, status int, header http.Header) Interface {
 // of the response status and any output headers.  This function can be used
 // with errors other than HTTP errors.  It will provide default behavior in
 // that case.
+//
+// If a status other than DefaultStatus is desired, use WriteMessage(response, err.Error(), DesiredStatus, nil)
+// instead of this function.
 func Write(response http.ResponseWriter, err error) (int, error) {
 	if httpError, ok := err.(Interface); ok {
-		return WriteFull(response, httpError.Error(), httpError.Status(), httpError.Header())
+		return WriteMessage(response, httpError.Error(), httpError.Status(), httpError.Header())
 	} else {
-		return WriteFull(response, err.Error(), DefaultStatus, nil)
+		return WriteMessage(response, err.Error(), DefaultStatus, nil)
 	}
 }
 
-// WriteMessage handles the trivial case of writing an error message out
-// to an HTTP response.
-func WriteMessage(response http.ResponseWriter, message string) (int, error) {
-	return WriteFull(response, message, DefaultStatus, nil)
-}
-
-// WriteFull handles writing full error information out to a response.  This function
+// WriteMessage handles writing full error message information out to a response.  This function
 // avoids the overhead of creating a full blown HTTP error object.
-func WriteFull(response http.ResponseWriter, message string, status int, header http.Header) (int, error) {
+//
+// If status is not an HTTP error code, DefaultStatus is used.  The header is optional, and can be nil.
+func WriteMessage(response http.ResponseWriter, message string, status int, header http.Header) (int, error) {
 	if status < http.StatusBadRequest {
 		status = DefaultStatus
 	}

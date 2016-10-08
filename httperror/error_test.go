@@ -110,18 +110,6 @@ func TestWrite(t *testing.T) {
 
 func TestWriteMessage(t *testing.T) {
 	assert := assert.New(t)
-	response := httptest.NewRecorder()
-	const expectedMessage = "here is a standalone message"
-
-	count, writeError := WriteMessage(response, expectedMessage)
-	assert.True(count > len(expectedMessage))
-	assert.Nil(writeError)
-	assertErrorResponse(assert, response, expectedMessage, DefaultStatus, nil)
-
-}
-
-func TestWriteFull(t *testing.T) {
-	assert := assert.New(t)
 	var testData = []struct {
 		expectedMessage string
 		actualStatus    int
@@ -151,7 +139,7 @@ func TestWriteFull(t *testing.T) {
 		t.Logf("%#v", record)
 		response := httptest.NewRecorder()
 
-		count, writeError := WriteFull(response, record.expectedMessage, record.actualStatus, record.expectedHeader)
+		count, writeError := WriteMessage(response, record.expectedMessage, record.actualStatus, record.expectedHeader)
 		assert.True(count > len(record.expectedMessage))
 		assert.Nil(writeError)
 		assertErrorResponse(assert, response, record.expectedMessage, record.expectedStatus, record.expectedHeader)
