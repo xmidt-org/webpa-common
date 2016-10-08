@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 )
 
 // ErrorLogger provides the interface for outputting errors to a log sink
@@ -93,4 +94,8 @@ func (l *LoggerWriter) Error(parameters ...interface{}) { l.formatf(errorLevel, 
 
 func (l *LoggerWriter) Printf(format string, parameters ...interface{}) {
 	l.logf(infoLevel, format, parameters)
+}
+
+func DefaultLogger() Logger {
+	return &LoggerWriter{os.Stdout}
 }
