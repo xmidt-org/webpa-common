@@ -3,19 +3,29 @@ package device
 import (
 	"errors"
 	"fmt"
+	"github.com/Comcast/webpa-common/httperror"
+	"net/http"
 	"regexp"
 	"strings"
 	"unicode"
 )
 
-// Id represents a normalized identifer for a device.
-type Id string
+// ID represents a normalized identifer for a device.
+type ID string
 
-func (id Id) Bytes() []byte {
+func (id ID) Bytes() []byte {
 	return []byte(id)
 }
 
 const (
+	// InvalidID is a known, global device identifier that is not valid.  Useful
+	// when returning errors.
+	InvalidID ID = ID("")
+
+	// DefaultDeviceNameHeader is the default header for retrieving the name, which
+	// is then parsed into a device ID.
+	DefaultDeviceNameHeader = "X-Webpa-Device-Name"
+
 	hexDigits     = "0123456789abcdefABCDEF"
 	macDelimiters = ":-.,"
 	macPrefix     = "mac"
@@ -28,15 +38,41 @@ var (
 	idPattern = regexp.MustCompile(
 		`^(?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+)(?P<service>/[^/]+)?`,
 	)
-
-	invalidId Id = Id("")
 )
 
-// ParseId parses a raw string identifier into an Id
-func ParseId(value string) (Id, error) {
+// IDParser provides the parsing logic for device identifiers.  IDParser instances
+// are safe for concurrent access.
+type IDParser interface {
+	FromValue(string) (ID, error)
+	FromRequest(*http.Request) (ID, error)
+}
+
+// NewIDParser returns an IDParser using the given header.
+func NewIDParser(headerName string) IDParser {
+	if len(headerName) == 0 {
+		headerName = DefaultDeviceNameHeader
+	}
+
+	return &idParser{
+		headerName: headerName,
+		missingHeaderError: httperror.New(
+			fmt.Sprintf("Missing header: %s", headerName),
+			http.StatusBadRequest,
+			nil,
+		),
+	}
+}
+
+// idParser is the internal IDParser implementation
+type idParser struct {
+	headerName         string
+	missingHeaderError error
+}
+
+func (p *idParser) FromValue(value string) (ID, error) {
 	match := idPattern.FindStringSubmatch(value)
 	if match == nil {
-		return invalidId, errors.New(fmt.Sprintf("Invalid device id: %s", value))
+		return InvalidID, errors.New(fmt.Sprintf("Invalid device id: %s", value))
 	}
 
 	var (
@@ -63,15 +99,24 @@ func ParseId(value string) (Id, error) {
 		)
 
 		if invalidCharacter != -1 {
-			return invalidId, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
+			return InvalidID, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
 		} else if len(idPart) != macLength {
-			return invalidId, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
+			return InvalidID, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
 		}
 	}
 
 	if len(service) > 0 {
-		return Id(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
+		return ID(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
 	}
 
-	return Id(fmt.Sprintf("%s:%s", prefix, idPart)), nil
+	return ID(fmt.Sprintf("%s:%s", prefix, idPart)), nil
+}
+
+func (p *idParser) FromRequest(request *http.Request) (ID, error) {
+	deviceName := request.Header.Get(p.headerName)
+	if len(deviceName) == 0 {
+		return InvalidID, p.missingHeaderError
+	}
+
+	return p.FromValue(deviceName)
 }

@@ -2,8 +2,8 @@ package fact
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/canonical"
 	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"golang.org/x/net/context"
@@ -45,15 +45,15 @@ func SetLogger(ctx context.Context, value logging.Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, value)
 }
 
-// DeviceId retrieves the canonical.Id of the device from the enclosing context
-func DeviceId(ctx context.Context) (canonical.Id, bool) {
-	value, ok := ctx.Value(deviceIdKey).(canonical.Id)
+// DeviceId retrieves the device.ID of the device from the enclosing context
+func DeviceId(ctx context.Context) (device.ID, bool) {
+	value, ok := ctx.Value(deviceIdKey).(device.ID)
 	return value, ok
 }
 
-// MustDeviceId retrieves the canonical.Id from the context, panicking
+// MustDeviceId retrieves the device.ID from the context, panicking
 // if no such device id is found.
-func MustDeviceId(ctx context.Context) canonical.Id {
+func MustDeviceId(ctx context.Context) device.ID {
 	value, ok := DeviceId(ctx)
 	if !ok {
 		panic(NoDeviceId)
@@ -62,8 +62,8 @@ func MustDeviceId(ctx context.Context) canonical.Id {
 	return value
 }
 
-// SetDeviceId sets the canonical.Id of the device in the enclosing context
-func SetDeviceId(ctx context.Context, value canonical.Id) context.Context {
+// SetDeviceId sets the device.ID of the device in the enclosing context
+func SetDeviceId(ctx context.Context, value device.ID) context.Context {
 	return context.WithValue(ctx, deviceIdKey, value)
 }
 

@@ -4,20 +4,89 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/ugorji/go/codec"
 	"io/ioutil"
+	"net/http"
 )
 
-// Payload represents the decoded payload of the convey header
+const (
+	// DefaultPayloadHeaderName is used when no header is configured
+	DefaultPayloadHeaderName = "X-Webpa-Convey"
+)
+
+var (
+	// codecHandle is the ugorji JSON handle for creating encoders and decoders
+	codecHandle codec.Handle = &codec.JsonHandle{
+		IntegerAsString: 'L',
+	}
+)
+
+// Payload represents the decoded payload of the convey header.  Payloads are encoded
+// as base64 JSON strings.
 type Payload map[string]interface{}
 
-// Json formats this payload as a JSON message
-func (payload *Payload) Json() string {
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return err.Error()
+// Factory supplies various ways to obtain Payload instances.  A Factory is always
+// safe for concurrent usage.
+//
+// Typically, applications will create (1) Factory for repeated use in an http.Handler.
+type Factory interface {
+	// FromValue accepts an encoded value and returns the resulting Payload
+	FromValue(string) (Payload, error)
+
+	// FromRequest examines an HTTP request to find a Payload.  If no header was found
+	// in the request, an error is returned with a nil Payload.
+	FromRequest(*http.Request) (Payload, error)
+}
+
+// NewFactory creates a Factory for Payload objects using the supplied configuration.
+// If headerName is empty, DefaultPayloadHeaderName is sued.  If encoding is nil,
+// then base64.StdEncoding is used.
+func NewFactory(headerName string, encoding *base64.Encoding) Factory {
+	if len(headerName) == 0 {
+		headerName = DefaultPayloadHeaderName
 	}
 
-	return string(data)
+	if encoding == nil {
+		encoding = base64.StdEncoding
+	}
+
+	return &factory{
+		headerName: headerName,
+		missingHeaderError: httperror.New(
+			fmt.Sprintf("Missing header: %s", headerName),
+			http.StatusBadRequest,
+			nil,
+		),
+		encoding: encoding,
+	}
+}
+
+type factory struct {
+	headerName         string
+	missingHeaderError error
+	encoding           *base64.Encoding
+}
+
+func (f *factory) FromValue(value string) (payload Payload, err error) {
+	input := bytes.NewBufferString(value)
+	decoder := codec.NewDecoder(
+		base64.NewDecoder(f.encoding, input),
+		codecHandle,
+	)
+
+	err = decoder.Decode(&payload)
+	return
+}
+
+func (f *factory) FromRequest(request *http.Request) (Payload, error) {
+	value := request.Header.Get(f.headerName)
+	if len(value) == 0 {
+		return nil, f.missingHeaderError
+	}
+
+	return f.FromValue(value)
 }
 
 // DecodeBase64 assumes that the value parameter is Base64-encoded JSON

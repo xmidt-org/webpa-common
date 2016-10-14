@@ -2,7 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/canonical"
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/fact"
 	"golang.org/x/net/context"
 	"net/http"
