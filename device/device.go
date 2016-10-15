@@ -117,10 +117,13 @@ func (d *device) close(cause error) {
 	})
 }
 
-// pongHandler is the function which receives pongs from the device.
-// this method simply updates the read deadline
-func (d *device) pongHandler(data string) error {
-	return d.updateReadDeadline()
+// pongHandler returns a function used for the pong handler on the
+// underlying connection
+func (d *device) pongHandler(pongCallback func(Interface, string)) func(string) error {
+	return func(data string) error {
+		defer pongCallback(d, data)
+		return d.updateReadDeadline()
+	}
 }
 
 func (d *device) readPump(messageCallback func(Interface, *wrp.Message)) {
@@ -158,7 +161,7 @@ func (d *device) readPump(messageCallback func(Interface, *wrp.Message)) {
 	}
 }
 
-func (d *device) writePump(pingPeriod time.Duration) {
+func (d *device) writePump(pingPeriod time.Duration, pongCallback func(Interface, string)) {
 	var (
 		err   error
 		frame io.WriteCloser
@@ -170,7 +173,7 @@ func (d *device) writePump(pingPeriod time.Duration) {
 	pingTicker := time.NewTicker(pingPeriod)
 	defer pingTicker.Stop()
 
-	d.connection.SetPongHandler(d.pongHandler)
+	d.connection.SetPongHandler(d.pongHandler(pongCallback))
 	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
 
 	for {

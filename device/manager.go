@@ -68,6 +68,10 @@ type Options struct {
 	// an internal default function that simply logs messages is used.
 	MessageCallback func(Interface, *wrp.Message)
 
+	// PongCallback is the callback used to receive notifications of pongs from devices.
+	// If nil, an internal default is used, which simply logs the pong.
+	PongCallback func(Interface, string)
+
 	// Logger is the output sink for log messages.  If not supplied, log output
 	// is sent to logging.DefaultLogger().
 	Logger logging.Logger
@@ -143,6 +147,12 @@ func NewManager(o *Options) Manager {
 		manager.messageCallback = manager.defaultMessageCallback
 	}
 
+	if o.PongCallback != nil {
+		manager.pongCallback = o.PongCallback
+	} else {
+		manager.pongCallback = manager.defaultPongCallback
+	}
+
 	return manager
 }
 
@@ -162,6 +172,7 @@ type websocketManager struct {
 	writeTimeout time.Duration
 
 	messageCallback func(Interface, *wrp.Message)
+	pongCallback    func(Interface, string)
 }
 
 func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request) (Interface, error) {
@@ -190,7 +201,7 @@ func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.
 		// both pumps will exit nearly at the same time.  remove the device
 		// here, to avoid doing double work when the read pump exits.
 		defer wm.removeOne(device)
-		device.writePump(wm.pingPeriod)
+		device.writePump(wm.pingPeriod, wm.pongCallback)
 	}()
 
 	wm.add(device)
@@ -218,6 +229,11 @@ func (wm *websocketManager) newDevice(id ID, convey *Convey, connection connecti
 // defaultMessageCallback is the default callback function used for messages
 func (wm *websocketManager) defaultMessageCallback(device Interface, message *wrp.Message) {
 	wm.logger.Debug("[%s]: %v", device.ID(), message)
+}
+
+// defaultPongCallback is the default callback function used for pongs
+func (wm *websocketManager) defaultPongCallback(device Interface, data string) {
+	wm.logger.Debug("[%s]: pong received: %s", device.ID(), data)
 }
 
 // add handles the addition of a new device, which might possibly be a duplicate
