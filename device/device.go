@@ -93,12 +93,21 @@ func (d *device) updateReadDeadline() error {
 	)
 }
 
-// close handles sending a CloseMessage and shutting down the underlying socket
-func (d *device) close(cause error) {
+// close handles sending a CloseMessage and shutting down the underlying socket.  If supplied,
+// preClose is invoked prior to anything else.
+//
+// This method is idempotent.  It executes within a sync.Once, and is thus safe to call
+// multiple times.  Only the first call to close will invoke preClose.  Subsequent invocations
+// ignore the preClose function.
+func (d *device) close(cause error, preClose func(*device)) {
 	d.closeOnce.Do(func() {
-		defer close(d.shutdown)
-		defer close(d.messages)
 		defer d.connection.Close()
+		defer close(d.messages)
+		defer close(d.shutdown)
+
+		if preClose != nil {
+			preClose(d)
+		}
 
 		if cause == nil {
 			// when there's no error, e.g. when a device is disconnected through the manager,
@@ -126,14 +135,14 @@ func (d *device) pongHandler(pongCallback func(Interface, string)) func(string) 
 	}
 }
 
-func (d *device) readPump(messageCallback func(Interface, *wrp.Message)) {
+func (d *device) readPump(messageCallback func(Interface, *wrp.Message), preClose func(*device)) {
 	var (
 		err         error
 		messageType int
 		frame       io.Reader
 	)
 
-	defer d.close(err)
+	defer d.close(err, preClose)
 	decoder := wrp.NewDecoder(nil, wrp.Msgpack)
 
 	for {
@@ -161,13 +170,13 @@ func (d *device) readPump(messageCallback func(Interface, *wrp.Message)) {
 	}
 }
 
-func (d *device) writePump(pingPeriod time.Duration, pongCallback func(Interface, string)) {
+func (d *device) writePump(pingPeriod time.Duration, pongCallback func(Interface, string), preClose func(*device)) {
 	var (
 		err   error
 		frame io.WriteCloser
 	)
 
-	defer d.close(err)
+	defer d.close(err, preClose)
 	encoder := wrp.NewEncoder(nil, wrp.Msgpack)
 
 	pingTicker := time.NewTicker(pingPeriod)

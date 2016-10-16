@@ -195,14 +195,8 @@ func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.
 	}
 
 	device := wm.newDevice(id, convey, connection)
-	go device.readPump(wm.messageCallback)
-
-	go func() {
-		// both pumps will exit nearly at the same time.  remove the device
-		// here, to avoid doing double work when the read pump exits.
-		defer wm.removeOne(device)
-		device.writePump(wm.pingPeriod, wm.pongCallback)
-	}()
+	go device.readPump(wm.messageCallback, wm.removeOne)
+	go device.writePump(wm.pingPeriod, wm.pongCallback, wm.removeOne)
 
 	wm.add(device)
 	return device, nil
@@ -210,15 +204,15 @@ func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.
 
 // newDevice is an internal Factory Method for devices.  This method only
 // handles the instantiation of a device.
-func (wm *websocketManager) newDevice(id ID, convey *Convey, connection connection) *device {
-	wm.logger.Debug("newDevice(%s, %v, %v)", id, convey, connection)
+func (wm *websocketManager) newDevice(id ID, convey *Convey, c connection) *device {
+	wm.logger.Debug("newDevice(%s, %v, %v)", id, convey, c)
 
 	return &device{
 		id:           id,
 		convey:       convey,
 		connectedAt:  time.Now(),
 		logger:       wm.logger,
-		connection:   connection,
+		connection:   c,
 		messages:     make(chan *wrp.Message, wm.deviceMessageQueueSize),
 		shutdown:     make(chan struct{}),
 		idleInterval: wm.idleInterval,
@@ -260,6 +254,6 @@ func (wm *websocketManager) removeAll(key ID) []*device {
 func (wm *websocketManager) Disconnect(id ID) {
 	wm.logger.Debug("Disconnect(%s)", id)
 	for _, device := range wm.removeAll(id) {
-		device.close(nil)
+		device.close(nil, nil)
 	}
 }
