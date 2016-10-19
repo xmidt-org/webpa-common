@@ -19,6 +19,10 @@ const (
 	DefaultWriteTimeout time.Duration = 60 * time.Second
 )
 
+var (
+	defaultOptions = Options{}
+)
+
 // Options represent the available configuration options for device Managers
 type Options struct {
 	// DeviceNameHeader is the name of the HTTP request header which contains the
@@ -63,6 +67,14 @@ type Options struct {
 	// WriteTimeout is the write timeout for each device's websocket.  If not supplied,
 	// DefaultWriteTimeout is used.
 	WriteTimeout time.Duration
+
+	// ConnectCallback is a function invoked whenever a new device has connected.
+	// If nil, a default callback is used.
+	ConnectCallback func(Interface)
+
+	// DisconnectCallback is a function invoked whenever a device has disconnected.
+	// If nil, a default callback is used.
+	DisconnectCallback func(Interface)
 
 	// MessageCallback is the callback used to receive messages from devices.  If nil,
 	// an internal default function that simply logs messages is used.
@@ -122,11 +134,27 @@ func (o *Options) logger() logging.Logger {
 // Manager supplies a hub for connecting and disconnecting devices as well as
 // an access point for obtaining device metadata.
 type Manager interface {
+	// Connect upgrade an HTTP connection to a websocket and begins concurrent
+	// managment of the device.
 	Connect(http.ResponseWriter, *http.Request) (Interface, error)
+
+	// Connected tests if there are any devices connected with the given ID
+	Connected(ID) bool
+
+	// Disconnect disconnects all devices (including duplicates) which connected
+	// with the given ID
 	Disconnect(ID)
+
+	// DevicesByID returns a channel which can be used to iterate over all devices
+	// registered under the given iD.
+	DevicesByID(ID) <-chan Interface
 }
 
 func NewManager(o *Options) Manager {
+	if o == nil {
+		o = &defaultOptions
+	}
+
 	manager := &websocketManager{
 		idParser:     NewIDParser(o.DeviceNameHeader),
 		conveyParser: NewConveyParser(o.ConveyHeader, nil),
@@ -139,6 +167,18 @@ func NewManager(o *Options) Manager {
 		registry:               make(registry, o.initialRegistrySize()),
 		logger:                 o.logger(),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
+	}
+
+	if o.ConnectCallback != nil {
+		manager.connectCallback = o.ConnectCallback
+	} else {
+		manager.connectCallback = manager.defaultConnectCallback
+	}
+
+	if o.DisconnectCallback != nil {
+		manager.disconnectCallback = o.DisconnectCallback
+	} else {
+		manager.disconnectCallback = manager.defaultDisconnectCallback
 	}
 
 	if o.MessageCallback != nil {
@@ -171,8 +211,10 @@ type websocketManager struct {
 	idleInterval time.Duration
 	writeTimeout time.Duration
 
-	messageCallback func(Interface, *wrp.Message)
-	pongCallback    func(Interface, string)
+	connectCallback    func(Interface)
+	disconnectCallback func(Interface)
+	messageCallback    func(Interface, *wrp.Message)
+	pongCallback       func(Interface, string)
 }
 
 func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request) (Interface, error) {
@@ -220,12 +262,18 @@ func (wm *websocketManager) newDevice(id ID, convey *Convey, c connection) *devi
 	}
 }
 
-// defaultMessageCallback is the default callback function used for messages
+func (wm *websocketManager) defaultConnectCallback(device Interface) {
+	wm.logger.Debug("[%s]: connected", device.ID())
+}
+
+func (wm *websocketManager) defaultDisconnectCallback(device Interface) {
+	wm.logger.Debug("[%s]: disconnected", device.ID())
+}
+
 func (wm *websocketManager) defaultMessageCallback(device Interface, message *wrp.Message) {
 	wm.logger.Debug("[%s]: %v", device.ID(), message)
 }
 
-// defaultPongCallback is the default callback function used for pongs
 func (wm *websocketManager) defaultPongCallback(device Interface, data string) {
 	wm.logger.Debug("[%s]: pong received: %s", device.ID(), data)
 }
@@ -256,4 +304,24 @@ func (wm *websocketManager) Disconnect(id ID) {
 	for _, device := range wm.removeAll(id) {
 		device.close(nil, nil)
 	}
+}
+
+func (wm *websocketManager) Connected(id ID) bool {
+	defer wm.registryLock.RUnlock()
+	wm.registryLock.RLock()
+	return len(wm.registry[id]) > 0
+}
+
+func (wm *websocketManager) DevicesByID(id ID) <-chan Interface {
+	defer wm.registryLock.RUnlock()
+	wm.registryLock.RLock()
+	devices := wm.registry[id]
+	results := make(chan Interface, len(devices))
+	defer close(results)
+
+	for _, device := range devices {
+		results <- device
+	}
+
+	return results
 }
