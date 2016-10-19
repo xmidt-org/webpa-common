@@ -150,6 +150,7 @@ type Manager interface {
 	DevicesByID(ID) <-chan Interface
 }
 
+// NewManager constructs a Manager using a set of Options.
 func NewManager(o *Options) Manager {
 	if o == nil {
 		o = &defaultOptions
@@ -218,6 +219,7 @@ type websocketManager struct {
 }
 
 func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request) (Interface, error) {
+	wm.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
 	id, err := wm.idParser.FromRequest(request)
 	if err != nil {
 		httperror.Write(response, err)
