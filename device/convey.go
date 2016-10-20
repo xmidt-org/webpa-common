@@ -26,6 +26,17 @@ type Convey struct {
 	Encoded string
 }
 
+// ToRequestDefault invokes c.ToRequest with the DefaultConveyHeader
+func (c *Convey) ToRequestDefault(request *http.Request) {
+	c.ToRequest(DefaultConveyHeader, request)
+}
+
+// ToRequest adds this Convey to the given request.  The header will contain
+// the base64-encoded JSON value of this Convey object.
+func (c *Convey) ToRequest(headerName string, request *http.Request) {
+	request.Header.Set(headerName, c.Encoded)
+}
+
 // ConveyParser represents the various ways to obtain a Convey instance.  Instances
 // are safe for concurrent access.
 type ConveyParser interface {

@@ -17,6 +17,14 @@ func (id ID) Bytes() []byte {
 	return []byte(id)
 }
 
+func (id ID) ToRequestDefault(request *http.Request) {
+	id.ToRequest(DefaultDeviceNameHeader, request)
+}
+
+func (id ID) ToRequest(headerName string, request *http.Request) {
+	request.Header.Set(headerName, string(id))
+}
+
 const (
 	// InvalidID is a known, global device identifier that is not valid.  Useful
 	// when returning errors.

@@ -55,6 +55,8 @@ type device struct {
 	writeTimeout time.Duration
 	messages     chan *wrp.Message
 	shutdown     chan struct{}
+
+	disconnectListener DisconnectListener
 }
 
 func (d *device) ID() ID {
@@ -104,6 +106,7 @@ func (d *device) close(cause error, preClose func(*device)) {
 		defer d.connection.Close()
 		defer close(d.messages)
 		defer close(d.shutdown)
+		defer d.disconnectListener.OnDisconnect(d)
 
 		if preClose != nil {
 			preClose(d)
@@ -120,29 +123,24 @@ func (d *device) close(cause error, preClose func(*device)) {
 			case net.Error:
 				// when an I/O error occurs, don't trust that the connection can transmit a message
 			default:
+				// any other error is assumed to be an internal server error
 				d.writeCloseFrame(websocket.CloseInternalServerErr, cause.Error())
 			}
 		}
 	})
 }
 
-// pongHandler returns a function used for the pong handler on the
-// underlying connection
-func (d *device) pongHandler(pongCallback func(Interface, string)) func(string) error {
-	return func(data string) error {
-		defer pongCallback(d, data)
-		return d.updateReadDeadline()
-	}
-}
-
-func (d *device) readPump(messageCallback func(Interface, *wrp.Message), preClose func(*device)) {
+// readPump is a goroutine that services messages on the device's connection.
+// The MessageListener and the preClose function appropriate for a read-side termination
+// of the connection are passed to this method, since they are specific to read operations.
+func (d *device) readPump(messageListener MessageListener, readPreClose func(*device)) {
 	var (
 		err         error
 		messageType int
 		frame       io.Reader
 	)
 
-	defer d.close(err, preClose)
+	defer d.close(err, readPreClose)
 	decoder := wrp.NewDecoder(nil, wrp.Msgpack)
 
 	for {
@@ -166,23 +164,31 @@ func (d *device) readPump(messageCallback func(Interface, *wrp.Message), preClos
 			return
 		}
 
-		messageCallback(d, message)
+		messageListener.OnMessage(d, message)
 	}
 }
 
-func (d *device) writePump(pingPeriod time.Duration, pongCallback func(Interface, string), preClose func(*device)) {
+// writePump is a goroutine that services a message queue for a device.  This goroutine
+// also pings the device on the supplied period.  The pong listener and write-specifiec closure
+// are also passed to this method, as they are specific to the write-side of the device connection.
+func (d *device) writePump(pingPeriod time.Duration, pongListener PongListener, writePreClose func(*device)) {
 	var (
 		err   error
 		frame io.WriteCloser
 	)
 
-	defer d.close(err, preClose)
+	defer d.close(err, writePreClose)
 	encoder := wrp.NewEncoder(nil, wrp.Msgpack)
 
 	pingTicker := time.NewTicker(pingPeriod)
 	defer pingTicker.Stop()
 
-	d.connection.SetPongHandler(d.pongHandler(pongCallback))
+	d.connection.SetPongHandler(func(data string) error {
+		defer pongListener.OnPong(d, data)
+		return d.updateReadDeadline()
+	})
+
+	// identify who we're pinging on the wire, to make things easier to debug
 	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
 
 	for {
@@ -196,8 +202,8 @@ func (d *device) writePump(pingPeriod time.Duration, pongCallback func(Interface
 
 			encoder.Reset(frame)
 			if err = encoder.Encode(message); err != nil {
-				// no need to cleanup the frame, as closing the connection
-				// will release resources
+				// no need to close the frame if err != nil,
+				// since the defer will handle cleanup
 				return
 			}
 
