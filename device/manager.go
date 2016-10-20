@@ -21,6 +21,20 @@ type Manager interface {
 	// with the given ID
 	Disconnect(ID)
 
+	// DisconnectIf iterates over all devices known to this manager, applying the
+	// given predicate.  For any devices that result in true, this method disconnects them.
+	// Note that this method may pause connections and disconnections while it is executing.
+	// This method returns the number of devices that were disconnected.
+	//
+	// Only disconnection by ID is supported, which means that any identifier matching
+	// the predicate will result in *all* duplicate devices under that ID being removed.
+	DisconnectIf(func(ID) bool) int
+
+	// VisitAll applies the given visitor function to each device known to this manager.
+	// VisitAll will typically lock the internal data structures for reading, which will
+	// pause connections and disconnections while the visitor is applied.
+	VisitAll(func(Interface))
+
 	// Send sends a message to all devices registered with the given identifier
 	// This method returns the number of devices to which the message was enqueued.
 	Send(ID, *wrp.Message) int
@@ -33,6 +47,7 @@ func NewManager(o *Options) Manager {
 	}
 
 	return &websocketManager{
+		logger:       o.logger(),
 		idParser:     NewIDParser(o.DeviceNameHeader),
 		conveyParser: NewConveyParser(o.ConveyHeader, nil),
 		upgrader: websocket.Upgrader{
@@ -41,9 +56,13 @@ func NewManager(o *Options) Manager {
 			WriteBufferSize:  o.WriteBufferSize,
 			Subprotocols:     o.subprotocols(),
 		},
-		registry:               make(registry, o.initialRegistrySize()),
-		logger:                 o.logger(),
+
+		registry: make(registry, o.initialRegistrySize()),
+
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
+		pingPeriod:             o.pingPeriod(),
+		idlePeriod:             o.idlePeriod(),
+		writeTimeout:           o.writeTimeout(),
 		listeners:              o.Listeners.Clone(),
 	}
 }
@@ -58,12 +77,10 @@ type websocketManager struct {
 	registryLock sync.RWMutex
 
 	deviceMessageQueueSize int
-
-	pingPeriod   time.Duration
-	idleInterval time.Duration
-	writeTimeout time.Duration
-
-	listeners *Listeners
+	pingPeriod             time.Duration
+	idlePeriod             time.Duration
+	writeTimeout           time.Duration
+	listeners              *Listeners
 }
 
 func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request) (Interface, error) {
@@ -108,7 +125,7 @@ func (wm *websocketManager) newDevice(id ID, convey *Convey, c connection) *devi
 		connection:         c,
 		messages:           make(chan *wrp.Message, wm.deviceMessageQueueSize),
 		shutdown:           make(chan struct{}),
-		idleInterval:       wm.idleInterval,
+		idlePeriod:         wm.idlePeriod,
 		writeTimeout:       wm.writeTimeout,
 		disconnectListener: wm.listeners,
 	}
@@ -129,18 +146,51 @@ func (wm *websocketManager) removeOne(device *device) {
 	wm.registry.removeOne(device)
 }
 
-func (wm *websocketManager) Disconnect(id ID) {
-	wm.logger.Debug("Disconnect(%s)", id)
+func (wm *websocketManager) removeAll(id ID) []*device {
 	defer wm.registryLock.Unlock()
 	wm.registryLock.Lock()
-	removedDevices := wm.registry.removeAll(id)
+	return wm.registry.removeAll(id)
+}
+
+// removeIf removes devices matching the given predicate
+func (wm *websocketManager) removeIf(filter func(ID) bool) []*device {
+	defer wm.registryLock.Unlock()
+	wm.registryLock.Lock()
+	return wm.removeIf(filter)
+}
+
+func (wm *websocketManager) Disconnect(id ID) {
+	wm.logger.Debug("Disconnect(%s)", id)
+	removedDevices := wm.removeAll(id)
+
+	// perform disconnection outside the mutex
 	for _, device := range removedDevices {
 		// pass nil for the preClose, as we've already removed the device(s)
 		device.close(nil, nil)
 	}
 }
 
+func (wm *websocketManager) DisconnectIf(filter func(ID) bool) int {
+	wm.logger.Debug("DisconnectIf()")
+	removedDevices := wm.removeIf(filter)
+
+	// actual disconnection is done outside the mutex
+	for _, device := range removedDevices {
+		device.close(nil, nil)
+	}
+
+	return len(removedDevices)
+}
+
+func (wm *websocketManager) VisitAll(visitor func(Interface)) {
+	wm.logger.Debug("VisitAll")
+	defer wm.registryLock.RUnlock()
+	wm.registryLock.RLock()
+	wm.registry.visitAll(visitor)
+}
+
 func (wm *websocketManager) Send(id ID, message *wrp.Message) int {
+	wm.logger.Debug("Send(%s, %v)", id, message)
 	defer wm.registryLock.RUnlock()
 	wm.registryLock.RLock()
 	if devices, ok := wm.registry[id]; ok {

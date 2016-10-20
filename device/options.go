@@ -90,6 +90,22 @@ func (o *Options) pingPeriod() time.Duration {
 	return DefaultPingPeriod
 }
 
+func (o *Options) idlePeriod() time.Duration {
+	if o.IdlePeriod > 0 {
+		return o.IdlePeriod
+	}
+
+	return DefaultIdlePeriod
+}
+
+func (o *Options) writeTimeout() time.Duration {
+	if o.WriteTimeout > 0 {
+		return o.WriteTimeout
+	}
+
+	return DefaultWriteTimeout
+}
+
 func (o *Options) subprotocols() []string {
 	if len(o.Subprotocols) == 0 {
 		return nil

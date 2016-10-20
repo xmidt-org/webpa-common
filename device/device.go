@@ -51,7 +51,7 @@ type device struct {
 	closeOnce   sync.Once
 
 	connection   connection
-	idleInterval time.Duration
+	idlePeriod   time.Duration
 	writeTimeout time.Duration
 	messages     chan *wrp.Message
 	shutdown     chan struct{}
@@ -91,7 +91,7 @@ func (d *device) ping(message []byte) error {
 
 func (d *device) updateReadDeadline() error {
 	return d.connection.SetReadDeadline(
-		time.Now().Add(d.idleInterval),
+		time.Now().Add(d.idlePeriod),
 	)
 }
 
