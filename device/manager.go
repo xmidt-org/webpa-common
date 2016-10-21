@@ -15,7 +15,7 @@ import (
 type Manager interface {
 	// Connect upgrade an HTTP connection to a websocket and begins concurrent
 	// managment of the device.
-	Connect(http.ResponseWriter, *http.Request) (Interface, error)
+	Connect(http.ResponseWriter, *http.Request, http.Header) (Interface, error)
 
 	// Disconnect disconnects all devices (including duplicates) which connected
 	// with the given ID
@@ -84,7 +84,7 @@ type websocketManager struct {
 	listeners              *Listeners
 }
 
-func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request) (Interface, error) {
+func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	wm.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
 	id, err := wm.idHandler.FromRequest(request)
 	if err != nil {
@@ -98,7 +98,7 @@ func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.
 		return nil, err
 	}
 
-	connection, err := wm.upgrader.Upgrade(response, request, nil)
+	connection, err := wm.upgrader.Upgrade(response, request, responseHeader)
 	if err != nil {
 		// Upgrade already writes to the response
 		return nil, err

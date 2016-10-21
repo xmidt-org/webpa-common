@@ -15,7 +15,7 @@ func NewConnectHandler(manager Manager, logger logging.Logger) http.Handler {
 	}
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		device, err := manager.Connect(response, request)
+		device, err := manager.Connect(response, request, nil)
 		if err != nil {
 			logger.Error("Failed to connect device: %s", err)
 		} else {
