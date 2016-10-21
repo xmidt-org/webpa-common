@@ -17,14 +17,6 @@ func (id ID) Bytes() []byte {
 	return []byte(id)
 }
 
-func (id ID) ToRequestDefault(request *http.Request) {
-	id.ToRequest(DefaultDeviceNameHeader, request)
-}
-
-func (id ID) ToRequest(headerName string, request *http.Request) {
-	request.Header.Set(headerName, string(id))
-}
-
 const (
 	// InvalidID is a known, global device identifier that is not valid.  Useful
 	// when returning errors.
@@ -46,22 +38,45 @@ var (
 	idPattern = regexp.MustCompile(
 		`^(?P<prefix>(?i)mac|uuid|dns|serial):(?P<id>[^/]+)(?P<service>/[^/]+)?`,
 	)
+
+	defaultIDHandler = idHandler{
+		headerName: DefaultDeviceNameHeader,
+		missingHeaderError: httperror.New(
+			fmt.Sprintf("Missing header: %s", DefaultDeviceNameHeader),
+			http.StatusBadRequest,
+			nil,
+		),
+	}
 )
 
-// IDParser provides the parsing logic for device identifiers.  IDParser instances
+// IDHandler provides the HTTP-related logic for device identifiers.  IDHandler instances
 // are safe for concurrent access.
-type IDParser interface {
+type IDHandler interface {
+	// FromValue parses the given value to produce a canonicalized device identifier.
 	FromValue(string) (ID, error)
+
+	// FromRequest examines the given HTTP request to produce a canonicalized device
+	// identifier.
 	FromRequest(*http.Request) (ID, error)
+
+	// ToRequest inserts metadata for the given canonicalized ID into the supplied request.
+	// This method is useful for creating client-side requests for connecting to a device Manager.
+	ToRequest(ID, *http.Request)
 }
 
-// NewIDParser returns an IDParser using the given header.
-func NewIDParser(headerName string) IDParser {
+// DefaultIDHandler returns the canonicalized IDHandler configured with defaults
+func DefaultIDHandler() IDHandler {
+	return &defaultIDHandler
+}
+
+// NewIDHandler returns an IDHandler using the given header.  If headerName is empty,
+// this function simply returns the internal default IDHandler.
+func NewIDHandler(headerName string) IDHandler {
 	if len(headerName) == 0 {
-		headerName = DefaultDeviceNameHeader
+		return &defaultIDHandler
 	}
 
-	return &idParser{
+	return &idHandler{
 		headerName: headerName,
 		missingHeaderError: httperror.New(
 			fmt.Sprintf("Missing header: %s", headerName),
@@ -71,13 +86,13 @@ func NewIDParser(headerName string) IDParser {
 	}
 }
 
-// idParser is the internal IDParser implementation
-type idParser struct {
+// idHandler is the internal IDHandler implementation
+type idHandler struct {
 	headerName         string
 	missingHeaderError error
 }
 
-func (p *idParser) FromValue(value string) (ID, error) {
+func (h *idHandler) FromValue(value string) (ID, error) {
 	match := idPattern.FindStringSubmatch(value)
 	if match == nil {
 		return InvalidID, errors.New(fmt.Sprintf("Invalid device id: %s", value))
@@ -120,11 +135,15 @@ func (p *idParser) FromValue(value string) (ID, error) {
 	return ID(fmt.Sprintf("%s:%s", prefix, idPart)), nil
 }
 
-func (p *idParser) FromRequest(request *http.Request) (ID, error) {
-	deviceName := request.Header.Get(p.headerName)
+func (h *idHandler) FromRequest(request *http.Request) (ID, error) {
+	deviceName := request.Header.Get(h.headerName)
 	if len(deviceName) == 0 {
-		return InvalidID, p.missingHeaderError
+		return InvalidID, h.missingHeaderError
 	}
 
-	return p.FromValue(deviceName)
+	return h.FromValue(deviceName)
+}
+
+func (h *idHandler) ToRequest(id ID, request *http.Request) {
+	request.Header.Set(h.headerName, string(id))
 }

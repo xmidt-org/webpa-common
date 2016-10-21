@@ -37,6 +37,7 @@ type Manager interface {
 
 	// Send sends a message to all devices registered with the given identifier
 	// This method returns the number of devices to which the message was enqueued.
+	// If no devices were connected with the given ID, this method returns zero (0).
 	Send(ID, *wrp.Message) int
 }
 
@@ -47,9 +48,9 @@ func NewManager(o *Options) Manager {
 	}
 
 	return &websocketManager{
-		logger:       o.logger(),
-		idParser:     NewIDParser(o.DeviceNameHeader),
-		conveyParser: NewConveyParser(o.ConveyHeader, nil),
+		logger:        o.logger(),
+		idHandler:     NewIDHandler(o.DeviceNameHeader),
+		conveyHandler: NewConveyHandler(o.ConveyHeader, nil),
 		upgrader: websocket.Upgrader{
 			HandshakeTimeout: o.HandshakeTimeout,
 			ReadBufferSize:   o.ReadBufferSize,
@@ -68,10 +69,10 @@ func NewManager(o *Options) Manager {
 }
 
 type websocketManager struct {
-	logger       logging.Logger
-	idParser     IDParser
-	conveyParser ConveyParser
-	upgrader     websocket.Upgrader
+	logger        logging.Logger
+	idHandler     IDHandler
+	conveyHandler ConveyHandler
+	upgrader      websocket.Upgrader
 
 	registry     registry
 	registryLock sync.RWMutex
@@ -85,13 +86,13 @@ type websocketManager struct {
 
 func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request) (Interface, error) {
 	wm.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
-	id, err := wm.idParser.FromRequest(request)
+	id, err := wm.idHandler.FromRequest(request)
 	if err != nil {
 		httperror.Write(response, err)
 		return nil, err
 	}
 
-	convey, err := wm.conveyParser.FromRequest(request)
+	convey, err := wm.conveyHandler.FromRequest(request)
 	if err != nil {
 		httperror.Write(response, err)
 		return nil, err

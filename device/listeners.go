@@ -60,23 +60,27 @@ type Listeners struct {
 	pongListeners       []PongListener
 }
 
-func (l *Listeners) AddMessageListeners(listeners ...MessageListener) {
+func (l *Listeners) AddMessageListeners(listeners ...MessageListener) *Listeners {
 	l.messageListeners = append(l.messageListeners, listeners...)
+	return l
 }
 
-func (l *Listeners) AddConnectListeners(listeners ...ConnectListener) {
+func (l *Listeners) AddConnectListeners(listeners ...ConnectListener) *Listeners {
 	l.connectListeners = append(l.connectListeners, listeners...)
+	return l
 }
 
-func (l *Listeners) AddDisconnectListeners(listeners ...DisconnectListener) {
+func (l *Listeners) AddDisconnectListeners(listeners ...DisconnectListener) *Listeners {
 	l.disconnectListeners = append(l.disconnectListeners, listeners...)
+	return l
 }
 
-func (l *Listeners) AddPongListeners(listeners ...PongListener) {
+func (l *Listeners) AddPongListeners(listeners ...PongListener) *Listeners {
 	l.pongListeners = append(l.pongListeners, listeners...)
+	return l
 }
 
-func (l *Listeners) Add(listeners ...interface{}) {
+func (l *Listeners) Add(listeners ...interface{}) *Listeners {
 	for _, listener := range listeners {
 		if messageListener, ok := listener.(MessageListener); ok {
 			l.AddMessageListeners(messageListener)
@@ -94,6 +98,8 @@ func (l *Listeners) Add(listeners ...interface{}) {
 			l.AddPongListeners(pongListener)
 		}
 	}
+
+	return l
 }
 
 func (l *Listeners) OnMessage(device Interface, message *wrp.Message) {
