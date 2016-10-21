@@ -9,13 +9,13 @@ import (
 
 // NewConnectHandler produces an http.Handler that allows devices to connect
 // to a specific Manager.
-func NewConnectHandler(manager Manager, logger logging.Logger) http.Handler {
+func NewConnectHandler(manager Manager, responseHeader http.Header, logger logging.Logger) http.Handler {
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		device, err := manager.Connect(response, request, nil)
+		device, err := manager.Connect(response, request, responseHeader)
 		if err != nil {
 			logger.Error("Failed to connect device: %s", err)
 		} else {
