@@ -12,7 +12,17 @@ func TestDispatchWithBreaker(t *testing.T) {
 	
 	timeout := time.Second * 10
 	threshold := int64(3)
-	dispatcher := DispatcherWithBreaker(5, 100, testLogger, timeout, threshold)
+	client := &http.Client{
+		Transport: &http.Transport{},
+		Timeout: timeout,
+	}	
+
+	dispatcher := (&Client{
+		Workers: 5,
+		QueueSize: 100,
+		Logger: testLogger,
+		Handler: BreakerClient(timeout, threshold, testLogger, client),
+	}).Start()
 	
 	url := "http://www.google.com/"
 	req, _ := http.NewRequest("GET", url, nil)
