@@ -20,11 +20,18 @@ type Interface interface {
 	// but we don't want to turn away duped devices.
 	ID() ID
 
+	// Key returns the unique routing key associated with this device.  No two
+	// devices connected to a single manager will have the same Key.
+	Key() Key
+
 	// Convey returns the payload to convey with each web-bound request
 	Convey() *Convey
 
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
+
+	// Send dispatches a message to this device
+	Send(*wrp.Message)
 }
 
 // connection is the low-level interface that websocket connections must implement.
@@ -45,6 +52,7 @@ type connection interface {
 // device is the internal Interface implementation
 type device struct {
 	id          ID
+	key         Key
 	convey      *Convey
 	connectedAt time.Time
 	logger      logging.Logger
@@ -63,6 +71,10 @@ func (d *device) ID() ID {
 	return d.id
 }
 
+func (d *device) Key() Key {
+	return d.key
+}
+
 func (d *device) Convey() *Convey {
 	return d.convey
 }
@@ -71,7 +83,7 @@ func (d *device) ConnectedAt() time.Time {
 	return d.connectedAt
 }
 
-func (d *device) sendMessage(message *wrp.Message) {
+func (d *device) Send(message *wrp.Message) {
 	d.messages <- message
 }
 

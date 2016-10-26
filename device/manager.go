@@ -58,7 +58,7 @@ func NewManager(o *Options) Manager {
 			Subprotocols:     o.subprotocols(),
 		},
 
-		registry: make(registry, o.initialRegistrySize()),
+		registry: newRegistry(o.initialRegistrySize()),
 
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
@@ -74,7 +74,7 @@ type websocketManager struct {
 	conveyHandler ConveyHandler
 	upgrader      websocket.Upgrader
 
-	registry     registry
+	registry     *registry
 	registryLock sync.RWMutex
 
 	deviceMessageQueueSize int
@@ -141,13 +141,13 @@ func (wm *websocketManager) add(device *device) {
 
 // removeOne deletes a single device from the registry, leaving any other
 // duplicates intact.
-func (wm *websocketManager) removeOne(device *device) {
+func (wm *websocketManager) removeOne(d *device) {
 	defer wm.registryLock.Unlock()
 	wm.registryLock.Lock()
-	wm.registry.removeOne(device)
+	wm.registry.removeOne(d.id, d.key)
 }
 
-func (wm *websocketManager) removeAll(id ID) []*device {
+func (wm *websocketManager) removeAll(id ID) keyMap {
 	defer wm.registryLock.Unlock()
 	wm.registryLock.Lock()
 	return wm.registry.removeAll(id)
@@ -194,13 +194,8 @@ func (wm *websocketManager) Send(id ID, message *wrp.Message) int {
 	wm.logger.Debug("Send(%s, %v)", id, message)
 	defer wm.registryLock.RUnlock()
 	wm.registryLock.RLock()
-	if devices, ok := wm.registry[id]; ok {
-		for _, device := range devices {
-			device.sendMessage(message)
-		}
 
-		return len(devices)
-	}
-
-	return 0
+	return wm.registry.visitID(id, func(d Interface) {
+		d.Send(message)
+	})
 }

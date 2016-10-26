@@ -1,56 +1,95 @@
 package device
 
-// registry is a basic map type which permits multiple devices to be associated
-// with a single canonical identifier.
-type registry map[ID][]*device
+import (
+	"fmt"
+)
 
-func (r registry) add(device *device) {
-	key := device.id
-	devices := r[key]
-	r[key] = append(devices, device)
+type Key string
+type keyMap map[Key]*device
+
+type registry struct {
+	byID  map[ID]keyMap
+	byKey keyMap
 }
 
-func (r registry) removeOne(device *device) {
-	key := device.id
-	devices := r[key]
+func newRegistry(initialSize int) *registry {
+	return &registry{
+		byID:  make(map[ID]keyMap, initialSize),
+		byKey: make(keyMap, initialSize),
+	}
+}
 
-	if len(devices) == 1 && devices[0] == device {
-		delete(r, key)
-		return
+func (r *registry) add(d *device) error {
+	if _, ok := r.byKey[d.key]; ok {
+		return fmt.Errorf("Duplicate device key: %s", d.key)
 	}
 
-	for index, candidate := range devices {
-		if candidate == device {
-			r[key] = append(devices[:index], devices[index+1:]...)
-			return
+	r.byKey[d.key] = d
+	if devices, ok := r.byID[d.id]; ok {
+		devices[d.key] = d
+	} else {
+		r.byID[d.id] = keyMap{d.key: d}
+	}
+
+	return nil
+}
+
+func (r *registry) removeOne(id ID, k Key) *device {
+	if deleted, ok := r.byKey[k]; ok {
+		delete(r.byKey, k)
+		if devices, ok := r.byID[id]; ok {
+			delete(devices, k)
+			if len(devices) == 1 {
+				delete(r.byID, id)
+			}
 		}
+
+		return deleted
 	}
+
+	return nil
 }
 
-func (r registry) removeAll(key ID) []*device {
-	if devices, ok := r[key]; ok {
-		delete(r, key)
+func (r *registry) removeAll(id ID) keyMap {
+	if devices, ok := r.byID[id]; ok {
+		delete(r.byID, id)
+		for _, d := range devices {
+			delete(r.byKey, d.key)
+		}
+
 		return devices
 	}
 
 	return nil
 }
 
-func (r registry) removeIf(filter func(ID) bool) (removedDevices []*device) {
-	for id, devices := range r {
+func (r *registry) removeIf(filter func(ID) bool) (removedDevices []*device) {
+	for id, devices := range r.byID {
 		if filter(id) {
-			removedDevices = append(removedDevices, devices...)
-			delete(r, id)
+			delete(r.byID, id)
+			for _, d := range devices {
+				delete(r.byKey, d.key)
+				removedDevices = append(removedDevices, d)
+			}
 		}
 	}
 
 	return
 }
 
-func (r registry) visitAll(visitor func(Interface)) {
-	for _, devices := range r {
-		for _, device := range devices {
-			visitor(device)
-		}
+func (r *registry) visitAll(visitor func(Interface)) int {
+	for _, device := range r.byKey {
+		visitor(device)
 	}
+
+	return len(r.byKey)
+}
+
+func (r *registry) visitID(id ID, visitor func(Interface)) int {
+	devices := r.byID[id]
+	for _, d := range devices {
+		visitor(d)
+	}
+
+	return len(devices)
 }
