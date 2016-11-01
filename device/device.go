@@ -1,18 +1,35 @@
 package device
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"github.com/gorilla/websocket"
-	"io"
-	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
+const (
+	stateOpen int32 = iota
+	stateClosed
+)
+
+var (
+	nullConvey = []byte("null")
+)
+
 // Interface is the core type for this package.  It provides
-// access to public device metadata.
+// access to public device metadata and the ability to send messages
+// directly the a device.
+//
+// Instances are mostly immutable, and have a strict lifecycle.  Devices are
+// initially open, and when closed cannot be reused or reopened.  A new
+// device instance is required if further communication is desired after
+// the original device instance is closed.
+//
+// The only piece of metadata that is mutable is the Key.  A device Manager
+// allows clients to change the routing Key of a device.  All other public
+// metadata is immutable.
 type Interface interface {
 	// ID returns the canonicalized identifer for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
@@ -20,8 +37,7 @@ type Interface interface {
 	// but we don't want to turn away duped devices.
 	ID() ID
 
-	// Key returns the unique routing key associated with this device.  No two
-	// devices connected to a single manager will have the same Key.
+	// Key returns the current unique key for this device.
 	Key() Key
 
 	// Convey returns the payload to convey with each web-bound request
@@ -30,41 +46,95 @@ type Interface interface {
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
 
-	// Send dispatches a message to this device
-	Send(*wrp.Message)
+	// Closed tests if this device is closed.  When this method returns true,
+	// any attempt to send messages to this device will result in an error.
+	//
+	// Once closed, a device cannot be reopened.
+	Closed() bool
+
+	// Send dispatches a message to this device.  This method is useful outside
+	// a Manager if multiple messages should be sent to the device.
+	//
+	// This method will return an error if this device has been closed or
+	// if the device is busy and cannot accept more messages.
+	Send(*wrp.Message) error
 }
 
-// connection is the low-level interface that websocket connections must implement.
-// gorilla's *websocket.Conn implements this interface.
-type connection interface {
-	io.Closer
-
-	NextReader() (int, io.Reader, error)
-	NextWriter(int) (io.WriteCloser, error)
-
-	SetReadDeadline(time.Time) error
-	SetWriteDeadline(time.Time) error
-	SetPongHandler(func(string) error)
-
-	WriteControl(int, []byte, time.Time) error
-}
-
-// device is the internal Interface implementation
+// device is the internal Interface implementation.  This type holds the internal
+// metadata exposed publicly, and provides some internal data structures for housekeeping.
 type device struct {
-	id          ID
-	key         Key
+	id  ID
+	key atomic.Value
+
 	convey      *Convey
 	connectedAt time.Time
-	logger      logging.Logger
-	closeOnce   sync.Once
 
-	connection   connection
-	idlePeriod   time.Duration
-	writeTimeout time.Duration
-	messages     chan *wrp.Message
-	shutdown     chan struct{}
+	closeOnce sync.Once
+	state     int32
 
-	disconnectListener DisconnectListener
+	shutdown chan bool
+	messages chan *wrp.Message
+}
+
+func newDevice(id ID, initialKey Key, convey *Convey, queueSize int) *device {
+	d := &device{
+		id:          id,
+		convey:      convey,
+		connectedAt: time.Now(),
+		state:       stateOpen,
+		shutdown:    make(chan bool, 1),
+		messages:    make(chan *wrp.Message, queueSize),
+	}
+
+	d.updateKey(initialKey)
+	return d
+}
+
+// MarshalJSON exposes public metadata about this device as JSON
+func (d *device) MarshalJSON() ([]byte, error) {
+	conveyJSON := nullConvey
+	if d.convey != nil {
+		var conveyError error
+		if conveyJSON, conveyError = d.convey.MarshalJSON(); conveyError != nil {
+			return nil, conveyError
+		}
+	}
+
+	output := new(bytes.Buffer)
+	fmt.Fprintf(
+		output,
+		`{"id": "%s", "key": "%s", "pending": %d, "connectedAt": "%s", "closed": %t, "convey": %s}`,
+		d.id,
+		d.Key(),
+		len(d.messages),
+		d.connectedAt.Format(time.RFC3339),
+		d.Closed(),
+		conveyJSON,
+	)
+
+	return output.Bytes(), nil
+}
+
+// String returns the JSON representation of this device
+func (d *device) String() string {
+	if data, err := d.MarshalJSON(); err != nil {
+		return err.Error()
+	} else {
+		return string(data)
+	}
+}
+
+// requestShutdown asynchronously posts to the shutdown channel, and returns
+func (d *device) requestShutdown() {
+	select {
+	case d.shutdown <- true:
+	default:
+	}
+}
+
+// close simply sets the atomic state appropriately
+func (d *device) close() {
+	atomic.StoreInt32(&d.state, stateClosed)
 }
 
 func (d *device) ID() ID {
@@ -72,7 +142,11 @@ func (d *device) ID() ID {
 }
 
 func (d *device) Key() Key {
-	return d.key
+	return d.key.Load().(Key)
+}
+
+func (d *device) updateKey(newKey Key) {
+	d.key.Store(newKey)
 }
 
 func (d *device) Convey() *Convey {
@@ -83,149 +157,19 @@ func (d *device) ConnectedAt() time.Time {
 	return d.connectedAt
 }
 
-func (d *device) Send(message *wrp.Message) {
-	d.messages <- message
+func (d *device) Closed() bool {
+	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) writeCloseFrame(closeCode int, text string) {
-	closeMessage := websocket.FormatCloseMessage(closeCode, text)
-	closeDeadline := time.Now().Add(d.writeTimeout)
-	if err := d.connection.WriteControl(websocket.CloseMessage, closeMessage, closeDeadline); err != nil {
-		d.logger.Error("[%s]: Error while writing close frame: %s", d.id, err)
+func (d *device) Send(message *wrp.Message) error {
+	if d.Closed() {
+		return NewClosedError(d.id, d.Key())
 	}
-}
 
-// ping sends a ping to the device
-func (d *device) ping(message []byte) error {
-	pingDeadline := time.Now().Add(d.writeTimeout)
-	return d.connection.WriteControl(websocket.PingMessage, message, pingDeadline)
-}
-
-func (d *device) updateReadDeadline() error {
-	return d.connection.SetReadDeadline(
-		time.Now().Add(d.idlePeriod),
-	)
-}
-
-// close handles sending a CloseMessage and shutting down the underlying socket.  If supplied,
-// preClose is invoked prior to anything else.
-//
-// This method is idempotent.  It executes within a sync.Once, and is thus safe to call
-// multiple times.  Only the first call to close will invoke preClose.  Subsequent invocations
-// ignore the preClose function.
-func (d *device) close(cause error, preClose func(*device)) {
-	d.closeOnce.Do(func() {
-		defer d.connection.Close()
-		defer close(d.messages)
-		defer close(d.shutdown)
-		defer d.disconnectListener.OnDisconnect(d)
-
-		if preClose != nil {
-			preClose(d)
-		}
-
-		if cause == nil {
-			// when there's no error, e.g. when a device is disconnected through the manager,
-			// then send a close frame
-			d.writeCloseFrame(websocket.CloseNormalClosure, string(d.id))
-		} else {
-			switch cause.(type) {
-			case *websocket.CloseError:
-				// the client sent a close frame to us in this case, so no need for us to send one
-			case net.Error:
-				// when an I/O error occurs, don't trust that the connection can transmit a message
-			default:
-				// any other error is assumed to be an internal server error
-				d.writeCloseFrame(websocket.CloseInternalServerErr, cause.Error())
-			}
-		}
-	})
-}
-
-// readPump is a goroutine that services messages on the device's connection.
-// The MessageListener and the preClose function appropriate for a read-side termination
-// of the connection are passed to this method, since they are specific to read operations.
-func (d *device) readPump(messageListener MessageListener, readPreClose func(*device)) {
-	var (
-		err         error
-		messageType int
-		frame       io.Reader
-	)
-
-	defer d.close(err, readPreClose)
-	decoder := wrp.NewDecoder(nil, wrp.Msgpack)
-
-	for {
-		if err = d.updateReadDeadline(); err != nil {
-			return
-		}
-
-		if messageType, frame, err = d.connection.NextReader(); err != nil {
-			return
-		}
-
-		if messageType != websocket.BinaryMessage {
-			// Skip anything that's not a binary message
-			// TODO: Log this
-			continue
-		}
-
-		decoder.Reset(frame)
-		message := new(wrp.Message)
-		if err = decoder.Decode(message); err != nil {
-			return
-		}
-
-		messageListener.OnMessage(d, message)
-	}
-}
-
-// writePump is a goroutine that services a message queue for a device.  This goroutine
-// also pings the device on the supplied period.  The pong listener and write-specifiec closure
-// are also passed to this method, as they are specific to the write-side of the device connection.
-func (d *device) writePump(pingPeriod time.Duration, pongListener PongListener, writePreClose func(*device)) {
-	var (
-		err   error
-		frame io.WriteCloser
-	)
-
-	defer d.close(err, writePreClose)
-	encoder := wrp.NewEncoder(nil, wrp.Msgpack)
-
-	pingTicker := time.NewTicker(pingPeriod)
-	defer pingTicker.Stop()
-
-	d.connection.SetPongHandler(func(data string) error {
-		defer pongListener.OnPong(d, data)
-		return d.updateReadDeadline()
-	})
-
-	// identify who we're pinging on the wire, to make things easier to debug
-	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
-
-	for {
-		select {
-		case <-d.shutdown:
-			return
-		case message := <-d.messages:
-			if frame, err = d.connection.NextWriter(websocket.BinaryMessage); err != nil {
-				return
-			}
-
-			encoder.Reset(frame)
-			if err = encoder.Encode(message); err != nil {
-				// no need to close the frame if err != nil,
-				// since the defer will handle cleanup
-				return
-			}
-
-			if err = frame.Close(); err != nil {
-				return
-			}
-		case <-pingTicker.C:
-			if err = d.ping(pingMessage); err != nil {
-				return
-			}
-		}
+	select {
+	case d.messages <- message:
+		return nil
+	default:
+		return NewBusyError(d.id, d.Key())
 	}
 }

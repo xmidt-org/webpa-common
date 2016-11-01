@@ -1,95 +1,142 @@
 package device
 
-import (
-	"fmt"
-)
+// idMap stores devices keyed by their canonical ID.  Multiple devices are
+// allowed to have the same ID.
+type idMap map[ID]map[*device]bool
 
-type Key string
+func (m idMap) add(id ID, d *device) {
+	if duplicates, ok := m[id]; ok {
+		duplicates[d] = true
+	} else {
+		m[id] = map[*device]bool{d: true}
+	}
+}
+
+func (m idMap) removeOne(d *device) {
+	if duplicates, ok := m[d.id]; ok {
+		delete(duplicates, d)
+		if len(duplicates) == 0 {
+			delete(m, d.id)
+		}
+	}
+}
+
+func (m idMap) removeAll(id ID) (removed []*device) {
+	if duplicates, ok := m[id]; ok {
+		removed = make([]*device, 0, len(duplicates))
+		for d, _ := range duplicates {
+			removed = append(removed, d)
+		}
+
+		delete(m, id)
+	}
+
+	return
+}
+
+// keyMap stores devices keyed by their routing Key.  Routing keys are
+// unique across a given keyMap.
 type keyMap map[Key]*device
 
+func (m keyMap) add(k Key, d *device) error {
+	if _, ok := m[k]; ok {
+		return NewDuplicateKeyError(k)
+	}
+
+	m[k] = d
+	return nil
+}
+
+func (m keyMap) remove(k Key) bool {
+	if _, ok := m[k]; ok {
+		delete(m, k)
+		return true
+	}
+
+	return false
+}
+
+// registry is an internal type that stores mappings of devices
 type registry struct {
-	byID  map[ID]keyMap
-	byKey keyMap
+	ids  idMap
+	keys keyMap
 }
 
-func newRegistry(initialSize int) *registry {
+func newRegistry(initialCapacity int) *registry {
 	return &registry{
-		byID:  make(map[ID]keyMap, initialSize),
-		byKey: make(keyMap, initialSize),
+		ids:  make(idMap, initialCapacity),
+		keys: make(keyMap, initialCapacity),
 	}
 }
 
-func (r *registry) add(d *device) error {
-	if _, ok := r.byKey[d.key]; ok {
-		return fmt.Errorf("Duplicate device key: %s", d.key)
-	}
-
-	r.byKey[d.key] = d
-	if devices, ok := r.byID[d.id]; ok {
-		devices[d.key] = d
-	} else {
-		r.byID[d.id] = keyMap{d.key: d}
-	}
-
-	return nil
-}
-
-func (r *registry) removeOne(id ID, k Key) *device {
-	if deleted, ok := r.byKey[k]; ok {
-		delete(r.byKey, k)
-		if devices, ok := r.byID[id]; ok {
-			delete(devices, k)
-			if len(devices) == 1 {
-				delete(r.byID, id)
-			}
+func (r *registry) visitID(id ID, visitor func(*device)) int {
+	if duplicates, ok := r.ids[id]; ok {
+		for d, _ := range duplicates {
+			visitor(d)
 		}
 
-		return deleted
+		return len(duplicates)
 	}
 
-	return nil
+	return 0
 }
 
-func (r *registry) removeAll(id ID) keyMap {
-	if devices, ok := r.byID[id]; ok {
-		delete(r.byID, id)
-		for _, d := range devices {
-			delete(r.byKey, d.key)
-		}
-
-		return devices
+func (r *registry) visitKey(k Key, visitor func(*device)) int {
+	if d, ok := r.keys[k]; ok {
+		visitor(d)
+		return 1
 	}
 
-	return nil
+	return 0
 }
 
-func (r *registry) removeIf(filter func(ID) bool) (removedDevices []*device) {
-	for id, devices := range r.byID {
+func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	for id, duplicates := range r.ids {
 		if filter(id) {
-			delete(r.byID, id)
-			for _, d := range devices {
-				delete(r.byKey, d.key)
-				removedDevices = append(removedDevices, d)
+			for d, _ := range duplicates {
+				visitor(d)
 			}
+
+			count += len(duplicates)
 		}
 	}
 
 	return
 }
 
-func (r *registry) visitAll(visitor func(Interface)) int {
-	for _, device := range r.byKey {
-		visitor(device)
-	}
-
-	return len(r.byKey)
-}
-
-func (r *registry) visitID(id ID, visitor func(Interface)) int {
-	devices := r.byID[id]
-	for _, d := range devices {
+func (r *registry) visitAll(visitor func(*device)) int {
+	for _, d := range r.keys {
 		visitor(d)
 	}
 
-	return len(devices)
+	return len(r.keys)
+}
+
+func (r *registry) add(d *device) error {
+	k := d.Key()
+	if err := r.keys.add(k, d); err != nil {
+		return err
+	}
+
+	r.ids.add(d.id, d)
+	return nil
+}
+
+func (r *registry) removeOne(d *device) bool {
+	k := d.Key()
+	if !r.keys.remove(k) {
+		return false
+	}
+
+	r.ids.removeOne(d)
+	return true
+}
+
+func (r *registry) removeAll(id ID) (removed []*device) {
+	removed = r.ids.removeAll(id)
+	for _, d := range removed {
+		r.keys.remove(d.Key())
+	}
+
+	return
 }

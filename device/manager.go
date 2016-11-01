@@ -1,10 +1,9 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/httperror"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"github.com/gorilla/websocket"
 	"net/http"
 	"sync"
 	"time"
@@ -18,8 +17,10 @@ type Manager interface {
 	Connect(http.ResponseWriter, *http.Request, http.Header) (Interface, error)
 
 	// Disconnect disconnects all devices (including duplicates) which connected
-	// with the given ID
-	Disconnect(ID)
+	// with the given ID.  This method returns the number of devices disconnected,
+	// which can be zero or a positive integer.  Multiple devices are permitted with
+	// the same ID, and this method disconnects all duplicate devices associated with that ID.
+	Disconnect(ID) int
 
 	// DisconnectIf iterates over all devices known to this manager, applying the
 	// given predicate.  For any devices that result in true, this method disconnects them.
@@ -35,167 +36,254 @@ type Manager interface {
 	// pause connections and disconnections while the visitor is applied.
 	VisitAll(func(Interface))
 
-	// Send sends a message to all devices registered with the given identifier
-	// This method returns the number of devices to which the message was enqueued.
-	// If no devices were connected with the given ID, this method returns zero (0).
-	Send(ID, *wrp.Message) int
+	// Send dispatches a message to all devices registered with the given canonical ID.
+	// An optional callback can be supplied to allow the caller to receive information
+	// for each send attempt.  This callback will be invoked for each send, successes
+	// being indicated by a nil error.
+	Send(ID, *wrp.Message, func(Interface, error)) error
+
+	// SendOne attempts to send a message to the single, unique device identified by the Key.
+	SendOne(Key, *wrp.Message) error
 }
 
-// NewManager constructs a Manager using a set of Options.
-func NewManager(o *Options) Manager {
-	if o == nil {
-		o = &defaultOptions
+// NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
+// created from the options if one is not supplied.
+func NewManager(o *Options, cf ConnectionFactory) Manager {
+	if cf == nil {
+		cf = NewConnectionFactory(o)
 	}
 
-	return &websocketManager{
-		logger:        o.logger(),
-		idHandler:     NewIDHandler(o.DeviceNameHeader),
-		conveyHandler: NewConveyHandler(o.ConveyHeader, nil),
-		upgrader: websocket.Upgrader{
-			HandshakeTimeout: o.HandshakeTimeout,
-			ReadBufferSize:   o.ReadBufferSize,
-			WriteBufferSize:  o.WriteBufferSize,
-			Subprotocols:     o.subprotocols(),
-		},
+	return &manager{
+		logger: o.logger(),
 
-		registry: newRegistry(o.initialRegistrySize()),
+		deviceNameHeader:             o.deviceNameHeader(),
+		missingDeviceNameHeaderError: fmt.Errorf("Missing header: %s", o.deviceNameHeader()),
 
+		conveyHeader: o.conveyHeader(),
+
+		connectionFactory:      cf,
+		keyFunc:                o.keyFunc(),
+		registry:               newRegistry(o.initialCapacity()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
-		idlePeriod:             o.idlePeriod(),
-		writeTimeout:           o.writeTimeout(),
-		listeners:              o.Listeners.Clone(),
+		listeners:              o.listeners(),
 	}
 }
 
-type websocketManager struct {
-	logger        logging.Logger
-	idHandler     IDHandler
-	conveyHandler ConveyHandler
-	upgrader      websocket.Upgrader
+// manager is the internal Manager implementation.
+type manager struct {
+	logger logging.Logger
 
-	registry     *registry
-	registryLock sync.RWMutex
+	deviceNameHeader             string
+	missingDeviceNameHeaderError error
+
+	conveyHeader string
+
+	connectionFactory ConnectionFactory
+	keyFunc           KeyFunc
+
+	lock     sync.RWMutex
+	registry *registry
 
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
-	idlePeriod             time.Duration
-	writeTimeout           time.Duration
 	listeners              *Listeners
 }
 
-func (wm *websocketManager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
-	wm.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
-	id, err := wm.idHandler.FromRequest(request)
+func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
+	m.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
+	deviceName := request.Header.Get(m.deviceNameHeader)
+	if len(deviceName) == 0 {
+		http.Error(response, m.missingDeviceNameHeaderError.Error(), http.StatusBadRequest)
+		return nil, m.missingDeviceNameHeaderError
+	}
+
+	id, err := ParseID(deviceName)
 	if err != nil {
-		httperror.Write(response, err)
+		badDeviceNameError := fmt.Errorf("Bad device name: %s", err)
+		http.Error(response, badDeviceNameError.Error(), http.StatusBadRequest)
+		return nil, badDeviceNameError
+	}
+
+	var convey *Convey
+	if rawConvey := request.Header.Get(m.conveyHeader); len(rawConvey) > 0 {
+		convey, err = ParseConvey(rawConvey)
+		if err != nil {
+			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", rawConvey, err)
+			http.Error(response, badConveyError.Error(), http.StatusBadRequest)
+			return nil, badConveyError
+		}
+	}
+
+	var initialKey Key
+	if initialKey, err = m.keyFunc(id, convey, request); err != nil {
+		keyError := fmt.Errorf("Unable to obtain key for device [%s]: %s", id, err)
+		http.Error(response, keyError.Error(), http.StatusBadRequest)
+		return nil, keyError
+	}
+
+	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
+	if err != nil {
 		return nil, err
 	}
 
-	convey, err := wm.conveyHandler.FromRequest(request)
-	if err != nil {
-		httperror.Write(response, err)
-		return nil, err
-	}
+	d := newDevice(id, initialKey, convey, m.deviceMessageQueueSize)
 
-	connection, err := wm.upgrader.Upgrade(response, request, responseHeader)
-	if err != nil {
-		// Upgrade already writes to the response
-		return nil, err
-	}
-
-	device := wm.newDevice(id, convey, connection)
-	go device.readPump(wm.listeners, wm.removeOne)
-	go device.writePump(wm.pingPeriod, wm.listeners, wm.removeOne)
-
-	wm.add(device)
-	wm.listeners.OnConnect(device)
-	return device, nil
-}
-
-// newDevice is an internal Factory Method for devices.  This method only
-// handles the instantiation of a device.
-func (wm *websocketManager) newDevice(id ID, convey *Convey, c connection) *device {
-	wm.logger.Debug("newDevice(%s, %v, %v)", id, convey, c)
-
-	return &device{
-		id:                 id,
-		convey:             convey,
-		connectedAt:        time.Now(),
-		logger:             wm.logger,
-		connection:         c,
-		messages:           make(chan *wrp.Message, wm.deviceMessageQueueSize),
-		shutdown:           make(chan struct{}),
-		idlePeriod:         wm.idlePeriod,
-		writeTimeout:       wm.writeTimeout,
-		disconnectListener: wm.listeners,
-	}
-}
-
-// add handles the addition of a new device, which might possibly be a duplicate
-func (wm *websocketManager) add(device *device) {
-	defer wm.registryLock.Unlock()
-	wm.registryLock.Lock()
-	wm.registry.add(device)
-}
-
-// removeOne deletes a single device from the registry, leaving any other
-// duplicates intact.
-func (wm *websocketManager) removeOne(d *device) {
-	defer wm.registryLock.Unlock()
-	wm.registryLock.Lock()
-	wm.registry.removeOne(d.id, d.key)
-}
-
-func (wm *websocketManager) removeAll(id ID) keyMap {
-	defer wm.registryLock.Unlock()
-	wm.registryLock.Lock()
-	return wm.registry.removeAll(id)
-}
-
-// removeIf removes devices matching the given predicate
-func (wm *websocketManager) removeIf(filter func(ID) bool) []*device {
-	defer wm.registryLock.Unlock()
-	wm.registryLock.Lock()
-	return wm.removeIf(filter)
-}
-
-func (wm *websocketManager) Disconnect(id ID) {
-	wm.logger.Debug("Disconnect(%s)", id)
-	removedDevices := wm.removeAll(id)
-
-	// perform disconnection outside the mutex
-	for _, device := range removedDevices {
-		// pass nil for the preClose, as we've already removed the device(s)
-		device.close(nil, nil)
-	}
-}
-
-func (wm *websocketManager) DisconnectIf(filter func(ID) bool) int {
-	wm.logger.Debug("DisconnectIf()")
-	removedDevices := wm.removeIf(filter)
-
-	// actual disconnection is done outside the mutex
-	for _, device := range removedDevices {
-		device.close(nil, nil)
-	}
-
-	return len(removedDevices)
-}
-
-func (wm *websocketManager) VisitAll(visitor func(Interface)) {
-	wm.logger.Debug("VisitAll")
-	defer wm.registryLock.RUnlock()
-	wm.registryLock.RLock()
-	wm.registry.visitAll(visitor)
-}
-
-func (wm *websocketManager) Send(id ID, message *wrp.Message) int {
-	wm.logger.Debug("Send(%s, %v)", id, message)
-	defer wm.registryLock.RUnlock()
-	wm.registryLock.RLock()
-
-	return wm.registry.visitID(id, func(d Interface) {
-		d.Send(message)
+	m.whenWriteLocked(func() {
+		m.registry.add(d)
 	})
+
+	go m.readPump(d, c)
+	go m.writePump(d, c)
+	m.listeners.OnConnect(d)
+
+	return d, nil
+}
+
+func (m *manager) whenWriteLocked(when func()) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	when()
+}
+
+func (m *manager) whenReadLocked(when func()) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+	when()
+}
+
+func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
+	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
+
+	d.closeOnce.Do(func() {
+		defer m.listeners.OnDisconnect(d)
+		defer d.close()
+
+		defer m.whenWriteLocked(func() {
+			m.registry.removeOne(d)
+		})
+
+		if pumpError != nil {
+			m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
+		}
+
+		if closeError := c.Close(); closeError != nil {
+			m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
+		}
+	})
+}
+
+func (m *manager) readPump(d *device, c Connection) {
+	m.logger.Debug("readPump(%s)", d.id)
+
+	var (
+		message   *wrp.Message
+		readError error
+	)
+
+	defer m.pumpClose(d, c, readError)
+
+	for {
+		message, readError = c.Read()
+		if readError != nil {
+			return
+		} else if message == nil {
+			m.logger.Warn("Skipping frame from device [%s]", d.id)
+			continue
+		}
+
+		m.listeners.OnMessage(d, message)
+	}
+}
+
+func (m *manager) writePump(d *device, c Connection) {
+	m.logger.Debug("writePump(%s)", d.id)
+
+	var writeError error
+	defer m.pumpClose(d, c, writeError)
+
+	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
+	pingTicker := time.NewTicker(m.pingPeriod)
+	defer pingTicker.Stop()
+
+	for writeError == nil {
+		select {
+		case <-d.shutdown:
+			writeError = c.SendClose()
+			return
+		case message := <-d.messages:
+			writeError = c.Write(message)
+		case <-pingTicker.C:
+			writeError = c.Ping(pingMessage)
+		}
+	}
+}
+
+func (m *manager) Disconnect(id ID) (count int) {
+	m.logger.Debug("Disconnect(%s)", id)
+
+	m.whenReadLocked(func() {
+		count = m.registry.visitID(id, func(d *device) {
+			d.requestShutdown()
+		})
+	})
+
+	return
+}
+
+func (m *manager) DisconnectIf(filter func(ID) bool) (count int) {
+	m.logger.Debug("DisconnectIf()")
+
+	m.whenReadLocked(func() {
+		count = m.registry.visitIf(filter, func(d *device) {
+			d.requestShutdown()
+		})
+	})
+
+	return count
+}
+
+func (m *manager) VisitAll(visitor func(Interface)) {
+	m.logger.Debug("VisitAll")
+
+	m.whenReadLocked(func() {
+		m.registry.visitAll(func(d *device) {
+			visitor(d)
+		})
+	})
+}
+
+func (m *manager) Send(id ID, message *wrp.Message, callback func(Interface, error)) (err error) {
+	m.logger.Debug("Send(%s)", id)
+
+	m.whenReadLocked(func() {
+		count := m.registry.visitID(id, func(d *device) {
+			sendError := d.Send(message)
+			if callback != nil {
+				callback(d, sendError)
+			}
+		})
+
+		if count < 1 {
+			err = NewMissingIDError(id)
+		}
+	})
+
+	return
+}
+
+func (m *manager) SendOne(k Key, message *wrp.Message) (err error) {
+	m.logger.Debug("SendOne(%s)", k)
+
+	m.whenReadLocked(func() {
+		count := m.registry.visitKey(k, func(d *device) {
+			err = d.Send(message)
+		})
+
+		if count < 1 {
+			err = NewMissingKeyError(k)
+		}
+	})
+
+	return
 }
