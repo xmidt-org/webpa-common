@@ -191,6 +191,14 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	})
 }
 
+// pongCallbackFor creates a callback that delegates to this Manager's Listeners
+// for the given device.
+func (m *manager) pongCallbackFor(d *device) func(string) {
+	return func(data string) {
+		m.listeners.OnPong(d, data)
+	}
+}
+
 func (m *manager) readPump(d *device, c Connection) {
 	m.logger.Debug("readPump(%s)", d.id)
 
@@ -200,6 +208,7 @@ func (m *manager) readPump(d *device, c Connection) {
 	)
 
 	defer m.pumpClose(d, c, readError)
+	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
 		message, readError = c.Read()
