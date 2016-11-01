@@ -29,17 +29,30 @@ type Manager interface {
 	//
 	// Only disconnection by ID is supported, which means that any identifier matching
 	// the predicate will result in *all* duplicate devices under that ID being removed.
+	//
+	// No methods on this Manager should be called from within the predicate function, or
+	// a deadlock will likely occur.
 	DisconnectIf(func(ID) bool) int
 
+	// VisitIf applies a visitor to any device matching the ID predicate.
+	//
+	// No methods on this Manager should be called from within either the predicate
+	// or the visitor, or a deadlock will most definitely occur.
+	VisitIf(func(ID) bool, func(Interface)) int
+
 	// VisitAll applies the given visitor function to each device known to this manager.
-	// VisitAll will typically lock the internal data structures for reading, which will
-	// pause connections and disconnections while the visitor is applied.
-	VisitAll(func(Interface))
+	//
+	// No methods on this Manager should be called from within the visitor function, or
+	// a deadlock will likely occur.
+	VisitAll(func(Interface)) int
 
 	// Send dispatches a message to all devices registered with the given canonical ID.
 	// An optional callback can be supplied to allow the caller to receive information
 	// for each send attempt.  This callback will be invoked for each send, successes
 	// being indicated by a nil error.
+	//
+	// No methods on this Manager should be called from within the callback function, or
+	// a deadlock will likely occur.
 	Send(ID, *wrp.Message, func(Interface, error)) error
 
 	// SendOne attempts to send a message to the single, unique device identified by the Key.
@@ -243,14 +256,26 @@ func (m *manager) DisconnectIf(filter func(ID) bool) (count int) {
 	return count
 }
 
-func (m *manager) VisitAll(visitor func(Interface)) {
+func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) (count int) {
+	m.logger.Debug("VisitIf")
+
+	m.whenReadLocked(func() {
+		count = m.registry.visitIf(filter, func(d *device) { visitor(d) })
+	})
+
+	return
+}
+
+func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	m.logger.Debug("VisitAll")
 
 	m.whenReadLocked(func() {
-		m.registry.visitAll(func(d *device) {
+		count = m.registry.visitAll(func(d *device) {
 			visitor(d)
 		})
 	})
+
+	return
 }
 
 func (m *manager) Send(id ID, message *wrp.Message, callback func(Interface, error)) (err error) {
