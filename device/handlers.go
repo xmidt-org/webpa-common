@@ -2,9 +2,11 @@ package device
 
 import (
 	"encoding/json"
-	"github.com/Comcast/webpa-common/httperror"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"io"
 	"net/http"
+	"sync"
 )
 
 // NewConnectHandler produces an http.Handler that allows devices to connect
@@ -26,30 +28,54 @@ func NewConnectHandler(manager Manager, responseHeader http.Header, logger loggi
 
 // NewDeviceListHandler returns an http.Handler that renders a JSON listing
 // of the devices within a manager.
-func NewDeviceListHandler(manager Manager, timeLayout string) http.Handler {
+func NewDeviceListHandler(manager Manager, logger logging.Logger) http.Handler {
+	if logger == nil {
+		logger = logging.DefaultLogger()
+	}
+
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		devices := make(map[ID][]map[string]interface{})
-		manager.VisitAll(func(device Interface) {
-			entry := map[string]interface{}{
-				"connectedAt": device.ConnectedAt().Format(timeLayout),
-			}
-
-			convey := device.Convey()
-			if convey != nil && len(convey.decoded) > 0 {
-				entry["convey"] = convey.decoded
-			}
-
-			key := device.ID()
-			devices[key] = append(devices[key], entry)
-		})
-
-		data, err := json.Marshal(devices)
-		if err != nil {
-			httperror.Write(response, err)
+		flusher := response.(http.Flusher)
+		response.Header().Set("Content-Type", "application/json")
+		if _, err := io.WriteString(response, `{"device": [`); err != nil {
+			logger.Error("Unable to write content: %s", err)
 			return
 		}
 
-		response.Header().Set("Content-Type", "application/json")
-		response.Write(data)
+		devices := make(chan Interface, 100)
+		finish := new(sync.WaitGroup)
+		finish.Add(1)
+
+		// to minimize the time we hold the read lock on the Manager, spawn a goroutine
+		// that collects devices and inserts them into an output buffer
+		go func() {
+			defer finish.Done()
+
+			needsDelimiter := false
+			for d := range devices {
+				if needsDelimiter {
+					io.WriteString(response, ",")
+				}
+
+				needsDelimiter = true
+				if data, err := json.Marshal(d); err != nil {
+					message := fmt.Sprintf("Unable to marshal device [%s] as JSON: %s", d.ID(), err)
+					logger.Error(message)
+					fmt.Fprintf(response, `"%s"`, message)
+				} else {
+					response.Write(data)
+				}
+
+				flusher.Flush()
+			}
+		}()
+
+		manager.VisitAll(func(d Interface) {
+			devices <- d
+		})
+
+		close(devices)
+		finish.Wait()
+		io.WriteString(response, `]}`)
+		flusher.Flush()
 	})
 }
