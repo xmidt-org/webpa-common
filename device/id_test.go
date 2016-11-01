@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func TestParseId(t *testing.T) {
+func TestParseID(t *testing.T) {
 	testData := []struct {
-		deviceId string
+		id       string
 		expected string
 		valid    bool
 	}{
@@ -27,19 +27,19 @@ func TestParseId(t *testing.T) {
 	}
 
 	for _, record := range testData {
-		id, err := ParseId(record.deviceId)
+		id, err := ParseID(record.id)
 
 		if err != nil {
 			if record.valid {
-				t.Errorf("Unexpected error for %s", record.deviceId)
+				t.Errorf("Unexpected error for %s", record.id)
 			}
 		} else {
 			if !record.valid {
-				t.Fatalf("Expected error for %s", record.deviceId)
+				t.Fatalf("Expected error for %s", record.id)
 			}
 
 			if actual := string(id.Bytes()); actual != record.expected {
-				t.Errorf("For %s, ParseId() returned %s, but was expecting %s", record.deviceId, actual, record.expected)
+				t.Errorf("For %s, ParseId() returned %s, but was expecting %s", record.id, actual, record.expected)
 			}
 		}
 	}
