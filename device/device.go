@@ -46,6 +46,10 @@ type Interface interface {
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
 
+	// RequestShutdown posts a request for this device to be disconnected.  This method
+	// is asynchronous and idempotent.
+	RequestShutdown()
+
 	// Closed tests if this device is closed.  When this method returns true,
 	// any attempt to send messages to this device will result in an error.
 	//
@@ -124,8 +128,7 @@ func (d *device) String() string {
 	}
 }
 
-// requestShutdown asynchronously posts to the shutdown channel, and returns
-func (d *device) requestShutdown() {
+func (d *device) RequestShutdown() {
 	select {
 	case d.shutdown <- true:
 	default:

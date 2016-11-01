@@ -22,6 +22,11 @@ type Manager interface {
 	// the same ID, and this method disconnects all duplicate devices associated with that ID.
 	Disconnect(ID) int
 
+	// DisconnectOne disconnects the single device associated with the given Key.  This method
+	// returns the count of devices disconnected, which will be zero (0) if no device existed
+	// or one (1) if there was a device with that key.
+	DisconnectOne(Key) int
+
 	// DisconnectIf iterates over all devices known to this manager, applying the
 	// given predicate.  For any devices that result in true, this method disconnects them.
 	// Note that this method may pause connections and disconnections while it is executing.
@@ -232,13 +237,35 @@ func (m *manager) writePump(d *device, c Connection) {
 	}
 }
 
+// requestShutdown is a convenient, internal visitor
+// that the various Disconnect methods use.
+func (m *manager) requestShutdown(d *device) {
+	d.RequestShutdown()
+}
+
+// wrapVisitor produces an internal visitor that wraps a delegate
+// and preserves encapsulation
+func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
+	return func(d *device) {
+		delegate(d)
+	}
+}
+
 func (m *manager) Disconnect(id ID) (count int) {
 	m.logger.Debug("Disconnect(%s)", id)
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitID(id, func(d *device) {
-			d.requestShutdown()
-		})
+		count = m.registry.visitID(id, m.requestShutdown)
+	})
+
+	return
+}
+
+func (m *manager) DisconnectOne(key Key) (count int) {
+	m.logger.Debug("DisconnectOne(%s)", key)
+
+	m.whenReadLocked(func() {
+		count = m.registry.visitKey(key, m.requestShutdown)
 	})
 
 	return
@@ -248,9 +275,7 @@ func (m *manager) DisconnectIf(filter func(ID) bool) (count int) {
 	m.logger.Debug("DisconnectIf()")
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, func(d *device) {
-			d.requestShutdown()
-		})
+		count = m.registry.visitIf(filter, m.requestShutdown)
 	})
 
 	return count
@@ -260,7 +285,7 @@ func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) (count 
 	m.logger.Debug("VisitIf")
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, func(d *device) { visitor(d) })
+		count = m.registry.visitIf(filter, m.wrapVisitor(visitor))
 	})
 
 	return
@@ -270,9 +295,7 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	m.logger.Debug("VisitAll")
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitAll(func(d *device) {
-			visitor(d)
-		})
+		count = m.registry.visitAll(m.wrapVisitor(visitor))
 	})
 
 	return
