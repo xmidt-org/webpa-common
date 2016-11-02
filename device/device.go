@@ -94,13 +94,16 @@ func newDevice(id ID, initialKey Key, convey *Convey, queueSize int) *device {
 	return d
 }
 
-// MarshalJSON exposes public metadata about this device as JSON
+// MarshalJSON exposes public metadata about this device as JSON.  This
+// method will always return a nil error and produce valid JSON.
 func (d *device) MarshalJSON() ([]byte, error) {
 	conveyJSON := nullConvey
 	if d.convey != nil {
 		var conveyError error
 		if conveyJSON, conveyError = d.convey.MarshalJSON(); conveyError != nil {
-			return nil, conveyError
+			// just dump the error text into the convey property,
+			// so at least it can be viewed
+			conveyJSON = []byte(fmt.Sprintf(`"%s"`, conveyError))
 		}
 	}
 
@@ -121,11 +124,8 @@ func (d *device) MarshalJSON() ([]byte, error) {
 
 // String returns the JSON representation of this device
 func (d *device) String() string {
-	if data, err := d.MarshalJSON(); err != nil {
-		return err.Error()
-	} else {
-		return string(data)
-	}
+	data, _ := d.MarshalJSON()
+	return string(data)
 }
 
 func (d *device) RequestShutdown() {

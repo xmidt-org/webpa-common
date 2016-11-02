@@ -10,10 +10,6 @@ import (
 	"testing"
 )
 
-const (
-	expectedID = ID("expected identifier")
-)
-
 var (
 	uuidEncodings = []struct {
 		actualEncoding   *base64.Encoding
@@ -66,7 +62,7 @@ func TestUUIDKeyFunc(t *testing.T) {
 			continue
 		}
 
-		key, err := keyFunc(expectedID, nil, nil)
+		key, err := keyFunc(ID("expected"), nil, nil)
 		if !assert.NotEmpty(key) || !assert.Nil(err) {
 			continue
 		}
@@ -94,7 +90,7 @@ func TestUUIDKeyFuncSourceError(t *testing.T) {
 			continue
 		}
 
-		key, err := keyFunc(expectedID, nil, nil)
+		key, err := keyFunc(ID("expected"), nil, nil)
 		assert.Equal(invalidKey, key)
 		assert.Equal(sourceError, err)
 
@@ -113,7 +109,7 @@ func TestUUIDKeyFuncDefaultSource(t *testing.T) {
 			continue
 		}
 
-		key, err := keyFunc(expectedID, nil, nil)
+		key, err := keyFunc(ID("expected"), nil, nil)
 		if !assert.NotEmpty(key) || !assert.Nil(err) {
 			continue
 		}
