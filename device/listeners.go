@@ -60,6 +60,14 @@ type Listeners struct {
 	pongListeners       []PongListener
 }
 
+func (l *Listeners) Add(other *Listeners) *Listeners {
+	l.AddMessageListeners(other.messageListeners...)
+	l.AddConnectListeners(other.connectListeners...)
+	l.AddDisconnectListeners(other.disconnectListeners...)
+	l.AddPongListeners(other.pongListeners...)
+	return l
+}
+
 func (l *Listeners) AddMessageListeners(listeners ...MessageListener) *Listeners {
 	l.messageListeners = append(l.messageListeners, listeners...)
 	return l
@@ -77,28 +85,6 @@ func (l *Listeners) AddDisconnectListeners(listeners ...DisconnectListener) *Lis
 
 func (l *Listeners) AddPongListeners(listeners ...PongListener) *Listeners {
 	l.pongListeners = append(l.pongListeners, listeners...)
-	return l
-}
-
-func (l *Listeners) Add(listeners ...interface{}) *Listeners {
-	for _, listener := range listeners {
-		if messageListener, ok := listener.(MessageListener); ok {
-			l.AddMessageListeners(messageListener)
-		}
-
-		if connectListener, ok := listener.(ConnectListener); ok {
-			l.AddConnectListeners(connectListener)
-		}
-
-		if disconnectListener, ok := listener.(DisconnectListener); ok {
-			l.AddDisconnectListeners(disconnectListener)
-		}
-
-		if pongListener, ok := listener.(PongListener); ok {
-			l.AddPongListeners(pongListener)
-		}
-	}
-
 	return l
 }
 

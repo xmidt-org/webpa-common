@@ -57,6 +57,7 @@ func (m keyMap) remove(k Key) bool {
 }
 
 // registry is an internal type that stores mappings of devices
+// A registry instance is not safe for concurrent access.
 type registry struct {
 	ids  idMap
 	keys keyMap
