@@ -4,10 +4,19 @@ import (
 	"fmt"
 )
 
+// DeviceError is the common interface implemented by all error objects
+// which carry device-related metadata
+type DeviceError interface {
+	error
+	ID() ID
+	Key() Key
+}
+
 // deviceError exposes the basic error metadata
 type deviceError struct {
-	id  ID
-	key Key
+	id   ID
+	key  Key
+	text string
 }
 
 func (e *deviceError) ID() ID {
@@ -18,87 +27,34 @@ func (e *deviceError) Key() Key {
 	return e.key
 }
 
-// ClosedError indicates that an operation was attempted on
-// a closed device that is not allowed, e.g. sending a message
-type ClosedError struct {
-	deviceError
+func (e *deviceError) Error() string {
+	return e.text
 }
 
-func (e *ClosedError) Error() string {
-	return fmt.Sprintf("Device [%s] with key [%s] is closed", e.id, e.key)
-}
-
-func NewClosedError(id ID, key Key) *ClosedError {
-	return &ClosedError{
-		deviceError{
-			id:  id,
-			key: key,
-		},
+func newDeviceError(id ID, key Key, message string) DeviceError {
+	return &deviceError{
+		id:   id,
+		key:  key,
+		text: fmt.Sprintf("Device [id=%s, key=%s]: %s", id, key, message),
 	}
 }
 
-// BusyError indicates that a device's message queue is full
-type BusyError struct {
-	deviceError
+func NewClosedError(id ID, key Key) DeviceError {
+	return newDeviceError(id, key, "closed")
 }
 
-func (e *BusyError) Error() string {
-	return fmt.Sprintf("Device [%s] with key [%s] is busy", e.id, e.key)
+func NewBusyError(id ID, key Key) DeviceError {
+	return newDeviceError(id, key, "busy")
 }
 
-func NewBusyError(id ID, key Key) *BusyError {
-	return &BusyError{
-		deviceError{
-			id:  id,
-			key: key,
-		},
-	}
+func NewMissingIDError(id ID) DeviceError {
+	return newDeviceError(id, invalidKey, "ID does not exist")
 }
 
-type MissingIDError struct {
-	deviceError
+func NewMissingKeyError(key Key) DeviceError {
+	return newDeviceError(invalidID, key, "Key does not exist")
 }
 
-func (e *MissingIDError) Error() string {
-	return fmt.Sprintf("No device exists with id [%s]", e.id)
-}
-
-func NewMissingIDError(id ID) *MissingIDError {
-	return &MissingIDError{
-		deviceError{
-			id: id,
-		},
-	}
-}
-
-type MissingKeyError struct {
-	deviceError
-}
-
-func (e *MissingKeyError) Error() string {
-	return fmt.Sprintf("No device exists with key [%s]", e.key)
-}
-
-func NewMissingKeyError(key Key) *MissingKeyError {
-	return &MissingKeyError{
-		deviceError{
-			key: key,
-		},
-	}
-}
-
-type DuplicateKeyError struct {
-	deviceError
-}
-
-func (e *DuplicateKeyError) Error() string {
-	return fmt.Sprintf("Duplicate key [%s]", e.key)
-}
-
-func NewDuplicateKeyError(key Key) *DuplicateKeyError {
-	return &DuplicateKeyError{
-		deviceError{
-			key: key,
-		},
-	}
+func NewDuplicateKeyError(key Key) DeviceError {
+	return newDeviceError(invalidID, key, "duplicate key")
 }
