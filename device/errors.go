@@ -12,7 +12,7 @@ type DeviceError interface {
 	Key() Key
 }
 
-// deviceError exposes the basic error metadata
+// deviceError is the internal DeviceError implementation
 type deviceError struct {
 	id   ID
 	key  Key
