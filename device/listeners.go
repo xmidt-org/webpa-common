@@ -1,13 +1,33 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 )
+
+// nullListener implements all device listeners and provides "null" behavior.
+// This type simply ignores all events.
+type nullListener int
+
+func (n nullListener) OnMessage(Interface, *wrp.Message) {}
+func (n nullListener) OnConnect(Interface)               {}
+func (n nullListener) OnDisconnect(Interface)            {}
+func (n nullListener) OnPong(Interface, string)          {}
+
+// defaultListener serves as a "null" value for any device listener.
+var defaultListener = nullListener(0)
 
 // MessageListener represents a sink for device messages
 type MessageListener interface {
 	OnMessage(Interface, *wrp.Message)
+}
+
+// MessageListeners is a slice type that implements MessageListener.
+type MessageListeners []MessageListener
+
+func (m MessageListeners) OnMessage(device Interface, message *wrp.Message) {
+	for _, l := range m {
+		l.OnMessage(device, message)
+	}
 }
 
 // ConnectListener instances are notified whenever a device successfully
@@ -16,10 +36,28 @@ type ConnectListener interface {
 	OnConnect(Interface)
 }
 
+// ConnectListeners is a slice type that implements ConnectListener.
+type ConnectListeners []ConnectListener
+
+func (m ConnectListeners) OnConnect(device Interface) {
+	for _, l := range m {
+		l.OnConnect(device)
+	}
+}
+
 // DisconnectListener instances are notified whenever a device disconnects
 // from a manager
 type DisconnectListener interface {
 	OnDisconnect(Interface)
+}
+
+// DisconnectListeners is a slice type that implements DisconnectListener.
+type DisconnectListeners []DisconnectListener
+
+func (m DisconnectListeners) OnDisconnect(device Interface) {
+	for _, l := range m {
+		l.OnDisconnect(device)
+	}
 }
 
 // PongListener instances are notified each time a pong to a device is received
@@ -27,98 +65,11 @@ type PongListener interface {
 	OnPong(Interface, string)
 }
 
-// LoggingListener implements all the device listeners in this package and
-// simply logs all events.  Connect/Disconnect are logged to INFO, while
-// messages and pongs are logged to DEBUG.
-type LoggingListener struct {
-	logging.Logger
-}
+// PongListeners is a slice type that implements PongListener.
+type PongListeners []PongListener
 
-func (l LoggingListener) OnMessage(device Interface, message *wrp.Message) {
-	l.Debug("[%s]: message: %v", device.ID(), message)
-}
-
-func (l LoggingListener) OnConnect(device Interface) {
-	l.Info("[%s]: connect", device.ID())
-}
-
-func (l LoggingListener) OnDisconnect(device Interface) {
-	l.Info("[%s]: disconnect", device.ID())
-}
-
-func (l LoggingListener) OnPong(device Interface, data string) {
-	l.Debug("[%s]: pong: %s", device.ID(), data)
-}
-
-// Listeners is an aggregate data structure for all device-related listeners.
-// This type allows arbitrary numbers of listeners to be notified of events,
-// and it implements those listener interfaces directly.
-type Listeners struct {
-	messageListeners    []MessageListener
-	connectListeners    []ConnectListener
-	disconnectListeners []DisconnectListener
-	pongListeners       []PongListener
-}
-
-func (l *Listeners) Add(other *Listeners) *Listeners {
-	l.AddMessageListeners(other.messageListeners...)
-	l.AddConnectListeners(other.connectListeners...)
-	l.AddDisconnectListeners(other.disconnectListeners...)
-	l.AddPongListeners(other.pongListeners...)
-	return l
-}
-
-func (l *Listeners) AddMessageListeners(listeners ...MessageListener) *Listeners {
-	l.messageListeners = append(l.messageListeners, listeners...)
-	return l
-}
-
-func (l *Listeners) AddConnectListeners(listeners ...ConnectListener) *Listeners {
-	l.connectListeners = append(l.connectListeners, listeners...)
-	return l
-}
-
-func (l *Listeners) AddDisconnectListeners(listeners ...DisconnectListener) *Listeners {
-	l.disconnectListeners = append(l.disconnectListeners, listeners...)
-	return l
-}
-
-func (l *Listeners) AddPongListeners(listeners ...PongListener) *Listeners {
-	l.pongListeners = append(l.pongListeners, listeners...)
-	return l
-}
-
-func (l *Listeners) OnMessage(device Interface, message *wrp.Message) {
-	for _, listener := range l.messageListeners {
-		listener.OnMessage(device, message)
-	}
-}
-
-func (l *Listeners) OnConnect(device Interface) {
-	for _, listener := range l.connectListeners {
-		listener.OnConnect(device)
-	}
-}
-
-func (l *Listeners) OnDisconnect(device Interface) {
-	for _, listener := range l.disconnectListeners {
-		listener.OnDisconnect(device)
-	}
-}
-
-func (l *Listeners) OnPong(device Interface, data string) {
-	for _, listener := range l.pongListeners {
-		listener.OnPong(device, data)
-	}
-}
-
-// Clone returns a distinct copy of this instance.  Internally, the device Manager
-// clones the Listeners so that it has an instance safe for concurrent access.
-func (l *Listeners) Clone() *Listeners {
-	return &Listeners{
-		messageListeners:    append([]MessageListener{}, l.messageListeners...),
-		connectListeners:    append([]ConnectListener{}, l.connectListeners...),
-		disconnectListeners: append([]DisconnectListener{}, l.disconnectListeners...),
-		pongListeners:       append([]PongListener{}, l.pongListeners...),
+func (m PongListeners) OnPong(device Interface, data string) {
+	for _, l := range m {
+		l.OnPong(device, data)
 	}
 }

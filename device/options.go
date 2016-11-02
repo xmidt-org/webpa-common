@@ -66,9 +66,17 @@ type Options struct {
 	// DefaultWriteTimeout is used.
 	WriteTimeout time.Duration
 
-	// Listeners is the aggregate set of listeners which receive events from
-	// the constructed Manager.
-	Listeners Listeners
+	// MessageListener is the notification sink for device messages
+	MessageListener MessageListener
+
+	// ConnectListener receives notifications for device connections
+	ConnectListener ConnectListener
+
+	// DisconnectListener receives notifications when devices disconnect for any reason
+	DisconnectListener DisconnectListener
+
+	// PongListener is the notification sink for pongs
+	PongListener PongListener
 
 	// KeyFunc is the factory function for Keys, used when devices connect.
 	// If this value is nil, then UUIDKeyFunc is used along with crypto/rand's Reader.
@@ -168,14 +176,6 @@ func (o *Options) subprotocols() (subprotocols []string) {
 	return
 }
 
-func (o *Options) listeners() *Listeners {
-	if o != nil {
-		return o.Listeners.Clone()
-	}
-
-	return new(Listeners)
-}
-
 func (o *Options) keyFunc() KeyFunc {
 	if o != nil && o.KeyFunc != nil {
 		return o.KeyFunc
@@ -190,4 +190,36 @@ func (o *Options) logger() logging.Logger {
 	}
 
 	return logging.DefaultLogger()
+}
+
+func (o *Options) messageListener() MessageListener {
+	if o != nil && o.MessageListener != nil {
+		return o.MessageListener
+	}
+
+	return defaultListener
+}
+
+func (o *Options) connectListener() ConnectListener {
+	if o != nil && o.ConnectListener != nil {
+		return o.ConnectListener
+	}
+
+	return defaultListener
+}
+
+func (o *Options) disconnectListener() DisconnectListener {
+	if o != nil && o.DisconnectListener != nil {
+		return o.DisconnectListener
+	}
+
+	return defaultListener
+}
+
+func (o *Options) pongListener() PongListener {
+	if o != nil && o.PongListener != nil {
+		return o.PongListener
+	}
+
+	return defaultListener
 }

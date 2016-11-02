@@ -27,15 +27,6 @@ var (
 	}
 )
 
-type mockRandom struct {
-	mock.Mock
-}
-
-func (m *mockRandom) Read(b []byte) (int, error) {
-	arguments := m.Called(b)
-	return arguments.Int(0), arguments.Error(1)
-}
-
 func uuidKeyReadMatcher(b []byte) bool {
 	return len(b) == 16
 }
