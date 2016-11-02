@@ -6,10 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/ugorji/go/codec"
+	"reflect"
 )
 
 var (
 	conveyHandle codec.Handle = &codec.JsonHandle{
+		BasicHandle: codec.BasicHandle{
+			DecodeOptions: codec.DecodeOptions{
+				MapType: reflect.TypeOf(map[string]interface{}(nil)),
+			},
+		},
 		IntegerAsString: 'L',
 	}
 )
