@@ -8,6 +8,7 @@ import (
 // This type simply ignores all events.
 type nullListener int
 
+func (n nullListener) String() string                    { return "nullListener" }
 func (n nullListener) OnMessage(Interface, *wrp.Message) {}
 func (n nullListener) OnConnect(Interface)               {}
 func (n nullListener) OnDisconnect(Interface)            {}

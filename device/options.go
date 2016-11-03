@@ -160,7 +160,7 @@ func (o *Options) readBufferSize() int {
 }
 
 func (o *Options) writeBufferSize() int {
-	if o != nil || o.WriteBufferSize > 0 {
+	if o != nil && o.WriteBufferSize > 0 {
 		return o.WriteBufferSize
 	}
 

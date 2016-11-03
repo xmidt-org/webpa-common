@@ -3,11 +3,14 @@ package device
 import (
 	"fmt"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"testing"
 )
 
 func TestDefaultListener(t *testing.T) {
+	assert := assert.New(t)
+
 	t.Log("smoke test for the internal default listener")
 	device := new(mockDevice)
 	message := new(wrp.Message)
@@ -17,6 +20,7 @@ func TestDefaultListener(t *testing.T) {
 	defaultListener.OnConnect(device)
 	defaultListener.OnDisconnect(device)
 	defaultListener.OnPong(device, pongData)
+	assert.NotEmpty(defaultListener.String())
 
 	device.AssertExpectations(t)
 }
