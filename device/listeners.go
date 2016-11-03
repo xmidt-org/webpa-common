@@ -22,6 +22,13 @@ type MessageListener interface {
 	OnMessage(Interface, *wrp.Message)
 }
 
+// MessageListenerFunc is a function type that implements MessageListener
+type MessageListenerFunc func(Interface, *wrp.Message)
+
+func (f MessageListenerFunc) OnMessage(device Interface, message *wrp.Message) {
+	f(device, message)
+}
+
 // MessageListeners is a slice type that implements MessageListener.
 type MessageListeners []MessageListener
 
@@ -35,6 +42,13 @@ func (m MessageListeners) OnMessage(device Interface, message *wrp.Message) {
 // connects to a manager
 type ConnectListener interface {
 	OnConnect(Interface)
+}
+
+// ConnectListenerFunc is a function type that implements ConnectListener
+type ConnectListenerFunc func(Interface)
+
+func (f ConnectListenerFunc) OnConnect(device Interface) {
+	f(device)
 }
 
 // ConnectListeners is a slice type that implements ConnectListener.
@@ -52,6 +66,13 @@ type DisconnectListener interface {
 	OnDisconnect(Interface)
 }
 
+// DisconnectListenerFunc is a function type that implements DisconnectListener
+type DisconnectListenerFunc func(Interface)
+
+func (f DisconnectListenerFunc) OnDisconnect(device Interface) {
+	f(device)
+}
+
 // DisconnectListeners is a slice type that implements DisconnectListener.
 type DisconnectListeners []DisconnectListener
 
@@ -64,6 +85,13 @@ func (m DisconnectListeners) OnDisconnect(device Interface) {
 // PongListener instances are notified each time a pong to a device is received
 type PongListener interface {
 	OnPong(Interface, string)
+}
+
+// PongListenerFunc is a function type that implements PongListener
+type PongListenerFunc func(Interface, string)
+
+func (f PongListenerFunc) OnPong(device Interface, data string) {
+	f(device, data)
 }
 
 // PongListeners is a slice type that implements PongListener.

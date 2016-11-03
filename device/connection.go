@@ -164,7 +164,9 @@ func (c *connection) Ping(data []byte) error {
 	return c.webSocket.WriteControl(websocket.PingMessage, data, c.nextWriteDeadline())
 }
 
-// ConnectionFactory provides the instantiation logic for Connections
+// ConnectionFactory provides the instantiation logic for Connections.  This interface
+// is appropriate for server-side connections that enforce various WebPA policies,
+// such as idleness and a write timeout.
 type ConnectionFactory interface {
 	NewConnection(http.ResponseWriter, *http.Request, http.Header) (Connection, error)
 }
@@ -209,4 +211,62 @@ func (cf *connectionFactory) NewConnection(response http.ResponseWriter, request
 	c.SetPongCallback(nil)
 
 	return c, nil
+}
+
+// Dialer is a WebPA dialer for websocket Connections
+type Dialer interface {
+	Dial(URL string, requestHeader http.Header) (Connection, *http.Response, error)
+}
+
+// NewDialer constructs a WebPA Dialer using a set of Options and a gorilla Dialer.  Both
+// parameters are optional.  If the gorilla Dialer is supplied, it is copied for use internally.
+// If an Options is supplied, the appropriate settings will override any gorilla Dialer, e.g. ReadBufferSize.
+func NewDialer(o *Options, d *websocket.Dialer) Dialer {
+	dialer := &dialer{
+		idlePeriod:   o.idlePeriod(),
+		writeTimeout: o.writeTimeout(),
+	}
+
+	if d != nil {
+		dialer.webSocketDialer = *d
+	}
+
+	// Options only override the dialer if supplied, and if no
+	// dialer is specified always use the Options to establish WebPA settings
+	if (d != nil && o != nil) || d == nil {
+		dialer.webSocketDialer.HandshakeTimeout = o.handshakeTimeout()
+		dialer.webSocketDialer.ReadBufferSize = o.readBufferSize()
+		dialer.webSocketDialer.WriteBufferSize = o.writeBufferSize()
+		dialer.webSocketDialer.Subprotocols = o.subprotocols()
+	}
+
+	return dialer
+}
+
+// dialer is the internal implementation of Dialer.  This implemention wraps a gorilla Dialer
+type dialer struct {
+	webSocketDialer websocket.Dialer
+	idlePeriod      time.Duration
+	writeTimeout    time.Duration
+}
+
+func (d *dialer) Dial(URL string, requestHeader http.Header) (Connection, *http.Response, error) {
+	webSocket, response, err := d.webSocketDialer.Dial(URL, requestHeader)
+	if err != nil {
+		return nil, response, err
+	}
+
+	c := &connection{
+		webSocket:    webSocket,
+		idlePeriod:   d.idlePeriod,
+		writeTimeout: d.writeTimeout,
+		decoder:      wrp.NewDecoder(nil, wrp.Msgpack),
+		encoder:      wrp.NewEncoder(nil, wrp.Msgpack),
+	}
+
+	// initialize the pong callback to the default, which
+	// also registers the handler that enforces the idle policy
+	c.SetPongCallback(nil)
+
+	return c, response, nil
 }
