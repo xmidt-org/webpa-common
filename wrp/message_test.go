@@ -147,3 +147,69 @@ func TestMessageDeduceType(t *testing.T) {
 		assert.Equal(record.expectedType, message.Type)
 	}
 }
+
+func TestNewAuth(t *testing.T) {
+	assert := assert.New(t)
+
+	for _, expectedStatus := range []int64{-1234, 0, 1, 2, 239457} {
+		t.Logf("%d", expectedStatus)
+		message := NewAuth(expectedStatus)
+		if assert.NotNil(message) {
+			assert.Equal(AuthMessageType, message.Type)
+			assert.Equal(expectedStatus, *message.Status)
+			assert.Empty(message.TransactionUUID)
+			assert.Empty(message.Destination)
+			assert.Empty(message.Source)
+			assert.Empty(message.Payload)
+		}
+	}
+}
+
+func TestNewSimpleRequestResponse(t *testing.T) {
+	assert := assert.New(t)
+	var testData = []struct {
+		expectedDestination string
+		expectedSource      string
+		expectedPayload     []byte
+	}{
+		{"foobar.com", "112233445566", nil},
+		{"test.com/bleh", "FFFFEEEEDDDD", []byte("hi there!")},
+	}
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+		message := NewSimpleRequestResponse(record.expectedDestination, record.expectedSource, record.expectedPayload)
+		if assert.NotNil(message) {
+			assert.Equal(SimpleRequestResponseMessageType, message.Type)
+			assert.Nil(message.Status)
+			assert.Empty(message.TransactionUUID)
+			assert.Equal(record.expectedDestination, message.Destination)
+			assert.Equal(record.expectedSource, message.Source)
+			assert.Equal(record.expectedPayload, message.Payload)
+		}
+	}
+}
+
+func TestNewSimpleEvent(t *testing.T) {
+	assert := assert.New(t)
+	var testData = []struct {
+		expectedDestination string
+		expectedPayload     []byte
+	}{
+		{"foobar.com", nil},
+		{"test.com/bleh", []byte("hi there!")},
+	}
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+		message := NewSimpleEvent(record.expectedDestination, record.expectedPayload)
+		if assert.NotNil(message) {
+			assert.Equal(SimpleEventMessageType, message.Type)
+			assert.Nil(message.Status)
+			assert.Empty(message.TransactionUUID)
+			assert.Equal(record.expectedDestination, message.Destination)
+			assert.Empty(message.Source)
+			assert.Equal(record.expectedPayload, message.Payload)
+		}
+	}
+}
