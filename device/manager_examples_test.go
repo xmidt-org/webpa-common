@@ -6,9 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"os"
-	"strings"
 )
 
 func ExampleManagerSimple() {
@@ -28,13 +26,12 @@ func ExampleManagerSimple() {
 		}),
 	}
 
-	manager := NewManager(options, nil)
-	server := httptest.NewServer(NewConnectHandler(manager, nil, logger))
+	_, server, websocketURL := startWebsocketServer(options)
 	defer server.Close()
 
 	dialer := NewDialer(options, nil)
 	connection, _, err := dialer.Dial(
-		strings.Replace(server.URL, "http", "ws", 1),
+		websocketURL,
 		http.Header{
 			DefaultDeviceNameHeader: []string{"mac:112233445566"},
 		},

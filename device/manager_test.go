@@ -2,11 +2,34 @@ package device
 
 import (
 	"errors"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
+
+// startWebsocketServer sets up a server-side environment for testing device-related websocket code
+func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
+	manager := NewManager(o, nil)
+	server := httptest.NewServer(
+		NewConnectHandler(
+			manager,
+			nil,
+			o.logger(),
+		),
+	)
+
+	websocketURL, err := url.Parse(server.URL)
+	if err != nil {
+		server.Close()
+		panic(fmt.Errorf("Unable to parse test server URL: %s", err))
+	}
+
+	websocketURL.Scheme = "ws"
+	return manager, server, websocketURL.String()
+}
 
 func TestManagerConnectMissingDeviceNameHeader(t *testing.T) {
 	assert := assert.New(t)
