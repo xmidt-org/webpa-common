@@ -131,9 +131,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, badDeviceNameError
 	}
 
-	var convey *Convey
+	var convey Convey
 	if rawConvey := request.Header.Get(m.conveyHeader); len(rawConvey) > 0 {
-		convey, err = ParseConvey(rawConvey)
+		convey, err = ParseConvey(rawConvey, nil)
 		if err != nil {
 			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", rawConvey, err)
 			http.Error(response, badConveyError.Error(), http.StatusBadRequest)

@@ -3,8 +3,6 @@ package device
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/json"
-	"fmt"
 	"github.com/ugorji/go/codec"
 	"reflect"
 )
@@ -20,55 +18,46 @@ var (
 	}
 )
 
-// Convey represents a block of JSON that should be transmitted
-// with each outbound device HTTP request.  This type can marshal
-// itself back into JSON supplying the original JSON object.
-type Convey struct {
-	decoded map[string]interface{}
-	encoded string
-}
+// Convey represents an arbitrary block of JSON that should be transmitted
+// in HTTP requests related to devices.  It is typically sent via a header
+// as base64-encoded JSON.
+type Convey map[string]interface{}
 
-func (c *Convey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c.decoded)
-}
-
-func (c *Convey) Encoded() string {
-	return c.encoded
-}
-
-func (c *Convey) String() string {
-	return fmt.Sprintf("%v", c.decoded)
-}
-
-func NewConvey(decoded map[string]interface{}) (*Convey, error) {
-	output := new(bytes.Buffer)
-	encoder := codec.NewEncoder(
-		base64.NewEncoder(base64.StdEncoding, output),
-		conveyHandle,
-	)
-
-	if err := encoder.Encode(decoded); err != nil {
-		return nil, err
+// ParseConvey decodes a value using the supplied encoding and then unmarshals
+// the result as a Convey map.  If encoding is nil, base64.StdEncoding is used.
+func ParseConvey(value string, encoding *base64.Encoding) (Convey, error) {
+	if encoding == nil {
+		encoding = base64.StdEncoding
 	}
 
-	return &Convey{
-		decoded: decoded,
-		encoded: output.String(),
-	}, nil
-}
-
-func ParseConvey(encoded string) (*Convey, error) {
-	input := bytes.NewBufferString(encoded)
+	input := bytes.NewBufferString(value)
 	decoder := codec.NewDecoder(
-		base64.NewDecoder(base64.StdEncoding, input),
+		base64.NewDecoder(encoding, input),
 		conveyHandle,
 	)
 
-	convey := new(Convey)
-	if err := decoder.Decode(&convey.decoded); err != nil {
+	var convey Convey
+	if err := decoder.Decode(&convey); err != nil {
 		return nil, err
 	}
 
-	convey.encoded = encoded
 	return convey, nil
+}
+
+// EncodeConvey transforms a Convey map into its on-the-wire representation,
+// using the supplied encoding.  If encoding == nil, base64.StdEncoding is used.
+func EncodeConvey(convey Convey, encoding *base64.Encoding) (string, error) {
+	if encoding == nil {
+		encoding = base64.StdEncoding
+	}
+
+	output := new(bytes.Buffer)
+	base64 := base64.NewEncoder(encoding, output)
+	encoder := codec.NewEncoder(base64, conveyHandle)
+	if err := encoder.Encode(convey); err != nil {
+		return "", err
+	}
+
+	base64.Close()
+	return output.String(), nil
 }

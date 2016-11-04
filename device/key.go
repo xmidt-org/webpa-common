@@ -13,7 +13,7 @@ import (
 type Key string
 
 // KeyFunc returns the unique Key for a device at the point of connection.
-type KeyFunc func(ID, *Convey, *http.Request) (Key, error)
+type KeyFunc func(ID, Convey, *http.Request) (Key, error)
 
 var (
 	invalidKey = Key("")
@@ -32,7 +32,7 @@ func UUIDKeyFunc(source io.Reader, encoding *base64.Encoding) KeyFunc {
 		encoding = base64.RawURLEncoding
 	}
 
-	return func(ID, *Convey, *http.Request) (Key, error) {
+	return func(ID, Convey, *http.Request) (Key, error) {
 		raw := make([]byte, 16)
 		if _, err := source.Read(raw); err != nil {
 			return invalidKey, err

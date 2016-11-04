@@ -14,7 +14,7 @@ func TestDevice(t *testing.T) {
 		expectedID        ID
 		initialKey        Key
 		updatedKey        Key
-		expectedConvey    *Convey
+		expectedConvey    Convey
 		expectedQueueSize int
 	}{
 		{
@@ -28,21 +28,21 @@ func TestDevice(t *testing.T) {
 			ID("ID 2"),
 			Key("initial Key 2"),
 			Key("updated Key 2"),
-			&Convey{decoded: map[string]interface{}{"foo": "bar"}},
+			Convey{"foo": "bar"},
 			27,
 		},
 		{
 			ID("ID 3"),
 			Key("initial Key 3"),
 			Key("updated Key 3"),
-			&Convey{decoded: map[string]interface{}{"count": 12, "nested": map[string]interface{}{"foo": "bar"}}},
+			Convey{"count": 12, "nested": map[string]interface{}{"foo": "bar"}},
 			137,
 		},
 		{
 			ID("ID 4"),
 			Key("initial Key 4"),
 			Key("updated Key 4"),
-			&Convey{decoded: map[string]interface{}{"bad convey": map[interface{}]interface{}{"foo": "bar"}}},
+			Convey{"bad convey": map[interface{}]interface{}{"foo": "bar"}},
 			2,
 		},
 	}

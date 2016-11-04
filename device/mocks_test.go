@@ -31,9 +31,9 @@ func (m *mockDevice) Key() Key {
 	return arguments.Get(0).(Key)
 }
 
-func (m *mockDevice) Convey() *Convey {
+func (m *mockDevice) Convey() Convey {
 	arguments := m.Called()
-	return arguments.Get(0).(*Convey)
+	return arguments.Get(0).(Convey)
 }
 
 func (m *mockDevice) ConnectedAt() time.Time {

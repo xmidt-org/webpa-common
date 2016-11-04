@@ -76,7 +76,7 @@ func TestManagerBadConveyHeader(t *testing.T) {
 func TestManagerKeyError(t *testing.T) {
 	assert := assert.New(t)
 
-	badKeyFunc := func(ID, *Convey, *http.Request) (Key, error) {
+	badKeyFunc := func(ID, Convey, *http.Request) (Key, error) {
 		return invalidKey, errors.New("expected")
 	}
 

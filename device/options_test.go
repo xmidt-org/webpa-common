@@ -41,7 +41,7 @@ func TestOptions(t *testing.T) {
 	expectedLogger := &logging.LoggerWriter{os.Stdout}
 
 	expectedKey := Key("TestOptions key")
-	expectedKeyFunc := func(ID, *Convey, *http.Request) (Key, error) {
+	expectedKeyFunc := func(ID, Convey, *http.Request) (Key, error) {
 		return expectedKey, nil
 	}
 

@@ -41,7 +41,7 @@ type Interface interface {
 	Key() Key
 
 	// Convey returns the payload to convey with each web-bound request
-	Convey() *Convey
+	Convey() Convey
 
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
@@ -70,7 +70,7 @@ type device struct {
 	id  ID
 	key atomic.Value
 
-	convey      *Convey
+	convey      Convey
 	connectedAt time.Time
 
 	closeOnce sync.Once
@@ -80,7 +80,7 @@ type device struct {
 	messages chan *wrp.Message
 }
 
-func newDevice(id ID, initialKey Key, convey *Convey, queueSize int) *device {
+func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 	d := &device{
 		id:          id,
 		convey:      convey,
@@ -99,11 +99,10 @@ func newDevice(id ID, initialKey Key, convey *Convey, queueSize int) *device {
 func (d *device) MarshalJSON() ([]byte, error) {
 	conveyJSON := nullConvey
 	if d.convey != nil {
-		var conveyError error
-		if conveyJSON, conveyError = d.convey.MarshalJSON(); conveyError != nil {
+		if decoded, conveyError := EncodeConvey(d.convey, nil); conveyError != nil {
 			// just dump the error text into the convey property,
 			// so at least it can be viewed
-			conveyJSON = []byte(fmt.Sprintf(`"%s"`, conveyError))
+			conveyJSON = []byte(fmt.Sprintf(`"%s"`, decoded))
 		}
 	}
 
@@ -152,7 +151,7 @@ func (d *device) updateKey(newKey Key) {
 	d.key.Store(newKey)
 }
 
-func (d *device) Convey() *Convey {
+func (d *device) Convey() Convey {
 	return d.convey
 }
 

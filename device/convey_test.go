@@ -1,60 +1,76 @@
 package device
 
 import (
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
+var (
+	conveyEncodings = []struct {
+		name     string
+		encoding *base64.Encoding
+	}{
+		{"default", nil},
+		{"base64.StdEncoding", base64.StdEncoding},
+		{"base64.URLEncoding", base64.URLEncoding},
+		{"base64.RawStdEncoding", base64.RawStdEncoding},
+		{"base64.RawURLEncoding", base64.RawURLEncoding},
+	}
+)
+
 var conveyTestData = []struct {
-	encoded      string
-	decoded      map[string]interface{}
-	valid        bool
+	convey       Convey
 	expectedJSON string
 }{
 	{
-		"this is not valid",
-		nil,
-		false,
-		"",
-	},
-	{
-		"eyJmb28iOiAiYmFyIn0=",
-		map[string]interface{}{"foo": "bar"},
-		true,
+		Convey{"foo": "bar"},
 		`{"foo": "bar"}`,
 	},
 	{
-		"eyJkZXZpY2UiOiAiMTIzIiwgImF0dHJpYnV0ZXMiOiB7InZhbHVlIjogMTIzLCAiY29ubmVjdGVkIjogdHJ1ZSwgIm5hbWUiOiAiZm9vYmFyIn19",
-		map[string]interface{}{"device": "123", "attributes": map[string]interface{}{"value": 123, "connected": true, "name": "foobar"}},
-		true,
+		Convey{"device": "123", "attributes": Convey{"value": 123, "connected": true, "name": "foobar"}},
 		`{"device": "123", "attributes": {"value": 123, "connected": true, "name": "foobar"}}`,
 	},
 }
 
-func TestNewConvey(t *testing.T) {
+func TestParseConveyInvalid(t *testing.T) {
+	assert := assert.New(t)
+
+	for _, conveyEncoding := range conveyEncodings {
+		t.Logf("%v", conveyEncoding)
+		convey, err := ParseConvey("this is not valid", conveyEncoding.encoding)
+		assert.Empty(convey)
+		assert.NotNil(err)
+	}
 }
 
-func TestParseConvey(t *testing.T) {
+func TestConvey(t *testing.T) {
 	assert := assert.New(t)
 
 	for _, record := range conveyTestData {
 		t.Logf("%v", record)
-		convey, err := ParseConvey(record.encoded)
-		assert.Equal(record.valid, convey != nil)
-		assert.Equal(record.valid, err == nil)
 
-		if convey != nil {
-			assert.Equal(record.encoded, convey.Encoded())
-			assert.NotEmpty(convey.String())
-			t.Logf(convey.String())
+		for _, conveyEncoding := range conveyEncodings {
+			t.Logf("%v", conveyEncoding)
 
-			actualJSON, err := json.Marshal(convey)
-			if assert.Nil(err, fmt.Sprintf("%s", err)) {
-				assert.NotEmpty(actualJSON)
-				assert.JSONEq(record.expectedJSON, string(actualJSON))
+			encoded, err := EncodeConvey(record.convey, conveyEncoding.encoding)
+			if !assert.Nil(err) {
+				continue
 			}
+
+			t.Logf("encoded: %s", encoded)
+			actualConvey, err := ParseConvey(encoded, conveyEncoding.encoding)
+			if !assert.Nil(err) {
+				continue
+			}
+
+			actualJSON, err := json.Marshal(actualConvey)
+			if !assert.Nil(err) {
+				continue
+			}
+
+			assert.JSONEq(record.expectedJSON, string(actualJSON))
 		}
 	}
 }
