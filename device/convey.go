@@ -40,19 +40,35 @@ func (c *Convey) String() string {
 	return fmt.Sprintf("%v", c.decoded)
 }
 
-func ParseConvey(value string) (*Convey, error) {
-	input := bytes.NewBufferString(value)
+func NewConvey(decoded map[string]interface{}) (*Convey, error) {
+	output := new(bytes.Buffer)
+	encoder := codec.NewEncoder(
+		base64.NewEncoder(base64.StdEncoding, output),
+		conveyHandle,
+	)
+
+	if err := encoder.Encode(decoded); err != nil {
+		return nil, err
+	}
+
+	return &Convey{
+		decoded: decoded,
+		encoded: output.String(),
+	}, nil
+}
+
+func ParseConvey(encoded string) (*Convey, error) {
+	input := bytes.NewBufferString(encoded)
 	decoder := codec.NewDecoder(
 		base64.NewDecoder(base64.StdEncoding, input),
 		conveyHandle,
 	)
 
 	convey := new(Convey)
-	err := decoder.Decode(&convey.decoded)
-	if err != nil {
+	if err := decoder.Decode(&convey.decoded); err != nil {
 		return nil, err
 	}
 
-	convey.encoded = value
+	convey.encoded = encoded
 	return convey, nil
 }

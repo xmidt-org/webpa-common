@@ -5,7 +5,6 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"io/ioutil"
-	"net/http"
 	"os"
 )
 
@@ -32,9 +31,9 @@ func ExampleManagerSimple() {
 	dialer := NewDialer(options, nil)
 	connection, _, err := dialer.Dial(
 		websocketURL,
-		http.Header{
-			DefaultDeviceNameHeader: []string{"mac:112233445566"},
-		},
+		"mac:111122223333",
+		nil,
+		nil,
 	)
 
 	if err != nil {

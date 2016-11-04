@@ -215,7 +215,7 @@ func (cf *connectionFactory) NewConnection(response http.ResponseWriter, request
 
 // Dialer is a WebPA dialer for websocket Connections
 type Dialer interface {
-	Dial(URL string, requestHeader http.Header) (Connection, *http.Response, error)
+	Dial(URL, deviceName string, convey *Convey, extra http.Header) (Connection, *http.Response, error)
 }
 
 // NewDialer constructs a WebPA Dialer using a set of Options and a gorilla Dialer.  Both
@@ -240,17 +240,29 @@ func NewDialer(o *Options, d *websocket.Dialer) Dialer {
 		dialer.webSocketDialer.Subprotocols = o.subprotocols()
 	}
 
+	dialer.deviceNameHeader = o.deviceNameHeader()
+	dialer.conveyHeader = o.conveyHeader()
 	return dialer
 }
 
 // dialer is the internal implementation of Dialer.  This implemention wraps a gorilla Dialer
 type dialer struct {
-	webSocketDialer websocket.Dialer
-	idlePeriod      time.Duration
-	writeTimeout    time.Duration
+	webSocketDialer  websocket.Dialer
+	deviceNameHeader string
+	conveyHeader     string
+	idlePeriod       time.Duration
+	writeTimeout     time.Duration
 }
 
-func (d *dialer) Dial(URL string, requestHeader http.Header) (Connection, *http.Response, error) {
+func (d *dialer) Dial(URL, deviceName string, convey *Convey, extra http.Header) (Connection, *http.Response, error) {
+	requestHeader := make(http.Header, len(extra)+2)
+	for key, value := range extra {
+		requestHeader[key] = value
+	}
+
+	// TODO: Handle the convey value
+	requestHeader.Set(d.deviceNameHeader, deviceName)
+
 	webSocket, response, err := d.webSocketDialer.Dial(URL, requestHeader)
 	if err != nil {
 		return nil, response, err
