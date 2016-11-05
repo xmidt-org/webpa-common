@@ -54,24 +54,3 @@ func (m *mockDevice) Send(message *wrp.Message) error {
 	arguments := m.Called(message)
 	return arguments.Error(0)
 }
-
-// mockDeviceListener provides a single mock for all the device listeners
-type mockDeviceListener struct {
-	mock.Mock
-}
-
-func (m *mockDeviceListener) OnMessage(device Interface, message *wrp.Message) {
-	m.Called(device, message)
-}
-
-func (m *mockDeviceListener) OnConnect(device Interface) {
-	m.Called(device)
-}
-
-func (m *mockDeviceListener) OnDisconnect(device Interface) {
-	m.Called(device)
-}
-
-func (m *mockDeviceListener) OnPong(device Interface, data string) {
-	m.Called(device, data)
-}

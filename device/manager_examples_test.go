@@ -13,7 +13,7 @@ func ExampleManagerSimple() {
 
 	options := &Options{
 		Logger: logger,
-		MessageListener: MessageListenerFunc(func(device Interface, message *wrp.Message) {
+		MessageListener: func(device Interface, message *wrp.Message) {
 			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 			err := device.Send(
 				wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
@@ -22,7 +22,7 @@ func ExampleManagerSimple() {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to send response: %s", err)
 			}
-		}),
+		},
 	}
 
 	_, server, websocketURL := startWebsocketServer(options)

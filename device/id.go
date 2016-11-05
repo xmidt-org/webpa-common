@@ -32,6 +32,13 @@ var (
 	)
 )
 
+// IntToMAC accepts a 64-bit integer and formats that as a device MAC address identifier
+// The returned ID will be of the form mac:XXXXXXXXXXXX, where X is a hexadecimal digit using
+// lowercased letters.
+func IntToMAC(value uint64) ID {
+	return ID(fmt.Sprintf("mac:%012x", value&0x0000FFFFFFFFFFFF))
+}
+
 func ParseID(value string) (ID, error) {
 	match := idPattern.FindStringSubmatch(value)
 	if match == nil {

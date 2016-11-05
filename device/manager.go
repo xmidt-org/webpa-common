@@ -161,7 +161,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	go m.readPump(d, c)
 	go m.writePump(d, c)
-	m.connectListener.OnConnect(d)
+	m.connectListener(d)
 
 	return d, nil
 }
@@ -182,7 +182,7 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
 
 	d.closeOnce.Do(func() {
-		defer m.disconnectListener.OnDisconnect(d)
+		defer m.disconnectListener(d)
 		defer d.close()
 
 		defer m.whenWriteLocked(func() {
@@ -203,7 +203,7 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 // for the given device.
 func (m *manager) pongCallbackFor(d *device) func(string) {
 	return func(data string) {
-		m.pongListener.OnPong(d, data)
+		m.pongListener(d, data)
 	}
 }
 
@@ -227,7 +227,7 @@ func (m *manager) readPump(d *device, c Connection) {
 			continue
 		}
 
-		m.messageListener.OnMessage(d, message)
+		m.messageListener(d, message)
 	}
 }
 

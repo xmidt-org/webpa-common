@@ -4,144 +4,139 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"testing"
 )
 
-func TestDefaultListener(t *testing.T) {
-	assert := assert.New(t)
-
-	t.Log("smoke test for the internal default listener")
+func TestDefaultListeners(t *testing.T) {
+	t.Log("smoke test for the internal default listeners")
 	device := new(mockDevice)
 	message := new(wrp.Message)
-	pongData := "TestDefaultListener"
+	pongData := "some lovely pong data!"
 
-	defaultListener.OnMessage(device, message)
-	defaultListener.OnConnect(device)
-	defaultListener.OnDisconnect(device)
-	defaultListener.OnPong(device, pongData)
-	assert.NotEmpty(defaultListener.String())
+	defaultMessageListener(device, message)
+	defaultConnectListener(device)
+	defaultDisconnectListener(device)
+	defaultPongListener(device, pongData)
 
 	device.AssertExpectations(t)
 }
 
 func TestMessageListeners(t *testing.T) {
-	testData := []MessageListeners{
+	assert := assert.New(t)
+	testData := [][]MessageListener{
 		nil,
-		make(MessageListeners, 0),
-		make(MessageListeners, 1),
-		make(MessageListeners, 2),
-		make(MessageListeners, 5),
+		make([]MessageListener, 0),
+		make([]MessageListener, 1),
+		make([]MessageListener, 2),
+		make([]MessageListener, 5),
 	}
 
 	for _, listeners := range testData {
-		device := new(mockDevice)
-		deviceMatcher := mock.MatchedBy(func(d Interface) bool { return d == device })
+		expectedDevice := new(mockDevice)
+		expectedMessage := new(wrp.Message)
 
-		message := new(wrp.Message)
-		messageMatcher := mock.MatchedBy(func(m *wrp.Message) bool { return m == message })
-
-		for index := 0; index < len(listeners); index++ {
-			mockDeviceListener := new(mockDeviceListener)
-			mockDeviceListener.On("OnMessage", deviceMatcher, messageMatcher).Once()
-			listeners[index] = mockDeviceListener
+		actualCallCount := 0
+		for index, _ := range listeners {
+			listeners[index] = func(actualDevice Interface, actualMessage *wrp.Message) {
+				assert.True(expectedDevice == actualDevice)
+				assert.True(expectedMessage == actualMessage)
+				actualCallCount++
+			}
 		}
 
-		listeners.OnMessage(device, message)
+		messageListener := MessageListeners(listeners...)
+		messageListener(expectedDevice, expectedMessage)
 
-		for _, listener := range listeners {
-			listener.(*mockDeviceListener).AssertExpectations(t)
-		}
-
-		device.AssertExpectations(t)
+		assert.Equal(len(listeners), actualCallCount)
+		expectedDevice.AssertExpectations(t)
 	}
 }
 
 func TestConnectListeners(t *testing.T) {
-	testData := []ConnectListeners{
+	assert := assert.New(t)
+	testData := [][]ConnectListener{
 		nil,
-		make(ConnectListeners, 0),
-		make(ConnectListeners, 1),
-		make(ConnectListeners, 2),
-		make(ConnectListeners, 5),
+		make([]ConnectListener, 0),
+		make([]ConnectListener, 1),
+		make([]ConnectListener, 2),
+		make([]ConnectListener, 5),
 	}
 
 	for _, listeners := range testData {
-		device := new(mockDevice)
-		deviceMatcher := mock.MatchedBy(func(d Interface) bool { return d == device })
+		expectedDevice := new(mockDevice)
 
-		for index := 0; index < len(listeners); index++ {
-			mockDeviceListener := new(mockDeviceListener)
-			mockDeviceListener.On("OnConnect", deviceMatcher).Once()
-			listeners[index] = mockDeviceListener
+		actualCallCount := 0
+		for index, _ := range listeners {
+			listeners[index] = func(actualDevice Interface) {
+				assert.True(expectedDevice == actualDevice)
+				actualCallCount++
+			}
 		}
 
-		listeners.OnConnect(device)
+		connectListener := ConnectListeners(listeners...)
+		connectListener(expectedDevice)
 
-		for _, listener := range listeners {
-			listener.(*mockDeviceListener).AssertExpectations(t)
-		}
-
-		device.AssertExpectations(t)
+		assert.Equal(len(listeners), actualCallCount)
+		expectedDevice.AssertExpectations(t)
 	}
 }
 
 func TestDisconnectListeners(t *testing.T) {
-	testData := []DisconnectListeners{
+	assert := assert.New(t)
+	testData := [][]DisconnectListener{
 		nil,
-		make(DisconnectListeners, 0),
-		make(DisconnectListeners, 1),
-		make(DisconnectListeners, 2),
-		make(DisconnectListeners, 5),
+		make([]DisconnectListener, 0),
+		make([]DisconnectListener, 1),
+		make([]DisconnectListener, 2),
+		make([]DisconnectListener, 5),
 	}
 
 	for _, listeners := range testData {
-		device := new(mockDevice)
-		deviceMatcher := mock.MatchedBy(func(d Interface) bool { return d == device })
+		expectedDevice := new(mockDevice)
 
-		for index := 0; index < len(listeners); index++ {
-			mockDeviceListener := new(mockDeviceListener)
-			mockDeviceListener.On("OnDisconnect", deviceMatcher).Once()
-			listeners[index] = mockDeviceListener
+		actualCallCount := 0
+		for index, _ := range listeners {
+			listeners[index] = func(actualDevice Interface) {
+				assert.True(expectedDevice == actualDevice)
+				actualCallCount++
+			}
 		}
 
-		listeners.OnDisconnect(device)
+		disconnectListener := DisconnectListeners(listeners...)
+		disconnectListener(expectedDevice)
 
-		for _, listener := range listeners {
-			listener.(*mockDeviceListener).AssertExpectations(t)
-		}
-
-		device.AssertExpectations(t)
+		assert.Equal(len(listeners), actualCallCount)
+		expectedDevice.AssertExpectations(t)
 	}
 }
 
 func TestPongListeners(t *testing.T) {
-	testData := []PongListeners{
+	assert := assert.New(t)
+	testData := [][]PongListener{
 		nil,
-		make(PongListeners, 0),
-		make(PongListeners, 1),
-		make(PongListeners, 2),
-		make(PongListeners, 5),
+		make([]PongListener, 0),
+		make([]PongListener, 1),
+		make([]PongListener, 2),
+		make([]PongListener, 5),
 	}
 
 	for index, listeners := range testData {
-		device := new(mockDevice)
-		deviceMatcher := mock.MatchedBy(func(d Interface) bool { return d == device })
+		expectedDevice := new(mockDevice)
+		expectedPongData := fmt.Sprintf("pong data for iteration %d", index)
 
-		pongData := fmt.Sprintf("pong data %d", index)
-
-		for index := 0; index < len(listeners); index++ {
-			mockDeviceListener := new(mockDeviceListener)
-			mockDeviceListener.On("OnPong", deviceMatcher, pongData).Once()
-			listeners[index] = mockDeviceListener
+		actualCallCount := 0
+		for index, _ := range listeners {
+			listeners[index] = func(actualDevice Interface, actualPongData string) {
+				assert.True(expectedDevice == actualDevice)
+				assert.Equal(expectedPongData, actualPongData)
+				actualCallCount++
+			}
 		}
 
-		listeners.OnPong(device, pongData)
+		pongListener := PongListeners(listeners...)
+		pongListener(expectedDevice, expectedPongData)
 
-		for _, listener := range listeners {
-			listener.(*mockDeviceListener).AssertExpectations(t)
-		}
-
-		device.AssertExpectations(t)
+		assert.Equal(len(listeners), actualCallCount)
+		expectedDevice.AssertExpectations(t)
 	}
 }

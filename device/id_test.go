@@ -5,9 +5,27 @@ import (
 	"testing"
 )
 
+func TestIntToMAC(t *testing.T) {
+	assert := assert.New(t)
+	testData := []struct {
+		integer    uint64
+		expectedID ID
+	}{
+		{0, "mac:000000000000"},
+		{0x112233445566, "mac:112233445566"},
+		{0xF1A293C46570, "mac:f1a293c46570"},
+		{0x61FC, "mac:0000000061fc"},
+	}
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+		actualID := IntToMAC(record.integer)
+		assert.Equal(record.expectedID, actualID)
+	}
+}
+
 func TestParseID(t *testing.T) {
 	assert := assert.New(t)
-
 	testData := []struct {
 		id           string
 		expected     ID

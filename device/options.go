@@ -197,7 +197,7 @@ func (o *Options) messageListener() MessageListener {
 		return o.MessageListener
 	}
 
-	return defaultListener
+	return defaultMessageListener
 }
 
 func (o *Options) connectListener() ConnectListener {
@@ -205,7 +205,7 @@ func (o *Options) connectListener() ConnectListener {
 		return o.ConnectListener
 	}
 
-	return defaultListener
+	return defaultConnectListener
 }
 
 func (o *Options) disconnectListener() DisconnectListener {
@@ -213,7 +213,7 @@ func (o *Options) disconnectListener() DisconnectListener {
 		return o.DisconnectListener
 	}
 
-	return defaultListener
+	return defaultDisconnectListener
 }
 
 func (o *Options) pongListener() PongListener {
@@ -221,5 +221,5 @@ func (o *Options) pongListener() PongListener {
 		return o.PongListener
 	}
 
-	return defaultListener
+	return defaultPongListener
 }
