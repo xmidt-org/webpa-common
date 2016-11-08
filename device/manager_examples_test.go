@@ -9,10 +9,8 @@ import (
 )
 
 func ExampleManagerSimple() {
-	logger := &logging.LoggerWriter{ioutil.Discard}
-
 	options := &Options{
-		Logger: logger,
+		Logger: &logging.LoggerWriter{ioutil.Discard},
 		MessageListener: func(device Interface, message *wrp.Message) {
 			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 			err := device.Send(

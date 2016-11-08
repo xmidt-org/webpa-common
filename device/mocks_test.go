@@ -41,7 +41,7 @@ func (m *mockDevice) ConnectedAt() time.Time {
 	return arguments.Get(0).(time.Time)
 }
 
-func (m *mockDevice) RequestShutdown() {
+func (m *mockDevice) RequestClose() {
 	m.Called()
 }
 

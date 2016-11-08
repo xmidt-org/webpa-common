@@ -154,13 +154,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	}
 
 	d := newDevice(id, initialKey, convey, m.deviceMessageQueueSize)
-
-	m.whenWriteLocked(func() {
-		m.registry.add(d)
-	})
-
-	go m.readPump(d, c)
-	go m.writePump(d, c)
+	closeOnce := new(sync.Once)
+	go m.readPump(d, c, closeOnce)
+	go m.writePump(d, c, closeOnce)
 	m.connectListener(d)
 
 	return d, nil
@@ -178,25 +174,21 @@ func (m *manager) whenReadLocked(when func()) {
 	when()
 }
 
+// pumpCleanup handles the proper shutdown and logging of a device's pumps.
+// This method should be executed within a sync.Once, so that it only executes
+// once for a given device.
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
 
-	d.closeOnce.Do(func() {
-		defer m.disconnectListener(d)
-		defer d.close()
+	defer m.disconnectListener(d)
 
-		defer m.whenWriteLocked(func() {
-			m.registry.removeOne(d)
-		})
+	if pumpError != nil {
+		m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
+	}
 
-		if pumpError != nil {
-			m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
-		}
-
-		if closeError := c.Close(); closeError != nil {
-			m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
-		}
-	})
+	if closeError := c.Close(); closeError != nil {
+		m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
+	}
 }
 
 // pongCallbackFor creates a callback that delegates to this Manager's Listeners
@@ -207,7 +199,9 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 	}
 }
 
-func (m *manager) readPump(d *device, c Connection) {
+// readPump is the goroutine which handles the stream of WRP messages from a device.
+// This goroutine exits when any error occurs on the connection.
+func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
@@ -215,7 +209,13 @@ func (m *manager) readPump(d *device, c Connection) {
 		readError error
 	)
 
-	defer m.pumpClose(d, c, readError)
+	defer func() {
+		closeOnce.Do(func() {
+			defer d.RequestClose()
+			m.pumpClose(d, c, readError)
+		})
+	}()
+
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
@@ -231,11 +231,25 @@ func (m *manager) readPump(d *device, c Connection) {
 	}
 }
 
-func (m *manager) writePump(d *device, c Connection) {
+// writePump is the goroutine which services messages addressed to the device.
+// this goroutine exits when either an explicit shutdown is requested or any
+// error occurs on the connection.
+func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("writePump(%s)", d.id)
 
+	// this makes this device addressable via the enclosing Manager:
+	m.whenWriteLocked(func() {
+		m.registry.add(d)
+	})
+
+	defer m.whenWriteLocked(func() {
+		m.registry.removeOne(d)
+	})
+
 	var writeError error
-	defer m.pumpClose(d, c, writeError)
+	defer func() {
+		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
+	}()
 
 	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
 	pingTicker := time.NewTicker(m.pingPeriod)
@@ -254,10 +268,10 @@ func (m *manager) writePump(d *device, c Connection) {
 	}
 }
 
-// requestShutdown is a convenient, internal visitor
+// requestClose is a convenient, internal visitor
 // that the various Disconnect methods use.
-func (m *manager) requestShutdown(d *device) {
-	d.RequestShutdown()
+func (m *manager) requestClose(d *device) {
+	d.RequestClose()
 }
 
 // wrapVisitor produces an internal visitor that wraps a delegate
@@ -272,7 +286,7 @@ func (m *manager) Disconnect(id ID) (count int) {
 	m.logger.Debug("Disconnect(%s)", id)
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitID(id, m.requestShutdown)
+		count = m.registry.visitID(id, m.requestClose)
 	})
 
 	return
@@ -282,7 +296,7 @@ func (m *manager) DisconnectOne(key Key) (count int) {
 	m.logger.Debug("DisconnectOne(%s)", key)
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitKey(key, m.requestShutdown)
+		count = m.registry.visitKey(key, m.requestClose)
 	})
 
 	return
@@ -292,7 +306,7 @@ func (m *manager) DisconnectIf(filter func(ID) bool) (count int) {
 	m.logger.Debug("DisconnectIf()")
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, m.requestShutdown)
+		count = m.registry.visitIf(filter, m.requestClose)
 	})
 
 	return count

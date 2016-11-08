@@ -70,10 +70,6 @@ func TestDevice(t *testing.T) {
 			assert.JSONEq(string(data), device.String())
 		}
 
-		t.Log("RequestShutdown should be idempotent")
-		device.RequestShutdown()
-		device.RequestShutdown()
-
 		t.Log("updateKey should hold other state immutable")
 		device.updateKey(record.updatedKey)
 		assert.Equal(record.expectedID, device.ID())
@@ -99,16 +95,18 @@ func TestDevice(t *testing.T) {
 			}
 		}
 
-		t.Log("close should be idempotent")
-		device.close()
-		device.close()
+		t.Log("RequestClose should be idempotent")
+		assert.False(device.Closed())
+		device.RequestClose()
+		assert.True(device.Closed())
+		device.RequestClose()
+		assert.True(device.Closed())
 
 		t.Log("closed state")
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(record.updatedKey, device.Key())
 		assert.Equal(record.expectedConvey, device.Convey())
 		assert.Equal(actualConnectedAt, device.ConnectedAt())
-		assert.True(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())
 		}

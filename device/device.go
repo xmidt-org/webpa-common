@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/Comcast/webpa-common/wrp"
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -46,9 +45,11 @@ type Interface interface {
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
 
-	// RequestShutdown posts a request for this device to be disconnected.  This method
-	// is asynchronous and idempotent.
-	RequestShutdown()
+	// RequestClose posts a request for this device to be disconnected.  This method
+	// is asynchronous and idempotent.  If this method is invoked when a shutdown
+	// request has already been queued or when this device is already shut down, this
+	// method returns an error.
+	RequestClose()
 
 	// Closed tests if this device is closed.  When this method returns true,
 	// any attempt to send messages to this device will result in an error.
@@ -73,10 +74,9 @@ type device struct {
 	convey      Convey
 	connectedAt time.Time
 
-	closeOnce sync.Once
-	state     int32
+	state int32
 
-	shutdown chan bool
+	shutdown chan struct{}
 	messages chan *wrp.Message
 }
 
@@ -86,7 +86,7 @@ func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 		convey:      convey,
 		connectedAt: time.Now(),
 		state:       stateOpen,
-		shutdown:    make(chan bool, 1),
+		shutdown:    make(chan struct{}),
 		messages:    make(chan *wrp.Message, queueSize),
 	}
 
@@ -127,16 +127,10 @@ func (d *device) String() string {
 	return string(data)
 }
 
-func (d *device) RequestShutdown() {
-	select {
-	case d.shutdown <- true:
-	default:
+func (d *device) RequestClose() {
+	if atomic.CompareAndSwapInt32(&d.state, stateOpen, stateClosed) {
+		close(d.shutdown)
 	}
-}
-
-// close simply sets the atomic state appropriately
-func (d *device) close() {
-	atomic.StoreInt32(&d.state, stateClosed)
 }
 
 func (d *device) ID() ID {
@@ -163,7 +157,7 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(message *wrp.Message) error {
+func (d *device) Send(message *wrp.Message) (err error) {
 	if d.Closed() {
 		return NewClosedError(d.id, d.Key())
 	}
