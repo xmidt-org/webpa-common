@@ -2,8 +2,8 @@ package fact
 
 import (
 	"encoding/base64"
-	"github.com/Comcast/webpa-common/canonical"
 	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +56,7 @@ func TestDeviceId(t *testing.T) {
 	ctx := context.Background()
 
 	value, ok := DeviceId(ctx)
-	if !assert.Nil(value) || !assert.False(ok) {
+	if !assert.Empty(string(value)) || !assert.False(ok) {
 		return
 	}
 
@@ -68,16 +68,16 @@ func TestDeviceId(t *testing.T) {
 		MustDeviceId(ctx)
 	}()
 
-	deviceId, err := canonical.ParseId("mac:111122223333")
-	if !assert.NotNil(deviceId) || !assert.Nil(err) {
+	deviceID, err := device.ParseID("mac:111122223333")
+	if !assert.NotNil(deviceID) || !assert.Nil(err) {
 		return
 	}
 
-	t.Logf("Parsed device id: %v", deviceId)
-	ctx = SetDeviceId(ctx, deviceId)
+	t.Logf("Parsed device id: %v", deviceID)
+	ctx = SetDeviceId(ctx, deviceID)
 
 	value, ok = DeviceId(ctx)
-	assert.Equal(deviceId, value)
+	assert.Equal(deviceID, value)
 	assert.True(ok)
 
 	func() {
@@ -85,7 +85,7 @@ func TestDeviceId(t *testing.T) {
 			assert.Nil(recover())
 		}()
 
-		assert.Equal(deviceId, MustDeviceId(ctx))
+		assert.Equal(deviceID, MustDeviceId(ctx))
 	}()
 }
 
