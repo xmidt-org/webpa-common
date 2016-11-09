@@ -2,7 +2,6 @@ package fact
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
@@ -67,15 +66,15 @@ func SetDeviceId(ctx context.Context, value device.ID) context.Context {
 	return context.WithValue(ctx, deviceIdKey, value)
 }
 
-// Convey retrieves the convey.Payload from the enclosing context
-func Convey(ctx context.Context) (convey.Payload, bool) {
-	value, ok := ctx.Value(conveyKey).(convey.Payload)
+// Convey retrieves the device.Convey from the enclosing context
+func Convey(ctx context.Context) (device.Convey, bool) {
+	value, ok := ctx.Value(conveyKey).(device.Convey)
 	return value, ok
 }
 
 // MustConvey retrieves the convey payload from the context, panicking
 // if no such payload is found.
-func MustConvey(ctx context.Context) convey.Payload {
+func MustConvey(ctx context.Context) device.Convey {
 	value, ok := Convey(ctx)
 	if !ok {
 		panic(NoConvey)
@@ -84,8 +83,8 @@ func MustConvey(ctx context.Context) convey.Payload {
 	return value
 }
 
-// SetConvey sets the convey.Payload in the enclosing context
-func SetConvey(ctx context.Context, value convey.Payload) context.Context {
+// SetConvey sets the device.Convey in the enclosing context
+func SetConvey(ctx context.Context, value device.Convey) context.Context {
 	return context.WithValue(ctx, conveyKey, value)
 }
 

@@ -3,7 +3,7 @@ package handler
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/fact"
 	"golang.org/x/net/context"
 	"net/http"
@@ -24,7 +24,7 @@ func ConveyCustom(conveyHeader string, encoding *base64.Encoding) ChainHandler {
 				if hasLogger {
 					logger.Error("Invalid convey header: %s.  FIX ME: https://www.teamccp.com/jira/browse/WEBPA-787", rawPayload)
 				}
-			} else if conveyPayload, err := convey.ParsePayload(encoding, rawPayload); err != nil {
+			} else if conveyPayload, err := device.ParseConvey(rawPayload, encoding); err != nil {
 				message := fmt.Sprintf(InvalidConveyPattern, rawPayload, err)
 				if hasLogger {
 					logger.Error(message)

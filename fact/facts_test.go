@@ -1,8 +1,6 @@
 package fact
 
 import (
-	"encoding/base64"
-	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
@@ -106,7 +104,7 @@ func TestConvey(t *testing.T) {
 		MustConvey(ctx)
 	}()
 
-	payload, err := convey.ParsePayload(base64.StdEncoding, conveyPayload)
+	payload, err := device.ParseConvey(conveyPayload, nil)
 	if !assert.NotNil(payload) || !assert.Nil(err) {
 		return
 	}
