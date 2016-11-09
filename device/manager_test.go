@@ -503,3 +503,58 @@ func TestManagerSendOne(t *testing.T) {
 		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
 	))
 }
+
+func TestManagerPingPong(t *testing.T) {
+	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
+	pongs := make(chan Interface, 100)
+
+	options := &Options{
+		Logger:          logging.TestLogger(t),
+		ConnectListener: func(Interface) { connectWait.Done() },
+		PongListener: func(candidate Interface, data string) {
+			t.Logf("pong from %s: %s", candidate.ID(), data)
+			pongs <- candidate
+		},
+		PingPeriod: 500 * time.Millisecond,
+	}
+
+	_, server, connectURL := startWebsocketServer(options)
+	defer server.Close()
+
+	dialer := NewDialer(options, nil)
+	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	defer closeTestDevices(assert, testDevices)
+
+	connectWait.Wait()
+	for id, connections := range testDevices {
+		for _, c := range connections {
+			// pongs are processed on the read goroutine
+			go func(id ID, c Connection) {
+				var err error
+				for err == nil {
+					_, err = c.Read()
+				}
+			}(id, c)
+		}
+	}
+
+	pongWait := new(sync.WaitGroup)
+	pongWait.Add(1)
+	go func() {
+		defer pongWait.Done()
+		pongedDevices := make(deviceSet)
+		timeout := time.After(10 * time.Second)
+		for pongedDevices.len() < testConnectionCount {
+			select {
+			case ponged := <-pongs:
+				pongedDevices.add(ponged)
+			case <-timeout:
+				assert.Fail("Not all devices responded to pings within the timeout")
+			}
+		}
+	}()
+
+	pongWait.Wait()
+}
