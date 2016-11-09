@@ -60,45 +60,52 @@ func (m *mockDevice) Send(message *wrp.Message) error {
 // and asserting expectations.
 type deviceSet map[*device]bool
 
-func (vd deviceSet) len() int {
-	return len(vd)
+func (s deviceSet) len() int {
+	return len(s)
 }
 
-func (vd deviceSet) add(d Interface) {
-	vd[d.(*device)] = true
+func (s deviceSet) add(d Interface) {
+	s[d.(*device)] = true
 }
 
-func (vd *deviceSet) reset() {
-	*vd = make(deviceSet)
+func (s *deviceSet) reset() {
+	*s = make(deviceSet)
 }
 
 // managerCapture returns a high-level visitor for Manager testing
-func (vd deviceSet) managerCapture() func(Interface) {
+func (s deviceSet) managerCapture() func(Interface) {
 	return func(d Interface) {
-		vd.add(d)
+		s.add(d)
 	}
 }
 
 // registryCapture returns a low-level visitor for registry testing
-func (vd deviceSet) registryCapture() func(*device) {
+func (s deviceSet) registryCapture() func(*device) {
 	return func(d *device) {
-		vd[d] = true
+		s[d] = true
 	}
 }
 
-func (vd deviceSet) assertSameID(assert *assert.Assertions, expected ID) {
-	for d, _ := range vd {
+func (s deviceSet) assertSameID(assert *assert.Assertions, expected ID) {
+	for d, _ := range s {
 		assert.Equal(expected, d.ID())
 	}
 }
 
-func (vd deviceSet) assertDistributionOfIDs(assert *assert.Assertions, expected map[ID]int) {
+func (s deviceSet) assertDistributionOfIDs(assert *assert.Assertions, expected map[ID]int) {
 	actual := make(map[ID]int, len(expected))
-	for d, _ := range vd {
+	for d, _ := range s {
 		actual[d.ID()] += 1
 	}
 
 	assert.Equal(expected, actual)
+}
+
+// drain copies whatever is available on the given channel into this device set
+func (s deviceSet) drain(source <-chan Interface) {
+	for d := range source {
+		s.add(d)
+	}
 }
 
 func expectsDevices(devices ...*device) deviceSet {

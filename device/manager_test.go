@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sync"
 	"testing"
+	"time"
 )
 
 var (
@@ -236,12 +237,16 @@ func TestManagerConnectAndVisit(t *testing.T) {
 
 func TestManagerDisconnect(t *testing.T) {
 	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
+
 	disconnectWait := new(sync.WaitGroup)
 	disconnectWait.Add(testConnectionCount)
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger: logging.TestLogger(t),
+		Logger:          logging.TestLogger(t),
+		ConnectListener: func(Interface) { connectWait.Done() },
 		DisconnectListener: func(candidate Interface) {
 			defer disconnectWait.Done()
 			assert.True(candidate.Closed())
@@ -256,6 +261,7 @@ func TestManagerDisconnect(t *testing.T) {
 	testDevices := connectTestDevices(t, assert, dialer, connectURL)
 	defer closeTestDevices(assert, testDevices)
 
+	connectWait.Wait()
 	assert.Zero(manager.Disconnect(ID("nosuch")))
 	for id, connectionCount := range testDeviceIDs {
 		assert.Equal(connectionCount, manager.Disconnect(id))
@@ -265,10 +271,106 @@ func TestManagerDisconnect(t *testing.T) {
 	close(disconnections)
 	assert.Equal(testConnectionCount, len(disconnections))
 
-	visited := make(map[Interface]bool)
-	for candidate := range disconnections {
-		visited[candidate] = true
+	deviceSet := make(deviceSet)
+	deviceSet.drain(disconnections)
+	assert.Equal(testConnectionCount, deviceSet.len())
+}
+
+func TestManagerDisconnectOne(t *testing.T) {
+	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
+	disconnections := make(chan Interface, testConnectionCount)
+
+	options := &Options{
+		Logger:          logging.TestLogger(t),
+		ConnectListener: func(Interface) { connectWait.Done() },
+		DisconnectListener: func(candidate Interface) {
+			t.Logf("disconnecting: %s", candidate)
+			assert.True(candidate.Closed())
+			disconnections <- candidate
+		},
 	}
 
-	assert.Equal(testConnectionCount, len(visited))
+	manager, server, connectURL := startWebsocketServer(options)
+	defer server.Close()
+
+	dialer := NewDialer(options, nil)
+	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	defer closeTestDevices(assert, testDevices)
+
+	connectWait.Wait()
+	deviceSet := make(deviceSet)
+	manager.VisitAll(deviceSet.managerCapture())
+	assert.Equal(testConnectionCount, deviceSet.len())
+
+	assert.Zero(manager.DisconnectOne(Key("nosuch")))
+	select {
+	case <-disconnections:
+		assert.Fail("No disconnections should have occurred")
+	default:
+		// the passing case
+	}
+
+	for expected, _ := range deviceSet {
+		assert.Equal(1, manager.DisconnectOne(expected.Key()))
+
+		select {
+		case actual := <-disconnections:
+			assert.Equal(expected.Key(), actual.Key())
+			assert.True(actual.Closed())
+		case <-time.After(10 * time.Second):
+			assert.Fail("No disconnection occurred within the timeout")
+		}
+	}
+}
+
+func TestManagerDisconnectIf(t *testing.T) {
+	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
+	disconnections := make(chan Interface, testConnectionCount)
+
+	options := &Options{
+		Logger:          logging.TestLogger(t),
+		ConnectListener: func(Interface) { connectWait.Done() },
+		DisconnectListener: func(candidate Interface) {
+			t.Logf("disconnecting: %s", candidate)
+			assert.True(candidate.Closed())
+			disconnections <- candidate
+		},
+	}
+
+	manager, server, connectURL := startWebsocketServer(options)
+	defer server.Close()
+
+	dialer := NewDialer(options, nil)
+	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	defer closeTestDevices(assert, testDevices)
+
+	connectWait.Wait()
+	deviceSet := make(deviceSet)
+	manager.VisitAll(deviceSet.managerCapture())
+	assert.Equal(testConnectionCount, deviceSet.len())
+
+	assert.Zero(manager.DisconnectIf(func(ID) bool { return false }))
+	select {
+	case <-disconnections:
+		assert.Fail("No disconnections should have occurred")
+	default:
+		// the passing case
+	}
+
+	for id, connectionCount := range testDeviceIDs {
+		assert.Equal(connectionCount, manager.DisconnectIf(func(candidate ID) bool { return candidate == id }))
+		for repeat := 0; repeat < connectionCount; repeat++ {
+			select {
+			case actual := <-disconnections:
+				assert.Equal(id, actual.ID())
+				assert.True(actual.Closed())
+			case <-time.After(10 * time.Second):
+				assert.Fail("No disconnection occurred within the timeout")
+			}
+		}
+	}
 }

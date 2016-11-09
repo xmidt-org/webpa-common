@@ -157,7 +157,6 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
-	m.connectListener(d)
 
 	return d, nil
 }
@@ -246,6 +245,9 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	defer m.whenWriteLocked(func() {
 		m.registry.removeOne(d)
 	})
+
+	// dispatch to the connect listener after the device is addressable
+	m.connectListener(d)
 
 	var writeError error
 	defer func() {
