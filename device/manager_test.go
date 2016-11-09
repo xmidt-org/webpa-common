@@ -171,7 +171,7 @@ func TestManagerPongCallbackFor(t *testing.T) {
 	assert.True(listenerCalled)
 }
 
-func TestManagerConnectListener(t *testing.T) {
+func TestManagerConnectAndVisit(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -189,7 +189,7 @@ func TestManagerConnectListener(t *testing.T) {
 		},
 	}
 
-	_, server, connectURL := startWebsocketServer(options)
+	manager, server, connectURL := startWebsocketServer(options)
 	defer server.Close()
 
 	dialer := NewDialer(options, nil)
@@ -200,12 +200,38 @@ func TestManagerConnectListener(t *testing.T) {
 	close(connections)
 	assert.Equal(testConnectionCount, len(connections))
 
-	visited := make(map[Interface]bool)
+	deviceSet := make(deviceSet)
 	for candidate := range connections {
-		visited[candidate] = true
+		deviceSet.add(candidate)
 	}
 
-	assert.Equal(testConnectionCount, len(visited))
+	assert.Equal(testConnectionCount, deviceSet.len())
+
+	deviceSet.reset()
+	assert.Zero(manager.VisitIf(
+		func(ID) bool { return false },
+		deviceSet.managerCapture(),
+	))
+
+	assert.Empty(deviceSet)
+
+	for id, connectionCount := range testDeviceIDs {
+		deviceSet.reset()
+		assert.Equal(
+			connectionCount,
+			manager.VisitIf(
+				func(candidate ID) bool { return candidate == id },
+				deviceSet.managerCapture(),
+			),
+		)
+
+		assert.Equal(connectionCount, deviceSet.len())
+		deviceSet.assertSameID(assert, id)
+	}
+
+	deviceSet.reset()
+	manager.VisitAll(deviceSet.managerCapture())
+	deviceSet.assertDistributionOfIDs(assert, testDeviceIDs)
 }
 
 func TestManagerDisconnect(t *testing.T) {

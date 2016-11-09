@@ -5,24 +5,6 @@ import (
 	"testing"
 )
 
-// visitedDevices is a convenient map type for capturing the devices visited within a registry
-type visitedDevices map[*device]bool
-
-func (v visitedDevices) capture() func(*device) {
-	return func(d *device) {
-		v[d] = true
-	}
-}
-
-func expectsVisited(devices ...*device) visitedDevices {
-	visited := make(visitedDevices, len(devices))
-	for _, d := range devices {
-		visited[d] = true
-	}
-
-	return visited
-}
-
 var (
 	nosuchID     = ID("nosuch ID")
 	nosuchKey    = Key("nosuch key")
@@ -73,22 +55,22 @@ func TestRegistryVisitID(t *testing.T) {
 	assert := assert.New(t)
 	testData := []struct {
 		expectedID    ID
-		expectVisited visitedDevices
+		expectVisited deviceSet
 	}{
-		{nosuchID, expectsVisited()},
-		{singleID, expectsVisited(singleDevice)},
-		{doubleID, expectsVisited(doubleDevice1, doubleDevice2)},
-		{manyID, expectsVisited(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)},
+		{nosuchID, expectsDevices()},
+		{singleID, expectsDevices(singleDevice)},
+		{doubleID, expectsDevices(doubleDevice1, doubleDevice2)},
+		{manyID, expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)},
 	}
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		registry := testRegistry(t, assert)
-		actualVisited := visitedDevices{}
+		actualVisited := deviceSet{}
 
 		assert.Equal(
 			len(record.expectVisited),
-			registry.visitID(record.expectedID, actualVisited.capture()),
+			registry.visitID(record.expectedID, actualVisited.registryCapture()),
 		)
 
 		assert.Equal(record.expectVisited, actualVisited)
@@ -99,25 +81,25 @@ func TestRegistryVisitKey(t *testing.T) {
 	assert := assert.New(t)
 	testData := []struct {
 		expectedKey   Key
-		expectVisited visitedDevices
+		expectVisited deviceSet
 	}{
-		{nosuchKey, expectsVisited()},
-		{singleKey, expectsVisited(singleDevice)},
-		{doubleKey1, expectsVisited(doubleDevice1)},
-		{doubleKey2, expectsVisited(doubleDevice2)},
-		{manyKey1, expectsVisited(manyDevice1)},
-		{manyKey3, expectsVisited(manyDevice3)},
-		{manyKey5, expectsVisited(manyDevice5)},
+		{nosuchKey, expectsDevices()},
+		{singleKey, expectsDevices(singleDevice)},
+		{doubleKey1, expectsDevices(doubleDevice1)},
+		{doubleKey2, expectsDevices(doubleDevice2)},
+		{manyKey1, expectsDevices(manyDevice1)},
+		{manyKey3, expectsDevices(manyDevice3)},
+		{manyKey5, expectsDevices(manyDevice5)},
 	}
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		registry := testRegistry(t, assert)
-		actualVisited := visitedDevices{}
+		actualVisited := deviceSet{}
 
 		assert.Equal(
 			len(record.expectVisited),
-			registry.visitKey(record.expectedKey, actualVisited.capture()),
+			registry.visitKey(record.expectedKey, actualVisited.registryCapture()),
 		)
 
 		assert.Equal(record.expectVisited, actualVisited)
@@ -128,22 +110,22 @@ func TestRegistryVisitIf(t *testing.T) {
 	assert := assert.New(t)
 	testData := []struct {
 		filter        func(ID) bool
-		expectVisited visitedDevices
+		expectVisited deviceSet
 	}{
-		{func(ID) bool { return false }, expectsVisited()},
-		{func(id ID) bool { return id == singleID }, expectsVisited(singleDevice)},
-		{func(id ID) bool { return id == doubleID }, expectsVisited(doubleDevice1, doubleDevice2)},
-		{func(id ID) bool { return id == manyID }, expectsVisited(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)},
+		{func(ID) bool { return false }, expectsDevices()},
+		{func(id ID) bool { return id == singleID }, expectsDevices(singleDevice)},
+		{func(id ID) bool { return id == doubleID }, expectsDevices(doubleDevice1, doubleDevice2)},
+		{func(id ID) bool { return id == manyID }, expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)},
 	}
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		registry := testRegistry(t, assert)
-		actualVisited := visitedDevices{}
+		actualVisited := deviceSet{}
 
 		assert.Equal(
 			len(record.expectVisited),
-			registry.visitIf(record.filter, actualVisited.capture()),
+			registry.visitIf(record.filter, actualVisited.registryCapture()),
 		)
 
 		assert.Equal(record.expectVisited, actualVisited)
@@ -154,10 +136,10 @@ func TestRegistryVisitAll(t *testing.T) {
 	assert := assert.New(t)
 	registry := testRegistry(t, assert)
 
-	expectVisited := expectsVisited(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)
+	expectVisited := expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)
 
-	actualVisited := visitedDevices{}
-	assert.Equal(len(expectVisited), registry.visitAll(actualVisited.capture()))
+	actualVisited := deviceSet{}
+	assert.Equal(len(expectVisited), registry.visitAll(actualVisited.registryCapture()))
 	assert.Equal(expectVisited, actualVisited)
 }
 
@@ -178,32 +160,32 @@ func TestRegistryRemoveOne(t *testing.T) {
 	testData := []struct {
 		deviceToRemove *device
 		expectRemove   bool
-		expectVisitID  visitedDevices
-		expectVisitAll visitedDevices
+		expectVisitID  deviceSet
+		expectVisitAll deviceSet
 	}{
 		{
 			nosuchDevice,
 			false,
-			expectsVisited(),
-			expectsVisited(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(),
+			expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
 		},
 		{
 			singleDevice,
 			true,
-			expectsVisited(),
-			expectsVisited(doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(),
+			expectsDevices(doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
 		},
 		{
 			doubleDevice1,
 			true,
-			expectsVisited(doubleDevice2),
-			expectsVisited(singleDevice, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(doubleDevice2),
+			expectsDevices(singleDevice, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
 		},
 		{
 			manyDevice4,
 			true,
-			expectsVisited(manyDevice1, manyDevice2, manyDevice3, manyDevice5),
-			expectsVisited(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice5),
+			expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice5),
+			expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice5),
 		},
 	}
 
@@ -212,12 +194,12 @@ func TestRegistryRemoveOne(t *testing.T) {
 		registry := testRegistry(t, assert)
 		assert.Equal(record.expectRemove, registry.removeOne(record.deviceToRemove))
 
-		actualVisitID := make(visitedDevices)
-		registry.visitID(record.deviceToRemove.id, actualVisitID.capture())
+		actualVisitID := make(deviceSet)
+		registry.visitID(record.deviceToRemove.id, actualVisitID.registryCapture())
 		assert.Equal(record.expectVisitID, actualVisitID)
 
-		actualVisitAll := make(visitedDevices)
-		registry.visitAll(actualVisitAll.capture())
+		actualVisitAll := make(deviceSet)
+		registry.visitAll(actualVisitAll.registryCapture())
 		assert.Equal(record.expectVisitAll, actualVisitAll)
 	}
 }
@@ -226,28 +208,28 @@ func TestRegistryRemoveAll(t *testing.T) {
 	assert := assert.New(t)
 	testData := []struct {
 		idToRemove     ID
-		expectRemoved  visitedDevices
-		expectVisitAll visitedDevices
+		expectRemoved  deviceSet
+		expectVisitAll deviceSet
 	}{
 		{
 			nosuchID,
-			expectsVisited(),
-			expectsVisited(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(),
+			expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
 		},
 		{
 			singleID,
-			expectsVisited(singleDevice),
-			expectsVisited(doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(singleDevice),
+			expectsDevices(doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
 		},
 		{
 			doubleID,
-			expectsVisited(doubleDevice1, doubleDevice2),
-			expectsVisited(singleDevice, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(doubleDevice1, doubleDevice2),
+			expectsDevices(singleDevice, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
 		},
 		{
 			manyID,
-			expectsVisited(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-			expectsVisited(singleDevice, doubleDevice1, doubleDevice2),
+			expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
+			expectsDevices(singleDevice, doubleDevice1, doubleDevice2),
 		},
 	}
 
@@ -261,8 +243,8 @@ func TestRegistryRemoveAll(t *testing.T) {
 			assert.True(record.expectRemoved[d])
 		}
 
-		actualVisitAll := make(visitedDevices)
-		registry.visitAll(actualVisitAll.capture())
+		actualVisitAll := make(deviceSet)
+		registry.visitAll(actualVisitAll.registryCapture())
 		assert.Equal(record.expectVisitAll, actualVisitAll)
 	}
 }

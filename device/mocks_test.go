@@ -2,6 +2,7 @@ package device
 
 import (
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"time"
 )
@@ -53,4 +54,58 @@ func (m *mockDevice) Closed() bool {
 func (m *mockDevice) Send(message *wrp.Message) error {
 	arguments := m.Called(message)
 	return arguments.Error(0)
+}
+
+// deviceSet is a convenient map type for capturing visited devices
+// and asserting expectations.
+type deviceSet map[*device]bool
+
+func (vd deviceSet) len() int {
+	return len(vd)
+}
+
+func (vd deviceSet) add(d Interface) {
+	vd[d.(*device)] = true
+}
+
+func (vd *deviceSet) reset() {
+	*vd = make(deviceSet)
+}
+
+// managerCapture returns a high-level visitor for Manager testing
+func (vd deviceSet) managerCapture() func(Interface) {
+	return func(d Interface) {
+		vd.add(d)
+	}
+}
+
+// registryCapture returns a low-level visitor for registry testing
+func (vd deviceSet) registryCapture() func(*device) {
+	return func(d *device) {
+		vd[d] = true
+	}
+}
+
+func (vd deviceSet) assertSameID(assert *assert.Assertions, expected ID) {
+	for d, _ := range vd {
+		assert.Equal(expected, d.ID())
+	}
+}
+
+func (vd deviceSet) assertDistributionOfIDs(assert *assert.Assertions, expected map[ID]int) {
+	actual := make(map[ID]int, len(expected))
+	for d, _ := range vd {
+		actual[d.ID()] += 1
+	}
+
+	assert.Equal(expected, actual)
+}
+
+func expectsDevices(devices ...*device) deviceSet {
+	result := make(deviceSet, len(devices))
+	for _, d := range devices {
+		result[d] = true
+	}
+
+	return result
 }
