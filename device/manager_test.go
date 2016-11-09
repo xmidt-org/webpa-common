@@ -173,15 +173,18 @@ func TestManagerPongCallbackFor(t *testing.T) {
 
 func TestManagerConnectListener(t *testing.T) {
 	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
 	connections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
 		ConnectListener: func(candidate Interface) {
+			defer connectWait.Done()
 			select {
 			case connections <- candidate:
 			default:
-				assert.Fail("Too many connect listener invocations")
+				assert.Fail("The connect listener should not block")
 			}
 		},
 	}
@@ -193,28 +196,30 @@ func TestManagerConnectListener(t *testing.T) {
 	testDevices := connectTestDevices(t, assert, dialer, connectURL)
 	defer closeTestDevices(assert, testDevices)
 
+	connectWait.Wait()
 	close(connections)
 	assert.Equal(testConnectionCount, len(connections))
-	visitedDeviceIDs := make(map[ID]int)
-	for connected := range connections {
-		visitedDeviceIDs[connected.ID()] += 1
+
+	visited := make(map[Interface]bool)
+	for candidate := range connections {
+		visited[candidate] = true
 	}
 
-	assert.Equal(testDeviceIDs, visitedDeviceIDs)
+	assert.Equal(testConnectionCount, len(visited))
 }
 
 func TestManagerDisconnect(t *testing.T) {
 	assert := assert.New(t)
 	disconnectWait := new(sync.WaitGroup)
 	disconnectWait.Add(testConnectionCount)
-	disconnected := make(map[Key]Interface)
+	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
 		DisconnectListener: func(candidate Interface) {
-			disconnectWait.Done()
-			disconnected[candidate.Key()] = candidate
+			defer disconnectWait.Done()
 			assert.True(candidate.Closed())
+			disconnections <- candidate
 		},
 	}
 
@@ -225,10 +230,19 @@ func TestManagerDisconnect(t *testing.T) {
 	testDevices := connectTestDevices(t, assert, dialer, connectURL)
 	defer closeTestDevices(assert, testDevices)
 
+	assert.Zero(manager.Disconnect(ID("nosuch")))
 	for id, connectionCount := range testDeviceIDs {
 		assert.Equal(connectionCount, manager.Disconnect(id))
 	}
 
 	disconnectWait.Wait()
-	assert.Equal(testConnectionCount, len(disconnected))
+	close(disconnections)
+	assert.Equal(testConnectionCount, len(disconnections))
+
+	visited := make(map[Interface]bool)
+	for candidate := range disconnections {
+		visited[candidate] = true
+	}
+
+	assert.Equal(testConnectionCount, len(visited))
 }
