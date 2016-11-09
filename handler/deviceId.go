@@ -22,7 +22,7 @@ func DeviceIdCustom(deviceNameHeader string) ChainHandler {
 			return
 		}
 
-		deviceId, err := canonical.ParseId(deviceName)
+		deviceId, err := device.ParseID(deviceName)
 		if err != nil {
 			WriteJsonError(
 				response,
