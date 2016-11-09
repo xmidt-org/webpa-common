@@ -59,7 +59,7 @@ func connectTestDevices(t *testing.T, assert *assert.Assertions, dialer Dialer, 
 		connections := make([]Connection, 0, connectionCount)
 		for repeat := 0; repeat < connectionCount; repeat++ {
 			deviceConnection, response, err := dialer.Dial(connectURL, id, nil, nil)
-			if assert.NotNil(deviceConnection) && assert.NotNil(response) && assert.Nil(err) {
+			if assert.NotNil(deviceConnection) && assert.NotNil(response) && assert.NoError(err) {
 				connections = append(connections, deviceConnection)
 			} else {
 				t.FailNow()
@@ -92,7 +92,7 @@ func TestManagerConnectMissingDeviceNameHeader(t *testing.T) {
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
-	assert.NotNil(err)
+	assert.Error(err)
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
@@ -109,7 +109,7 @@ func TestManagerBadDeviceNameHeader(t *testing.T) {
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
-	assert.NotNil(err)
+	assert.Error(err)
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
@@ -127,7 +127,7 @@ func TestManagerBadConveyHeader(t *testing.T) {
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
-	assert.NotNil(err)
+	assert.Error(err)
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
@@ -149,7 +149,7 @@ func TestManagerKeyError(t *testing.T) {
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
-	assert.NotNil(err)
+	assert.Error(err)
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
@@ -386,7 +386,7 @@ func TestManagerSend(t *testing.T) {
 		ConnectListener: func(Interface) { connectWait.Done() },
 		DisconnectListener: func(candidate Interface) {
 			assert.True(candidate.Closed())
-			assert.NotNil(candidate.Send(new(wrp.Message)))
+			assert.Error(candidate.Send(new(wrp.Message)))
 		},
 	}
 
@@ -441,5 +441,65 @@ func TestManagerSend(t *testing.T) {
 		func(Interface, error) {
 			assert.Fail("The callback shouldn't have been called")
 		},
+	))
+}
+
+func TestManagerSendOne(t *testing.T) {
+	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
+
+	options := &Options{
+		Logger:          logging.TestLogger(t),
+		ConnectListener: func(Interface) { connectWait.Done() },
+		DisconnectListener: func(candidate Interface) {
+			assert.True(candidate.Closed())
+			assert.Error(candidate.Send(new(wrp.Message)))
+		},
+	}
+
+	manager, server, connectURL := startWebsocketServer(options)
+	defer server.Close()
+
+	dialer := NewDialer(options, nil)
+	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	defer closeTestDevices(assert, testDevices)
+
+	receiveWait := new(sync.WaitGroup)
+	receiveWait.Add(testConnectionCount)
+	for id, connections := range testDevices {
+		for _, c := range connections {
+			go func(id ID, c Connection) {
+				defer receiveWait.Done()
+				message, err := c.Read()
+				if assert.NotNil(message) && assert.NoError(err) {
+					assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
+				}
+			}(id, c)
+		}
+	}
+
+	connectWait.Wait()
+	deviceSet := make(deviceSet)
+	manager.VisitAll(deviceSet.managerCapture())
+	assert.Equal(testConnectionCount, deviceSet.len())
+	for d, _ := range deviceSet {
+		// spawn a goroutine for each send to better detect any race conditions
+		// or other concurrency issues
+		go func(d Interface) {
+			assert.NoError(
+				manager.SendOne(
+					d.Key(),
+					wrp.NewSimpleEvent("foobar.com", []byte(fmt.Sprintf("message for %s", d.ID()))),
+				),
+			)
+		}(d)
+	}
+
+	receiveWait.Wait()
+
+	assert.Error(manager.SendOne(
+		Key("nosuch"),
+		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
 	))
 }
