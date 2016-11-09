@@ -182,6 +182,10 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 
 	defer m.disconnectListener(d)
 
+	// always request a close, to ensure that the write goroutine is
+	// shutdown and to signal to other goroutines that the device is closed
+	d.RequestClose()
+
 	if pumpError != nil {
 		m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
 	}
@@ -210,10 +214,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	)
 
 	defer func() {
-		closeOnce.Do(func() {
-			defer d.RequestClose()
-			m.pumpClose(d, c, readError)
-		})
+		closeOnce.Do(func() { m.pumpClose(d, c, readError) })
 	}()
 
 	c.SetPongCallback(m.pongCallbackFor(d))
