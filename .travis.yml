@@ -5,7 +5,6 @@ go:
 env:
     - TEST_DIR=concurrent
     - TEST_DIR=conlimiter
-    - TEST_DIR=convey
     - TEST_DIR=device
     - TEST_DIR=fact
     - TEST_DIR=fasthash
