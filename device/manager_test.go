@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -373,4 +374,72 @@ func TestManagerDisconnectIf(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestManagerSend(t *testing.T) {
+	assert := assert.New(t)
+	connectWait := new(sync.WaitGroup)
+	connectWait.Add(testConnectionCount)
+
+	options := &Options{
+		Logger:          logging.TestLogger(t),
+		ConnectListener: func(Interface) { connectWait.Done() },
+		DisconnectListener: func(candidate Interface) {
+			assert.True(candidate.Closed())
+			assert.NotNil(candidate.Send(new(wrp.Message)))
+		},
+	}
+
+	manager, server, connectURL := startWebsocketServer(options)
+	defer server.Close()
+
+	dialer := NewDialer(options, nil)
+	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	defer closeTestDevices(assert, testDevices)
+
+	receiveWait := new(sync.WaitGroup)
+	receiveWait.Add(testConnectionCount)
+	for id, connections := range testDevices {
+		for _, c := range connections {
+			go func(id ID, c Connection) {
+				defer receiveWait.Done()
+				message, err := c.Read()
+				if assert.NotNil(message) && assert.NoError(err) {
+					assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
+				}
+			}(id, c)
+		}
+	}
+
+	connectWait.Wait()
+	for id, expectedCount := range testDeviceIDs {
+		// spawn a goroutine for each send to better detect any race conditions
+		// or other concurrency issues
+		go func(id ID, expectedCount int) {
+			actualCount := 0
+			assert.NoError(
+				manager.Send(
+					id,
+					wrp.NewSimpleEvent("foobar.com", []byte(fmt.Sprintf("message for %s", id))),
+					func(d Interface, err error) {
+						assert.Equal(id, d.ID())
+						assert.NoError(err)
+						actualCount++
+					},
+				),
+			)
+
+			assert.Equal(expectedCount, actualCount)
+		}(id, expectedCount)
+	}
+
+	receiveWait.Wait()
+
+	assert.Error(manager.Send(
+		ID("nosuch"),
+		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
+		func(Interface, error) {
+			assert.Fail("The callback shouldn't have been called")
+		},
+	))
 }
