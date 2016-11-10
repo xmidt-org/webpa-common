@@ -1,17 +1,10 @@
 package service
 
 import (
-	"github.com/billhathaway/consistentHash"
 	"github.com/strava/go.serversets"
 	"strconv"
 	"strings"
 )
-
-// Accessor provides access to services based around []byte keys.
-// *consistentHash.ConsistentHash implements this interface.
-type Accessor interface {
-	Get([]byte) (string, error)
-}
 
 // Registrar is the interface which is used to register endpoints.
 // *serversets.ServerSet implements this interface.
@@ -29,6 +22,14 @@ type Watcher interface {
 type RegistrarWatcher interface {
 	Registrar
 	Watcher
+}
+
+// Endpoint is the local interface with *serversets.Endpoint implements.
+// The only thing you can do with an endpoint is close it.
+type Endpoint interface {
+	// Close closes the endpoint and blocks until the underlying Zookeeper connection
+	// is closed.  Note that this Close() method does not return an error, unlike io.Closer.
+	Close()
 }
 
 // ParseRegistration separates a string value into a host and a port.  This function assumes
@@ -49,19 +50,23 @@ func ParseRegistration(value string) (string, int, error) {
 
 // NewRegistrarWatcher produces a serversets.ServerSet using a supplied set of options
 func NewRegistrarWatcher(o *Options) RegistrarWatcher {
-	return serversets.New(
+	serverSet := serversets.New(
 		o.environment(),
 		o.serviceName(),
 		o.zookeepers(),
 	)
+
+	serverSet.ZKTimeout = o.zookeeperTimeout()
+	return serverSet
 }
 
 // RegisterEndpoints registers all host:port strings found in o.Registrations.  This
 // function returns a nil slice if o == nil or if o has no registrations.  If any errors
 // occur, this function returns a partial slice of endpoints that it could successfully create.
-func RegisterEndpoints(o *Options, registrar Registrar) ([]*serversets.Endpoint, error) {
+func RegisterEndpoints(o *Options, registrar Registrar) ([]Endpoint, error) {
 	if o != nil && len(o.Registrations) > 0 {
 		var (
+			logger            = o.logger()
 			err               error
 			registrationCount = len(o.Registrations)
 			hosts             = make([]string, registrationCount)
@@ -76,8 +81,10 @@ func RegisterEndpoints(o *Options, registrar Registrar) ([]*serversets.Endpoint,
 			}
 		}
 
-		endpoints := make([]*serversets.Endpoint, 0, registrationCount)
+		endpoints := make([]Endpoint, 0, registrationCount)
 		for index := 0; index < registrationCount; index++ {
+			logger.Info("Registering endpoint %s:%d", hosts[index], ports[index])
+
 			endpoint, err = registrar.RegisterEndpoint(
 				hosts[index],
 				ports[index],
@@ -95,40 +102,4 @@ func RegisterEndpoints(o *Options, registrar Registrar) ([]*serversets.Endpoint,
 	}
 
 	return nil, nil
-}
-
-func NewAccessor(vnodeCount int, endpoints []string) Accessor {
-	hash := consistentHash.New()
-	hash.SetVnodeCount(vnodeCount)
-	for _, hostAndPort := range endpoints {
-		hash.Add(hostAndPort)
-	}
-
-	return hash
-}
-
-func Subscribe(vnodeCount int, watcher Watcher) (<-chan Accessor, error) {
-	watch, err := watcher.Watch()
-	if err != nil {
-		return nil, err
-	}
-
-	accessors := make(chan Accessor, 1)
-	go func() {
-		defer close(accessors)
-		accessors <- NewAccessor(vnodeCount, watch.Endpoints())
-
-		for {
-			select {
-			case <-watch.Event():
-				if watch.IsClosed() {
-					return
-				}
-
-				accessors <- NewAccessor(vnodeCount, watch.Endpoints())
-			}
-		}
-	}()
-
-	return accessors, nil
 }

@@ -2,7 +2,9 @@ package service
 
 import (
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/types"
 	"github.com/strava/go.serversets"
+	"time"
 )
 
 const (
@@ -14,13 +16,14 @@ const (
 
 // Options represents the set of configurable attributes for service discovery and registration
 type Options struct {
-	Logger        logging.Logger `json:"-"`
-	Zookeepers    []string       `json:"zookeepers"`
-	Environment   string         `json:"environment"`
-	ServiceName   string         `json:"serviceName"`
-	Registrations []string       `json:"registrations,omitempty"`
-	VnodeCount    int            `json:"vnodeCount"`
-	PingFunc      func() error   `json:"-"`
+	Logger           logging.Logger `json:"-"`
+	Zookeepers       []string       `json:"zookeepers"`
+	ZookeeperTimeout types.Duration `json:"zookeeperTimeout"`
+	Environment      string         `json:"environment"`
+	ServiceName      string         `json:"serviceName"`
+	Registrations    []string       `json:"registrations,omitempty"`
+	VnodeCount       int            `json:"vnodeCount"`
+	PingFunc         func() error   `json:"-"`
 }
 
 func (o *Options) logger() logging.Logger {
@@ -37,6 +40,14 @@ func (o *Options) zookeepers() []string {
 	}
 
 	return []string{DefaultZookeeper}
+}
+
+func (o *Options) zookeeperTimeout() time.Duration {
+	if o != nil && o.ZookeeperTimeout > 0 {
+		return time.Duration(o.ZookeeperTimeout)
+	}
+
+	return serversets.DefaultZKTimeout
 }
 
 func (o *Options) environment() serversets.Environment {
