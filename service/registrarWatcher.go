@@ -1,10 +1,17 @@
 package service
 
 import (
+	"github.com/billhathaway/consistentHash"
 	"github.com/strava/go.serversets"
 	"strconv"
 	"strings"
 )
+
+// Accessor provides access to services based around []byte keys.
+// *consistentHash.ConsistentHash implements this interface.
+type Accessor interface {
+	Get([]byte) (string, error)
+}
 
 // Registrar is the interface which is used to register endpoints.
 // *serversets.ServerSet implements this interface.
@@ -88,4 +95,40 @@ func RegisterEndpoints(o *Options, registrar Registrar) ([]*serversets.Endpoint,
 	}
 
 	return nil, nil
+}
+
+func NewAccessor(vnodeCount int, endpoints []string) Accessor {
+	hash := consistentHash.New()
+	hash.SetVnodeCount(vnodeCount)
+	for _, hostAndPort := range endpoints {
+		hash.Add(hostAndPort)
+	}
+
+	return hash
+}
+
+func Subscribe(vnodeCount int, watcher Watcher) (<-chan Accessor, error) {
+	watch, err := watcher.Watch()
+	if err != nil {
+		return nil, err
+	}
+
+	accessors := make(chan Accessor, 1)
+	go func() {
+		defer close(accessors)
+		accessors <- NewAccessor(vnodeCount, watch.Endpoints())
+
+		for {
+			select {
+			case <-watch.Event():
+				if watch.IsClosed() {
+					return
+				}
+
+				accessors <- NewAccessor(vnodeCount, watch.Endpoints())
+			}
+		}
+	}()
+
+	return accessors, nil
 }
