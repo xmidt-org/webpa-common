@@ -1,12 +1,11 @@
 language: go
 go: 
-    - 1.6.2
+    - 1.7.1
 
 env:
-    - TEST_DIR=canonical
     - TEST_DIR=concurrent
     - TEST_DIR=conlimiter
-    - TEST_DIR=convey
+    - TEST_DIR=device
     - TEST_DIR=fact
     - TEST_DIR=fasthash
     - TEST_DIR=garbagetruck

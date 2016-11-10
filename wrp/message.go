@@ -112,3 +112,33 @@ func (m *Message) Valid() error {
 
 	return nil
 }
+
+// NewAuth is a convenience factory function for creating
+// an authorization WRP message
+func NewAuth(status int64) *Message {
+	return &Message{
+		Type:   AuthMessageType,
+		Status: &status,
+	}
+}
+
+// NewSimpleRequestResponse is a convenience factory function for creating
+// a simple request/response message
+func NewSimpleRequestResponse(destination, source string, payload []byte) *Message {
+	return &Message{
+		Type:        SimpleRequestResponseMessageType,
+		Source:      source,
+		Destination: destination,
+		Payload:     payload,
+	}
+}
+
+// NewSimpleEvent is a convenience factory function for creating
+// a simple event message
+func NewSimpleEvent(destination string, payload []byte) *Message {
+	return &Message{
+		Type:        SimpleEventMessageType,
+		Destination: destination,
+		Payload:     payload,
+	}
+}

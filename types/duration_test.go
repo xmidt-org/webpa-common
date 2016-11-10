@@ -10,7 +10,7 @@ var durationStrings = []struct {
 	value    Duration
 	expected string
 }{
-	{Duration(0), "0"},
+	{Duration(0), "0s"},
 	{Duration(-1), "-1ns"},
 	{Duration(10 * time.Second), "10s"},
 	{Duration(-7 * time.Minute), "-7m0s"},

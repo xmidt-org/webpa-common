@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
 )
 
 // ErrorLogger provides the interface for outputting errors to a log sink
@@ -93,4 +94,33 @@ func (l *LoggerWriter) Error(parameters ...interface{}) { l.formatf(errorLevel, 
 
 func (l *LoggerWriter) Printf(format string, parameters ...interface{}) {
 	l.logf(infoLevel, format, parameters)
+}
+
+func DefaultLogger() Logger {
+	return &LoggerWriter{os.Stdout}
+}
+
+// testDelegate is an internal interface implemented by testing.T and testing.B
+type testDelegate interface {
+	Log(...interface{})
+}
+
+type testWriter struct {
+	testDelegate
+}
+
+func (tw *testWriter) Write(data []byte) (int, error) {
+	tw.Log(string(data))
+	return len(data), nil
+}
+
+// TestWriter produces an io.Writer that outputs to testDelegate.Log with a single
+// string.  Use this function to create a test logger: &LoggerWriter{TestWriter(t)}.
+func TestWriter(delegate testDelegate) io.Writer {
+	return &testWriter{delegate}
+}
+
+// TestLogger is a convenience for &LoggerWriter{TestWriter(t)}
+func TestLogger(delegate testDelegate) Logger {
+	return &LoggerWriter{TestWriter(delegate)}
 }

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/canonical"
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
@@ -41,13 +41,13 @@ func ExampleHash() {
 	logger := &logging.LoggerWriter{&output}
 	ctx := fact.SetLogger(context.Background(), logger)
 
-	deviceId, err := canonical.ParseId("mac:111122223333")
+	deviceID, err := device.ParseID("mac:111122223333")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error while parsing device id: %v\n", err)
 		return
 	}
 
-	ctx = fact.SetDeviceId(ctx, deviceId)
+	ctx = fact.SetDeviceId(ctx, deviceID)
 	serviceHash := &testServiceHash{value: "http://comcast.net"}
 	response, request := dummyHttpOperation()
 	request.URL.Path = "/foo/bar"
@@ -71,12 +71,12 @@ func TestHashCustomSuccess(t *testing.T) {
 	)
 
 	assert := assert.New(t)
-	deviceId, err := canonical.ParseId(deviceName)
+	deviceID, err := device.ParseID(deviceName)
 	if !assert.Nil(err) {
 		return
 	}
 
-	ctx := fact.SetDeviceId(context.Background(), deviceId)
+	ctx := fact.SetDeviceId(context.Background(), deviceID)
 	serviceHash := &testServiceHash{value: service}
 	response, request := dummyHttpOperation()
 	request.URL.Path = path
@@ -95,12 +95,12 @@ func TestHashCustomNoNodes(t *testing.T) {
 	)
 
 	assert := assert.New(t)
-	deviceId, err := canonical.ParseId(deviceName)
+	deviceID, err := device.ParseID(deviceName)
 	if !assert.Nil(err) {
 		return
 	}
 
-	ctx := fact.SetDeviceId(context.Background(), deviceId)
+	ctx := fact.SetDeviceId(context.Background(), deviceID)
 	serviceHash := &errorServiceHash{errorString: "expected"}
 	response, request := dummyHttpOperation()
 	request.URL.Path = path

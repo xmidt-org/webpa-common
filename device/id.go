@@ -1,7 +1,4 @@
-// Package canonical provides a simple normalization for device identifiers.  These
-// identifiers have the form {prefix}:{id}/{service}/{ignored}, where only {prefix}
-// and {id} are required.
-package canonical
+package device
 
 import (
 	"errors"
@@ -11,21 +8,12 @@ import (
 	"unicode"
 )
 
-// Id represents a normalized identifer for a device.
-type Id interface {
-	// Bytes returns a distinct byte slice representation
-	// of this canonicalized identifier.
-	Bytes() []byte
+// ID represents a normalized identifer for a device.
+type ID string
+
+func (id ID) Bytes() []byte {
+	return []byte(id)
 }
-
-// id is the internal Id implementation
-type id string
-
-func (this id) Bytes() []byte {
-	return []byte(this)
-}
-
-var _ Id = id("")
 
 const (
 	hexDigits     = "0123456789abcdefABCDEF"
@@ -35,6 +23,8 @@ const (
 )
 
 var (
+	invalidID = ID("")
+
 	// idPattern is the precompiled regular expression that all device identifiers must match.
 	// Matching is partial, as everything after the service is ignored.
 	idPattern = regexp.MustCompile(
@@ -42,11 +32,17 @@ var (
 	)
 )
 
-// ParseId parses a raw string identifier into an Id
-func ParseId(value string) (Id, error) {
+// IntToMAC accepts a 64-bit integer and formats that as a device MAC address identifier
+// The returned ID will be of the form mac:XXXXXXXXXXXX, where X is a hexadecimal digit using
+// lowercased letters.
+func IntToMAC(value uint64) ID {
+	return ID(fmt.Sprintf("mac:%012x", value&0x0000FFFFFFFFFFFF))
+}
+
+func ParseID(value string) (ID, error) {
 	match := idPattern.FindStringSubmatch(value)
 	if match == nil {
-		return nil, errors.New(fmt.Sprintf("Invalid device id: %s", value))
+		return invalidID, errors.New(fmt.Sprintf("Invalid device id: %s", value))
 	}
 
 	var (
@@ -73,15 +69,15 @@ func ParseId(value string) (Id, error) {
 		)
 
 		if invalidCharacter != -1 {
-			return nil, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
+			return invalidID, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
 		} else if len(idPart) != macLength {
-			return nil, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
+			return invalidID, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
 		}
 	}
 
 	if len(service) > 0 {
-		return id(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
+		return ID(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
 	}
 
-	return id(fmt.Sprintf("%s:%s", prefix, idPart)), nil
+	return ID(fmt.Sprintf("%s:%s", prefix, idPart)), nil
 }

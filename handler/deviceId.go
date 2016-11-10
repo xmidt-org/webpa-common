@@ -2,7 +2,7 @@ package handler
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/canonical"
+	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/fact"
 	"golang.org/x/net/context"
 	"net/http"
@@ -22,7 +22,7 @@ func DeviceIdCustom(deviceNameHeader string) ChainHandler {
 			return
 		}
 
-		deviceId, err := canonical.ParseId(deviceName)
+		deviceId, err := device.ParseID(deviceName)
 		if err != nil {
 			WriteJsonError(
 				response,
