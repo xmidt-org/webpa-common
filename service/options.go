@@ -11,7 +11,7 @@ const (
 	DefaultZookeeper   = "localhost:2181"
 	DefaultEnvironment = serversets.Local
 	DefaultServiceName = "test"
-	DefaultVnodeCount  = 220
+	DefaultVnodeCount  = 10000
 )
 
 // Options represents the set of configurable attributes for service discovery and registration
