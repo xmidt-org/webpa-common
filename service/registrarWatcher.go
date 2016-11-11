@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+// Endpoint is the local interface with *serversets.Endpoint implements.
+// The only thing you can do with an endpoint is close it.
+type Endpoint interface {
+	// Close closes the endpoint and blocks until the underlying Zookeeper connection
+	// is closed.  Note that this Close() method does not return an error, unlike io.Closer.
+	Close()
+}
+
 // Registrar is the interface which is used to register endpoints.
 // *serversets.ServerSet implements this interface.
 type Registrar interface {
@@ -22,14 +30,6 @@ type Watcher interface {
 type RegistrarWatcher interface {
 	Registrar
 	Watcher
-}
-
-// Endpoint is the local interface with *serversets.Endpoint implements.
-// The only thing you can do with an endpoint is close it.
-type Endpoint interface {
-	// Close closes the endpoint and blocks until the underlying Zookeeper connection
-	// is closed.  Note that this Close() method does not return an error, unlike io.Closer.
-	Close()
 }
 
 // ParseRegistration separates a string value into a host and a port.  This function assumes

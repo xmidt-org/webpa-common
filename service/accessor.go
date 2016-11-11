@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/billhathaway/consistentHash"
+	"sort"
 )
 
 // Accessor provides access to services based around []byte keys.
@@ -17,7 +18,7 @@ type AccessorFactory interface {
 	New([]string) Accessor
 }
 
-// NewAccessoryFactory uses a set of Options to produce an AccessorFactory
+// NewAccessorFactory uses a set of Options to produce an AccessorFactory
 func NewAccessorFactory(o *Options) AccessorFactory {
 	return &consistentHashFactory{
 		logger:     o.logger(),
@@ -26,7 +27,7 @@ func NewAccessorFactory(o *Options) AccessorFactory {
 }
 
 // consistentHashFactory creates consistentHash instances, which implement Accessor.
-// This is the standard implementation of AccessoryFactory.
+// This is the standard implementation of AccessorFactory.
 type consistentHashFactory struct {
 	logger     logging.Logger
 	vnodeCount int
@@ -35,51 +36,18 @@ type consistentHashFactory struct {
 func (f *consistentHashFactory) New(endpoints []string) Accessor {
 	hash := consistentHash.New()
 	hash.SetVnodeCount(f.vnodeCount)
-	for _, hostAndPort := range endpoints {
-		f.logger.Debug("adding %s", hostAndPort)
-		hash.Add(hostAndPort)
+
+	if len(endpoints) > 0 {
+		// make a sorted copy so that we add things in a consistent order
+		sorted := make([]string, len(endpoints))
+		copy(sorted, endpoints)
+		sort.Strings(sorted)
+
+		for _, hostAndPort := range sorted {
+			f.logger.Debug("adding %s", hostAndPort)
+			hash.Add(hostAndPort)
+		}
 	}
 
 	return hash
-}
-
-// Subscribe returns a channel which receives new Accessors when watch events occur.
-// The pipeline of Accessors can be used for rehashing.
-//
-// The returned channel will have a buffer size of one (1).  The goroutine which processes
-// watch events will block waiting for this channel to become writable.
-func Subscribe(o *Options, factory AccessorFactory, watcher Watcher) (<-chan Accessor, error) {
-	logger := o.logger()
-	watch, err := watcher.Watch()
-	if err != nil {
-		return nil, err
-	}
-
-	if factory == nil {
-		factory = NewAccessorFactory(o)
-	}
-
-	accessors := make(chan Accessor, 1)
-	go func() {
-		defer close(accessors)
-
-		endpoints := watch.Endpoints()
-		logger.Info("Initial discovered endpoints: %s", endpoints)
-		accessors <- factory.New(endpoints)
-
-		for {
-			select {
-			case <-watch.Event():
-				if watch.IsClosed() {
-					return
-				}
-
-				endpoints = watch.Endpoints()
-				logger.Info("Updated endpoints: %s", endpoints)
-				accessors <- factory.New(endpoints)
-			}
-		}
-	}()
-
-	return accessors, nil
 }

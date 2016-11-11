@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	DefaultZookeeper   = "localhost:2181"
-	DefaultEnvironment = serversets.Local
-	DefaultServiceName = "test"
-	DefaultVnodeCount  = 10000
+	DefaultZookeeper        = "localhost:2181"
+	DefaultZookeeperTimeout = 5 * time.Second
+	DefaultEnvironment      = serversets.Local
+	DefaultServiceName      = "test"
+	DefaultVnodeCount       = 10000
 )
 
 // Options represents the set of configurable attributes for service discovery and registration
@@ -47,7 +48,7 @@ func (o *Options) zookeeperTimeout() time.Duration {
 		return time.Duration(o.ZookeeperTimeout)
 	}
 
-	return serversets.DefaultZKTimeout
+	return DefaultZookeeperTimeout
 }
 
 func (o *Options) environment() serversets.Environment {
