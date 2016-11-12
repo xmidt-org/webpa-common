@@ -8,12 +8,52 @@ import (
 )
 
 const (
+	DefaultScheme           = "http"
+	DefaultHost             = "localhost"
 	DefaultZookeeper        = "localhost:2181"
 	DefaultZookeeperTimeout = 5 * time.Second
 	DefaultEnvironment      = serversets.Local
 	DefaultServiceName      = "test"
 	DefaultVnodeCount       = 10000
 )
+
+var (
+	defaultPorts = map[string]uint16{
+		"http":  80,
+		"https": 443,
+	}
+)
+
+// Registration describes a single endpoint to register.
+type Registration struct {
+	Scheme string `json:"scheme"`
+	Host   string `json:"host"`
+	Port   uint16 `json:"port"`
+}
+
+func (r *Registration) scheme() string {
+	if r != nil && len(r.Scheme) > 0 {
+		return r.Scheme
+	}
+
+	return DefaultScheme
+}
+
+func (r *Registration) host() string {
+	if r != nil && len(r.Host) > 0 {
+		return r.Host
+	}
+
+	return DefaultHost
+}
+
+func (r *Registration) port() uint16 {
+	if r != nil && r.Port > 0 {
+		return r.Port
+	}
+
+	return defaultPorts[r.scheme()]
+}
 
 // Options represents the set of configurable attributes for service discovery and registration
 type Options struct {
@@ -22,7 +62,7 @@ type Options struct {
 	ZookeeperTimeout types.Duration `json:"zookeeperTimeout"`
 	Environment      string         `json:"environment"`
 	ServiceName      string         `json:"serviceName"`
-	Registrations    []string       `json:"registrations,omitempty"`
+	Registrations    []Registration `json:"registrations,omitempty"`
 	VnodeCount       int            `json:"vnodeCount"`
 	PingFunc         func() error   `json:"-"`
 }

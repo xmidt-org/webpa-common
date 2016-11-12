@@ -5,6 +5,18 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func nilPingFunc(actual func() error) bool {
+	return actual == nil
+}
+
+type mockEndpoint struct {
+	mock.Mock
+}
+
+func (m *mockEndpoint) Close() {
+	m.Called()
+}
+
 type mockRegistrar struct {
 	mock.Mock
 }

@@ -1,9 +1,8 @@
 package service
 
 import (
+	"fmt"
 	"github.com/strava/go.serversets"
-	"strconv"
-	"strings"
 )
 
 // Endpoint is the local interface with *serversets.Endpoint implements.
@@ -32,22 +31,6 @@ type RegistrarWatcher interface {
 	Watcher
 }
 
-// ParseRegistration separates a string value into a host and a port.  This function assumes
-// that value will have a format like "host:port".  If there is no semicolon, or if what comes
-// after the last semicolon is not an integer, this function returns the value as the host
-// and zero (0) for the port.
-func ParseRegistration(value string) (string, int, error) {
-	position := strings.LastIndex(value, ":")
-	if position >= 0 {
-		port, err := strconv.Atoi(value[position+1:])
-		if err == nil {
-			return value[0:position], port, nil
-		}
-	}
-
-	return value, 0, nil
-}
-
 // NewRegistrarWatcher produces a serversets.ServerSet using a supplied set of options
 func NewRegistrarWatcher(o *Options) RegistrarWatcher {
 	serverSet := serversets.New(
@@ -60,39 +43,38 @@ func NewRegistrarWatcher(o *Options) RegistrarWatcher {
 	return serverSet
 }
 
-// RegisterEndpoints registers all host:port strings found in o.Registrations.  This
-// function returns a nil slice if o == nil or if o has no registrations.  If any errors
-// occur, this function returns a partial slice of endpoints that it could successfully create.
+// RegisterWith creates an endpoint for the given registration with a specific Registrar.
+func RegisterWith(registration Registration, pingFunc func() error, registrar Registrar) (Endpoint, error) {
+	host := fmt.Sprintf("%s://%s", registration.scheme(), registration.host())
+	port := registration.port()
+	if port == 0 {
+		return nil, fmt.Errorf("No port configured for %s", host)
+	}
+
+	return registrar.RegisterEndpoint(
+		host,
+		int(port),
+		pingFunc,
+	)
+}
+
+// RegisterEndpoints registers all host:port strings found in o.Registrations.
 func RegisterEndpoints(o *Options, registrar Registrar) ([]Endpoint, error) {
 	if o != nil && len(o.Registrations) > 0 {
-		var (
-			logger            = o.logger()
-			err               error
-			registrationCount = len(o.Registrations)
-			hosts             = make([]string, registrationCount)
-			ports             = make([]int, registrationCount)
-			endpoint          *serversets.Endpoint
-		)
+		logger := o.logger()
+		endpoints := make([]Endpoint, 0, len(o.Registrations))
 
-		for index, registration := range o.Registrations {
-			hosts[index], ports[index], err = ParseRegistration(registration)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		endpoints := make([]Endpoint, 0, registrationCount)
-		for index := 0; index < registrationCount; index++ {
-			logger.Info("Registering endpoint %s:%d", hosts[index], ports[index])
-
-			endpoint, err = registrar.RegisterEndpoint(
-				hosts[index],
-				ports[index],
-				o.PingFunc,
+		for _, registration := range o.Registrations {
+			logger.Info(
+				"Registering endpoint: scheme=%s, host=%s, port=%d",
+				registration.Scheme,
+				registration.Host,
+				registration.Port,
 			)
 
+			endpoint, err := RegisterWith(registration, o.PingFunc, registrar)
 			if err != nil {
-				return nil, err
+				return endpoints, err
 			}
 
 			endpoints = append(endpoints, endpoint)
