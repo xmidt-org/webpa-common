@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/types"
 	"github.com/strava/go.serversets"
 	"time"
 )
@@ -10,8 +9,10 @@ import (
 const (
 	DefaultScheme           = "http"
 	DefaultHost             = "localhost"
-	DefaultZookeeper        = "localhost:2181"
+	DefaultZookeeperServer  = "localhost:2181"
 	DefaultZookeeperTimeout = 5 * time.Second
+	DefaultBaseDirectory    = "/webpa"
+	DefaultMemberPrefix     = "webpa_"
 	DefaultEnvironment      = serversets.Local
 	DefaultServiceName      = "test"
 	DefaultVnodeCount       = 10000
@@ -58,12 +59,14 @@ func (r *Registration) port() uint16 {
 // Options represents the set of configurable attributes for service discovery and registration
 type Options struct {
 	Logger           logging.Logger `json:"-"`
-	Zookeepers       []string       `json:"zookeepers"`
-	ZookeeperTimeout types.Duration `json:"zookeeperTimeout"`
+	ZookeeperServers []string       `json:"zookeeperServers"`
+	ZookeeperTimeout time.Duration  `json:"zookeeperTimeout"`
+	BaseDirectory    string         `json:"baseDirectory"`
+	MemberPrefix     string         `json:"memberPrefix"`
 	Environment      string         `json:"environment"`
 	ServiceName      string         `json:"serviceName"`
 	Registrations    []Registration `json:"registrations,omitempty"`
-	VnodeCount       int            `json:"vnodeCount"`
+	VnodeCount       uint           `json:"vnodeCount"`
 	PingFunc         func() error   `json:"-"`
 }
 
@@ -75,12 +78,12 @@ func (o *Options) logger() logging.Logger {
 	return logging.DefaultLogger()
 }
 
-func (o *Options) zookeepers() []string {
-	if o != nil && len(o.Zookeepers) > 0 {
-		return o.Zookeepers
+func (o *Options) zookeeperServers() []string {
+	if o != nil && len(o.ZookeeperServers) > 0 {
+		return o.ZookeeperServers
 	}
 
-	return []string{DefaultZookeeper}
+	return []string{DefaultZookeeperServer}
 }
 
 func (o *Options) zookeeperTimeout() time.Duration {
@@ -89,6 +92,22 @@ func (o *Options) zookeeperTimeout() time.Duration {
 	}
 
 	return DefaultZookeeperTimeout
+}
+
+func (o *Options) baseDirectory() string {
+	if o != nil && len(o.BaseDirectory) > 0 {
+		return o.BaseDirectory
+	}
+
+	return DefaultBaseDirectory
+}
+
+func (o *Options) memberPrefix() string {
+	if o != nil && len(o.MemberPrefix) > 0 {
+		return o.MemberPrefix
+	}
+
+	return DefaultMemberPrefix
 }
 
 func (o *Options) environment() serversets.Environment {
@@ -107,10 +126,26 @@ func (o *Options) serviceName() string {
 	return DefaultServiceName
 }
 
+func (o *Options) registrations() []Registration {
+	if o != nil {
+		return o.Registrations
+	}
+
+	return nil
+}
+
 func (o *Options) vnodeCount() int {
 	if o != nil && o.VnodeCount > 0 {
-		return o.VnodeCount
+		return int(o.VnodeCount)
 	}
 
 	return DefaultVnodeCount
+}
+
+func (o *Options) pingFunc() func() error {
+	if o != nil {
+		return o.PingFunc
+	}
+
+	return nil
 }

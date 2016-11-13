@@ -31,20 +31,26 @@ type RegistrarWatcher interface {
 	Watcher
 }
 
-// NewRegistrarWatcher produces a serversets.ServerSet using a supplied set of options
+// NewRegistrarWatcher produces a serversets.ServerSet using a supplied set of options.
+// Because of limitations with the underlying go.serversets library, this function should
+// be called exactly once for any given process.
 func NewRegistrarWatcher(o *Options) RegistrarWatcher {
+	// yuck, really? in 2016 people use global variables for configuration?
+	serversets.BaseDirectory = o.baseDirectory()
+	serversets.MemberPrefix = o.memberPrefix()
+
 	serverSet := serversets.New(
 		o.environment(),
 		o.serviceName(),
-		o.zookeepers(),
+		o.zookeeperServers(),
 	)
 
 	serverSet.ZKTimeout = o.zookeeperTimeout()
 	return serverSet
 }
 
-// RegisterWith creates an endpoint for the given registration with a specific Registrar.
-func RegisterWith(registration Registration, pingFunc func() error, registrar Registrar) (Endpoint, error) {
+// RegisterOne creates an endpoint for the given registration with a specific Registrar.
+func RegisterOne(registration Registration, pingFunc func() error, registrar Registrar) (Endpoint, error) {
 	host := fmt.Sprintf("%s://%s", registration.scheme(), registration.host())
 	port := registration.port()
 	if port == 0 {
@@ -58,13 +64,13 @@ func RegisterWith(registration Registration, pingFunc func() error, registrar Re
 	)
 }
 
-// RegisterEndpoints registers all host:port strings found in o.Registrations.
-func RegisterEndpoints(o *Options, registrar Registrar) ([]Endpoint, error) {
-	if o != nil && len(o.Registrations) > 0 {
+// RegisterAll registers all host:port strings found in o.Registrations.
+func RegisterAll(o *Options, registrar Registrar) ([]Endpoint, error) {
+	registrations := o.registrations()
+	if len(registrations) > 0 {
 		logger := o.logger()
-		endpoints := make([]Endpoint, 0, len(o.Registrations))
-
-		for _, registration := range o.Registrations {
+		endpoints := make([]Endpoint, 0, len(registrations))
+		for _, registration := range registrations {
 			logger.Info(
 				"Registering endpoint: scheme=%s, host=%s, port=%d",
 				registration.Scheme,
@@ -72,7 +78,7 @@ func RegisterEndpoints(o *Options, registrar Registrar) ([]Endpoint, error) {
 				registration.Port,
 			)
 
-			endpoint, err := RegisterWith(registration, o.PingFunc, registrar)
+			endpoint, err := RegisterOne(registration, o.pingFunc(), registrar)
 			if err != nil {
 				return endpoints, err
 			}

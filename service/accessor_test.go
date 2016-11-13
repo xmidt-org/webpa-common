@@ -34,7 +34,7 @@ func TestNewAccessorFactory(t *testing.T) {
 	for _, record := range testData {
 		t.Logf("%v", record)
 
-		for _, vnodeCount := range []int{0, 200, 1700} {
+		for _, vnodeCount := range []uint{0, 200, 1700} {
 			factory := NewAccessorFactory(&Options{Logger: logger, VnodeCount: vnodeCount})
 			if !assert.NotNil(factory) {
 				continue
