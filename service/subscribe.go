@@ -14,35 +14,61 @@ type Watch interface {
 
 var _ Watch = (*serversets.Watch)(nil)
 
-// Subscription represents something that is receiving events from a watch and updating
-// its state.
-type Subscription interface {
-	// Cancel removes this subscription from the underlying infrastructure.  No further
-	// updates will occur, but this subscription's state will still be usable.
-	// This method is idempotent.
-	Cancel()
+// Subscribe consumes watch events and invokes a subscription function with the endpoints.
+// An initial subscription invocation with the initial set of endpoints is made, then
+// a goroutine is spawn to watch for changes and dispatch updates to the subscription.
+//
+// The returned function can be called to cancel the subscription.  This returned cancellation
+// function is idempotent.
+func Subscribe(watch Watch, subscription func([]string)) func() {
+	cancel := make(chan struct{})
+	go func() {
+		// send the initial endpoints first
+		subscription(watch.Endpoints())
+
+		for {
+			select {
+			case <-cancel:
+				return
+			case <-watch.Event():
+				if watch.IsClosed() {
+					return
+				}
+
+				subscription(watch.Endpoints())
+			}
+		}
+	}()
+
+	return func() {
+		defer func() {
+			recover()
+		}()
+
+		close(cancel)
+	}
 }
 
 // AccessorSubscription represents an Accessor whose state changes as the result
 // of events via a subscription.
 type AccessorSubscription interface {
 	Accessor
-	Subscription
+
+	// Cancel removes this subscription from the underlying infrastructure.  No further
+	// updates will occur, but this subscription's state will still be usable.
+	// This method is idempotent.
+	Cancel()
 }
 
 // accessorSubscription is the internal implementation of AccessorSubscription
 type accessorSubscription struct {
-	factory AccessorFactory
-	value   atomic.Value
-	cancel  chan struct{}
+	factory    AccessorFactory
+	value      atomic.Value
+	cancelFunc func()
 }
 
 func (a *accessorSubscription) Cancel() {
-	defer func() {
-		recover()
-	}()
-
-	close(a.cancel)
+	a.cancelFunc()
 }
 
 func (a *accessorSubscription) Get(key []byte) (string, error) {
@@ -58,42 +84,15 @@ func (a *accessorSubscription) update(endpoints []string) {
 // to access endpoints immediately.  In addition, the subscription can be cancelled at any time.
 // If the underlying service discovery infrastructure is shutdown, the subscription will no
 // longer receive updates but can continue to be used in its stale state.
-func NewAccessorSubscription(o *Options, watch Watch, factory AccessorFactory) AccessorSubscription {
-	logger := o.logger()
+func NewAccessorSubscription(watch Watch, factory AccessorFactory, o *Options) AccessorSubscription {
 	if factory == nil {
 		factory = NewAccessorFactory(o)
 	}
 
 	subscription := &accessorSubscription{
 		factory: factory,
-		cancel:  make(chan struct{}),
 	}
 
-	// load the initial accessor
-	initialEndpoints := watch.Endpoints()
-	logger.Info("Initial discovered endpoints: %s", initialEndpoints)
-	subscription.update(initialEndpoints)
-
-	// spawn a goroutine that updates the subscription in response
-	// to watch events.
-	go func() {
-		for {
-			select {
-			case <-subscription.cancel:
-				logger.Info("Subscription cancelled")
-				return
-			case <-watch.Event():
-				if watch.IsClosed() {
-					logger.Info("Subscription ending due to watch being closed")
-					return
-				}
-
-				updatedEndpoints := watch.Endpoints()
-				logger.Info("Updated endpoints: %s", updatedEndpoints)
-				subscription.update(updatedEndpoints)
-			}
-		}
-	}()
-
+	subscription.cancelFunc = Subscribe(watch, subscription.update)
 	return subscription
 }
