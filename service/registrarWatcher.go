@@ -42,10 +42,10 @@ func NewRegistrarWatcher(o *Options) RegistrarWatcher {
 	serverSet := serversets.New(
 		o.environment(),
 		o.serviceName(),
-		o.zookeeperServers(),
+		o.servers(),
 	)
 
-	serverSet.ZKTimeout = o.zookeeperTimeout()
+	serverSet.ZKTimeout = o.timeout()
 	return serverSet
 }
 

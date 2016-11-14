@@ -42,8 +42,8 @@ func TestNewRegistrarWatcher(t *testing.T) {
 
 		assert.Equal(o.baseDirectory(), serversets.BaseDirectory)
 		assert.Equal(o.memberPrefix(), serversets.MemberPrefix)
-		assert.Equal(o.zookeeperServers(), serverSet.ZookeeperServers())
-		assert.Equal(o.zookeeperTimeout(), serverSet.ZKTimeout)
+		assert.Equal(o.servers(), serverSet.ZookeeperServers())
+		assert.Equal(o.timeout(), serverSet.ZKTimeout)
 	}
 }
 
