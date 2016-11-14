@@ -60,8 +60,12 @@ func RegisterOne(registrar Registrar, registration Registration, pingFunc func()
 func RegisterAll(registrar Registrar, o *Options) ([]*serversets.Endpoint, error) {
 	registrations := o.registrations()
 	if len(registrations) > 0 {
-		logger := o.logger()
-		endpoints := make([]*serversets.Endpoint, 0, len(registrations))
+		var (
+			logger    = o.logger()
+			pingFunc  = o.pingFunc()
+			endpoints = make([]*serversets.Endpoint, 0, len(registrations))
+		)
+
 		for _, registration := range registrations {
 			logger.Info(
 				"Registering endpoint: scheme=%s, host=%s, port=%d",
@@ -70,7 +74,7 @@ func RegisterAll(registrar Registrar, o *Options) ([]*serversets.Endpoint, error
 				registration.Port,
 			)
 
-			endpoint, err := RegisterOne(registrar, registration, o.pingFunc())
+			endpoint, err := RegisterOne(registrar, registration, pingFunc)
 			if err != nil {
 				return endpoints, err
 			}
