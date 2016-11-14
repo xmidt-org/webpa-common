@@ -5,14 +5,6 @@ import (
 	"github.com/strava/go.serversets"
 )
 
-// Endpoint is the local interface with *serversets.Endpoint implements.
-// The only thing you can do with an endpoint is close it.
-type Endpoint interface {
-	// Close closes the endpoint and blocks until the underlying Zookeeper connection
-	// is closed.  Note that this Close() method does not return an error, unlike io.Closer.
-	Close()
-}
-
 // Registrar is the interface which is used to register endpoints.
 // *serversets.ServerSet implements this interface.
 type Registrar interface {
@@ -50,7 +42,7 @@ func NewRegistrarWatcher(o *Options) RegistrarWatcher {
 }
 
 // RegisterOne creates an endpoint for the given registration with a specific Registrar.
-func RegisterOne(registration Registration, pingFunc func() error, registrar Registrar) (Endpoint, error) {
+func RegisterOne(registrar Registrar, registration Registration, pingFunc func() error) (*serversets.Endpoint, error) {
 	host := fmt.Sprintf("%s://%s", registration.scheme(), registration.host())
 	port := registration.port()
 	if port == 0 {
@@ -65,11 +57,11 @@ func RegisterOne(registration Registration, pingFunc func() error, registrar Reg
 }
 
 // RegisterAll registers all host:port strings found in o.Registrations.
-func RegisterAll(o *Options, registrar Registrar) ([]Endpoint, error) {
+func RegisterAll(registrar Registrar, o *Options) ([]*serversets.Endpoint, error) {
 	registrations := o.registrations()
 	if len(registrations) > 0 {
 		logger := o.logger()
-		endpoints := make([]Endpoint, 0, len(registrations))
+		endpoints := make([]*serversets.Endpoint, 0, len(registrations))
 		for _, registration := range registrations {
 			logger.Info(
 				"Registering endpoint: scheme=%s, host=%s, port=%d",
@@ -78,7 +70,7 @@ func RegisterAll(o *Options, registrar Registrar) ([]Endpoint, error) {
 				registration.Port,
 			)
 
-			endpoint, err := RegisterOne(registration, o.pingFunc(), registrar)
+			endpoint, err := RegisterOne(registrar, registration, o.pingFunc())
 			if err != nil {
 				return endpoints, err
 			}

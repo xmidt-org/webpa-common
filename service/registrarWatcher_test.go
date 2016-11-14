@@ -73,7 +73,7 @@ func TestRegisterOneSuccessAndNilPingFunc(t *testing.T) {
 			Return(expectedEndpoint, nil).
 			Once()
 
-		actualEndpoint, err := RegisterOne(record.registration, nil, mockRegistrar)
+		actualEndpoint, err := RegisterOne(mockRegistrar, record.registration, nil)
 		assert.Equal(expectedEndpoint, actualEndpoint)
 		assert.NoError(err)
 
