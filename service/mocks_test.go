@@ -29,6 +29,26 @@ func (m *mockWatcher) Watch() (*serversets.Watch, error) {
 	return first, arguments.Error(1)
 }
 
+type mockWatch struct {
+	mock.Mock
+}
+
+func (m *mockWatch) IsClosed() bool {
+	arguments := m.Called()
+	return arguments.Bool(0)
+}
+
+func (m *mockWatch) Endpoints() []string {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).([]string)
+	return first
+}
+
+func (m *mockWatch) Event() <-chan struct{} {
+	arguments := m.Called()
+	return arguments.Get(0).(<-chan struct{})
+}
+
 type mockAccessor struct {
 	mock.Mock
 }

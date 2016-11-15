@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/strava/go.serversets"
 	"sync/atomic"
 )
@@ -15,27 +16,37 @@ type Watch interface {
 var _ Watch = (*serversets.Watch)(nil)
 
 // Subscribe consumes watch events and invokes a subscription function with the endpoints.
-// An initial subscription invocation with the initial set of endpoints is made, then
-// a goroutine is spawn to watch for changes and dispatch updates to the subscription.
-//
 // The returned function can be called to cancel the subscription.  This returned cancellation
 // function is idempotent.
-func Subscribe(watch Watch, subscription func([]string)) func() {
+func Subscribe(watch Watch, logger logging.Logger, subscription func([]string)) func() {
+	if logger == nil {
+		logger = logging.DefaultLogger()
+	}
+
+	logger.Debug("Creating subscription for %v", watch)
 	cancel := make(chan struct{})
 	go func() {
-		// send the initial endpoints first
-		subscription(watch.Endpoints())
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("Subscription ending due to panic: %s", r)
+			}
+		}()
 
 		for {
 			select {
 			case <-cancel:
+				logger.Info("Subscription cancel event received")
 				return
 			case <-watch.Event():
+				logger.Debug("Watch event received")
 				if watch.IsClosed() {
+					logger.Info("Watch closed.  Subscription ending.")
 					return
 				}
 
-				subscription(watch.Endpoints())
+				endpoints := watch.Endpoints()
+				logger.Info("Updated endpoints: %v", endpoints)
+				subscription(endpoints)
 			}
 		}
 	}()
@@ -45,6 +56,7 @@ func Subscribe(watch Watch, subscription func([]string)) func() {
 			recover()
 		}()
 
+		logger.Debug("Subscription cancellation function called")
 		close(cancel)
 	}
 }
@@ -93,6 +105,8 @@ func NewAccessorSubscription(watch Watch, factory AccessorFactory, o *Options) A
 		factory: factory,
 	}
 
-	subscription.cancelFunc = Subscribe(watch, subscription.update)
+	// use update to initialze the atomic value
+	subscription.update(watch.Endpoints())
+	subscription.cancelFunc = Subscribe(watch, o.logger(), subscription.update)
 	return subscription
 }
