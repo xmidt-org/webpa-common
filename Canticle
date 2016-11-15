@@ -36,6 +36,7 @@
         "Revision": "2a2a7005e242469734d8d0d110f4bb657bb67759"
     },
     {
-        "Root": "golang.org/x/net/context"
+        "Root": "github.com/strava/go.serversets",
+        "Revision": "6b724900cd036a1da1f72c438b9e7f447446dcd2"
     }
 ]
