@@ -18,6 +18,7 @@ env:
     - TEST_DIR=secure/tools/cmd/keyserver
     - TEST_DIR=server
     - TEST_DIR=service
+    - TEST_DIR=service/cmd/endpoint
     - TEST_DIR=logging
     - TEST_DIR=logging/golog
     - TEST_DIR=store
