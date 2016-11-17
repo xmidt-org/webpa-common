@@ -3,6 +3,7 @@ package device
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 	"unicode"
@@ -11,6 +12,7 @@ import (
 // ID represents a normalized identifer for a device.
 type ID string
 
+// Bytes is a convenience function to obtain the []byte representation of an ID.
 func (id ID) Bytes() []byte {
 	return []byte(id)
 }
@@ -39,10 +41,11 @@ func IntToMAC(value uint64) ID {
 	return ID(fmt.Sprintf("mac:%012x", value&0x0000FFFFFFFFFFFF))
 }
 
-func ParseID(value string) (ID, error) {
-	match := idPattern.FindStringSubmatch(value)
+// ParseID parses a raw device name into a canonicalized identifier.
+func ParseID(deviceName string) (ID, error) {
+	match := idPattern.FindStringSubmatch(deviceName)
 	if match == nil {
-		return invalidID, errors.New(fmt.Sprintf("Invalid device id: %s", value))
+		return invalidID, errors.New(fmt.Sprintf("Invalid device name: %s", deviceName))
 	}
 
 	var (
@@ -80,4 +83,29 @@ func ParseID(value string) (ID, error) {
 	}
 
 	return ID(fmt.Sprintf("%s:%s", prefix, idPart)), nil
+}
+
+// IDHashParser creates a parsing function that examines an HTTP request to produce
+// a []byte key for consistent hashing.  The returned function examines the
+// given request header and invokes ParseID on the value.
+//
+// If deviceNameHeader is the empty string, DefaultDeviceNameHeader is used.
+func IDHashParser(deviceNameHeader string) func(*http.Request) ([]byte, error) {
+	if len(deviceNameHeader) == 0 {
+		deviceNameHeader = DefaultDeviceNameHeader
+	}
+
+	return func(request *http.Request) ([]byte, error) {
+		deviceName := request.Header.Get(deviceNameHeader)
+		if len(deviceName) == 0 {
+			return nil, fmt.Errorf("Missing header: %s", deviceNameHeader)
+		}
+
+		id, err := ParseID(deviceName)
+		if err != nil {
+			return nil, err
+		}
+
+		return id.Bytes(), nil
+	}
 }

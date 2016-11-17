@@ -2,6 +2,7 @@ package device
 
 import (
 	"github.com/stretchr/testify/assert"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -53,5 +54,77 @@ func TestParseID(t *testing.T) {
 		assert.Equal(record.expected, id)
 		assert.Equal(record.expectsError, err != nil)
 		assert.Equal([]byte(record.expected), id.Bytes())
+	}
+}
+
+func TestIDHashParser(t *testing.T) {
+	var (
+		assert            = assert.New(t)
+		validDeviceName   = "mac:112233445566"
+		invalidDeviceName = "this is not valid"
+
+		testData = []struct {
+			actualDeviceNameHeader   string
+			expectedDeviceNameHeader string
+			deviceName               string
+			expectsError             bool
+		}{
+			{
+				actualDeviceNameHeader:   "",
+				expectedDeviceNameHeader: DefaultDeviceNameHeader,
+				deviceName:               validDeviceName,
+				expectsError:             false,
+			},
+			{
+				actualDeviceNameHeader:   "",
+				expectedDeviceNameHeader: DefaultDeviceNameHeader,
+				deviceName:               invalidDeviceName,
+				expectsError:             true,
+			},
+			{
+				actualDeviceNameHeader:   "",
+				expectedDeviceNameHeader: DefaultDeviceNameHeader,
+				deviceName:               "",
+				expectsError:             true,
+			},
+			{
+				actualDeviceNameHeader:   "X-Custom",
+				expectedDeviceNameHeader: "X-Custom",
+				deviceName:               validDeviceName,
+				expectsError:             false,
+			},
+			{
+				actualDeviceNameHeader:   "X-Custom",
+				expectedDeviceNameHeader: "X-Custom",
+				deviceName:               invalidDeviceName,
+				expectsError:             true,
+			},
+			{
+				actualDeviceNameHeader:   "X-Custom",
+				expectedDeviceNameHeader: "X-Custom",
+				deviceName:               "",
+				expectsError:             true,
+			},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+		parser := IDHashParser(record.actualDeviceNameHeader)
+		if !assert.NotNil(parser) {
+			continue
+		}
+
+		request := httptest.NewRequest("GET", "http://burrito-sightings.net", nil)
+		request.Header.Set(record.expectedDeviceNameHeader, record.deviceName)
+
+		actualKey, err := parser(request)
+		if record.expectsError {
+			assert.Empty(actualKey)
+			assert.Error(err)
+		} else {
+			assert.Equal(record.deviceName, string(actualKey))
+			assert.NoError(err)
+		}
 	}
 }
