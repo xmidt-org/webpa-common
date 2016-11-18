@@ -19,52 +19,6 @@ const (
 	DefaultVnodeCount    = 10000
 )
 
-var (
-	defaultPorts = map[string]uint16{
-		"http":  80,
-		"https": 443,
-	}
-)
-
-// Registration describes a single endpoint to register.
-type Registration struct {
-	// Scheme is the scheme portion of the registered URL, e.g. "http" or "https".
-	// Non-HTTP schemes are allowed, but no default ports are set.
-	Scheme string `json:"scheme"`
-
-	// Host is the FQDN or DNS host name of the registered service.
-	Host string `json:"host"`
-
-	// Port is the IP port of the registered service.  If not set, and if Scheme
-	// is either not set or set to an HTTP scheme, then the Port is set to the default
-	// port when registering.
-	Port uint16 `json:"port"`
-}
-
-func (r *Registration) scheme() string {
-	if r != nil && len(r.Scheme) > 0 {
-		return r.Scheme
-	}
-
-	return DefaultScheme
-}
-
-func (r *Registration) host() string {
-	if r != nil && len(r.Host) > 0 {
-		return r.Host
-	}
-
-	return DefaultHost
-}
-
-func (r *Registration) port() uint16 {
-	if r != nil && r.Port > 0 {
-		return r.Port
-	}
-
-	return defaultPorts[r.scheme()]
-}
-
 // Options represents the set of configurable attributes for service discovery and registration
 type Options struct {
 	// Logger is used by any component configured via this Options.  If unset, a default
@@ -98,7 +52,7 @@ type Options struct {
 	// this slice will either (1) be empty for an application that only watches for changes,  or (2) have the single
 	// Registration indicating how this service is known.  Multiple registrations, essentially
 	// being aliases for the same application, are supported.
-	Registrations []Registration `json:"registrations,omitempty"`
+	Registrations []string `json:"registrations,omitempty"`
 
 	// VnodeCount is used to tune the underlying consistent hash algorithm for servers.
 	VnodeCount uint `json:"vnodeCount"`
@@ -178,7 +132,7 @@ func (o *Options) serviceName() string {
 	return DefaultServiceName
 }
 
-func (o *Options) registrations() []Registration {
+func (o *Options) registrations() []string {
 	if o != nil {
 		return o.Registrations
 	}
