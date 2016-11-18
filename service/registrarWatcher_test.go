@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"github.com/strava/go.serversets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -226,4 +227,23 @@ func TestRegisterAll(t *testing.T) {
 
 		mockRegistrar.AssertExpectations(t)
 	}
+}
+
+func TestRegisterAllEndpointFailure(t *testing.T) {
+	assert := assert.New(t)
+	expectedError := errors.New("expected endpoint error")
+	options := &Options{
+		Registrations: []string{"node1.comcast.net:8080"},
+	}
+
+	mockRegistrar := new(mockRegistrar)
+	mockRegistrar.On("RegisterEndpoint", "http://node1.comcast.net", 8080, mock.AnythingOfType("func() error")).
+		Return(nil, expectedError).
+		Once()
+
+	actualEndpoints, err := RegisterAll(mockRegistrar, options)
+	assert.Empty(actualEndpoints)
+	assert.Equal(expectedError, err)
+
+	mockRegistrar.AssertExpectations(t)
 }
