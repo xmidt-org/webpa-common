@@ -47,6 +47,98 @@ func TestNewRegistrarWatcher(t *testing.T) {
 	}
 }
 
+func TestParseRegistration(t *testing.T) {
+	assert := assert.New(t)
+	testData := []struct {
+		registration string
+		expectedHost string
+		expectedPort uint16
+		expectsError bool
+	}{
+		{
+			registration: "localhost",
+			expectedHost: "http://localhost",
+			expectedPort: 80,
+			expectsError: false,
+		},
+		{
+			registration: "foobar.com",
+			expectedHost: "http://foobar.com",
+			expectedPort: 80,
+			expectsError: false,
+		},
+		{
+			registration: "http://foobar.com",
+			expectedHost: "http://foobar.com",
+			expectedPort: 80,
+			expectsError: false,
+		},
+		{
+			registration: "https://foobar.com",
+			expectedHost: "https://foobar.com",
+			expectedPort: 443,
+			expectsError: false,
+		},
+		{
+			registration: "https://node1.webpa.comcast.net:1847",
+			expectedHost: "https://node1.webpa.comcast.net",
+			expectedPort: 1847,
+			expectsError: false,
+		},
+		{
+			registration: "node1.webpa.comcast.net:8080",
+			expectedHost: "http://node1.webpa.comcast.net",
+			expectedPort: 8080,
+			expectsError: false,
+		},
+		{
+			registration: "something.webpa.comcast.net:0",
+			expectedHost: "http://something.webpa.comcast.net",
+			expectedPort: 80,
+			expectsError: false,
+		},
+		{
+			registration: "http://something.webpa.comcast.net:0",
+			expectedHost: "http://something.webpa.comcast.net",
+			expectedPort: 80,
+			expectsError: false,
+		},
+		{
+			registration: "https://something.webpa.comcast.net:0",
+			expectedHost: "https://something.webpa.comcast.net",
+			expectedPort: 443,
+			expectsError: false,
+		},
+		{
+			registration: "unrecognized://something.webpa.comcast.net",
+			expectedHost: "unrecognized://something.webpa.comcast.net",
+			expectedPort: 0,
+			expectsError: false,
+		},
+		{
+			registration: "unrecognized://something.webpa.comcast.net:0",
+			expectedHost: "unrecognized://something.webpa.comcast.net",
+			expectedPort: 0,
+			expectsError: false,
+		},
+		{
+			registration: "port.is.too.large.net:35982739476",
+			expectedHost: "http://port.is.too.large.net",
+			expectedPort: 0,
+			expectsError: true,
+		},
+	}
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+
+		actualHost, actualPort, err := ParseRegistration(record.registration)
+		assert.Equal(record.expectedHost, actualHost)
+		assert.Equal(record.expectedPort, actualPort)
+		assert.Equal(record.expectsError, err != nil)
+	}
+}
+
 func TestRegisterAllNoRegistrations(t *testing.T) {
 	assert := assert.New(t)
 	for _, o := range []*Options{nil, new(Options)} {
