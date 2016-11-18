@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"github.com/strava/go.serversets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -48,109 +47,6 @@ func TestNewRegistrarWatcher(t *testing.T) {
 	}
 }
 
-var (
-	singleRegistration = Registration{
-		Scheme: "https",
-		Host:   "foobar123.webpa.comcast.net",
-		Port:   8080,
-	}
-)
-
-const (
-	expectedRegistrationHost = "https://foobar123.webpa.comcast.net"
-	expectedRegistrationPort = 8080
-)
-
-func TestRegisterOneSuccessWithoutPingFunction(t *testing.T) {
-	assert := assert.New(t)
-	expectedEndpoint := new(serversets.Endpoint)
-	mockRegistrar := new(mockRegistrar)
-	mockRegistrar.
-		On("RegisterEndpoint", expectedRegistrationHost, expectedRegistrationPort, mock.AnythingOfType("func() error")).
-		Return(expectedEndpoint, nil).
-		Once()
-
-	actualEndpoint, err := RegisterOne(mockRegistrar, singleRegistration, nil)
-	assert.Equal(expectedEndpoint, actualEndpoint)
-	assert.NoError(err)
-
-	mockRegistrar.AssertExpectations(t)
-}
-
-func TestRegisterOneFailureWithoutPingFunction(t *testing.T) {
-	assert := assert.New(t)
-	expectedRegisterError := errors.New("expected register error")
-	expectedEndpoint := new(serversets.Endpoint)
-	mockRegistrar := new(mockRegistrar)
-	mockRegistrar.
-		On("RegisterEndpoint", expectedRegistrationHost, expectedRegistrationPort, mock.AnythingOfType("func() error")).
-		Return(expectedEndpoint, expectedRegisterError).
-		Once()
-
-	actualEndpoint, err := RegisterOne(mockRegistrar, singleRegistration, nil)
-	assert.Equal(expectedEndpoint, actualEndpoint)
-	assert.Equal(expectedRegisterError, err)
-
-	mockRegistrar.AssertExpectations(t)
-}
-
-func TestRegisterOneSuccessWithPingFunction(t *testing.T) {
-	assert := assert.New(t)
-	expectedPingError := errors.New("expected ping error")
-	expectedEndpoint := new(serversets.Endpoint)
-	mockRegistrar := new(mockRegistrar)
-	mockRegistrar.
-		On("RegisterEndpoint", expectedRegistrationHost, expectedRegistrationPort, mock.AnythingOfType("func() error")).
-		Run(func(arguments mock.Arguments) {
-			assert.Equal(expectedPingError, arguments.Get(2).(func() error)())
-		}).
-		Return(expectedEndpoint, nil).
-		Once()
-
-	actualEndpoint, err := RegisterOne(mockRegistrar, singleRegistration, func() error { return expectedPingError })
-	assert.Equal(expectedEndpoint, actualEndpoint)
-	assert.NoError(err)
-
-	mockRegistrar.AssertExpectations(t)
-}
-
-func TestRegisterOneFailureWithPingFunction(t *testing.T) {
-	assert := assert.New(t)
-	expectedRegisterError := errors.New("expected register error")
-	expectedPingError := errors.New("expected ping error")
-	expectedEndpoint := new(serversets.Endpoint)
-	mockRegistrar := new(mockRegistrar)
-	mockRegistrar.
-		On("RegisterEndpoint", expectedRegistrationHost, expectedRegistrationPort, mock.AnythingOfType("func() error")).
-		Run(func(arguments mock.Arguments) {
-			assert.Equal(expectedPingError, arguments.Get(2).(func() error)())
-		}).
-		Return(expectedEndpoint, expectedRegisterError).
-		Once()
-
-	actualEndpoint, err := RegisterOne(mockRegistrar, singleRegistration, func() error { return expectedPingError })
-	assert.Equal(expectedEndpoint, actualEndpoint)
-	assert.Equal(err, expectedRegisterError)
-
-	mockRegistrar.AssertExpectations(t)
-}
-
-func TestRegisterOneBadPort(t *testing.T) {
-	assert := assert.New(t)
-	badPortRegistration := Registration{
-		Scheme: "unrecognized",
-		Host:   "foobar.com",
-	}
-
-	mockRegistrar := new(mockRegistrar)
-
-	actualEndpoint, err := RegisterOne(mockRegistrar, badPortRegistration, nil)
-	assert.Nil(actualEndpoint)
-	assert.Error(err)
-
-	mockRegistrar.AssertExpectations(t)
-}
-
 func TestRegisterAllNoRegistrations(t *testing.T) {
 	assert := assert.New(t)
 	for _, o := range []*Options{nil, new(Options)} {
@@ -177,9 +73,7 @@ func TestRegisterAll(t *testing.T) {
 	}{
 		{
 			options: &Options{
-				Registrations: []Registration{
-					Registration{Scheme: "https", Host: "node1.comcast.net", Port: 1467},
-				},
+				Registrations: []string{"https://node1.comcast.net:1467"},
 			},
 			expectedHosts:     []string{"https://node1.comcast.net"},
 			expectedPorts:     []int{1467},
@@ -188,21 +82,16 @@ func TestRegisterAll(t *testing.T) {
 		},
 		{
 			options: &Options{
-				Registrations: []Registration{
-					Registration{Scheme: "unregonized", Host: "this.should.not.be.registered.com"},
-				},
+				Registrations: []string{"https://port.is.too.large:23987928374312"},
 			},
 			expectedHosts:     []string{},
 			expectedPorts:     []int{},
-			expectedEndpoints: []*serversets.Endpoint{},
+			expectedEndpoints: nil,
 			expectsError:      true,
 		},
 		{
 			options: &Options{
-				Registrations: []Registration{
-					Registration{Host: "node17.foobar.com"},
-					Registration{Scheme: "https", Host: "node1.comcast.net", Port: 1467},
-				},
+				Registrations: []string{"node17.foobar.com", "https://node1.comcast.net:1467"},
 			},
 			expectedHosts:     []string{"http://node17.foobar.com", "https://node1.comcast.net"},
 			expectedPorts:     []int{80, 1467},
@@ -211,55 +100,21 @@ func TestRegisterAll(t *testing.T) {
 		},
 		{
 			options: &Options{
-				Registrations: []Registration{
-					Registration{Scheme: "unregonized", Host: "this.should.not.be.registered.com"},
-					Registration{Host: "node17.foobar.com"},
-					Registration{Scheme: "https", Host: "node1.comcast.net", Port: 1467},
-				},
+				Registrations: []string{"node17.foobar.com", "https://port.is.too.large:23987928374312"},
 			},
 			expectedHosts:     []string{},
 			expectedPorts:     []int{},
-			expectedEndpoints: []*serversets.Endpoint{},
+			expectedEndpoints: nil,
 			expectsError:      true,
 		},
 		{
 			options: &Options{
-				Registrations: []Registration{
-					Registration{Host: "node17.foobar.com"},
-					Registration{Scheme: "unregonized", Host: "this.should.not.be.registered.com"},
-					Registration{Scheme: "https", Host: "node1.comcast.net", Port: 1467},
-				},
+				Registrations: []string{"https://port.is.too.large:23987928374312", "http://valid.com:1111"},
 			},
-			expectedHosts:     []string{"http://node17.foobar.com"},
-			expectedPorts:     []int{80},
-			expectedEndpoints: []*serversets.Endpoint{new(serversets.Endpoint)},
+			expectedHosts:     []string{},
+			expectedPorts:     []int{},
+			expectedEndpoints: nil,
 			expectsError:      true,
-		},
-		{
-			options: &Options{
-				Registrations: []Registration{
-					Registration{Host: "node17.foobar.com"},
-					Registration{Scheme: "https", Host: "node1.comcast.net", Port: 1467},
-					Registration{Scheme: "unregonized", Host: "this.should.not.be.registered.com"},
-				},
-			},
-			expectedHosts:     []string{"http://node17.foobar.com", "https://node1.comcast.net"},
-			expectedPorts:     []int{80, 1467},
-			expectedEndpoints: []*serversets.Endpoint{new(serversets.Endpoint), new(serversets.Endpoint)},
-			expectsError:      true,
-		},
-		{
-			options: &Options{
-				Registrations: []Registration{
-					Registration{Host: "node17.foobar.com"},
-					Registration{Scheme: "https", Host: "node1.comcast.net", Port: 1467},
-					Registration{Scheme: "http", Host: "gronk.something.tv", Port: 610},
-				},
-			},
-			expectedHosts:     []string{"http://node17.foobar.com", "https://node1.comcast.net", "http://gronk.something.tv"},
-			expectedPorts:     []int{80, 1467, 610},
-			expectedEndpoints: []*serversets.Endpoint{new(serversets.Endpoint), new(serversets.Endpoint), new(serversets.Endpoint)},
-			expectsError:      false,
 		},
 	}
 
