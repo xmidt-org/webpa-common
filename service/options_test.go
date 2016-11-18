@@ -9,73 +9,6 @@ import (
 	"time"
 )
 
-func TestRegistrationDefault(t *testing.T) {
-	assert := assert.New(t)
-
-	for _, r := range []*Registration{nil, new(Registration)} {
-		t.Log(r)
-
-		assert.Equal(DefaultScheme, r.scheme())
-		assert.Equal(DefaultHost, r.host())
-		assert.Equal(defaultPorts[DefaultScheme], r.port())
-	}
-}
-
-func TestRegistration(t *testing.T) {
-	assert := assert.New(t)
-	testData := []struct {
-		registration   *Registration
-		expectedScheme string
-		expectedHost   string
-		expectedPort   uint16
-	}{
-		{
-			&Registration{Scheme: "unrecognized", Host: "comcast.net"},
-			"unrecognized",
-			"comcast.net",
-			0,
-		},
-		{
-			&Registration{Scheme: "unrecognized", Host: "comcast.net", Port: 4721},
-			"unrecognized",
-			"comcast.net",
-			4721,
-		},
-		{
-			&Registration{Host: "comcast.net"},
-			"http",
-			"comcast.net",
-			80,
-		},
-		{
-			&Registration{Scheme: "http", Host: "comcast.net"},
-			"http",
-			"comcast.net",
-			80,
-		},
-		{
-			&Registration{Scheme: "https", Host: "comcast.net"},
-			"https",
-			"comcast.net",
-			443,
-		},
-		{
-			&Registration{Scheme: "https", Host: "comcast.net", Port: 8080},
-			"https",
-			"comcast.net",
-			8080,
-		},
-	}
-
-	for _, record := range testData {
-		t.Logf("%v", record)
-
-		assert.Equal(record.expectedScheme, record.registration.scheme())
-		assert.Equal(record.expectedHost, record.registration.host())
-		assert.Equal(record.expectedPort, record.registration.port())
-	}
-}
-
 func TestOptionsDefault(t *testing.T) {
 	assert := assert.New(t)
 
@@ -113,7 +46,7 @@ func TestOptions(t *testing.T) {
 				MemberPrefix:  "testOptions_",
 				Environment:   "test-options",
 				ServiceName:   "options",
-				Registrations: []Registration{Registration{}, Registration{"https", "comcast.net", 8080}},
+				Registrations: []string{"https://comcast.net:8080"},
 				VnodeCount:    67912723,
 				PingFunc:      nil,
 			},
