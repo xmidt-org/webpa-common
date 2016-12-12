@@ -3,38 +3,55 @@ package server
 import (
 	"fmt"
 	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"os"
 )
 
-// NewViper produces a Viper instance configured with WebPA conventions.
-// The applicationName is used as the configuration file name, the environment prefix,
-// and  to generate the path under /etc and $HOME to look for configuration files.
-// Automatic environment mode is turned on.
-func NewViper(applicationName string) *viper.Viper {
-	viper := viper.New()
-	viper.SetConfigName(applicationName)
-	viper.AddConfigPath(fmt.Sprintf("/etc/%s", applicationName))
-	viper.AddConfigPath(fmt.Sprintf("$HOME/.%s", applicationName))
-	viper.AddConfigPath(".")
-
-	viper.SetEnvPrefix(applicationName)
-	viper.AutomaticEnv()
-
-	return viper
+// viper is the internal interface which *viper.Viper instances must support
+type viper interface {
+	SetConfigName(string)
+	AddConfigPath(string)
+	SetEnvPrefix(string)
+	AutomaticEnv()
+	BindPFlags(*pflag.FlagSet) error
+	ReadInConfig() error
 }
 
-// ParseAndBind parses the given flag set using the supplied arguments and then binds
-// the flag set to the specified Viper instance.  If arguments is nil, os.Args is used instead.
-func ParseAndBind(viper *viper.Viper, flagSet *pflag.FlagSet, arguments []string) error {
-	if arguments == nil {
-		arguments = os.Args
+// ConfigureViper configures the given *viper.Viper parameter with the standard
+// pattern used by WebPA.  If supplied, the FlagSet is used to parse the given command-line
+// arguments and then is bound to the Viper instance.  If fs  != nil and arguments == nil,
+// then os.Args is used instead.
+func ConfigureViper(applicationName string, v viper, fs *pflag.FlagSet, arguments []string) error {
+	v.SetConfigName(applicationName)
+	v.AddConfigPath(fmt.Sprintf("/etc/%s", applicationName))
+	v.AddConfigPath(fmt.Sprintf("$HOME/.%s", applicationName))
+	v.AddConfigPath(".")
+
+	v.SetEnvPrefix(applicationName)
+	v.AutomaticEnv()
+
+	if fs != nil {
+		if arguments == nil {
+			arguments = os.Args
+		}
+
+		if err := fs.Parse(arguments); err != nil {
+			return err
+		}
+
+		if err := v.BindPFlags(fs); err != nil {
+			return err
+		}
 	}
 
-	if err := flagSet.Parse(arguments); err != nil {
+	return nil
+}
+
+// ReadInConfig is an analog to viper.ReadInConfig.  This function applies WebPA usage patterns
+// to reading in configuration.  It invokes ConfigureViper, then uses viper.ReadInConfig.
+func ReadInConfig(applicationName string, v viper, fs *pflag.FlagSet, arguments []string) error {
+	if err := ConfigureViper(applicationName, v, fs, arguments); err != nil {
 		return err
 	}
 
-	viper.BindPFlags(flagSet)
-	return nil
+	return v.ReadInConfig()
 }

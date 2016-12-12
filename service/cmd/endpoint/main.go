@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -16,30 +17,12 @@ func newFlagSet(name string) *pflag.FlagSet {
 	return flagSet
 }
 
-func newViper(flagSet *pflag.FlagSet) *viper.Viper {
-	viper := viper.New()
-	viper.SetConfigName("endpoint")
-
-	viper.AddConfigPath("/etc/endpoint/")
-	viper.AddConfigPath("$HOME/.endpoint")
-	viper.AddConfigPath("./")
-
-	viper.SetEnvPrefix("endpoint")
-	viper.AutomaticEnv()
-
-	viper.BindPFlags(flagSet)
-
-	return viper
-}
-
 func main() {
 	flagSet := newFlagSet("endpoint")
-	viper := newViper(flagSet)
-	flagSet.Parse(os.Args)
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to read viper configuration: %s\n", err)
-	} else {
-		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
+	viper := viper.New()
+	if err := server.ReadInConfig("endpoint", viper, flagSet, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
 	}
 
 	options := new(service.Options)
