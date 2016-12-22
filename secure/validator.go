@@ -1,6 +1,7 @@
 package secure
 
 import (
+	"context"
 	"errors"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose/jws"
@@ -21,14 +22,14 @@ type Validator interface {
 	// any problems during validation, such as the inability to access a network resource.
 	// In general, the contract of this method is that a Token passes validation
 	// if and only if it returns BOTH true and a nil error.
-	Validate(*Token) (bool, error)
+	Validate(context.Context, *Token) (bool, error)
 }
 
 // ValidatorFunc is a function type that implements Validator
-type ValidatorFunc func(*Token) (bool, error)
+type ValidatorFunc func(context.Context, *Token) (bool, error)
 
-func (v ValidatorFunc) Validate(token *Token) (bool, error) {
-	return v(token)
+func (v ValidatorFunc) Validate(ctx context.Context, token *Token) (bool, error) {
+	return v(ctx, token)
 }
 
 // Validators is an aggregate Validator.  A Validators instance considers a token
@@ -36,7 +37,7 @@ func (v ValidatorFunc) Validate(token *Token) (bool, error) {
 // all tokens.
 type Validators []Validator
 
-func (v Validators) Validate(token *Token) (valid bool, err error) {
+func (v Validators) Validate(ctx context.Context, token *Token) (valid bool, err error) {
 	for _, validator := range v {
 		if valid, err = validator.Validate(token); valid && err == nil {
 			return
@@ -50,7 +51,7 @@ func (v Validators) Validate(token *Token) (valid bool, err error) {
 // to a string.
 type ExactMatchValidator string
 
-func (v ExactMatchValidator) Validate(token *Token) (bool, error) {
+func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, error) {
 	for _, value := range strings.Split(string(v), ",") {
 		if value == token.value {
 			return true, nil
@@ -59,6 +60,22 @@ func (v ExactMatchValidator) Validate(token *Token) (bool, error) {
 	
 	return false, nil
 }
+/*
+// ClaimsValidator compares context values against jwt claims
+type ClaimsValidator stuct {
+	ValidatorFunc
+	Context       context.Context
+}
+
+func (v ClaimsValidator) Validate(ctx context.Context, token *Token) (bool, error) {
+	// Loop trough claims.  Is request context values valid?
+	
+	for _, claim := range claims {
+		
+	}
+	
+}
+*/
 
 // JWSValidator provides validation for JWT tokens encoded as JWS.
 type JWSValidator struct {
@@ -68,7 +85,7 @@ type JWSValidator struct {
 	JWTValidators []*jwt.Validator
 }
 
-func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
+func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, err error) {
 	if token.Type() != Bearer {
 		return
 	}
@@ -104,6 +121,34 @@ func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
 	pair, err := v.Resolver.ResolveKey(keyId)
 	if err != nil {
 		return
+	}
+
+	if method := ctx.Value("method") {
+		found := false
+		for _, validator := v.JWTValidators {
+			// todo: still need to figure out what exactly to compare method to with validator.Expected
+			if method == validator.Expected { 
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
+	}
+
+	if path := ctx.Value("path") {
+		found := false
+		for _, validator := v.JWTValidators {
+			// todo: still need to figure out what exactly to compare method to with validator.Expected
+			if path == validator.Expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return
+		}
 	}
 
 	if len(v.JWTValidators) > 0 {
