@@ -420,7 +420,7 @@ func TestManagerSend(t *testing.T) {
 			assert.NoError(
 				manager.Send(
 					id,
-					wrp.NewSimpleEvent("foobar.com", []byte(fmt.Sprintf("message for %s", id))),
+					wrp.NewSimpleEvent("foobar.com", "112233445566", []byte(fmt.Sprintf("message for %s", id))),
 					func(d Interface, err error) {
 						assert.Equal(id, d.ID())
 						assert.NoError(err)
@@ -437,7 +437,7 @@ func TestManagerSend(t *testing.T) {
 
 	assert.Error(manager.Send(
 		ID("nosuch"),
-		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
+		wrp.NewSimpleEvent("foobar.com", "112233445566", []byte("this shouldn't go anywhere")),
 		func(Interface, error) {
 			assert.Fail("The callback shouldn't have been called")
 		},
@@ -490,7 +490,7 @@ func TestManagerSendOne(t *testing.T) {
 			assert.NoError(
 				manager.SendOne(
 					d.Key(),
-					wrp.NewSimpleEvent("foobar.com", []byte(fmt.Sprintf("message for %s", d.ID()))),
+					wrp.NewSimpleEvent("foobar.com", "112233445566", []byte(fmt.Sprintf("message for %s", d.ID()))),
 				),
 			)
 		}(d)
@@ -500,7 +500,7 @@ func TestManagerSendOne(t *testing.T) {
 
 	assert.Error(manager.SendOne(
 		Key("nosuch"),
-		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
+		wrp.NewSimpleEvent("foobar.com", "112233445566", []byte("this shouldn't go anywhere")),
 	))
 }
 

@@ -14,7 +14,7 @@ func ExampleManagerSimple() {
 		MessageListener: func(device Interface, message *wrp.Message) {
 			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 			err := device.Send(
-				wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
+				wrp.NewSimpleRequestResponse(message.Destination, message.Source, "transId12345", []byte("Homer Simpson, smiling politely")),
 			)
 
 			if err != nil {
@@ -41,7 +41,7 @@ func ExampleManagerSimple() {
 
 	defer connection.Close()
 
-	requestMessage := wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", []byte("Billy Corgan, Smashing Pumpkins"))
+	requestMessage := wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", "transId54321", []byte("Billy Corgan, Smashing Pumpkins"))
 	if err := connection.Write(requestMessage); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to send event: %s", err)
 		return

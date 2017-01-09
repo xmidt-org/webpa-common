@@ -63,6 +63,7 @@ var (
 	expectedPayloadBase64 = encodeBase64(expectedPayload)
 
 	expectedStatus      = int64(123)
+	expectedUUID        = "transId12345"
 	expectedSource      = "mac:112233445566"
 	expectedDestination = "dns:somewhere.com/webhook"
 
@@ -82,17 +83,6 @@ var (
 		{
 			original: Message{
 				Type:        SimpleEventMessageType,
-				Destination: expectedDestination,
-				Payload:     []byte(expectedPayload),
-			},
-			expectedJSON: fmt.Sprintf(`{
-				"dest": "%s",
-				"payload": "%s"
-			}`, expectedDestination, expectedPayloadBase64),
-		},
-		{
-			original: Message{
-				Type:        SimpleRequestResponseMessageType,
 				Source:      expectedSource,
 				Destination: expectedDestination,
 				Payload:     []byte(expectedPayload),
@@ -102,6 +92,21 @@ var (
 				"dest": "%s",
 				"payload": "%s"
 			}`, expectedSource, expectedDestination, expectedPayloadBase64),
+		},
+		{
+			original: Message{
+				Type:            SimpleRequestResponseMessageType,
+				TransactionUUID: expectedUUID,
+				Source:          expectedSource,
+				Destination:     expectedDestination,
+				Payload:         []byte(expectedPayload),
+			},
+			expectedJSON: fmt.Sprintf(`{
+				"transaction_uuid": "%s",
+				"source": "%s",
+				"dest": "%s",
+				"payload": "%s"
+			}`, expectedUUID, expectedSource, expectedDestination, expectedPayloadBase64),
 		},
 	}
 )
@@ -122,8 +127,15 @@ func assertSimpleRequestResponse(assert *assert.Assertions, actual *Message) {
 func assertStringValue(assert *assert.Assertions, actual *Message) {
 	stringValue := actual.String()
 	assert.Contains(stringValue, actual.Type.String())
+	assert.Contains(stringValue, actual.ContentType)
+	assert.Contains(stringValue, actual.TransactionUUID)
 	assert.Contains(stringValue, actual.Source)
 	assert.Contains(stringValue, actual.Destination)
+	assert.Contains(stringValue, fmt.Sprintf("%v", actual.Headers))
+	assert.Contains(stringValue, fmt.Sprintf("%v", actual.Metadata))
+	assert.Contains(stringValue, fmt.Sprintf("%v", actual.Spans))
+	assert.Contains(stringValue, fmt.Sprintf("%v", actual.IncludeSpans))
+	assert.Contains(stringValue, actual.Path)
 	assert.Contains(stringValue, fmt.Sprintf("%v", actual.Payload))
 
 	if actual.Status != nil {
