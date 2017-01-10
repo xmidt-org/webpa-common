@@ -300,6 +300,10 @@ func TestJWSValidatorVerify(t *testing.T) {
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
 		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(record.expectedVerifyError).Once()
 
+		claims := make(jws.Claims)
+		claims.Set("capabilities", []string{"x1:webpa:api:.*:all"})
+		mockJWS.On("Payload").Return(claims).Once()
+
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
 
@@ -308,7 +312,11 @@ func TestJWSValidatorVerify(t *testing.T) {
 			Parser:   mockJWSParser,
 		}
 
-		valid, err := validator.Validate(nil, token)
+		ctx := *new(context.Context)
+		ctx = context.WithValue(ctx, "method", "post")
+		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
+
+		valid, err := validator.Validate(ctx, token)
 		assert.Equal(record.expectedValid, valid)
 		assert.Equal(record.expectedVerifyError, err)
 
@@ -353,6 +361,10 @@ func TestJWSValidatorValidate(t *testing.T) {
 			Return(record.expectedValidateError).
 			Once()
 
+		claims := make(jws.Claims)
+		claims.Set("capabilities", []string{"x1:webpa:api:.*:all"})
+		mockJWS.On("Payload").Return(claims).Once()
+
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
 
@@ -361,8 +373,12 @@ func TestJWSValidatorValidate(t *testing.T) {
 			Parser:        mockJWSParser,
 			JWTValidators: record.expectedJWTValidators,
 		}
+		
+		ctx := *new(context.Context)
+		ctx = context.WithValue(ctx, "method", "post")
+		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
 
-		valid, err := validator.Validate(nil, token)
+		valid, err := validator.Validate(ctx, token)
 		assert.Equal(record.expectedValid, valid)
 		assert.Equal(record.expectedValidateError, err)
 
