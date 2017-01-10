@@ -3,25 +3,28 @@ package server
 import (
 	"fmt"
 	"github.com/spf13/pflag"
-	"os"
+	"github.com/spf13/viper"
 )
 
-// viper is the internal interface which *viper.Viper instances must support
-type viper interface {
-	SetConfigName(string)
-	AddConfigPath(string)
-	SetEnvPrefix(string)
-	AutomaticEnv()
-	BindPFlags(*pflag.FlagSet) error
-	ReadInConfig() error
+const (
+	FileFlagName      = "file"
+	FileFlagShorthand = "f"
+)
+
+// ConfigureFlagSet adds the standard set of WebPA flags to the supplied FlagSet.  Use of this function
+// is optional, and necessary only if the standard flags should be supported.  However, this is highly desirable,
+// as ConfigureViper can make use of the standard flags to tailor how configuration is loaded.
+func ConfigureFlagSet(applicationName string, f *pflag.FlagSet) {
+	f.StringP(FileFlagName, FileFlagShorthand, applicationName, "base name of the configuration file")
 }
 
-// ConfigureViper configures the given *viper.Viper parameter with the standard
-// pattern used by WebPA.  If supplied, the FlagSet is used to parse the given command-line
-// arguments and then is bound to the Viper instance.  If fs  != nil and arguments == nil,
-// then os.Args is used instead.
-func ConfigureViper(applicationName string, v viper, fs *pflag.FlagSet, arguments []string) error {
-	v.SetConfigName(applicationName)
+// ConfigureViper configures a Viper instances using the opinionated WebPA settings.  All WebPA servers should
+// use this function.
+//
+// The flagSet is optional.  If supplied, it will be bound to the given Viper instance.  Additionally, if the
+// flagSet has a FileFlagName flag, it will be used as the configuration name to hunt for instead of the
+// application name.
+func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) error {
 	v.AddConfigPath(fmt.Sprintf("/etc/%s", applicationName))
 	v.AddConfigPath(fmt.Sprintf("$HOME/.%s", applicationName))
 	v.AddConfigPath(".")
@@ -29,29 +32,52 @@ func ConfigureViper(applicationName string, v viper, fs *pflag.FlagSet, argument
 	v.SetEnvPrefix(applicationName)
 	v.AutomaticEnv()
 
-	if fs != nil {
-		if arguments == nil {
-			arguments = os.Args
+	v.SetDefault("name", applicationName)
+	v.SetDefault("address", DefaultAddress)
+	v.SetDefault("healthAddress", DefaultHealthAddress)
+	v.SetDefault("healthLogInterval", DefaultHealthLogInterval)
+
+	if f != nil {
+		if fileFlag := f.Lookup(FileFlagName); fileFlag != nil {
+			// use the command-line to specify the base name of the file to be searched for
+			v.SetConfigName(fileFlag.Value.String())
+		} else {
+			v.SetConfigName(applicationName)
 		}
 
-		if err := fs.Parse(arguments); err != nil {
+		if err := v.BindPFlags(f); err != nil {
 			return err
 		}
-
-		if err := v.BindPFlags(fs); err != nil {
-			return err
-		}
+	} else {
+		v.SetConfigName(applicationName)
 	}
 
 	return nil
 }
 
-// ReadInConfig is an analog to viper.ReadInConfig.  This function applies WebPA usage patterns
-// to reading in configuration.  It invokes ConfigureViper, then uses viper.ReadInConfig.
-func ReadInConfig(applicationName string, v viper, fs *pflag.FlagSet, arguments []string) error {
-	if err := ConfigureViper(applicationName, v, fs, arguments); err != nil {
+/*
+Configure is a one-stop shopping function for reading in WebPA configuration.  Typical usage is:
+
+    var (
+      f = pflag.NewFlagSet()
+      v = viper.New()
+    )
+
+    if err := server.Configure("petasos", os.Args, f, v); err != nil {
+      // deal with the error, possibly just exiting
+    }
+*/
+func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) error {
+	if f != nil {
+		ConfigureFlagSet(applicationName, f)
+		if err := f.Parse(arguments); err != nil {
+			return err
+		}
+	}
+
+	if err := ConfigureViper(applicationName, f, v); err != nil {
 		return err
 	}
 
-	return v.ReadInConfig()
+	return nil
 }
