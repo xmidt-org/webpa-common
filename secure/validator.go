@@ -62,22 +62,6 @@ func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, 
 	
 	return false, nil
 }
-/*
-// ClaimsValidator compares context values against jwt claims
-type ClaimsValidator stuct {
-	ValidatorFunc
-	Context       context.Context
-}
-
-func (v ClaimsValidator) Validate(ctx context.Context, token *Token) (bool, error) {
-	// Loop trough claims.  Is request context values valid?
-	
-	for _, claim := range claims {
-		
-	}
-	
-}
-*/
 
 // JWSValidator provides validation for JWT tokens encoded as JWS.
 type JWSValidator struct {
