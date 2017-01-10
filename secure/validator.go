@@ -3,11 +3,13 @@ package secure
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
-	"time"
+	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -39,7 +41,7 @@ type Validators []Validator
 
 func (v Validators) Validate(ctx context.Context, token *Token) (valid bool, err error) {
 	for _, validator := range v {
-		if valid, err = validator.Validate(token); valid && err == nil {
+		if valid, err = validator.Validate(ctx, token); valid && err == nil {
 			return
 		}
 	}
@@ -123,34 +125,29 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 		return
 	}
 
-	if method := ctx.Value("method") {
-		found := false
-		for _, validator := v.JWTValidators {
-			// todo: still need to figure out what exactly to compare method to with validator.Expected
-			if method == validator.Expected { 
-				found = true
-				break
+	if caps, ok := jwsToken.Payload().(map[string]interface{})["capabilities"].([]string); ok && len(caps) > 0 {
+		var valid_capabilities bool
+		for _, cap := range caps {
+			pieces := strings.Split(cap, ":")
+			
+			if len(pieces) == 5     &&
+			   pieces[0] == "x1"    && 
+			   pieces[1] == "webpa" && 
+			  (pieces[4] == "all" || pieces[4] == ctx.Value("method")) {
+				
+				claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
+				match_capPath, _ := regexp.MatchString(ctx.Value("path").(string), claimPath)
+				if match_capPath {
+					valid_capabilities = true
+				}
 			}
 		}
-		if !found {
+		
+		if !valid_capabilities {
 			return
 		}
 	}
-
-	if path := ctx.Value("path") {
-		found := false
-		for _, validator := v.JWTValidators {
-			// todo: still need to figure out what exactly to compare method to with validator.Expected
-			if path == validator.Expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return
-		}
-	}
-
+	
 	if len(v.JWTValidators) > 0 {
 		// all JWS implementations also implement jwt.JWT
 		err = jwsToken.(jwt.JWT).Validate(pair.Public(), signingMethod, v.JWTValidators...)
