@@ -33,11 +33,11 @@ func (a adapter) Printf(format string, parameters ...interface{}) {
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
 // via JSON.
 type LoggerFactory struct {
-	File      string   `json:"file"`
-	Level     LogLevel `json:"level"`
-	Pattern   Pattern  `json:"pattern"`
-	MaxSize   int64    `json:"maxSize"`
-	MaxBackup int      `json:"maxBackup"`
+	File      string  `json:"file"`
+	Level     string  `json:"level"`
+	Pattern   Pattern `json:"pattern"`
+	MaxSize   int64   `json:"maxSize"`
+	MaxBackup int     `json:"maxBackup"`
 }
 
 var _ logging.LoggerFactory = (*LoggerFactory)(nil)
@@ -79,7 +79,7 @@ func (factory *LoggerFactory) NewLogger(name string) (logging.Logger, error) {
 		return nil, err
 	} else {
 		adapter := &adapter{logger.New(name)}
-		adapter.SetLevel(levels.LogLevel(factory.Level))
+		adapter.SetLevel(levels.StringToLogLevels[factory.Level])
 		adapter.SetAppender(appender)
 
 		return adapter, nil
