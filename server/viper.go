@@ -12,6 +12,7 @@ const (
 	FileFlagName      = "file"
 	FileFlagShorthand = "f"
 
+	// LogKey is the standard Viper subkey which is expected to contain log configuration
 	LogKey = "log"
 )
 
@@ -28,7 +29,7 @@ func ConfigureFlagSet(applicationName string, f *pflag.FlagSet) {
 // The flagSet is optional.  If supplied, it will be bound to the given Viper instance.  Additionally, if the
 // flagSet has a FileFlagName flag, it will be used as the configuration name to hunt for instead of the
 // application name.
-func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) error {
+func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (configName string, err error) {
 	v.AddConfigPath(fmt.Sprintf("/etc/%s", applicationName))
 	v.AddConfigPath(fmt.Sprintf("$HOME/.%s", applicationName))
 	v.AddConfigPath(".")
@@ -41,22 +42,18 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) er
 	v.SetDefault("healthAddress", DefaultHealthAddress)
 	v.SetDefault("healthLogInterval", DefaultHealthLogInterval)
 
+	configName = applicationName
 	if f != nil {
 		if fileFlag := f.Lookup(FileFlagName); fileFlag != nil {
 			// use the command-line to specify the base name of the file to be searched for
-			v.SetConfigName(fileFlag.Value.String())
-		} else {
-			v.SetConfigName(applicationName)
+			configName = fileFlag.Value.String()
 		}
 
-		if err := v.BindPFlags(f); err != nil {
-			return err
-		}
-	} else {
-		v.SetConfigName(applicationName)
+		err = v.BindPFlags(f)
 	}
 
-	return nil
+	v.SetConfigName(configName)
+	return
 }
 
 /*
@@ -71,19 +68,17 @@ Configure is a one-stop shopping function for reading in WebPA configuration.  T
       // deal with the error, possibly just exiting
     }
 */
-func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) error {
+func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (configName string, err error) {
 	if f != nil {
 		ConfigureFlagSet(applicationName, f)
-		if err := f.Parse(arguments); err != nil {
-			return err
+		err = f.Parse(arguments)
+		if err != nil {
+			return
 		}
 	}
 
-	if err := ConfigureViper(applicationName, f, v); err != nil {
-		return err
-	}
-
-	return nil
+	configName, err = ConfigureViper(applicationName, f, v)
+	return
 }
 
 // NewWebPA creates a WebPA instance from a Viper configuration
@@ -97,5 +92,41 @@ func NewWebPA(v *viper.Viper) (webPA *WebPA, err error) {
 func NewLoggerFactory(v *viper.Viper) (loggerFactory logging.LoggerFactory, err error) {
 	loggerFactory = new(golog.LoggerFactory)
 	err = v.Unmarshal(loggerFactory)
+	return
+}
+
+/*
+New is the primary constructor for this package.  It configures Viper and unmarshals the
+appropriate objects.
+
+    var (
+      f = pflag.NewFlagSet()
+      v = viper.New()
+      webPA, loggerFactory, err = server.New("petasos", os.Args, f, v)
+    )
+
+    if err != nil {
+      // deal with the error, possibly just exiting
+    }
+
+This function is typically all that's needed to fully use this package for a WebPA server.
+*/
+func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (webPA *WebPA, loggerFactory logging.LoggerFactory, err error) {
+	_, err = Configure(applicationName, arguments, f, v)
+	if err != nil {
+		return
+	}
+
+	err = v.ReadInConfig()
+	if err != nil {
+		return
+	}
+
+	webPA, err = NewWebPA(v)
+	if err != nil {
+		return
+	}
+
+	loggerFactory, err = NewLoggerFactory(v.Sub(LogKey))
 	return
 }
