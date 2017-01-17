@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/logging/golog"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -9,6 +11,8 @@ import (
 const (
 	FileFlagName      = "file"
 	FileFlagShorthand = "f"
+
+	LogKey = "log"
 )
 
 // ConfigureFlagSet adds the standard set of WebPA flags to the supplied FlagSet.  Use of this function
@@ -80,4 +84,18 @@ func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *
 	}
 
 	return nil
+}
+
+// NewWebPA creates a WebPA instance from a Viper configuration
+func NewWebPA(v *viper.Viper) (webPA *WebPA, err error) {
+	webPA = new(WebPA)
+	err = v.Unmarshal(webPA)
+	return
+}
+
+// NewLoggerFactory creates a LoggerFactory from a Viper configuration
+func NewLoggerFactory(v *viper.Viper) (loggerFactory logging.LoggerFactory, err error) {
+	loggerFactory = new(golog.LoggerFactory)
+	err = v.Unmarshal(loggerFactory)
+	return
 }
