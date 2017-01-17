@@ -1,6 +1,7 @@
 package secure
 
 import (
+	"context"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -9,7 +10,7 @@ type MockValidator struct {
 	mock.Mock
 }
 
-func (v *MockValidator) Validate(token *Token) (bool, error) {
-	arguments := v.Called(token)
+func (v *MockValidator) Validate(ctx context.Context, token *Token) (bool, error) {
+	arguments := v.Called(ctx, token)
 	return arguments.Bool(0), arguments.Error(1)
 }

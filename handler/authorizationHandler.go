@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
@@ -74,8 +75,12 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			WriteJsonError(response, forbiddenStatusCode, message)
 			return
 		}
-
-		valid, err := a.Validator.Validate(token)
+		
+		ctx := context.Background()
+		ctx = context.WithValue(ctx, "method", request.Method)
+		ctx = context.WithValue(ctx, "path", request.URL.Path)	
+		
+		valid, err := a.Validator.Validate(ctx, token)
 		if err != nil {
 			logger.Error("Validation error: %s", err.Error())
 		} else if valid {

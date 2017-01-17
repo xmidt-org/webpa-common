@@ -1,12 +1,15 @@
 package secure
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
-	"time"
+	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -21,14 +24,14 @@ type Validator interface {
 	// any problems during validation, such as the inability to access a network resource.
 	// In general, the contract of this method is that a Token passes validation
 	// if and only if it returns BOTH true and a nil error.
-	Validate(*Token) (bool, error)
+	Validate(context.Context, *Token) (bool, error)
 }
 
 // ValidatorFunc is a function type that implements Validator
-type ValidatorFunc func(*Token) (bool, error)
+type ValidatorFunc func(context.Context, *Token) (bool, error)
 
-func (v ValidatorFunc) Validate(token *Token) (bool, error) {
-	return v(token)
+func (v ValidatorFunc) Validate(ctx context.Context, token *Token) (bool, error) {
+	return v(ctx, token)
 }
 
 // Validators is an aggregate Validator.  A Validators instance considers a token
@@ -36,9 +39,9 @@ func (v ValidatorFunc) Validate(token *Token) (bool, error) {
 // all tokens.
 type Validators []Validator
 
-func (v Validators) Validate(token *Token) (valid bool, err error) {
+func (v Validators) Validate(ctx context.Context, token *Token) (valid bool, err error) {
 	for _, validator := range v {
-		if valid, err = validator.Validate(token); valid && err == nil {
+		if valid, err = validator.Validate(ctx, token); valid && err == nil {
 			return
 		}
 	}
@@ -50,7 +53,7 @@ func (v Validators) Validate(token *Token) (valid bool, err error) {
 // to a string.
 type ExactMatchValidator string
 
-func (v ExactMatchValidator) Validate(token *Token) (bool, error) {
+func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, error) {
 	for _, value := range strings.Split(string(v), ",") {
 		if value == token.value {
 			return true, nil
@@ -68,7 +71,7 @@ type JWSValidator struct {
 	JWTValidators []*jwt.Validator
 }
 
-func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
+func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, err error) {
 	if token.Type() != Bearer {
 		return
 	}
@@ -105,7 +108,27 @@ func (v JWSValidator) Validate(token *Token) (valid bool, err error) {
 	if err != nil {
 		return
 	}
-
+	
+	if caps, ok := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); ok && len(caps) > 0 {
+		var valid_capabilities bool
+		for c:=0; c < len(caps) && !valid_capabilities; c++ {
+			pieces := strings.Split(caps[c], ":")
+			
+			if len(pieces) == 5     &&
+			   pieces[0] == "x1"    && 
+			   pieces[1] == "webpa" && 
+			  (pieces[4] == "all" || pieces[4] == ctx.Value("method")) {
+				
+				claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
+				valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
+			}
+		}
+		
+		if !valid_capabilities {
+			return
+		}
+	}
+	
 	if len(v.JWTValidators) > 0 {
 		// all JWS implementations also implement jwt.JWT
 		err = jwsToken.(jwt.JWT).Validate(pair.Public(), signingMethod, v.JWTValidators...)

@@ -1,6 +1,7 @@
 package secure
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/secure/key"
@@ -20,13 +21,13 @@ func ExampleSimpleJWSValidator() {
 	validator := JWSValidator{
 		Resolver: publicKeyResolver,
 	}
-
+	
 	token := &Token{
 		tokenType: Bearer,
 		value:     string(testSerializedJWT),
 	}
 
-	valid, err := validator.Validate(token)
+	valid, err := validator.Validate(nil, token)
 	fmt.Println(valid, err)
 
 	// Output:
@@ -36,9 +37,9 @@ func ExampleSimpleJWSValidator() {
 func TestValidatorFunc(t *testing.T) {
 	assert := assert.New(t)
 	expectedError := errors.New("expected")
-	var validator Validator = ValidatorFunc(func(token *Token) (bool, error) { return false, expectedError })
+	var validator Validator = ValidatorFunc(func(ctx context.Context, token *Token) (bool, error) { return false, expectedError })
 
-	valid, err := validator.Validate(nil)
+	valid, err := validator.Validate(nil, nil)
 	assert.False(valid)
 	assert.Equal(expectedError, err)
 }
@@ -83,11 +84,11 @@ func TestValidators(t *testing.T) {
 					expectedError = fmt.Errorf("expected validator error #%d", index)
 				}
 
-				mockValidator.On("Validate", token).Return(expectedValid, expectedError).Once()
+				mockValidator.On("Validate", nil, token).Return(expectedValid, expectedError).Once()
 			}
 		}
 
-		valid, err := validators.Validate(token)
+		valid, err := validators.Validate(nil, token)
 		assert.Equal(expectedValid, valid)
 		assert.Equal(expectedError, err)
 
@@ -106,14 +107,14 @@ func TestExactMatchValidator(t *testing.T) {
 	successValidator := ExactMatchValidator(token.value)
 	assert.NotNil(successValidator)
 
-	valid, err := successValidator.Validate(token)
+	valid, err := successValidator.Validate(nil, token)
 	assert.True(valid)
 	assert.Nil(err)
 
 	failureValidator := ExactMatchValidator("this should not be valid")
 	assert.NotNil(failureValidator)
 
-	valid, err = failureValidator.Validate(token)
+	valid, err = failureValidator.Validate(nil, token)
 	assert.False(valid)
 	assert.Nil(err)
 }
@@ -133,7 +134,7 @@ func TestJWSValidatorInvalidTokenType(t *testing.T) {
 		value:     "does not matter",
 	}
 
-	valid, err := validator.Validate(token)
+	valid, err := validator.Validate(nil, token)
 	assert.False(valid)
 	assert.Nil(err)
 
@@ -158,7 +159,7 @@ func TestJWSValidatorInvalidJWT(t *testing.T) {
 	}
 
 	mockJWSParser.On("ParseJWS", token).Return(nil, expectedError).Once()
-	valid, err := validator.Validate(token)
+	valid, err := validator.Validate(nil, token)
 	assert.False(valid)
 	assert.Equal(expectedError, err)
 
@@ -185,7 +186,7 @@ func TestJWSValidatorNoProtectedHeader(t *testing.T) {
 			Parser:   mockJWSParser,
 		}
 
-		valid, err := validator.Validate(token)
+		valid, err := validator.Validate(nil, token)
 		assert.False(valid)
 		assert.Equal(err, ErrorNoProtectedHeader)
 
@@ -214,7 +215,7 @@ func TestJWSValidatorNoSigningMethod(t *testing.T) {
 			Parser:   mockJWSParser,
 		}
 
-		valid, err := validator.Validate(token)
+		valid, err := validator.Validate(nil, token)
 		assert.False(valid)
 		assert.Equal(err, ErrorNoSigningMethod)
 
@@ -260,7 +261,7 @@ func TestJWSValidatorResolverError(t *testing.T) {
 			DefaultKeyId: record.defaultKeyId,
 		}
 
-		valid, err := validator.Validate(token)
+		valid, err := validator.Validate(nil, token)
 		assert.False(valid)
 		assert.Equal(err, expectedResolverError)
 
@@ -299,6 +300,10 @@ func TestJWSValidatorVerify(t *testing.T) {
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
 		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(record.expectedVerifyError).Once()
 
+		claims := make(jws.Claims)
+		claims.Set("capabilities", []string{"x1:webpa:api:.*:all"})
+		mockJWS.On("Payload").Return(claims).Once()
+
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
 
@@ -307,7 +312,11 @@ func TestJWSValidatorVerify(t *testing.T) {
 			Parser:   mockJWSParser,
 		}
 
-		valid, err := validator.Validate(token)
+		ctx := *new(context.Context)
+		ctx = context.WithValue(ctx, "method", "post")
+		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
+
+		valid, err := validator.Validate(ctx, token)
 		assert.Equal(record.expectedValid, valid)
 		assert.Equal(record.expectedVerifyError, err)
 
@@ -352,6 +361,10 @@ func TestJWSValidatorValidate(t *testing.T) {
 			Return(record.expectedValidateError).
 			Once()
 
+		claims := make(jws.Claims)
+		claims.Set("capabilities", []string{"x1:webpa:api:.*:all"})
+		mockJWS.On("Payload").Return(claims).Once()
+
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
 
@@ -360,8 +373,12 @@ func TestJWSValidatorValidate(t *testing.T) {
 			Parser:        mockJWSParser,
 			JWTValidators: record.expectedJWTValidators,
 		}
+		
+		ctx := *new(context.Context)
+		ctx = context.WithValue(ctx, "method", "post")
+		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
 
-		valid, err := validator.Validate(token)
+		valid, err := validator.Validate(ctx, token)
 		assert.Equal(record.expectedValid, valid)
 		assert.Equal(record.expectedValidateError, err)
 
