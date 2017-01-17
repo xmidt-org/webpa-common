@@ -76,7 +76,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			return
 		}
 		
-		ctx := *new(context.Context)
+		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)	
 		

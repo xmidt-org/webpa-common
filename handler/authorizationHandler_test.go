@@ -215,7 +215,7 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 		request.Header.Set(record.headerName, authorizationValue)
 		response := httptest.NewRecorder()
 		
-		ctx := *new(context.Context)
+		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 		token, _ := secure.ParseAuthorization(authorizationValue)
@@ -274,7 +274,7 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
 		request.Header.Set(record.headerName, authorizationValue)
 		
-		ctx := *new(context.Context)
+		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 		token, _ := secure.ParseAuthorization(authorizationValue)
