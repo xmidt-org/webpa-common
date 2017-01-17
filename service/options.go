@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/spf13/viper"
 	"github.com/strava/go.serversets"
 	"strings"
 	"time"
@@ -154,4 +155,9 @@ func (o *Options) pingFunc() func() error {
 	}
 
 	return nil
+}
+
+// Load imports Viper configuration into this Options instance.
+func (o *Options) Load(v *viper.Viper) error {
+	return v.Unmarshal(o)
 }
