@@ -45,7 +45,7 @@ var _ logging.LoggerFactory = (*LoggerFactory)(nil)
 // NewAppender creates a golog Appender from this LoggerFactory's configuration
 func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
 	var appender appenders.Appender
-	if factory.File == ConsoleFileName {
+	if len(factory.File) == 0 || factory.File == ConsoleFileName {
 		appender = appenders.Console()
 	} else {
 		if _, err := os.Stat(factory.File); err != nil {
