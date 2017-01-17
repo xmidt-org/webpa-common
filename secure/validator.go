@@ -111,8 +111,8 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	
 	if caps, ok := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); ok && len(caps) > 0 {
 		var valid_capabilities bool
-		for _, cap := range caps {
-			pieces := strings.Split(cap, ":")
+		for c:=0; c < len(caps) && !valid_capabilities; c++ {
+			pieces := strings.Split(caps[c], ":")
 			
 			if len(pieces) == 5     &&
 			   pieces[0] == "x1"    && 
@@ -120,11 +120,7 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 			  (pieces[4] == "all" || pieces[4] == ctx.Value("method")) {
 				
 				claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
-				match_capPath, _ := regexp.MatchString(claimPath, ctx.Value("path").(string))
-				if match_capPath {
-					valid_capabilities = true
-					break
-				}
+				valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
 			}
 		}
 		
