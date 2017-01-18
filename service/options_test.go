@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/spf13/viper"
 	"github.com/strava/go.serversets"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -109,4 +111,21 @@ func TestOptions(t *testing.T) {
 			assert.Nil(options.pingFunc())
 		}
 	}
+}
+
+func TestLoad(t *testing.T) {
+	assert := assert.New(t)
+	configuration := bytes.NewBufferString(`{
+			"servers": ["host1:1234", "host2:5678"],
+			"connection": "foobar"
+		}`)
+
+	v := viper.New()
+	v.SetConfigType("json")
+	assert.Nil(v.ReadConfig(configuration))
+
+	o := new(Options)
+	assert.Nil(o.Load(v))
+	assert.Equal("foobar", o.Connection)
+	assert.Equal([]string{"host1:1234", "host2:5678"}, o.Servers)
 }
