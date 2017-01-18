@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"github.com/Comcast/webpa-common/logging/golog"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -12,6 +14,60 @@ const (
 	flagSetName     = "flagSet"
 	applicationName = "applicationName"
 )
+
+func ExampleNew() {
+	webPA, _, err := New("example", nil, nil, viper.New())
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(webPA.Address)
+	fmt.Println(webPA.CertificateFile)
+	fmt.Println(webPA.KeyFile)
+	fmt.Println(webPA.LogConnectionState)
+	fmt.Println(webPA.HealthAddress)
+	fmt.Println(webPA.HealthLogInterval)
+	fmt.Println(webPA.PprofAddress)
+
+	// Output:
+	// :9000
+	// file.cert
+	// file.key
+	// true
+	// :9001
+	// 1m0s
+	// :9090
+}
+
+func ExampleNewDifferentFile() {
+	webPA, _, err := New(
+		"application",
+		[]string{"-f", "example"},
+		pflag.NewFlagSet("does not matter", pflag.ContinueOnError),
+		viper.New(),
+	)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(webPA.Address)
+	fmt.Println(webPA.CertificateFile)
+	fmt.Println(webPA.KeyFile)
+	fmt.Println(webPA.LogConnectionState)
+	fmt.Println(webPA.HealthAddress)
+	fmt.Println(webPA.HealthLogInterval)
+	fmt.Println(webPA.PprofAddress)
+
+	// Output:
+	// :9000
+	// file.cert
+	// file.key
+	// true
+	// :9001
+	// 1m0s
+	// :9090
+}
 
 func TestConfigureFlagSet(t *testing.T) {
 	var (
@@ -40,7 +96,7 @@ func TestConfigureViper(t *testing.T) {
 		require         = require.New(t)
 		flagSetWithFile = pflag.NewFlagSet(flagSetName, pflag.ContinueOnError)
 		testData        = []struct {
-			flagSet            *pflag.FlagSet
+			f                  *pflag.FlagSet
 			expectedConfigName string
 		}{
 			{nil, applicationName},
@@ -56,7 +112,7 @@ func TestConfigureViper(t *testing.T) {
 
 		var (
 			v                     = viper.New()
-			actualConfigName, err = ConfigureViper(applicationName, record.flagSet, v)
+			actualConfigName, err = ConfigureViper(applicationName, record.f, v)
 		)
 
 		require.Nil(err)
@@ -69,7 +125,7 @@ func TestConfigure(t *testing.T) {
 		assert   = assert.New(t)
 		testData = []struct {
 			arguments          []string
-			flagSet            *pflag.FlagSet
+			f                  *pflag.FlagSet
 			expectedConfigName string
 			expectsError       bool
 		}{
@@ -89,7 +145,7 @@ func TestConfigure(t *testing.T) {
 
 		var (
 			v                     = viper.New()
-			actualConfigName, err = Configure(applicationName, record.arguments, record.flagSet, v)
+			actualConfigName, err = Configure(applicationName, record.arguments, record.f, v)
 		)
 
 		assert.Equal(record.expectsError, err != nil)
@@ -99,22 +155,139 @@ func TestConfigure(t *testing.T) {
 
 func TestNewWebPA(t *testing.T) {
 	var (
-		require    = require.New(t)
-		v          = viper.New()
-		webPA, err = NewWebPA(v)
+		assert   = assert.New(t)
+		require  = require.New(t)
+		badViper = viper.New()
+		testData = []struct {
+			v            *viper.Viper
+			expectsError bool
+		}{
+			{nil, false},
+			{viper.New(), false},
+			{badViper, true},
+		}
 	)
 
-	require.NotNil(webPA)
-	require.Nil(err)
+	badViper.SetDefault("address", map[string]string{})
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		webPA, err := NewWebPA(record.v)
+		require.NotNil(webPA)
+		assert.Equal(record.expectsError, err != nil)
+	}
 }
 
 func TestNewLoggerFactory(t *testing.T) {
 	var (
-		require            = require.New(t)
-		v                  = viper.New()
-		loggerFactory, err = NewLoggerFactory(v)
+		assert   = assert.New(t)
+		require  = require.New(t)
+		badViper = viper.New()
+		testData = []struct {
+			v            *viper.Viper
+			expectsError bool
+		}{
+			{nil, false},
+			{viper.New(), false},
+			{badViper, true},
+		}
 	)
 
+	badViper.SetDefault("file", map[string]string{})
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		loggerFactory, err := NewLoggerFactory(record.v)
+		require.NotNil(loggerFactory)
+		assert.Equal(record.expectsError, err != nil)
+
+		gologFactory, ok := loggerFactory.(*golog.LoggerFactory)
+		require.True(ok)
+		assert.Equal(golog.LoggerFactory{}, *gologFactory)
+	}
+}
+
+func TestNew(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		f       = pflag.NewFlagSet(flagSetName, pflag.ContinueOnError)
+		v       = viper.New()
+
+		webPA, loggerFactory, err = New(applicationName, nil, f, v)
+	)
+
+	t.Logf("%#v", err)
+
+	require.NotNil(webPA)
 	require.NotNil(loggerFactory)
 	require.Nil(err)
+
+	assert.Equal(":10001", webPA.Address)
+	gologFactory, ok := loggerFactory.(*golog.LoggerFactory)
+	require.True(ok)
+	assert.Equal(golog.LoggerFactory{}, *gologFactory)
+}
+
+func TestNewWhenConfigureError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		f      = pflag.NewFlagSet(flagSetName, pflag.ContinueOnError)
+		v      = viper.New()
+
+		webPA, loggerFactory, err = New(applicationName, []string{"-o", "huh?"}, f, v)
+	)
+
+	assert.Nil(webPA)
+	assert.Nil(loggerFactory)
+	assert.NotNil(err)
+}
+
+func TestNewWhenReadInConfigError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		f      = pflag.NewFlagSet(flagSetName, pflag.ContinueOnError)
+		v      = viper.New()
+
+		webPA, loggerFactory, err = New(applicationName, []string{"-f", "nosuchfile"}, f, v)
+	)
+
+	assert.Nil(webPA)
+	assert.Nil(loggerFactory)
+	assert.NotNil(err)
+}
+
+func TestNewWhenWebPAError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		f       = pflag.NewFlagSet(flagSetName, pflag.ContinueOnError)
+		v       = viper.New()
+
+		webPA, loggerFactory, err = New(applicationName, []string{"-f", "badaddress"}, f, v)
+	)
+
+	require.NotNil(webPA)
+	assert.Equal(webPA.Name, applicationName)
+	assert.Nil(loggerFactory)
+	assert.NotNil(err)
+}
+
+func TestNewWhenLoggerFactoryError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		f       = pflag.NewFlagSet(flagSetName, pflag.ContinueOnError)
+		v       = viper.New()
+
+		webPA, loggerFactory, err = New(applicationName, []string{"-f", "badlogfile"}, f, v)
+	)
+
+	require.NotNil(webPA)
+	assert.Equal(webPA.Name, applicationName)
+	require.NotNil(loggerFactory)
+	gologFactory, ok := loggerFactory.(*golog.LoggerFactory)
+	require.True(ok)
+	assert.Equal(golog.LoggerFactory{}, *gologFactory)
+	assert.NotNil(err)
 }

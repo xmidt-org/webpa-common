@@ -1,0 +1,16 @@
+{
+	"address": ":9000",
+	"certificateFile": "file.cert",
+	"keyFile": "file.key",
+	"logConnectionState": true,
+
+	"healthAddress": ":9001",
+	"healthLogInterval": "1m",
+
+	"pprofAddress": ":9090",
+	"log": {
+		"file": "foolbar.log",
+		"level": "INFO"
+	}
+}
+

@@ -67,6 +67,9 @@ Configure is a one-stop shopping function for reading in WebPA configuration.  T
     if err := server.Configure("petasos", os.Args, f, v); err != nil {
       // deal with the error, possibly just exiting
     }
+
+Usage of this function is only necessary if custom configuration is needed.  Normally,
+using New will suffice.
 */
 func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (configName string, err error) {
 	if f != nil {
@@ -81,17 +84,25 @@ func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *
 	return
 }
 
-// NewWebPA creates a WebPA instance from a Viper configuration
+// NewWebPA creates a WebPA instance from a Viper configuration.  The supplied Viper instance
+// may be nil, in which case a default WebPA instance is returned.
 func NewWebPA(v *viper.Viper) (webPA *WebPA, err error) {
 	webPA = new(WebPA)
-	err = v.Unmarshal(webPA)
+	if v != nil {
+		err = v.Unmarshal(webPA)
+	}
+
 	return
 }
 
-// NewLoggerFactory creates a LoggerFactory from a Viper configuration
+// NewLoggerFactory creates a LoggerFactory from a Viper configuration.  The supplied Viper instance
+// may be nil, in which case a default LoggerFactory is returned.
 func NewLoggerFactory(v *viper.Viper) (loggerFactory logging.LoggerFactory, err error) {
 	loggerFactory = new(golog.LoggerFactory)
-	err = v.Unmarshal(loggerFactory)
+	if v != nil {
+		err = v.Unmarshal(loggerFactory)
+	}
+
 	return
 }
 
@@ -110,16 +121,23 @@ appropriate objects.
     }
 
 This function is typically all that's needed to fully use this package for a WebPA server.
+
+As with the other NewXXX functions, this function permits a nil Viper instance.
 */
 func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (webPA *WebPA, loggerFactory logging.LoggerFactory, err error) {
-	_, err = Configure(applicationName, arguments, f, v)
-	if err != nil {
-		return
-	}
+	var logViper *viper.Viper
+	if v != nil {
+		_, err = Configure(applicationName, arguments, f, v)
+		if err != nil {
+			return
+		}
 
-	err = v.ReadInConfig()
-	if err != nil {
-		return
+		err = v.ReadInConfig()
+		if err != nil {
+			return
+		}
+
+		logViper = v.Sub(LogKey)
 	}
 
 	webPA, err = NewWebPA(v)
@@ -127,6 +145,6 @@ func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.
 		return
 	}
 
-	loggerFactory, err = NewLoggerFactory(v.Sub(LogKey))
+	loggerFactory, err = NewLoggerFactory(logViper)
 	return
 }
