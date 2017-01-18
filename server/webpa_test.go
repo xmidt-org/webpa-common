@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/Comcast/webpa-common/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -90,8 +91,8 @@ func TestNewPrimaryServerLogConnectionState(t *testing.T) {
 
 		verify, logger = newTestLogger()
 		webPA          = WebPA{
-			Name:               "TestNewPrimaryServer",
-			Address:            ":6007",
+			Name:               "TestNewPrimaryServerLogConnectionState",
+			Address:            ":331",
 			LogConnectionState: true,
 		}
 
@@ -99,10 +100,145 @@ func TestNewPrimaryServerLogConnectionState(t *testing.T) {
 	)
 
 	require.NotNil(primaryServer)
-	assert.Equal(":6007", primaryServer.Addr)
+	assert.Equal(":331", primaryServer.Addr)
 	assert.Equal(handler, primaryServer.Handler)
-	assertErrorLog(assert, verify, "TestNewPrimaryServer", primaryServer.ErrorLog)
+	assertErrorLog(assert, verify, "TestNewPrimaryServerLogConnectionState", primaryServer.ErrorLog)
 	assertConnState(assert, verify, primaryServer.ConnState)
+
+	handler.AssertExpectations(t)
+}
+
+func TestNewHealthServer(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		options = []health.Option{health.Stat("option1"), health.Stat("option2")}
+
+		verify, logger = newTestLogger()
+		webPA          = WebPA{
+			Name:              "TestNewHealthServer",
+			HealthAddress:     ":7181",
+			HealthLogInterval: 15 * time.Second,
+		}
+
+		healthHandler, healthServer = webPA.NewHealthServer(logger, options...)
+	)
+
+	require.NotNil(healthHandler)
+	require.NotNil(healthServer)
+	assert.Equal(":7181", healthServer.Addr)
+	assert.Equal(healthHandler, healthServer.Handler)
+	assertErrorLog(assert, verify, "TestNewHealthServer", healthServer.ErrorLog)
+	assert.Nil(healthServer.ConnState)
+}
+
+func TestNewHealthServerLogConnectionState(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		options = []health.Option{health.Stat("option1"), health.Stat("option2")}
+
+		verify, logger = newTestLogger()
+		webPA          = WebPA{
+			Name:               "TestNewHealthServerLogConnectionState",
+			HealthAddress:      ":165",
+			HealthLogInterval:  45 * time.Minute,
+			LogConnectionState: true,
+		}
+
+		healthHandler, healthServer = webPA.NewHealthServer(logger, options...)
+	)
+
+	require.NotNil(healthHandler)
+	require.NotNil(healthServer)
+	assert.Equal(":165", healthServer.Addr)
+	assert.Equal(healthHandler, healthServer.Handler)
+	assertErrorLog(assert, verify, "TestNewHealthServerLogConnectionState", healthServer.ErrorLog)
+	assertConnState(assert, verify, healthServer.ConnState)
+}
+
+func TestNewPprofServer(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		handler = new(mockHandler)
+
+		verify, logger = newTestLogger()
+		webPA          = WebPA{
+			Name:         "TestNewPprofServer",
+			PprofAddress: ":996",
+		}
+
+		pprofServer = webPA.NewPprofServer(logger, handler)
+	)
+
+	require.NotNil(pprofServer)
+	assert.Equal(":996", pprofServer.Addr)
+	assert.Equal(handler, pprofServer.Handler)
+	assert.Nil(pprofServer.ConnState)
+	assertErrorLog(assert, verify, "TestNewPprofServer", pprofServer.ErrorLog)
+
+	handler.AssertExpectations(t)
+}
+
+func TestNewPprofServerDefaultHandler(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		verify, logger = newTestLogger()
+		webPA          = WebPA{
+			Name:         "TestNewPprofServerDefaultHandler",
+			PprofAddress: ":1299",
+		}
+
+		pprofServer = webPA.NewPprofServer(logger, nil)
+	)
+
+	require.NotNil(pprofServer)
+	assert.Equal(":1299", pprofServer.Addr)
+	assert.Equal(http.DefaultServeMux, pprofServer.Handler)
+	assert.Nil(pprofServer.ConnState)
+	assertErrorLog(assert, verify, "TestNewPprofServerDefaultHandler", pprofServer.ErrorLog)
+}
+
+func TestNewPprofServerNoPprofAddress(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		verify, logger = newTestLogger()
+		webPA          = WebPA{
+			Name: "TestNewPprofServerNoPprofAddress",
+		}
+
+		pprofServer = webPA.NewPprofServer(logger, nil)
+	)
+
+	assert.Nil(pprofServer)
+	assert.Empty(verify.String())
+}
+
+func TestNewPprofServerLogConnectionState(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		handler = new(mockHandler)
+
+		verify, logger = newTestLogger()
+		webPA          = WebPA{
+			Name:               "TestNewPprofServerLogConnectionState",
+			PprofAddress:       ":16077",
+			LogConnectionState: true,
+		}
+
+		pprofServer = webPA.NewPprofServer(logger, handler)
+	)
+
+	require.NotNil(pprofServer)
+	assert.Equal(":16077", pprofServer.Addr)
+	assert.Equal(handler, pprofServer.Handler)
+	assertErrorLog(assert, verify, "TestNewPprofServerLogConnectionState", pprofServer.ErrorLog)
+	assertConnState(assert, verify, pprofServer.ConnState)
 
 	handler.AssertExpectations(t)
 }
