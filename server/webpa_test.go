@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -255,8 +256,102 @@ func TestNewPprofServerLogConnectionState(t *testing.T) {
 	handler.AssertExpectations(t)
 }
 
-func TestRunServer(t *testing.T) {
+func TestRunServerNonSecure(t *testing.T) {
 	var (
-		verify, logger = newTestLogger()
+		simpleError = errors.New("TestRunServerNonSecure")
+		testData    = []struct {
+			webPA            WebPA
+			secureIfPossible bool
+			expectedError    error
+		}{
+			{WebPA{}, false, nil},
+			{WebPA{}, false, simpleError},
+			{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, false, nil},
+			{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, false, simpleError},
+			{WebPA{}, true, nil},
+			{WebPA{}, true, simpleError},
+		}
 	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		var (
+			executorCalled     = make(chan struct{})
+			_, logger          = newTestLogger()
+			mockServerExecutor = &mockServerExecutor{}
+		)
+
+		// When no certificate and key are configured, a nonsecure server should be run
+		mockServerExecutor.
+			On("ListenAndServe").
+			Return(record.expectedError).
+			Once().
+			Run(func(mock.Arguments) {
+				close(executorCalled)
+			})
+
+		record.webPA.RunServer(logger, record.secureIfPossible, mockServerExecutor)
+		<-executorCalled
+
+		mockServerExecutor.AssertExpectations(t)
+	}
+}
+
+func TestRunServerSecure(t *testing.T) {
+	const (
+		certificateFile = "file.cert"
+		keyFile         = "file.key"
+	)
+
+	var (
+		simpleError = errors.New("TestRunServerSecure")
+		testData    = []struct {
+			webPA         WebPA
+			expectedError error
+		}{
+			{WebPA{CertificateFile: certificateFile, KeyFile: keyFile}, nil},
+			{WebPA{CertificateFile: certificateFile, KeyFile: keyFile}, simpleError},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		var (
+			executorCalled     = make(chan struct{})
+			_, logger          = newTestLogger()
+			mockServerExecutor = &mockServerExecutor{}
+		)
+
+		mockServerExecutor.
+			On("ListenAndServeTLS", certificateFile, keyFile).
+			Return(record.expectedError).
+			Once().
+			Run(func(mock.Arguments) {
+				close(executorCalled)
+			})
+
+		record.webPA.RunServer(logger, true, mockServerExecutor)
+		<-executorCalled
+
+		mockServerExecutor.AssertExpectations(t)
+	}
+}
+
+func TestRunServerNoExecutor(t *testing.T) {
+	testData := []struct {
+		webPA            WebPA
+		secureIfPossible bool
+	}{
+		{WebPA{}, false},
+		{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, false},
+		{WebPA{}, true},
+		{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, true},
+	}
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		_, logger := newTestLogger()
+		record.webPA.RunServer(logger, record.secureIfPossible, nil)
+	}
 }
