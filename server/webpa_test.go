@@ -18,6 +18,18 @@ func (m *mockHandler) ServeHTTP(response http.ResponseWriter, request *http.Requ
 	m.Called(response, request)
 }
 
+type mockServerExecutor struct {
+	mock.Mock
+}
+
+func (m *mockServerExecutor) ListenAndServe() error {
+	return m.Called().Error(0)
+}
+
+func (m *mockServerExecutor) ListenAndServeTLS(certificateFile, keyFile string) error {
+	return m.Called(certificateFile, keyFile).Error(0)
+}
+
 func TestWebPADefaults(t *testing.T) {
 	assert := assert.New(t)
 	for _, webPA := range []*WebPA{nil, new(WebPA)} {
@@ -241,4 +253,10 @@ func TestNewPprofServerLogConnectionState(t *testing.T) {
 	assertConnState(assert, verify, pprofServer.ConnState)
 
 	handler.AssertExpectations(t)
+}
+
+func TestRunServer(t *testing.T) {
+	var (
+		verify, logger = newTestLogger()
+	)
 }
