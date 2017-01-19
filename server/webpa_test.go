@@ -3,10 +3,12 @@ package server
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/health"
+	"github.com/Comcast/webpa-common/logging/golog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 )
@@ -19,339 +21,382 @@ func (m *mockHandler) ServeHTTP(response http.ResponseWriter, request *http.Requ
 	m.Called(response, request)
 }
 
-type mockServerExecutor struct {
+type mockExecutor struct {
 	mock.Mock
 }
 
-func (m *mockServerExecutor) ListenAndServe() error {
+func (m *mockExecutor) ListenAndServe() error {
 	return m.Called().Error(0)
 }
 
-func (m *mockServerExecutor) ListenAndServeTLS(certificateFile, keyFile string) error {
+func (m *mockExecutor) ListenAndServeTLS(certificateFile, keyFile string) error {
 	return m.Called(certificateFile, keyFile).Error(0)
 }
 
-func TestWebPADefaults(t *testing.T) {
-	assert := assert.New(t)
-	for _, webPA := range []*WebPA{nil, new(WebPA)} {
-		assert.Equal(DefaultName, webPA.name())
-		assert.Equal(DefaultAddress, webPA.address())
-		assert.Equal(DefaultHealthAddress, webPA.healthAddress())
-		assert.Equal("", webPA.pprofAddress())
-		assert.Equal(DefaultHealthLogInterval, webPA.healthLogInterval())
-		assert.Equal(DefaultLogConnectionState, webPA.logConnectionState())
-		assert.Equal("", webPA.certificateFile())
-		assert.Equal("", webPA.keyFile())
-	}
+type mockSecure struct {
+	mock.Mock
 }
 
-func TestWebPAAccessors(t *testing.T) {
-	const healthLogInterval time.Duration = 46 * time.Minute
-
-	var (
-		assert = assert.New(t)
-		webPA  = WebPA{
-			Name:               "Custom Name",
-			CertificateFile:    "custom.cert",
-			KeyFile:            "custom.key",
-			LogConnectionState: !DefaultLogConnectionState,
-			Address:            "localhost:15001",
-			HealthAddress:      "localhost:55",
-			HealthLogInterval:  healthLogInterval,
-			PprofAddress:       "foobar:7273",
-		}
-	)
-
-	assert.Equal("Custom Name", webPA.name())
-	assert.Equal("custom.cert", webPA.certificateFile())
-	assert.Equal("custom.key", webPA.keyFile())
-	assert.Equal(!DefaultLogConnectionState, webPA.logConnectionState())
-	assert.Equal("localhost:15001", webPA.address())
-	assert.Equal("localhost:55", webPA.healthAddress())
-	assert.Equal(healthLogInterval, webPA.healthLogInterval())
-	assert.Equal("foobar:7273", webPA.pprofAddress())
+func (m *mockSecure) Certificate() (string, string) {
+	arguments := m.Called()
+	return arguments.String(0), arguments.String(1)
 }
 
-func TestNewPrimaryServer(t *testing.T) {
+func TestListenAndServeNonSecure(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = new(mockHandler)
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:    "TestNewPrimaryServer",
-			Address: ":6007",
-		}
-
-		primaryServer = webPA.NewPrimaryServer(logger, handler)
-	)
-
-	require.NotNil(primaryServer)
-	assert.Equal(":6007", primaryServer.Addr)
-	assert.Equal(handler, primaryServer.Handler)
-	assert.Nil(primaryServer.ConnState)
-	assertErrorLog(assert, verify, "TestNewPrimaryServer", primaryServer.ErrorLog)
-
-	handler.AssertExpectations(t)
-}
-
-func TestNewPrimaryServerLogConnectionState(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = new(mockHandler)
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:               "TestNewPrimaryServerLogConnectionState",
-			Address:            ":331",
-			LogConnectionState: true,
-		}
-
-		primaryServer = webPA.NewPrimaryServer(logger, handler)
-	)
-
-	require.NotNil(primaryServer)
-	assert.Equal(":331", primaryServer.Addr)
-	assert.Equal(handler, primaryServer.Handler)
-	assertErrorLog(assert, verify, "TestNewPrimaryServerLogConnectionState", primaryServer.ErrorLog)
-	assertConnState(assert, verify, primaryServer.ConnState)
-
-	handler.AssertExpectations(t)
-}
-
-func TestNewHealthServer(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		options = []health.Option{health.Stat("option1"), health.Stat("option2")}
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:              "TestNewHealthServer",
-			HealthAddress:     ":7181",
-			HealthLogInterval: 15 * time.Second,
-		}
-
-		healthHandler, healthServer = webPA.NewHealthServer(logger, options...)
-	)
-
-	require.NotNil(healthHandler)
-	require.NotNil(healthServer)
-	assert.Equal(":7181", healthServer.Addr)
-	assert.Equal(healthHandler, healthServer.Handler)
-	assertErrorLog(assert, verify, "TestNewHealthServer", healthServer.ErrorLog)
-	assert.Nil(healthServer.ConnState)
-}
-
-func TestNewHealthServerLogConnectionState(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		options = []health.Option{health.Stat("option1"), health.Stat("option2")}
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:               "TestNewHealthServerLogConnectionState",
-			HealthAddress:      ":165",
-			HealthLogInterval:  45 * time.Minute,
-			LogConnectionState: true,
-		}
-
-		healthHandler, healthServer = webPA.NewHealthServer(logger, options...)
-	)
-
-	require.NotNil(healthHandler)
-	require.NotNil(healthServer)
-	assert.Equal(":165", healthServer.Addr)
-	assert.Equal(healthHandler, healthServer.Handler)
-	assertErrorLog(assert, verify, "TestNewHealthServerLogConnectionState", healthServer.ErrorLog)
-	assertConnState(assert, verify, healthServer.ConnState)
-}
-
-func TestNewPprofServer(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = new(mockHandler)
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:         "TestNewPprofServer",
-			PprofAddress: ":996",
-		}
-
-		pprofServer = webPA.NewPprofServer(logger, handler)
-	)
-
-	require.NotNil(pprofServer)
-	assert.Equal(":996", pprofServer.Addr)
-	assert.Equal(handler, pprofServer.Handler)
-	assert.Nil(pprofServer.ConnState)
-	assertErrorLog(assert, verify, "TestNewPprofServer", pprofServer.ErrorLog)
-
-	handler.AssertExpectations(t)
-}
-
-func TestNewPprofServerDefaultHandler(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:         "TestNewPprofServerDefaultHandler",
-			PprofAddress: ":1299",
-		}
-
-		pprofServer = webPA.NewPprofServer(logger, nil)
-	)
-
-	require.NotNil(pprofServer)
-	assert.Equal(":1299", pprofServer.Addr)
-	assert.Equal(http.DefaultServeMux, pprofServer.Handler)
-	assert.Nil(pprofServer.ConnState)
-	assertErrorLog(assert, verify, "TestNewPprofServerDefaultHandler", pprofServer.ErrorLog)
-}
-
-func TestNewPprofServerNoPprofAddress(t *testing.T) {
-	var (
-		assert = assert.New(t)
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name: "TestNewPprofServerNoPprofAddress",
-		}
-
-		pprofServer = webPA.NewPprofServer(logger, nil)
-	)
-
-	assert.Nil(pprofServer)
-	assert.Empty(verify.String())
-}
-
-func TestNewPprofServerLogConnectionState(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = new(mockHandler)
-
-		verify, logger = newTestLogger()
-		webPA          = WebPA{
-			Name:               "TestNewPprofServerLogConnectionState",
-			PprofAddress:       ":16077",
-			LogConnectionState: true,
-		}
-
-		pprofServer = webPA.NewPprofServer(logger, handler)
-	)
-
-	require.NotNil(pprofServer)
-	assert.Equal(":16077", pprofServer.Addr)
-	assert.Equal(handler, pprofServer.Handler)
-	assertErrorLog(assert, verify, "TestNewPprofServerLogConnectionState", pprofServer.ErrorLog)
-	assertConnState(assert, verify, pprofServer.ConnState)
-
-	handler.AssertExpectations(t)
-}
-
-func TestRunServerNonSecure(t *testing.T) {
-	var (
-		simpleError = errors.New("TestRunServerNonSecure")
+		simpleError = errors.New("expected")
 		testData    = []struct {
-			webPA            WebPA
-			secureIfPossible bool
-			expectedError    error
+			certificateFile, keyFile string
+			expectedError            error
 		}{
-			{WebPA{}, false, nil},
-			{WebPA{}, false, simpleError},
-			{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, false, nil},
-			{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, false, simpleError},
-			{WebPA{}, true, nil},
-			{WebPA{}, true, simpleError},
+			{"", "", nil},
+			{"", "", simpleError},
+			{"file.cert", "", nil},
+			{"file.cert", "", simpleError},
+			{"", "file.key", nil},
+			{"", "file.key", simpleError},
 		}
 	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
-
 		var (
-			executorCalled     = make(chan struct{})
-			_, logger          = newTestLogger()
-			mockServerExecutor = &mockServerExecutor{}
+			_, logger      = newTestLogger()
+			executorCalled = make(chan struct{})
+			mockSecure     = new(mockSecure)
+			mockExecutor   = new(mockExecutor)
 		)
 
-		// When no certificate and key are configured, a nonsecure server should be run
-		mockServerExecutor.
-			On("ListenAndServe").
-			Return(record.expectedError).
-			Once().
-			Run(func(mock.Arguments) {
-				close(executorCalled)
-			})
+		mockSecure.On("Certificate").
+			Return(record.certificateFile, record.keyFile).
+			Once()
 
-		record.webPA.RunServer(logger, record.secureIfPossible, mockServerExecutor)
+		mockExecutor.On("ListenAndServe").
+			Return(record.expectedError).
+			Run(func(mock.Arguments) { close(executorCalled) }).
+			Once()
+
+		ListenAndServe(logger, mockSecure, mockExecutor)
 		<-executorCalled
 
-		mockServerExecutor.AssertExpectations(t)
+		mockSecure.AssertExpectations(t)
+		mockExecutor.AssertExpectations(t)
 	}
 }
 
-func TestRunServerSecure(t *testing.T) {
-	const (
-		certificateFile = "file.cert"
-		keyFile         = "file.key"
-	)
-
+func TestListenAndServeSecure(t *testing.T) {
 	var (
-		simpleError = errors.New("TestRunServerSecure")
-		testData    = []struct {
-			webPA         WebPA
+		testData = []struct {
 			expectedError error
 		}{
-			{WebPA{CertificateFile: certificateFile, KeyFile: keyFile}, nil},
-			{WebPA{CertificateFile: certificateFile, KeyFile: keyFile}, simpleError},
+			{nil},
+			{errors.New("expected")},
 		}
 	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		var (
-			executorCalled     = make(chan struct{})
-			_, logger          = newTestLogger()
-			mockServerExecutor = &mockServerExecutor{}
+			_, logger      = newTestLogger()
+			executorCalled = make(chan struct{})
+			mockSecure     = new(mockSecure)
+			mockExecutor   = new(mockExecutor)
 		)
 
-		mockServerExecutor.
-			On("ListenAndServeTLS", certificateFile, keyFile).
-			Return(record.expectedError).
-			Once().
-			Run(func(mock.Arguments) {
-				close(executorCalled)
-			})
+		mockSecure.On("Certificate").
+			Return("file.cert", "file.key").
+			Once()
 
-		record.webPA.RunServer(logger, true, mockServerExecutor)
+		mockExecutor.On("ListenAndServeTLS", "file.cert", "file.key").
+			Return(record.expectedError).
+			Run(func(mock.Arguments) { close(executorCalled) }).
+			Once()
+
+		ListenAndServe(logger, mockSecure, mockExecutor)
 		<-executorCalled
 
-		mockServerExecutor.AssertExpectations(t)
+		mockSecure.AssertExpectations(t)
+		mockExecutor.AssertExpectations(t)
 	}
 }
 
-func TestRunServerNoExecutor(t *testing.T) {
-	testData := []struct {
-		webPA            WebPA
-		secureIfPossible bool
-	}{
-		{WebPA{}, false},
-		{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, false},
-		{WebPA{}, true},
-		{WebPA{CertificateFile: "file.cert", KeyFile: "file.key"}, true},
-	}
+func TestBasicCertificate(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			certificateFile, keyFile string
+		}{
+			{"", ""},
+			{"", "file.key"},
+			{"file.cert", ""},
+			{"file.cert", "file.key"},
+		}
+	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
-		_, logger := newTestLogger()
-		record.webPA.RunServer(logger, record.secureIfPossible, nil)
+		var (
+			basic = Basic{
+				CertificateFile: record.certificateFile,
+				KeyFile:         record.keyFile,
+			}
+
+			actualCertificateFile, actualKeyFile = basic.Certificate()
+		)
+
+		assert.Equal(record.certificateFile, actualCertificateFile)
+		assert.Equal(record.keyFile, actualKeyFile)
 	}
+}
+
+func TestBasicNew(t *testing.T) {
+	const expectedName = "TestBasicNew"
+
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		testData = []struct {
+			address            string
+			handler            *mockHandler
+			logConnectionState bool
+		}{
+			{"", nil, false},
+			{"", nil, true},
+			{"", new(mockHandler), false},
+			{"", new(mockHandler), true},
+			{":901", nil, false},
+			{":19756", nil, true},
+			{"localhost:80", new(mockHandler), false},
+			{":http", new(mockHandler), true},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		var (
+			verify, logger = newTestLogger()
+			basic          = Basic{
+				Name:               expectedName,
+				Address:            record.address,
+				LogConnectionState: record.logConnectionState,
+			}
+
+			server = basic.New(logger, record.handler)
+		)
+
+		if len(record.address) > 0 {
+			require.NotNil(server)
+			assert.Equal(record.address, server.Addr)
+			assert.Equal(record.handler, server.Handler)
+			assertErrorLog(assert, verify, expectedName, server.ErrorLog)
+
+			if record.logConnectionState {
+				assertConnState(assert, verify, server.ConnState)
+			} else {
+				assert.Nil(server.ConnState)
+			}
+		} else {
+			require.Nil(server)
+		}
+
+		if record.handler != nil {
+			record.handler.AssertExpectations(t)
+		}
+	}
+}
+
+func TestHealthCertificate(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			certificateFile, keyFile string
+		}{
+			{"", ""},
+			{"", "file.key"},
+			{"file.cert", ""},
+			{"file.cert", "file.key"},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		var (
+			health = Health{
+				CertificateFile: record.certificateFile,
+				KeyFile:         record.keyFile,
+			}
+
+			actualCertificateFile, actualKeyFile = health.Certificate()
+		)
+
+		assert.Equal(record.certificateFile, actualCertificateFile)
+		assert.Equal(record.keyFile, actualKeyFile)
+	}
+}
+
+func TestHealthNew(t *testing.T) {
+	const (
+		expectedName                      = "TestHealthNew"
+		expectedLogInterval time.Duration = 45 * time.Second
+	)
+
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		expectedHandlerType *health.Health = nil
+
+		testData = []struct {
+			address            string
+			logConnectionState bool
+			options            []string
+		}{
+			{"", false, nil},
+			{"", false, []string{}},
+			{"", false, []string{"Value1"}},
+			{"", false, []string{"Value1", "Value2"}},
+
+			{"", true, nil},
+			{"", true, []string{}},
+			{"", true, []string{"Value1"}},
+			{"", true, []string{"Value1", "Value2"}},
+
+			{":901", false, nil},
+			{":1987", false, []string{}},
+			{":http", false, []string{"Value1"}},
+			{":https", false, []string{"Value1", "Value2"}},
+
+			{"locahost:9001", true, nil},
+			{":57899", true, []string{}},
+			{":ftp", true, []string{"Value1"}},
+			{":0", true, []string{"Value1", "Value2"}},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		var (
+			verify, logger = newTestLogger()
+			health         = Health{
+				Name:               expectedName,
+				Address:            record.address,
+				LogConnectionState: record.logConnectionState,
+				LogInterval:        expectedLogInterval,
+				Options:            record.options,
+			}
+
+			handler, server = health.New(logger)
+		)
+
+		if len(record.address) > 0 {
+			require.NotNil(handler)
+			require.NotNil(server)
+			assert.Equal(record.address, server.Addr)
+			assert.IsType(expectedHandlerType, server.Handler)
+			assertErrorLog(assert, verify, expectedName, server.ErrorLog)
+
+			if record.logConnectionState {
+				assertConnState(assert, verify, server.ConnState)
+			} else {
+				assert.Nil(server.ConnState)
+			}
+		} else {
+			require.Nil(handler)
+			require.Nil(server)
+		}
+	}
+}
+
+func TestWebPAPrepareWhenNewLoggerError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		handler = new(mockHandler)
+		webPA   = WebPA{
+			Log: golog.LoggerFactory{
+				File: "..",
+			},
+		}
+
+		logger, runnable, err = webPA.Prepare(handler)
+	)
+
+	assert.NotNil(logger)
+	assert.Nil(runnable)
+	assert.NotNil(err)
+
+	handler.AssertExpectations(t)
+}
+
+func TestWebPANoPrimaryAddress(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		handler = new(mockHandler)
+		webPA   = WebPA{}
+
+		logger, runnable, err = webPA.Prepare(handler)
+	)
+
+	assert.NotNil(logger)
+	require.NotNil(runnable)
+	assert.Nil(err)
+
+	var (
+		waitGroup = new(sync.WaitGroup)
+		shutdown  = make(chan struct{})
+	)
+
+	defer close(shutdown)
+	assert.Equal(ErrorNoPrimaryAddress, runnable.Run(waitGroup, shutdown))
+	waitGroup.Wait() // nothing should have incremented the wait group
+	handler.AssertExpectations(t)
+}
+
+func TestWebPA(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		handler = new(mockHandler)
+
+		// synthesize a WebPA instance that will start everything,
+		// close to how it would be unmarshalled from Viper.
+		webPA = WebPA{
+			Primary: Basic{
+				Name:    "test",
+				Address: ":0",
+			},
+			Alternate: Basic{
+				Name:    "test.alternate",
+				Address: ":0",
+			},
+			Health: Health{
+				Name:        "test.health",
+				Address:     ":0",
+				LogInterval: 60 * time.Minute,
+				Options:     []string{"Option1", "Option2"},
+			},
+			Pprof: Basic{
+				Name:    "test.pprof",
+				Address: ":0",
+			},
+		}
+
+		logger, runnable, err = webPA.Prepare(handler)
+	)
+
+	assert.NotNil(logger)
+	require.NotNil(runnable)
+	assert.Nil(err)
+
+	var (
+		waitGroup = new(sync.WaitGroup)
+		shutdown  = make(chan struct{})
+	)
+
+	assert.Nil(runnable.Run(waitGroup, shutdown))
+	close(shutdown)
+	waitGroup.Wait() // the http.Server instances will still be running after this returns
+	handler.AssertExpectations(t)
 }

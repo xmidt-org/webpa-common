@@ -2,18 +2,44 @@ package server
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/logging/golog"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"time"
 )
 
 const (
-	FileFlagName      = "file"
-	FileFlagShorthand = "f"
+	// DefaultPrimaryAddress is the bind address of the primary server (e.g. talaria, petasos, etc)
+	DefaultPrimaryAddress = ":8080"
 
-	// LogKey is the standard Viper subkey which is expected to contain log configuration
-	LogKey = "log"
+	// DefaultHealthAddress is the bind address of the health check server
+	DefaultHealthAddress = ":8081"
+
+	// DefaultHealthLogInterval is the interval at which health statistics are emitted
+	// when a non-positive log interval is specified
+	DefaultHealthLogInterval time.Duration = time.Duration(60 * time.Second)
+
+	// DefaultLogConnectionState is the default setting for logging connection state messages.  This
+	// value is primarily used when a *WebPA value is nil.
+	DefaultLogConnectionState = false
+
+	// AlternateSuffix is the suffix appended to the server name, along with a period (.), for
+	// logging information pertinent to the alternate server.
+	AlternateSuffix = "alternate"
+
+	// HealthSuffix is the suffix appended to the server name, along with a period (.), for
+	// logging information pertinent to the health server.
+	HealthSuffix = "health"
+
+	// PprofSuffix is the suffix appended to the server name, along with a period (.), for
+	// logging information pertinent to the pprof server.
+	PprofSuffix = "pprof"
+
+	// FileFlagName is the name of the command-line flag for specifying an alternate
+	// configuration file for Viper to hunt for.
+	FileFlagName = "file"
+
+	// FileFlagShorthand is the command-line shortcut flag for FileFlagName
+	FileFlagShorthand = "f"
 )
 
 // ConfigureFlagSet adds the standard set of WebPA flags to the supplied FlagSet.  Use of this function
@@ -29,7 +55,7 @@ func ConfigureFlagSet(applicationName string, f *pflag.FlagSet) {
 // The flagSet is optional.  If supplied, it will be bound to the given Viper instance.  Additionally, if the
 // flagSet has a FileFlagName flag, it will be used as the configuration name to hunt for instead of the
 // application name.
-func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (configName string, err error) {
+func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (err error) {
 	v.AddConfigPath(fmt.Sprintf("/etc/%s", applicationName))
 	v.AddConfigPath(fmt.Sprintf("$HOME/.%s", applicationName))
 	v.AddConfigPath(".")
@@ -37,12 +63,21 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (c
 	v.SetEnvPrefix(applicationName)
 	v.AutomaticEnv()
 
-	v.SetDefault("name", applicationName)
-	v.SetDefault("address", DefaultAddress)
-	v.SetDefault("healthAddress", DefaultHealthAddress)
-	v.SetDefault("healthLogInterval", DefaultHealthLogInterval)
+	v.SetDefault("primary.name", applicationName)
+	v.SetDefault("primary.address", DefaultPrimaryAddress)
+	v.SetDefault("primary.logConnectionState", DefaultLogConnectionState)
 
-	configName = applicationName
+	v.SetDefault("alternate.name", fmt.Sprintf("%s.%s", applicationName, AlternateSuffix))
+
+	v.SetDefault("health.name", fmt.Sprintf("%s.%s", applicationName, HealthSuffix))
+	v.SetDefault("health.address", DefaultHealthAddress)
+	v.SetDefault("health.logInterval", DefaultHealthLogInterval)
+	v.SetDefault("health.logConnectionState", DefaultLogConnectionState)
+
+	v.SetDefault("pprof.name", fmt.Sprintf("%s.%s", applicationName, PprofSuffix))
+	v.SetDefault("pprof.logConnectionState", DefaultLogConnectionState)
+
+	configName := applicationName
 	if f != nil {
 		if fileFlag := f.Lookup(FileFlagName); fileFlag != nil {
 			// use the command-line to specify the base name of the file to be searched for
@@ -71,7 +106,7 @@ Configure is a one-stop shopping function for reading in WebPA configuration.  T
 Usage of this function is only necessary if custom configuration is needed.  Normally,
 using New will suffice.
 */
-func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (configName string, err error) {
+func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (err error) {
 	if f != nil {
 		ConfigureFlagSet(applicationName, f)
 		err = f.Parse(arguments)
@@ -80,71 +115,40 @@ func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *
 		}
 	}
 
-	configName, err = ConfigureViper(applicationName, f, v)
-	return
-}
-
-// NewWebPA creates a WebPA instance from a Viper configuration.  The supplied Viper instance
-// may be nil, in which case a default WebPA instance is returned.
-func NewWebPA(v *viper.Viper) (webPA *WebPA, err error) {
-	webPA = new(WebPA)
-	if v != nil {
-		err = v.Unmarshal(webPA)
-	}
-
-	return
-}
-
-// NewLoggerFactory creates a LoggerFactory from a Viper configuration.  The supplied Viper instance
-// may be nil, in which case a default LoggerFactory is returned.
-func NewLoggerFactory(v *viper.Viper) (loggerFactory logging.LoggerFactory, err error) {
-	loggerFactory = new(golog.LoggerFactory)
-	if v != nil {
-		err = v.Unmarshal(loggerFactory)
-	}
-
+	err = ConfigureViper(applicationName, f, v)
 	return
 }
 
 /*
 New is the primary constructor for this package.  It configures Viper and unmarshals the
-appropriate objects.
+appropriate objects.  This function is typically all that's needed to fully instantiate
+a WebPA server.  Typical usage:
 
     var (
       f = pflag.NewFlagSet()
       v = viper.New()
-      webPA, loggerFactory, err = server.New("petasos", os.Args, f, v)
+
+      // can customize both the FlagSet and the Viper before invoking New
+      webPA, logger, err = server.New("petasos", os.Args, f, v)
     )
 
     if err != nil {
       // deal with the error, possibly just exiting
     }
 
-This function is typically all that's needed to fully use this package for a WebPA server.
-
-As with the other NewXXX functions, this function permits a nil Viper instance.
+Note that the FlagSet is optional but highly encouraged.  If not supplied, then no command-line binding
+is done for the unmarshalled configuration.
 */
-func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (webPA *WebPA, loggerFactory logging.LoggerFactory, err error) {
-	var logViper *viper.Viper
-	if v != nil {
-		_, err = Configure(applicationName, arguments, f, v)
-		if err != nil {
-			return
-		}
-
-		err = v.ReadInConfig()
-		if err != nil {
-			return
-		}
-
-		logViper = v.Sub(LogKey)
-	}
-
-	webPA, err = NewWebPA(v)
-	if err != nil {
+func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (webPA *WebPA, err error) {
+	if err = Configure(applicationName, arguments, f, v); err != nil {
 		return
 	}
 
-	loggerFactory, err = NewLoggerFactory(logViper)
+	if err = v.ReadInConfig(); err != nil {
+		return
+	}
+
+	webPA = new(WebPA)
+	err = v.Unmarshal(webPA)
 	return
 }

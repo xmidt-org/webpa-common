@@ -1,247 +1,208 @@
 package server
 
 import (
-	"fmt"
+	"errors"
+	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/logging/golog"
 	"net/http"
+	"sync"
 	"time"
 )
 
-const (
-	// DefaultName is the application name used when none is supplied
-	DefaultName = "webpa"
-
-	// DefaultAddress is the bind address of the primary server (e.g. talaria, petasos, etc)
-	DefaultAddress = ":8080"
-
-	// DefaultHealthAddress is the bind address of the health check server
-	DefaultHealthAddress = ":8081"
-
-	// DefaultHealthLogInterval is the interval at which health statistics are emitted
-	// when a non-positive log interval is specified
-	DefaultHealthLogInterval time.Duration = time.Duration(60 * time.Second)
-
-	// DefaultLogConnectionState is the default setting for logging connection state messages.  This
-	// value is primarily used when a *WebPA value is nil.
-	DefaultLogConnectionState = false
-
-	// HealthSuffix is the suffix appended to the server name, along with a period (.), for
-	// logging information pertinent to the health server.
-	HealthSuffix = "health"
-
-	// PprofSuffix is the suffix appended to the server name, along with a period (.), for
-	// logging information pertinent to the pprof server.
-	PprofSuffix = "pprof"
+var (
+	// ErrorNoPrimaryAddress is the error returned when no primary address is specified in a WebPA instance
+	ErrorNoPrimaryAddress = errors.New("No primary address configured")
 )
 
-// serverExecutor is an internal type used to start an HTTP server.  *http.Server implements
+// executor is an internal type used to start an HTTP server.  *http.Server implements
 // this interface.  It can be mocked for testing.
-type serverExecutor interface {
+type executor interface {
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
 }
 
-// WebPA represents a server component within the WebPA cluster.  It is used for both
-// primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
-//
-// The methods associated with a WebPA allow the method target to be nil.  This permits
-// easy default servers to be stoodup for testing or development.
-type WebPA struct {
-	// Name is a human-readable label for the primary server.  Used primary in logging output.
-	Name string
+// Secure exposes the optional certificate information to be used when starting an HTTP server.
+type Secure interface {
+	// Certificate returns the certificate information associated with this Secure instance.
+	// BOTH the returned file paths must be non-empty if a TLS server is desired.
+	Certificate() (certificateFile, keyFile string)
+}
 
-	// LogConnectionState determines whether a ConnState logging function is associated with servers.
-	// By default this is false, but is useful to set to true in test and development.
+// ListenAndServe invokes the appropriate server method based on the secure information.
+// If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
+// is called to start the server.  Otherwise, e.ListenAndServe() is used.
+func ListenAndServe(logger logging.Logger, s Secure, e executor) {
+	certificateFile, keyFile := s.Certificate()
+	if len(certificateFile) > 0 && len(keyFile) > 0 {
+		go func() {
+			logger.Error(
+				e.ListenAndServeTLS(certificateFile, keyFile),
+			)
+		}()
+	} else {
+		go func() {
+			logger.Error(
+				e.ListenAndServe(),
+			)
+		}()
+	}
+}
+
+// Basic describes a simple HTTP server.  Typically, this struct has its values
+// injected via Viper.  See the New function in this package.
+type Basic struct {
+	Name               string
+	Address            string
+	CertificateFile    string
+	KeyFile            string
 	LogConnectionState bool
-
-	// Address is the bind address of the primary server.  If empty, DefaultAddress is used.
-	Address string
-
-	// CertificateFile is the file system path of the SSL certificate.  If both this and KeyFile are supplied,
-	// TLS is used for connections.  Otherwise, standard HTTP is used.
-	CertificateFile string
-
-	// KeyFile is the file system path of the SSL key.  If both this and CertificateFile are supplied,
-	// then TLS is used for connections.  Otherwise, standard HTTP is used.
-	KeyFile string
-
-	// HealthAddress is the bind address of the health server.  If empty, DefaultHealthAddress is used.
-	HealthAddress string
-
-	// HealthLogInterval is the interval at which health information is logged.  If nonpositive,
-	// DefaultHealthLogInterval is used.
-	HealthLogInterval time.Duration
-
-	// PprofAddress is the bind address of the pprof server.  If empty, no pprof server is used.
-	PprofAddress string
 }
 
-func (w *WebPA) name() string {
-	if w != nil && len(w.Name) > 0 {
-		return w.Name
+func (b *Basic) Certificate() (certificateFile, keyFile string) {
+	return b.CertificateFile, b.KeyFile
+}
+
+// New creates an http.Server using this instance's configuration.  The given logger is required,
+// but the handler may be nil.  If the handler is nil, http.DefaultServeMux is used, which matches
+// the behavior of http.Server.
+//
+// This method returns nil if the configured address is empty, effectively disabling
+// this server from startup.
+func (b *Basic) New(logger logging.Logger, handler http.Handler) *http.Server {
+	if len(b.Address) == 0 {
+		return nil
 	}
 
-	return DefaultName
-}
-
-func (w *WebPA) address() string {
-	if w != nil && len(w.Address) > 0 {
-		return w.Address
-	}
-
-	return DefaultAddress
-}
-
-func (w *WebPA) healthAddress() string {
-	if w != nil && len(w.HealthAddress) > 0 {
-		return w.HealthAddress
-	}
-
-	return DefaultHealthAddress
-}
-
-func (w *WebPA) pprofAddress() string {
-	if w != nil {
-		return w.PprofAddress
-	}
-
-	return ""
-}
-
-func (w *WebPA) healthLogInterval() time.Duration {
-	if w != nil && w.HealthLogInterval > 0 {
-		return w.HealthLogInterval
-	}
-
-	return DefaultHealthLogInterval
-}
-
-func (w *WebPA) logConnectionState() bool {
-	if w != nil {
-		return w.LogConnectionState
-	}
-
-	return DefaultLogConnectionState
-}
-
-func (w *WebPA) certificateFile() string {
-	if w != nil {
-		return w.CertificateFile
-	}
-
-	return ""
-}
-
-func (w *WebPA) keyFile() string {
-	if w != nil {
-		return w.KeyFile
-	}
-
-	return ""
-}
-
-// NewPrimaryServer creates an http.Server configured with this WebPA.  This server will typically
-// be executed with secureIfPossible set to true when calling RunServer.
-func (w *WebPA) NewPrimaryServer(logger logging.Logger, handler http.Handler) *http.Server {
 	server := &http.Server{
-		Addr:     w.address(),
+		Addr:     b.Address,
 		Handler:  handler,
-		ErrorLog: NewErrorLog(w.name(), logger),
+		ErrorLog: NewErrorLog(b.Name, logger),
 	}
 
-	if w.logConnectionState() {
-		server.ConnState = NewConnectionStateLogger(w.name(), logger)
+	if b.LogConnectionState {
+		server.ConnState = NewConnectionStateLogger(b.Name, logger)
 	}
 
 	return server
 }
 
-// NewHealthServer constructs both a Health subsystem and a server for serving health check content.
-func (w *WebPA) NewHealthServer(logger logging.Logger, options ...health.Option) (*health.Health, *http.Server) {
-	var (
-		healthName = fmt.Sprintf("%s.%s", w.name(), HealthSuffix)
-
-		healthHandler = health.New(
-			w.healthLogInterval(),
-			logger,
-			options...,
-		)
-
-		healthServer = &http.Server{
-			Addr:     w.healthAddress(),
-			Handler:  healthHandler,
-			ErrorLog: NewErrorLog(healthName, logger),
-		}
-	)
-
-	if w.logConnectionState() {
-		healthServer.ConnState = NewConnectionStateLogger(healthName, logger)
-	}
-
-	return healthHandler, healthServer
+// Health represents a configurable factory for a Health server.
+//
+// Due to a limitation of Viper, this struct does not use an embedded Basic
+// instance.  Rather, it duplicates the fields so that Viper can inject them.
+type Health struct {
+	Name               string
+	Address            string
+	CertificateFile    string
+	KeyFile            string
+	LogConnectionState bool
+	LogInterval        time.Duration
+	Options            []string
 }
 
-// NewPprofServer constructs an *http.Server that serves up the net/http/pprof content.  This
-// method will return nil if no PprofAddress is configured.
-func (w *WebPA) NewPprofServer(logger logging.Logger, pprofHandler http.Handler) *http.Server {
-	pprofAddress := w.pprofAddress()
-	if len(pprofAddress) == 0 {
-		// the pprof server is optional
-		return nil
-	}
-
-	if pprofHandler == nil {
-		// this allows the simplicity of just doing "import _ net/http/pprof"
-		pprofHandler = http.DefaultServeMux
-	}
-
-	var (
-		pprofName = fmt.Sprintf("%s.%s", w.name(), PprofSuffix)
-
-		pprofServer = &http.Server{
-			Addr:     pprofAddress,
-			Handler:  pprofHandler,
-			ErrorLog: NewErrorLog(pprofName, logger),
-		}
-	)
-
-	if w.logConnectionState() {
-		pprofServer.ConnState = NewConnectionStateLogger(pprofName, logger)
-	}
-
-	return pprofServer
+func (h *Health) Certificate() (certificateFile, keyFile string) {
+	return h.CertificateFile, h.KeyFile
 }
 
-// RunServer executes a configured server, optionally using the secure configuration if specified.
-// This method spawns another goroutine that the server executes from.
+// New creates both a health.Health monitor (which is also an HTTP handler) and an HTTP server
+// which services health requests.
 //
-// A TLS server is used if and only if both (1) secureIfPossible is true, and (2) both CertificateFile
-// and KeyFile are set.  Otherwise, a plain HTTP server is started.
-//
-// This method allows the executor to be nil, in which case this method simply returns.
-func (w *WebPA) RunServer(logger logging.Logger, secureIfPossible bool, executor serverExecutor) {
-	if executor == nil {
+// This method returns nils if the configured Address is empty, which effectively disables
+// the health server.
+func (h *Health) New(logger logging.Logger) (handler *health.Health, server *http.Server) {
+	if len(h.Address) == 0 {
 		return
 	}
 
-	if secureIfPossible {
-		go func(certificateFile, keyFile string) {
-			if len(certificateFile) > 0 && len(keyFile) > 0 {
-				logger.Error(
-					executor.ListenAndServeTLS(certificateFile, keyFile),
-				)
-			} else {
-				logger.Error(
-					executor.ListenAndServe(),
-				)
-			}
-		}(w.certificateFile(), w.keyFile())
-	} else {
-		go func() {
-			logger.Error(
-				executor.ListenAndServe(),
-			)
-		}()
+	options := make([]health.Option, 0, len(h.Options))
+	for _, value := range h.Options {
+		options = append(options, health.Stat(value))
 	}
+
+	handler = health.New(
+		h.LogInterval,
+		logger,
+		options...,
+	)
+
+	server = &http.Server{
+		Addr:     h.Address,
+		Handler:  handler,
+		ErrorLog: NewErrorLog(h.Name, logger),
+	}
+
+	if h.LogConnectionState {
+		server.ConnState = NewConnectionStateLogger(h.Name, logger)
+	}
+
+	return
+}
+
+// WebPA represents a server component within the WebPA cluster.  It is used for both
+// primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
+type WebPA struct {
+	// Primary is the main server for this application, e.g. petasos.
+	Primary Basic
+
+	// Alternate is an alternate server which serves the primary application logic.
+	// Used to have the same API served on more than one port and possibly more than
+	// one protocol, e.g. HTTP and HTTPS.
+	Alternate Basic
+
+	// Health describes the health server for this application.  Note that if the Address
+	// is empty, no health server is started.
+	Health Health
+
+	// Pprof describes the pprof server for this application.  Note that if the Address
+	// is empty, no pprof server is started.
+	Pprof Basic
+
+	// Log is the logging configuration for this application.
+	Log golog.LoggerFactory
+}
+
+// Prepare gets a WebPA server ready for execution.  This method always returns a non-nil Logger, even
+// in the face of errors.  The returned Runnable can be used to execute the WebPA server code.
+//
+// The supplied http.Handler is used for the primary server.  If the alternate server has an address,
+// it will also be used for that server.  The health server uses an internally create handler, while the pprof
+// server uses http.DefaultServeMux.
+func (w *WebPA) Prepare(primaryHandler http.Handler) (logger logging.Logger, runnable concurrent.Runnable, err error) {
+	if logger, err = w.Log.NewLogger(w.Primary.Name); err != nil {
+		// produce a default logger prior to returning, to make it easier on callers
+		// to report errors
+		logger = logging.DefaultLogger()
+		return
+	}
+
+	runnable = concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Primary.Name, w.Primary.Address)
+			ListenAndServe(logger, &w.Primary, primaryServer)
+		} else {
+			return ErrorNoPrimaryAddress
+		}
+
+		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Alternate.Name, w.Alternate.Address)
+			ListenAndServe(logger, &w.Alternate, alternateServer)
+		}
+
+		if healthHandler, healthServer := w.Health.New(logger); healthHandler != nil && healthServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Health.Name, w.Health.Address)
+			ListenAndServe(logger, &w.Health, healthServer)
+			healthHandler.Run(waitGroup, shutdown)
+		}
+
+		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Pprof.Name, w.Pprof.Address)
+			ListenAndServe(logger, &w.Pprof, pprofServer)
+		}
+
+		return nil
+	})
+
+	return
 }

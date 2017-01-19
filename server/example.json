@@ -1,13 +1,21 @@
 {
-	"address": ":9000",
-	"certificateFile": "file.cert",
-	"keyFile": "file.key",
-	"logConnectionState": true,
+	"primary": {
+		"address": "localhost:10010",
+		"certificateFile": "file.cert",
+		"keyFile": "file.key",
+		"logConnectionState": true
+	},
 
-	"healthAddress": ":9001",
-	"healthLogInterval": "1m",
+	"alternate": {
+		"address": ":10011"
+	},
 
-	"pprofAddress": ":9090",
+	"health": {
+		"address": ":9001",
+		"logInterval": "45s",
+		"options": ["TotalRequests", "TotalResponses", "SomeOtherStat"]
+	},
+
 	"log": {
 		"file": "foolbar.log",
 		"level": "INFO"
