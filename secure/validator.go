@@ -109,21 +109,30 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 		return
 	}
 	
-	if caps, ok := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); ok && len(caps) > 0 {
+	// validate jwt token claims capabilities
+	if caps, ok := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); !ok || len(caps) == 0 {
+		return
+	} else {
+		// if a valid capability is found leave loop.
 		var valid_capabilities bool
 		for c:=0; c < len(caps) && !valid_capabilities; c++ {
-			pieces := strings.Split(caps[c], ":")
-			
-			if len(pieces) == 5     &&
-			   pieces[0] == "x1"    && 
-			   pieces[1] == "webpa" && 
-			  (pieces[4] == "all" || pieces[4] == ctx.Value("method")) {
+			if cap_value, ok := caps[c].(string); ok {
+				pieces := strings.Split(cap_value, ":")
 				
-				claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
-				valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
+				if len(pieces) == 5     &&
+				   pieces[0] == "x1"    && 
+				   pieces[1] == "webpa" {
+					
+					method_value, ok := ctx.Value("method").(string)
+					if ok && (pieces[4] == "all" || strings.EqualFold(pieces[4], method_value)) {
+						claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
+						valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
+					}
+				}
 			}
 		}
 		
+		// if no valid capabilities where found the token is not valid
 		if !valid_capabilities {
 			return
 		}
