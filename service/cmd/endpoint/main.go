@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/spf13/pflag"
@@ -10,44 +11,54 @@ import (
 	"os/signal"
 )
 
-func newFlagSet(name string) *pflag.FlagSet {
-	flagSet := pflag.NewFlagSet(name, pflag.ExitOnError)
+const (
+	applicationName = "endpoint"
+)
+
+func newFlagSet() *pflag.FlagSet {
+	flagSet := pflag.NewFlagSet(applicationName, pflag.ExitOnError)
 	flagSet.String("connection", service.DefaultServer, "the zookeeper connection string")
 	flagSet.String("serviceName", service.DefaultServiceName, "the service name this endpoint will register with")
 	return flagSet
 }
 
-func main() {
-	flagSet := newFlagSet("endpoint")
-	viper := viper.New()
-	if err := server.ReadInConfig("endpoint", viper, flagSet, nil); err != nil {
+func endpoint(arguments []string) int {
+	var (
+		logger = logging.DefaultLogger()
+
+		f = newFlagSet()
+		v = viper.New()
+	)
+
+	if err := server.Configure(applicationName, arguments, f, v); err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		return 1
 	}
 
-	options := new(service.Options)
-	if err := viper.Unmarshal(options); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to unmarshal options: %s\n", err)
-		os.Exit(2)
+	_, registrar, err := service.New(logger, nil, v.Sub(service.DiscoveryKey))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
 	}
 
-	fmt.Printf("Unmarshalled options: %#v\n", options)
-	registrar := service.NewRegistrarWatcher(options)
-	if _, err := service.RegisterAll(registrar, options); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to register endpoints: %s\n", err)
-		os.Exit(2)
+	watch, err := registrar.Watch()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		return 1
 	}
 
-	if watch, err := registrar.Watch(); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to set watch: %s\n", err)
-	} else {
-		service.Subscribe(watch, nil, func(update []string) {
-			fmt.Printf("Updated endpoints: %v\n", update)
-		})
-	}
+	service.Subscribe(logger, watch, func(update []string) {
+		fmt.Printf("Updated endpoints: %v\n", update)
+	})
 
 	fmt.Println("Send any signal to this process to exit ...")
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals)
 	<-signals
+
+	return 0
+}
+
+func main() {
+	os.Exit(endpoint(os.Args))
 }

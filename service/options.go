@@ -2,7 +2,6 @@ package service
 
 import (
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/spf13/viper"
 	"github.com/strava/go.serversets"
 	"strings"
 	"time"
@@ -155,19 +154,4 @@ func (o *Options) pingFunc() func() error {
 	}
 
 	return nil
-}
-
-// NewOptions produces an Options from a Viper instance.  Typically, the Viper instance
-// will be configured via the server package.
-//
-// Since service discovery is an optional module for a WebPA server, this function allows
-// the supplied Viper to be nil or otherwise uninitialized.  Client code that opts in to
-// service discovery can thus use the same codepath to configure an Options instance.
-func NewOptions(v *viper.Viper) (o *Options, err error) {
-	o = new(Options)
-	if v != nil {
-		err = v.Unmarshal(o)
-	}
-
-	return
 }

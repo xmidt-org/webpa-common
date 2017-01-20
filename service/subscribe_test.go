@@ -55,7 +55,7 @@ func TestSubscribeEndWhenWatchClosed(t *testing.T) {
 	mockWatch.On("IsClosed").Run(func(mock.Arguments) { closeWait.Done() }).Return(true).Once()
 
 	logger.Info("Invoking subscribe, expecting updates: %v\n", expectedUpdates)
-	cancelFunc := Subscribe(mockWatch, logger, subscription)
+	cancelFunc := Subscribe(logger, mockWatch, subscription)
 	if !assert.NotNil(cancelFunc) {
 		close(watchEvent)
 		return
@@ -124,7 +124,7 @@ func TestSubscribeEndWhenCancelled(t *testing.T) {
 	mockWatch.On("Event").Return(receiveWatchEvent).Once()
 
 	logger.Info("Invoking subscribe, expecting updates: %v\n", expectedUpdates)
-	cancelFunc := Subscribe(mockWatch, logger, subscription)
+	cancelFunc := Subscribe(logger, mockWatch, subscription)
 	if !assert.NotNil(cancelFunc) {
 		close(watchEvent)
 		return
@@ -171,7 +171,7 @@ func TestSubscribeEndWhenSubscriptionPanics(t *testing.T) {
 	mockWatch.On("IsClosed").Return(false).Once()
 	mockWatch.On("Endpoints").Return(expectedUpdate).Once()
 
-	cancelFunc := Subscribe(mockWatch, nil, badSubscription)
+	cancelFunc := Subscribe(nil, mockWatch, badSubscription)
 	if !assert.NotNil(cancelFunc) {
 		return
 	}
