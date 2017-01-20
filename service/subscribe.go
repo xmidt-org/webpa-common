@@ -23,7 +23,7 @@ func Subscribe(logger logging.Logger, watch Watch, subscription func([]string)) 
 		logger = logging.DefaultLogger()
 	}
 
-	logger.Debug("Creating subscription for %v", watch)
+	logger.Debug("Creating subscription for %#v", watch)
 	cancel := make(chan struct{})
 	go func() {
 		defer func() {
