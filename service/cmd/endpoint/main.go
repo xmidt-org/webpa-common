@@ -35,6 +35,11 @@ func endpoint(arguments []string) int {
 		return 1
 	}
 
+	if err := v.ReadInConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not read Viper configuration: %s\n", err)
+		return 1
+	}
+
 	_, registrar, err := service.New(logger, nil, v.Sub(service.DiscoveryKey))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not initialize service discovery: %s\n", err)
@@ -46,7 +51,7 @@ func endpoint(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "Could not set watch: %s\n", err)
 	} else {
 		service.Subscribe(logger, watch, func(update []string) {
-			fmt.Printf("Updated endpoints: %v\n", update)
+			// no need to do anything, as the service package logs an INFO message
 		})
 	}
 
