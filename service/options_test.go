@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/strava/go.serversets"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
@@ -113,19 +114,24 @@ func TestOptions(t *testing.T) {
 	}
 }
 
-func TestLoad(t *testing.T) {
-	assert := assert.New(t)
-	configuration := bytes.NewBufferString(`{
+func TestNewOptions(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		require       = require.New(t)
+		configuration = bytes.NewBufferString(`{
 			"servers": ["host1:1234", "host2:5678"],
 			"connection": "foobar"
 		}`)
 
-	v := viper.New()
-	v.SetConfigType("json")
-	assert.Nil(v.ReadConfig(configuration))
+		v = viper.New()
+	)
 
-	o := new(Options)
-	assert.Nil(o.Load(v))
+	v.SetConfigType("json")
+	require.Nil(v.ReadConfig(configuration))
+
+	o, err := NewOptions(v)
+	require.NotNil(o)
+	assert.Nil(err)
 	assert.Equal("foobar", o.Connection)
 	assert.Equal([]string{"host1:1234", "host2:5678"}, o.Servers)
 }
