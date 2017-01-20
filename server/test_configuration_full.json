@@ -1,8 +1,0 @@
-{
-	"port": 8080,
-	"hcport": 8181,
-	"hcInterval": "30s",
-	"pprofport": 8282,
-	"cert": "cert.file",
-	"key": "key.file"
-}

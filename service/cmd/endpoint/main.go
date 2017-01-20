@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -9,57 +11,47 @@ import (
 	"os/signal"
 )
 
-func newFlagSet(name string) *pflag.FlagSet {
-	flagSet := pflag.NewFlagSet(name, pflag.ExitOnError)
+const (
+	applicationName = "endpoint"
+)
+
+func newFlagSet() *pflag.FlagSet {
+	flagSet := pflag.NewFlagSet(applicationName, pflag.ExitOnError)
 	flagSet.String("connection", service.DefaultServer, "the zookeeper connection string")
 	flagSet.String("serviceName", service.DefaultServiceName, "the service name this endpoint will register with")
 	return flagSet
 }
 
-func newViper(flagSet *pflag.FlagSet) *viper.Viper {
-	viper := viper.New()
-	viper.SetConfigName("endpoint")
+func endpoint(arguments []string) int {
+	var (
+		logger = logging.DefaultLogger()
 
-	viper.AddConfigPath("/etc/endpoint/")
-	viper.AddConfigPath("$HOME/.endpoint")
-	viper.AddConfigPath("./")
+		f = newFlagSet()
+		v = viper.New()
+	)
 
-	viper.SetEnvPrefix("endpoint")
-	viper.AutomaticEnv()
+	if err := server.Configure(applicationName, arguments, f, v); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not configure Viper: %s\n", err)
+		return 1
+	}
 
-	viper.BindPFlags(flagSet)
+	if err := v.ReadInConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not read Viper configuration: %s\n", err)
+		return 1
+	}
 
-	return viper
-}
+	_, registrar, err := service.New(logger, nil, v.Sub(service.DiscoveryKey))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not initialize service discovery: %s\n", err)
+		return 1
+	}
 
-func main() {
-	flagSet := newFlagSet("endpoint")
-	viper := newViper(flagSet)
-	flagSet.Parse(os.Args)
-	if err := viper.ReadInConfig(); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to read viper configuration: %s\n", err)
+	watch, err := registrar.Watch()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Could not set watch: %s\n", err)
 	} else {
-		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
-	}
-
-	options := new(service.Options)
-	if err := viper.Unmarshal(options); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to unmarshal options: %s\n", err)
-		os.Exit(2)
-	}
-
-	fmt.Printf("Unmarshalled options: %#v\n", options)
-	registrar := service.NewRegistrarWatcher(options)
-	if _, err := service.RegisterAll(registrar, options); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to register endpoints: %s\n", err)
-		os.Exit(2)
-	}
-
-	if watch, err := registrar.Watch(); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to set watch: %s\n", err)
-	} else {
-		service.Subscribe(watch, nil, func(update []string) {
-			fmt.Printf("Updated endpoints: %v\n", update)
+		service.Subscribe(logger, watch, func(update []string) {
+			// no need to do anything, as the service package logs an INFO message
 		})
 	}
 
@@ -67,4 +59,10 @@ func main() {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals)
 	<-signals
+
+	return 0
+}
+
+func main() {
+	os.Exit(endpoint(os.Args))
 }

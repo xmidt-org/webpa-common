@@ -1,0 +1,8 @@
+{
+	"discovery": {
+		"servers": ["localhost:2181"],
+		"environment": "dev",
+		"serviceName": "talaria",
+		"registrations": ["https://sample2:8081"]
+	}
+}

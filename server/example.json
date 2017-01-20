@@ -1,0 +1,24 @@
+{
+	"primary": {
+		"address": "localhost:10010",
+		"certificateFile": "file.cert",
+		"keyFile": "file.key",
+		"logConnectionState": true
+	},
+
+	"alternate": {
+		"address": ":10011"
+	},
+
+	"health": {
+		"address": ":9001",
+		"logInterval": "45s",
+		"options": ["TotalRequests", "TotalResponses", "SomeOtherStat"]
+	},
+
+	"log": {
+		"file": "foolbar.log",
+		"level": "INFO"
+	}
+}
+
