@@ -31,25 +31,24 @@ func endpoint(arguments []string) int {
 	)
 
 	if err := server.Configure(applicationName, arguments, f, v); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "Could not configure Viper: %s\n", err)
 		return 1
 	}
 
 	_, registrar, err := service.New(logger, nil, v.Sub(service.DiscoveryKey))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "Could not initialize service discovery: %s\n", err)
 		return 1
 	}
 
 	watch, err := registrar.Watch()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		return 1
+		fmt.Fprintf(os.Stderr, "Could not set watch: %s\n", err)
+	} else {
+		service.Subscribe(logger, watch, func(update []string) {
+			fmt.Printf("Updated endpoints: %v\n", update)
+		})
 	}
-
-	service.Subscribe(logger, watch, func(update []string) {
-		fmt.Printf("Updated endpoints: %v\n", update)
-	})
 
 	fmt.Println("Send any signal to this process to exit ...")
 	signals := make(chan os.Signal, 1)
