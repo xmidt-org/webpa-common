@@ -92,7 +92,8 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 }
 
 /*
-Configure is a one-stop shopping function for reading in WebPA configuration.  Typical usage is:
+Configure is a one-stop shopping function for preparing WebPA configuration.  This function
+does not itself read in configuration from the Viper environment.  Typical usage is:
 
     var (
       f = pflag.NewFlagSet()
@@ -101,6 +102,12 @@ Configure is a one-stop shopping function for reading in WebPA configuration.  T
 
     if err := server.Configure("petasos", os.Args, f, v); err != nil {
       // deal with the error, possibly just exiting
+    }
+
+    // further customizations to the Viper instance can be done here
+
+    if err := v.ReadInConfig(); err != nil {
+      // more error handling
     }
 
 Usage of this function is only necessary if custom configuration is needed.  Normally,
@@ -120,7 +127,7 @@ func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *
 }
 
 /*
-New is the primary constructor for this package.  It configures Viper and unmarshals the
+New is the primary constructor for this package.  It configures Viper, reads configuration, and unmarshals the
 appropriate objects.  This function is typically all that's needed to fully instantiate
 a WebPA server.  Typical usage:
 
