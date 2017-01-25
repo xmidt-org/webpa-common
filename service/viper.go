@@ -28,10 +28,10 @@ func NewOptions(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o
 	return
 }
 
-// New is a top-level function for initializing the service discovery infrastructure
+// Initialize is the top-level function for bootstrapping the service discovery infrastructure
 // using a Viper instance.  No watches are set by this function, but all registrations are made
 // and monitored via the returned RegistrarWatcher.
-func New(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o *Options, rw RegistrarWatcher, err error) {
+func Initialize(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o *Options, rw RegistrarWatcher, err error) {
 	o, err = NewOptions(logger, pingFunc, v)
 	if err != nil {
 		return

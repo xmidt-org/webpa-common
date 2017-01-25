@@ -128,16 +128,16 @@ func Configure(applicationName string, arguments []string, f *pflag.FlagSet, v *
 }
 
 /*
-New is the primary constructor for this package.  It configures Viper, reads configuration, and unmarshals the
-appropriate objects.  This function is typically all that's needed to fully instantiate
-a WebPA server.  Typical usage:
+Initialize handles the bootstrapping of the server code for a WebPA node.  It configures Viper,
+reads configuration, and unmarshals the appropriate objects.  This function is typically all that's
+needed to fully instantiate a WebPA server.  Typical usage:
 
     var (
       f = pflag.NewFlagSet()
       v = viper.New()
 
       // can customize both the FlagSet and the Viper before invoking New
-      logger, webPA, err = server.New("petasos", os.Args, f, v)
+      logger, webPA, err = server.Initialize("petasos", os.Args, f, v)
     )
 
     if err != nil {
@@ -151,7 +151,7 @@ This function always returns a logger, regardless of any errors.  This allows cl
 logger when reporting errors.  This function falls back to a logger that writes to os.Stdout if it cannot
 create a logger from the Viper environment.
 */
-func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger logging.Logger, webPA *WebPA, err error) {
+func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger logging.Logger, webPA *WebPA, err error) {
 	defer func() {
 		if err != nil {
 			// never return a WebPA in the presence of an error, to

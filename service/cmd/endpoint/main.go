@@ -40,7 +40,7 @@ func endpoint(arguments []string) int {
 		return 1
 	}
 
-	_, registrar, err := service.New(logger, nil, v.Sub(service.DiscoveryKey))
+	_, registrar, err := service.Initialize(logger, nil, v.Sub(service.DiscoveryKey))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not initialize service discovery: %s\n", err)
 		return 1
