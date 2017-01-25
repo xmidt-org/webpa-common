@@ -16,7 +16,7 @@ const (
 	DefaultMemberPrefix  = "webpa_"
 	DefaultEnvironment   = serversets.Local
 	DefaultServiceName   = "test"
-	DefaultVnodeCount    = 10000
+	DefaultVnodeCount    = 211
 )
 
 // Options represents the set of configurable attributes for service discovery and registration
