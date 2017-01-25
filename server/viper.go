@@ -152,8 +152,16 @@ logger when reporting errors.  This function falls back to a logger that writes 
 create a logger from the Viper environment.
 */
 func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger logging.Logger, webPA *WebPA, err error) {
-	// the fallback logger
-	logger = logging.DefaultLogger()
+	defer func() {
+		if err != nil {
+			// never return a WebPA in the presence of an error, to
+			// avoid an ambiguous API
+			webPA = nil
+
+			// Make sure there's at least a default logger for the caller to use
+			logger = logging.DefaultLogger()
+		}
+	}()
 
 	if err = Configure(applicationName, arguments, f, v); err != nil {
 		return
@@ -169,11 +177,6 @@ func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.
 		return
 	}
 
-	if configuredLogger, logError := webPA.Log.NewLogger(applicationName); logError == nil {
-		logger = configuredLogger
-	} else {
-		err = logError
-	}
-
+	logger, err = webPA.Log.NewLogger(applicationName)
 	return
 }

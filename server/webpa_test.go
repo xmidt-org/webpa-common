@@ -3,7 +3,6 @@ package server
 import (
 	"errors"
 	"github.com/Comcast/webpa-common/health"
-	"github.com/Comcast/webpa-common/logging/golog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -309,26 +308,6 @@ func TestHealthNew(t *testing.T) {
 	}
 }
 
-func TestWebPAPrepareWhenNewLoggerError(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		handler = new(mockHandler)
-		webPA   = WebPA{
-			Log: golog.LoggerFactory{
-				File: "..",
-			},
-		}
-
-		logger, runnable, err = webPA.Prepare(handler)
-	)
-
-	assert.NotNil(logger)
-	assert.Nil(runnable)
-	assert.NotNil(err)
-
-	handler.AssertExpectations(t)
-}
-
 func TestWebPANoPrimaryAddress(t *testing.T) {
 	var (
 		assert  = assert.New(t)
@@ -336,12 +315,11 @@ func TestWebPANoPrimaryAddress(t *testing.T) {
 		handler = new(mockHandler)
 		webPA   = WebPA{}
 
-		logger, runnable, err = webPA.Prepare(handler)
+		_, logger = newTestLogger()
+		runnable  = webPA.Prepare(logger, handler)
 	)
 
-	assert.NotNil(logger)
 	require.NotNil(runnable)
-	assert.Nil(err)
 
 	var (
 		waitGroup = new(sync.WaitGroup)
@@ -383,12 +361,11 @@ func TestWebPA(t *testing.T) {
 			},
 		}
 
-		logger, runnable, err = webPA.Prepare(handler)
+		_, logger = newTestLogger()
+		runnable  = webPA.Prepare(logger, handler)
 	)
 
-	assert.NotNil(logger)
 	require.NotNil(runnable)
-	assert.Nil(err)
 
 	var (
 		waitGroup = new(sync.WaitGroup)

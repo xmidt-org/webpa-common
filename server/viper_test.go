@@ -9,7 +9,7 @@ import (
 )
 
 func ExampleNew() {
-	webPA, err := New("example", nil, nil, viper.New())
+	_, webPA, err := New("example", nil, nil, viper.New())
 	if err != nil {
 		panic(err)
 	}
@@ -46,7 +46,7 @@ func ExampleNewWithFlags() {
 		v = viper.New()
 
 		// simulates passing `-f example` on the command line
-		webPA, err = New("applicationName", []string{"-f", "example"}, f, v)
+		_, webPA, err = New("applicationName", []string{"-f", "example"}, f, v)
 	)
 
 	if err != nil {
@@ -98,9 +98,10 @@ func TestNewWhenConfigureError(t *testing.T) {
 		f = pflag.NewFlagSet("applicationName", pflag.ContinueOnError)
 		v = viper.New()
 
-		webPA, err = New("applicationName", []string{"-unknown"}, f, v)
+		logger, webPA, err = New("applicationName", []string{"-unknown"}, f, v)
 	)
 
+	assert.NotNil(logger)
 	assert.Nil(webPA)
 	assert.NotNil(err)
 }
@@ -112,9 +113,40 @@ func TestNewWhenReadInConfigError(t *testing.T) {
 		f = pflag.NewFlagSet("applicationName", pflag.ContinueOnError)
 		v = viper.New()
 
-		webPA, err = New("applicationName", []string{"-f", "thisfiledoesnotexist"}, f, v)
+		logger, webPA, err = New("applicationName", []string{"-f", "thisfiledoesnotexist"}, f, v)
 	)
 
+	assert.NotNil(logger)
+	assert.Nil(webPA)
+	assert.NotNil(err)
+}
+
+func TestNewWhenWebPAUnmarshalError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		f = pflag.NewFlagSet("invalidWebPA", pflag.ContinueOnError)
+		v = viper.New()
+
+		logger, webPA, err = New("invalidWebPA", nil, f, v)
+	)
+
+	assert.NotNil(logger)
+	assert.Nil(webPA)
+	assert.NotNil(err)
+}
+
+func TestNewWhenWebPANewLoggerError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		f = pflag.NewFlagSet("invalidLog", pflag.ContinueOnError)
+		v = viper.New()
+
+		logger, webPA, err = New("invalidLog", nil, f, v)
+	)
+
+	assert.NotNil(logger)
 	assert.Nil(webPA)
 	assert.NotNil(err)
 }
