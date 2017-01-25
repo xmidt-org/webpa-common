@@ -163,21 +163,15 @@ type WebPA struct {
 	Log golog.LoggerFactory
 }
 
-// Prepare gets a WebPA server ready for execution.  This method always returns a non-nil Logger, even
-// in the face of errors.  The returned Runnable can be used to execute the WebPA server code.
+// Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
+// Runnable may return an error.  The supplied logger will usually come from the New function, but the
+// WebPA.Log object can be used to create a different logger if desired.
 //
 // The supplied http.Handler is used for the primary server.  If the alternate server has an address,
 // it will also be used for that server.  The health server uses an internally create handler, while the pprof
 // server uses http.DefaultServeMux.
-func (w *WebPA) Prepare(primaryHandler http.Handler) (logger logging.Logger, runnable concurrent.Runnable, err error) {
-	if logger, err = w.Log.NewLogger(w.Primary.Name); err != nil {
-		// produce a default logger prior to returning, to make it easier on callers
-		// to report errors
-		logger = logging.DefaultLogger()
-		return
-	}
-
-	runnable = concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) concurrent.Runnable {
+	return concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			logger.Info("Starting [%s] on [%s]", w.Primary.Name, w.Primary.Address)
 			ListenAndServe(logger, &w.Primary, primaryServer)
@@ -203,6 +197,4 @@ func (w *WebPA) Prepare(primaryHandler http.Handler) (logger logging.Logger, run
 
 		return nil
 	})
-
-	return
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"time"
@@ -136,7 +137,7 @@ a WebPA server.  Typical usage:
       v = viper.New()
 
       // can customize both the FlagSet and the Viper before invoking New
-      webPA, logger, err = server.New("petasos", os.Args, f, v)
+      logger, webPA, err = server.New("petasos", os.Args, f, v)
     )
 
     if err != nil {
@@ -145,8 +146,15 @@ a WebPA server.  Typical usage:
 
 Note that the FlagSet is optional but highly encouraged.  If not supplied, then no command-line binding
 is done for the unmarshalled configuration.
+
+This function always returns a logger, regardless of any errors.  This allows clients to use the returned
+logger when reporting errors.  This function falls back to a logger that writes to os.Stdout if it cannot
+create a logger from the Viper environment.
 */
-func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (webPA *WebPA, err error) {
+func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger logging.Logger, webPA *WebPA, err error) {
+	// the fallback logger
+	logger = logging.DefaultLogger()
+
 	if err = Configure(applicationName, arguments, f, v); err != nil {
 		return
 	}
@@ -157,5 +165,15 @@ func New(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.
 
 	webPA = new(WebPA)
 	err = v.Unmarshal(webPA)
+	if err != nil {
+		return
+	}
+
+	if configuredLogger, logError := webPA.Log.NewLogger(applicationName); logError == nil {
+		logger = configuredLogger
+	} else {
+		err = logError
+	}
+
 	return
 }
