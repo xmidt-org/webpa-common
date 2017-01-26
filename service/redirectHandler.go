@@ -28,7 +28,8 @@ func NewRedirectHandler(accessor Accessor, code int, keyFunc func(*http.Request)
 			return
 		}
 
-		logger.Debug("Redirecting to: %s", node)
-		http.Redirect(response, request, node, code)
+		redirectNode := ReplaceHostPort(node, request.URL)
+		logger.Debug("Redirecting to: %s", redirectNode)
+		http.Redirect(response, request, redirectNode, code)
 	})
 }
