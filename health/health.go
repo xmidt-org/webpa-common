@@ -26,10 +26,6 @@ func (f StatsListenerFunc) OnStats(stats Stats) {
 // Monitor is the basic interface implemented by health event sinks
 type Monitor interface {
 	SendEvent(HealthFunc)
-
-	// HACK HACK HACK
-	// This should be moved to another package
-	ServeHTTP(http.ResponseWriter, *http.Request)
 }
 
 // Health is the central type of this package.  It defines and endpoint for tracking
