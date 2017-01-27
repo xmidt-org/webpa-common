@@ -47,6 +47,31 @@ type Health struct {
 
 var _ Monitor = (*Health)(nil)
 
+// RequestTracker is an Alice-style constructor that wraps the given delegate in request-tracking
+// code.
+func (h *Health) RequestTracker(delegate http.Handler) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		h.SendEvent(Inc(TotalRequestsReceived, 0))
+		wrappedResponse := Wrap(response)
+
+		defer func() {
+			if r := recover(); r != nil {
+				// TODO: Probably need an error stat instead of just "denied"
+				h.SendEvent(Inc(TotalRequestsDenied, 1))
+				return
+			}
+
+			if wrappedResponse.StatusCode() < 400 {
+				h.SendEvent(Inc(TotalRequestsSuccessfullyServiced, 1))
+			} else {
+				h.SendEvent(Inc(TotalRequestsDenied, 1))
+			}
+		}()
+
+		delegate.ServeHTTP(wrappedResponse, request)
+	})
+}
+
 // AddStatsListener adds a new listener to this Health.  This method
 // is asynchronous.  The listener will eventually receive events, but callers
 // should not assume events will be dispatched immediately after this method call.
