@@ -190,6 +190,7 @@ func TestHealthRequestTracker(t *testing.T) {
 		monitor.SendEvent(
 			func(actualStats Stats) {
 				defer assertionWaitGroup.Done()
+				t.Logf("actual stats: %v", actualStats)
 				for stat, value := range record.expectedStats {
 					assert.Equal(value, actualStats[stat], fmt.Sprintf("%s should have been %d", stat, value))
 				}
