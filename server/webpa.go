@@ -169,10 +169,11 @@ type WebPA struct {
 //
 // The supplied http.Handler is used for the primary server.  If the alternate server has an address,
 // it will also be used for that server.  The health server uses an internally create handler, while the pprof
-// server uses http.DefaultServeMux.
-func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) concurrent.Runnable {
-	return concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		healthHandler, healthServer := w.Health.New(logger)
+// server uses http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
+// infrastructure can make use of it.
+func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+	healthHandler, healthServer := w.Health.New(logger)
+	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		if healthHandler != nil && healthServer != nil {
 			logger.Info("Starting [%s] on [%s]", w.Health.Name, w.Health.Address)
 			ListenAndServe(logger, &w.Health, healthServer)

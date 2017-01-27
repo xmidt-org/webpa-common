@@ -315,10 +315,11 @@ func TestWebPANoPrimaryAddress(t *testing.T) {
 		handler = new(mockHandler)
 		webPA   = WebPA{}
 
-		_, logger = newTestLogger()
-		runnable  = webPA.Prepare(logger, handler)
+		_, logger         = newTestLogger()
+		monitor, runnable = webPA.Prepare(logger, handler)
 	)
 
+	assert.Nil(monitor)
 	require.NotNil(runnable)
 
 	var (
@@ -361,10 +362,11 @@ func TestWebPA(t *testing.T) {
 			},
 		}
 
-		_, logger = newTestLogger()
-		runnable  = webPA.Prepare(logger, handler)
+		_, logger         = newTestLogger()
+		monitor, runnable = webPA.Prepare(logger, handler)
 	)
 
+	assert.NotNil(monitor)
 	require.NotNil(runnable)
 
 	var (
