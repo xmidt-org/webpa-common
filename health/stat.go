@@ -66,16 +66,6 @@ func (f HealthFunc) Set(stats Stats) {
 	f(stats)
 }
 
-// Options aggregates a sequence of options into a single HealthFunc event.
-// This constructor allows multiple options to be set atomically as a group.
-func Options(options ...Option) HealthFunc {
-	return func(stats Stats) {
-		for _, option := range options {
-			option.Set(stats)
-		}
-	}
-}
-
 // Ensure makes certain the given stat is defined.  If it does not exist,
 // it is initialized to 0.  Otherwise, the existing stat value is left intact.
 func Ensure(stat Stat) HealthFunc {

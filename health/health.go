@@ -51,17 +51,21 @@ var _ Monitor = (*Health)(nil)
 // code.
 func (h *Health) RequestTracker(delegate http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		h.SendEvent(Inc(TotalRequestsReceived, 0))
+		h.SendEvent(Inc(TotalRequestsReceived, 1))
 		wrappedResponse := Wrap(response)
 
 		defer func() {
 			if r := recover(); r != nil {
+				h.log.Error("Delegate handler panicked: %s", r)
+
 				// TODO: Probably need an error stat instead of just "denied"
 				h.SendEvent(Inc(TotalRequestsDenied, 1))
-				return
-			}
 
-			if wrappedResponse.StatusCode() < 400 {
+				if wrappedResponse.StatusCode() == 0 {
+					// only write the header if one has not been written yet
+					wrappedResponse.WriteHeader(http.StatusInternalServerError)
+				}
+			} else if wrappedResponse.StatusCode() < 400 {
 				h.SendEvent(Inc(TotalRequestsSuccessfullyServiced, 1))
 			} else {
 				h.SendEvent(Inc(TotalRequestsDenied, 1))

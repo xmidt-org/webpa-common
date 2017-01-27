@@ -2,8 +2,11 @@ package health
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"sync"
@@ -131,4 +134,100 @@ func TestServeHTTP(t *testing.T) {
 		_, ok := result[stat.(Stat)]
 		assert.True(ok)
 	}
+}
+
+func TestHealthRequestTracker(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			expectedStatusCode int
+			expectedStats      Stats
+		}{
+			// success codes
+			{0, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{100, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{200, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{201, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{202, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{300, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{307, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+
+			// failure codes
+			{400, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+			{404, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+			{500, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+			{523, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		var (
+			monitor  = setupHealth()
+			shutdown = make(chan struct{})
+
+			handler  = new(mockHandler)
+			request  = httptest.NewRequest("GET", "http://something.com", nil)
+			response = httptest.NewRecorder()
+		)
+
+		monitor.Run(&sync.WaitGroup{}, shutdown)
+		defer close(shutdown)
+
+		handler.On("ServeHTTP", mock.MatchedBy(func(*ResponseWriter) bool { return true }), request).
+			Once().
+			Run(func(arguments mock.Arguments) {
+				arguments.Get(0).(http.ResponseWriter).WriteHeader(record.expectedStatusCode)
+			})
+
+		compositeHandler := monitor.RequestTracker(handler)
+		compositeHandler.ServeHTTP(response, request)
+		assert.Equal(record.expectedStatusCode, response.Code)
+
+		monitor.SendEvent(
+			func(actualStats Stats) {
+				for stat, value := range record.expectedStats {
+					assert.Equal(value, actualStats[stat], fmt.Sprintf("%s should have been %d", stat, value))
+				}
+			},
+		)
+
+		handler.AssertExpectations(t)
+	}
+}
+
+func TestHealthRequestTrackerDelegatePanic(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		monitor  = setupHealth()
+		shutdown = make(chan struct{})
+
+		handler  = new(mockHandler)
+		request  = httptest.NewRequest("GET", "http://something.com", nil)
+		response = httptest.NewRecorder()
+	)
+
+	monitor.Run(&sync.WaitGroup{}, shutdown)
+	defer close(shutdown)
+
+	handler.On("ServeHTTP", mock.MatchedBy(func(*ResponseWriter) bool { return true }), request).
+		Once().
+		Run(func(mock.Arguments) {
+			panic("expected")
+		})
+
+	compositeHandler := monitor.RequestTracker(handler)
+	compositeHandler.ServeHTTP(response, request)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+
+	monitor.SendEvent(
+		func(actualStats Stats) {
+			assert.Equal(1, actualStats[TotalRequestsReceived])
+			assert.Equal(0, actualStats[TotalRequestsSuccessfullyServiced])
+			assert.Equal(1, actualStats[TotalRequestsDenied])
+		},
+	)
+
+	handler.AssertExpectations(t)
 }
