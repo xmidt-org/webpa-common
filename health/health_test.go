@@ -3,10 +3,9 @@ package health
 import (
 	"encoding/json"
 	"github.com/Comcast/webpa-common/logging"
-	"net/http"
+	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -21,12 +20,14 @@ func setupHealth() *Health {
 }
 
 func TestLifecycle(t *testing.T) {
-	t.Log("starting TestLifecycle")
-	defer t.Log("TestLifecycle complete")
-	h := setupHealth()
+	var (
+		assert = assert.New(t)
+		h      = setupHealth()
 
-	healthWaitGroup := &sync.WaitGroup{}
-	shutdown := make(chan struct{})
+		healthWaitGroup = &sync.WaitGroup{}
+		shutdown        = make(chan struct{})
+	)
+
 	h.Run(healthWaitGroup, shutdown)
 
 	// verify initial state
@@ -35,15 +36,9 @@ func TestLifecycle(t *testing.T) {
 	testWaitGroup.Add(1)
 	h.SendEvent(func(stats Stats) {
 		defer testWaitGroup.Done()
-		t.Log("verifying initial state")
 		initialListenerCount = len(h.statsListeners)
-		if !reflect.DeepEqual(commonStats, h.stats) {
-			t.Errorf("Initial stats not set properly.  Expected %v, but got %v", commonStats, h.stats)
-		}
-
-		if !reflect.DeepEqual(commonStats, stats) {
-			t.Errorf("Stats not copied properly.  Expected %v, but got %v", commonStats, h.stats)
-		}
+		assert.Equal(NewStats(nil), stats)
+		assert.Equal(stats, h.stats)
 	})
 
 	h.AddStatsListener(StatsListenerFunc(func(Stats) {}))
@@ -98,13 +93,17 @@ func TestLifecycle(t *testing.T) {
 }
 
 func TestServeHTTP(t *testing.T) {
-	h := setupHealth()
-	shutdown := make(chan struct{})
+	var (
+		assert   = assert.New(t)
+		h        = setupHealth()
+		shutdown = make(chan struct{})
+
+		request  = httptest.NewRequest("GET", "http://something.net", nil)
+		response = httptest.NewRecorder()
+	)
+
 	h.Run(&sync.WaitGroup{}, shutdown)
 	defer close(shutdown)
-
-	request, _ := http.NewRequest("GET", "", nil)
-	response := httptest.NewRecorder()
 
 	h.ServeHTTP(response, request)
 
@@ -122,19 +121,14 @@ func TestServeHTTP(t *testing.T) {
 		t.Fatalf("Did not receive next event after ServeHTTP in the allotted time")
 	}
 
-	if response.Code != 200 {
-		t.Error("Status code was not 200.  got: %v", response.Code)
-	}
+	assert.Equal(200, response.Code)
 
 	var result Stats
-	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
-		t.Fatalf("json Unmarshal error: %v", err)
-	}
+	assert.NoError(json.Unmarshal(response.Body.Bytes(), &result))
 
 	// each key in commonStats should be present in the output
-	for key, _ := range commonStats {
-		if _, ok := result[key]; !ok {
-			t.Errorf("Key %s not present in ServeHTTP results", key)
-		}
+	for _, stat := range memoryStats {
+		_, ok := result[stat.(Stat)]
+		assert.True(ok)
 	}
 }

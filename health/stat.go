@@ -8,24 +8,35 @@ import (
 
 const (
 	// General memory stats
-	CurrentMemoryUtilizationAlloc   Stat = "CurrentMemoryUtilizationAlloc"
-	CurrentMemoryUtilizationHeapSys Stat = "CurrentMemoryUtilizationHeapSys"
-	CurrentMemoryUtilizationActive  Stat = "CurrentMemoryUtilizationActive"
-	MaxMemoryUtilizationAlloc       Stat = "MaxMemoryUtilizationAlloc"
-	MaxMemoryUtilizationHeapSys     Stat = "MaxMemoryUtilizationHeapSys"
-	MaxMemoryUtilizationActive      Stat = "MaxMemoryUtilizationActive"
+	CurrentMemoryUtilizationAlloc     Stat = "CurrentMemoryUtilizationAlloc"
+	CurrentMemoryUtilizationHeapSys   Stat = "CurrentMemoryUtilizationHeapSys"
+	CurrentMemoryUtilizationActive    Stat = "CurrentMemoryUtilizationActive"
+	MaxMemoryUtilizationAlloc         Stat = "MaxMemoryUtilizationAlloc"
+	MaxMemoryUtilizationHeapSys       Stat = "MaxMemoryUtilizationHeapSys"
+	MaxMemoryUtilizationActive        Stat = "MaxMemoryUtilizationActive"
+	TotalRequestsReceived             Stat = "TotalRequestsReceived"
+	TotalRequestsSuccessfullyServiced Stat = "TotalRequestsSuccessfullyServiced"
+	TotalRequestsDenied               Stat = "TotalRequestsDenied"
 )
 
 var (
-	// commonStats is the Stats used to seed the initial set of stats
-	// the request-specific stats are not included
-	commonStats = Stats{
-		CurrentMemoryUtilizationAlloc:   0,
-		CurrentMemoryUtilizationHeapSys: 0,
-		CurrentMemoryUtilizationActive:  0,
-		MaxMemoryUtilizationAlloc:       0,
-		MaxMemoryUtilizationHeapSys:     0,
-		MaxMemoryUtilizationActive:      0,
+	// memoryStats are the health statistics dealing with memory usage.
+	// these are automatically added to a Health monitor.
+	memoryStats = []Option{
+		CurrentMemoryUtilizationAlloc,
+		CurrentMemoryUtilizationHeapSys,
+		CurrentMemoryUtilizationActive,
+		MaxMemoryUtilizationAlloc,
+		MaxMemoryUtilizationHeapSys,
+		MaxMemoryUtilizationActive,
+	}
+
+	// requestStats are the health statistics dealing with HTTP traffic.
+	// these are automically added to a Health monitor.
+	requestStats = []Option{
+		TotalRequestsReceived,
+		TotalRequestsSuccessfullyServiced,
+		TotalRequestsDenied,
 	}
 
 	// Invalid stat option error
@@ -92,6 +103,16 @@ func Set(stat Stat, value int) HealthFunc {
 // Stats is mapping of Stat to value
 type Stats map[Stat]int
 
+// NewStats constructs a Stats object preinitialized with the internal default
+// statistics plus the given options.
+func NewStats(options []Option) (s Stats) {
+	s = make(Stats, len(memoryStats)+len(requestStats)+len(options))
+	s.Apply(memoryStats)
+	s.Apply(requestStats)
+	s.Apply(options)
+	return
+}
+
 func (s Stats) Set(stats Stats) {
 	for key, value := range s {
 		stats[key] = value
@@ -109,7 +130,7 @@ func (s Stats) Clone() Stats {
 }
 
 // Apply invokes each Option.Set() on this stats map.
-func (s Stats) Apply(options ...Option) {
+func (s Stats) Apply(options []Option) {
 	for _, option := range options {
 		option.Set(s)
 	}

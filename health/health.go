@@ -63,8 +63,7 @@ func (h *Health) SendEvent(healthFunc HealthFunc) {
 
 // New creates a Health object with the given statistics.
 func New(interval time.Duration, log logging.Logger, options ...Option) *Health {
-	initialStats := commonStats.Clone()
-	initialStats.Apply(options...)
+	initialStats := NewStats(options)
 
 	return &Health{
 		stats:            initialStats,
