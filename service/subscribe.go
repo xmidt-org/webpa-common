@@ -88,7 +88,8 @@ func (a *accessorSubscription) Get(key []byte) (string, error) {
 }
 
 func (a *accessorSubscription) update(endpoints []string) {
-	a.value.Store(a.factory.New(endpoints))
+	accessor, _ := a.factory.New(endpoints)
+	a.value.Store(accessor)
 }
 
 // NewAccessorSubscription subscribes to a watch and updates an atomic Accessor in response

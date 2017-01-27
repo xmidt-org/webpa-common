@@ -3,33 +3,38 @@ package service
 import (
 	"errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 )
 
 func TestNewRedirectHandler(t *testing.T) {
-	assert := assert.New(t)
-	expectedKey := []byte("here is a lovely little key, full of vim and vigour")
-	expectedNode := "http://nogohere.instead.com/foobar"
+	var (
+		assert       = assert.New(t)
+		require      = require.New(t)
+		expectedKey  = []byte("here is a lovely little key, full of vim and vigour")
+		expectedNode = "http://nogohere.instead.com"
 
-	mockAccessor := new(mockAccessor)
+		mockAccessor = new(mockAccessor)
+		response     = httptest.NewRecorder()
+		request      = httptest.NewRequest("GET", "http://foobar.com/test", nil)
+		keyFunc      = func(actualRequest *http.Request) ([]byte, error) {
+			assert.Equal(request, actualRequest)
+			return expectedKey, nil
+		}
+	)
+
 	mockAccessor.On("Get", expectedKey).Return(expectedNode, nil).Once()
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "http://foobar.com/test", nil)
-	keyFunc := func(actualRequest *http.Request) ([]byte, error) {
-		assert.Equal(request, actualRequest)
-		return expectedKey, nil
-	}
 
 	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, nil)
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusTemporaryRedirect, response.Code)
 
 	actualLocation, err := response.Result().Location()
-	if assert.NotNil(actualLocation) && assert.Nil(err) {
-		assert.Equal(expectedNode, actualLocation.String())
-	}
+	require.NotNil(actualLocation)
+	assert.Equal("http://nogohere.instead.com/test", actualLocation.String())
+	assert.Nil(err)
 
 	mockAccessor.AssertExpectations(t)
 }

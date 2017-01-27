@@ -10,33 +10,34 @@ import (
 )
 
 func TestSubscribeEndWhenWatchClosed(t *testing.T) {
-	assert := assert.New(t)
-	logger := logging.TestLogger(t)
-
-	expectedUpdates := [][]string{
-		[]string{"updated1"},
-		[]string{"updated2", "updated3"},
-	}
-
-	subscriptionCounter := new(sync.WaitGroup)
-	subscriptionCounter.Add(len(expectedUpdates))
-	actualUpdates := make(chan []string, len(expectedUpdates))
-	subscription := func(update []string) {
-		logger.Info("Test subscription called: %v", update)
-		defer subscriptionCounter.Done()
-
-		select {
-		case actualUpdates <- update:
-		default:
-			assert.Fail("Subscription was called too many times")
-		}
-	}
-
 	var (
+		assert = assert.New(t)
+		logger = logging.TestLogger(t)
+
+		expectedUpdates = [][]string{
+			[]string{"updated1"},
+			[]string{"updated2", "updated3"},
+		}
+		actualUpdates = make(chan []string, len(expectedUpdates))
+
+		subscriptionCounter = new(sync.WaitGroup)
+		subscription        = func(update []string) {
+			logger.Info("Test subscription called: %v", update)
+			defer subscriptionCounter.Done()
+
+			select {
+			case actualUpdates <- update:
+			default:
+				assert.Fail("Subscription was called too many times")
+			}
+		}
+
 		watchEvent                        = make(chan struct{})
 		receiveWatchEvent <-chan struct{} = watchEvent
 		mockWatch                         = new(mockWatch)
 	)
+
+	subscriptionCounter.Add(len(expectedUpdates))
 
 	// first update
 	mockWatch.On("Event").Return(receiveWatchEvent).Once()
@@ -187,17 +188,23 @@ func TestSubscribeEndWhenSubscriptionPanics(t *testing.T) {
 }
 
 func TestAccessorSubscription(t *testing.T) {
-	assert := assert.New(t)
-	require := require.New(t)
-
-	key := []byte("does not matter")
-	expectedEndpoints := [][]string{
-		[]string{"initial"},
-		[]string{"update1"},
-		[]string{"update2"},
-	}
-
 	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		key               = []byte("does not matter")
+		expectedEndpoints = [][]string{
+			[]string{"localhost:9090"},
+			[]string{"[http://92.15.16.178]:4256"},
+			[]string{"[https://webpa.comcast.net]:15672"},
+		}
+
+		expectedHashedEndpoints = map[string]bool{
+			"http://localhost:9090":           true,
+			"http://92.15.16.178:4256":        true,
+			"https://webpa.comcast.net:15672": true,
+		}
+
 		watchEvent                        = make(chan struct{})
 		receiveWatchEvent <-chan struct{} = watchEvent
 		mockWatch                         = new(mockWatch)
@@ -227,31 +234,31 @@ func TestAccessorSubscription(t *testing.T) {
 	require.NotNil(accessorSubscription)
 
 	hashedEndpoint, err := accessorSubscription.Get(key)
-	assert.Equal(expectedEndpoints[0][0], hashedEndpoint)
+	assert.True(expectedHashedEndpoints[hashedEndpoint])
 	assert.NoError(err)
 
 	// after the second update starts, the changes from the first should be visible
 	watchEvent <- struct{}{}
 	secondUpdate.Wait()
 	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.Equal(expectedEndpoints[1][0], hashedEndpoint)
+	assert.True(expectedHashedEndpoints[hashedEndpoint])
 	assert.NoError(err)
 
 	watchEvent <- struct{}{}
 	finalUpdate.Wait()
 	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.Equal(expectedEndpoints[2][0], hashedEndpoint)
+	assert.True(expectedHashedEndpoints[hashedEndpoint])
 	assert.NoError(err)
 
 	accessorSubscription.Cancel()
 	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.Equal(expectedEndpoints[2][0], hashedEndpoint)
+	assert.True(expectedHashedEndpoints[hashedEndpoint])
 	assert.NoError(err)
 
 	// Cancel should be idempotent
 	accessorSubscription.Cancel()
 	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.Equal(expectedEndpoints[2][0], hashedEndpoint)
+	assert.True(expectedHashedEndpoints[hashedEndpoint])
 	assert.NoError(err)
 
 	mockWatch.AssertExpectations(t)
