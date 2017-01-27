@@ -185,14 +185,19 @@ func TestHealthRequestTracker(t *testing.T) {
 		compositeHandler.ServeHTTP(response, request)
 		assert.Equal(record.expectedStatusCode, response.Code)
 
+		assertionWaitGroup := new(sync.WaitGroup)
+		assertionWaitGroup.Add(1)
 		monitor.SendEvent(
 			func(actualStats Stats) {
+				defer assertionWaitGroup.Done()
+				t.Logf("actual stats: %v", actualStats)
 				for stat, value := range record.expectedStats {
 					assert.Equal(value, actualStats[stat], fmt.Sprintf("%s should have been %d", stat, value))
 				}
 			},
 		)
 
+		assertionWaitGroup.Wait()
 		handler.AssertExpectations(t)
 	}
 }
@@ -221,13 +226,17 @@ func TestHealthRequestTrackerDelegatePanic(t *testing.T) {
 	compositeHandler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
 
+	assertionWaitGroup := new(sync.WaitGroup)
+	assertionWaitGroup.Add(1)
 	monitor.SendEvent(
 		func(actualStats Stats) {
+			defer assertionWaitGroup.Done()
 			assert.Equal(1, actualStats[TotalRequestsReceived])
 			assert.Equal(0, actualStats[TotalRequestsSuccessfullyServiced])
 			assert.Equal(1, actualStats[TotalRequestsDenied])
 		},
 	)
 
+	assertionWaitGroup.Wait()
 	handler.AssertExpectations(t)
 }
