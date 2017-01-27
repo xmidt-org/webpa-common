@@ -172,6 +172,21 @@ type WebPA struct {
 // server uses http.DefaultServeMux.
 func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) concurrent.Runnable {
 	return concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		healthHandler, healthServer := w.Health.New(logger)
+		if healthHandler != nil && healthServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Health.Name, w.Health.Address)
+			ListenAndServe(logger, &w.Health, healthServer)
+			healthHandler.Run(waitGroup, shutdown)
+
+			// wrap the primary handler in the RequestTracker decorator
+			primaryHandler = healthHandler.RequestTracker(primaryHandler)
+		}
+
+		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Pprof.Name, w.Pprof.Address)
+			ListenAndServe(logger, &w.Pprof, pprofServer)
+		}
+
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			logger.Info("Starting [%s] on [%s]", w.Primary.Name, w.Primary.Address)
 			ListenAndServe(logger, &w.Primary, primaryServer)
@@ -182,17 +197,6 @@ func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) conc
 		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
 			logger.Info("Starting [%s] on [%s]", w.Alternate.Name, w.Alternate.Address)
 			ListenAndServe(logger, &w.Alternate, alternateServer)
-		}
-
-		if healthHandler, healthServer := w.Health.New(logger); healthHandler != nil && healthServer != nil {
-			logger.Info("Starting [%s] on [%s]", w.Health.Name, w.Health.Address)
-			ListenAndServe(logger, &w.Health, healthServer)
-			healthHandler.Run(waitGroup, shutdown)
-		}
-
-		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
-			logger.Info("Starting [%s] on [%s]", w.Pprof.Name, w.Pprof.Address)
-			ListenAndServe(logger, &w.Pprof, pprofServer)
 		}
 
 		return nil
