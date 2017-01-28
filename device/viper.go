@@ -7,7 +7,17 @@ import (
 
 const (
 	// DeviceManagerKey is the Viper subkey under which device.Options are typically stored
-	DeviceManagerKey = "deviceManager"
+	// In a JSON configuration file, this will be expressed as:
+	//
+	//   {
+	//     /* other stuff can be here */
+	//
+	//     "device": {
+	//       "manager": {
+	//       }
+	//     }
+	//   }
+	DeviceManagerKey = "device.manager"
 )
 
 // NewOptions unmarshals a device.Options from a Viper environment.  Listeners
