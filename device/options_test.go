@@ -5,7 +5,6 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 )
@@ -37,40 +36,41 @@ func TestOptionsDefault(t *testing.T) {
 }
 
 func TestOptions(t *testing.T) {
-	assert := assert.New(t)
+	var (
+		assert         = assert.New(t)
+		expectedLogger = logging.DefaultLogger()
 
-	expectedLogger := &logging.LoggerWriter{os.Stdout}
+		expectedKey     = Key("TestOptions key")
+		expectedKeyFunc = func(ID, Convey, *http.Request) (Key, error) {
+			return expectedKey, nil
+		}
 
-	expectedKey := Key("TestOptions key")
-	expectedKeyFunc := func(ID, Convey, *http.Request) (Key, error) {
-		return expectedKey, nil
-	}
+		called                     = make(map[string]bool)
+		expectedMessageListener    = func(Interface, []byte, *wrp.Message) { called["expectedMessageListener"] = true }
+		expectedConnectListener    = func(Interface) { called["expectedConnectListener"] = true }
+		expectedDisconnectListener = func(Interface) { called["expectedDisconnectListener"] = true }
+		expectedPongListener       = func(Interface, string) { called["expectedPongListener"] = true }
 
-	var called map[string]bool
-	expectedMessageListener := func(Interface, *wrp.Message) { called["expectedMessageListener"] = true }
-	expectedConnectListener := func(Interface) { called["expectedConnectListener"] = true }
-	expectedDisconnectListener := func(Interface) { called["expectedDisconnectListener"] = true }
-	expectedPongListener := func(Interface, string) { called["expectedPongListener"] = true }
-
-	o := Options{
-		DeviceNameHeader:       "X-TestOptions-Device-Name",
-		ConveyHeader:           "X-TestOptions-Convey",
-		HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
-		InitialCapacity:        DefaultInitialCapacity + 4719,
-		ReadBufferSize:         DefaultReadBufferSize + 48729,
-		WriteBufferSize:        DefaultWriteBufferSize + 926,
-		Subprotocols:           []string{"foobar"},
-		DeviceMessageQueueSize: DefaultDeviceMessageQueueSize + 287342,
-		IdlePeriod:             DefaultIdlePeriod + 3472*time.Minute,
-		PingPeriod:             DefaultPingPeriod + 384*time.Millisecond,
-		WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
-		KeyFunc:                expectedKeyFunc,
-		Logger:                 expectedLogger,
-		MessageListener:        expectedMessageListener,
-		ConnectListener:        expectedConnectListener,
-		DisconnectListener:     expectedDisconnectListener,
-		PongListener:           expectedPongListener,
-	}
+		o = Options{
+			DeviceNameHeader:       "X-TestOptions-Device-Name",
+			ConveyHeader:           "X-TestOptions-Convey",
+			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
+			InitialCapacity:        DefaultInitialCapacity + 4719,
+			ReadBufferSize:         DefaultReadBufferSize + 48729,
+			WriteBufferSize:        DefaultWriteBufferSize + 926,
+			Subprotocols:           []string{"foobar"},
+			DeviceMessageQueueSize: DefaultDeviceMessageQueueSize + 287342,
+			IdlePeriod:             DefaultIdlePeriod + 3472*time.Minute,
+			PingPeriod:             DefaultPingPeriod + 384*time.Millisecond,
+			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
+			KeyFunc:                expectedKeyFunc,
+			Logger:                 expectedLogger,
+			MessageListener:        expectedMessageListener,
+			ConnectListener:        expectedConnectListener,
+			DisconnectListener:     expectedDisconnectListener,
+			PongListener:           expectedPongListener,
+		}
+	)
 
 	assert.Equal(o.DeviceNameHeader, o.deviceNameHeader())
 	assert.Equal(o.ConveyHeader, o.conveyHeader())
@@ -85,12 +85,14 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.Subprotocols, o.subprotocols())
 	assert.Equal(expectedLogger, o.logger())
 
-	expectedDevice := new(mockDevice)
-	expectedMessage := new(wrp.Message)
-	pongData := "some pong data"
+	var (
+		expectedDevice  = new(mockDevice)
+		expectedRaw     = make([]byte, 10)
+		expectedMessage = new(wrp.Message)
+		pongData        = "some pong data"
+	)
 
-	called = make(map[string]bool)
-	o.messageListener()(expectedDevice, expectedMessage)
+	o.messageListener()(expectedDevice, expectedRaw, expectedMessage)
 	assert.Len(called, 1)
 	assert.True(called["expectedMessageListener"])
 

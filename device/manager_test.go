@@ -403,7 +403,8 @@ func TestManagerSend(t *testing.T) {
 		for _, c := range connections {
 			go func(id ID, c Connection) {
 				defer receiveWait.Done()
-				message, err := c.Read()
+				raw, message, err := c.Read()
+				assert.NotEmpty(raw)
 				if assert.NotNil(message) && assert.NoError(err) {
 					assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
 				}
@@ -471,8 +472,9 @@ func TestManagerSendOne(t *testing.T) {
 		for _, c := range connections {
 			go func(id ID, c Connection) {
 				defer receiveWait.Done()
-				message, err := c.Read()
+				raw, message, err := c.Read()
 				if assert.NotNil(message) && assert.NoError(err) {
+					assert.NotEmpty(raw)
 					assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
 				}
 			}(id, c)
@@ -534,7 +536,7 @@ func TestManagerPingPong(t *testing.T) {
 			go func(id ID, c Connection) {
 				var err error
 				for err == nil {
-					_, err = c.Read()
+					_, _, err = c.Read()
 				}
 			}(id, c)
 		}

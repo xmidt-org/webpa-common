@@ -208,6 +208,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
+		raw       []byte
 		message   *wrp.Message
 		readError error
 	)
@@ -219,7 +220,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
-		message, readError = c.Read()
+		raw, message, readError = c.Read()
 		if readError != nil {
 			return
 		} else if message == nil {
@@ -227,7 +228,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		m.messageListener(d, message)
+		m.messageListener(d, raw, message)
 	}
 }
 
