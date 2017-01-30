@@ -131,6 +131,7 @@ func (c *connection) Read() (raw []byte, message *wrp.Message, err error) {
 			return
 		}
 
+		c.messageBuffer.Reset()
 		if _, err = io.CopyBuffer(&c.messageBuffer, frame, c.transferBuffer); err != nil {
 			return
 		}
