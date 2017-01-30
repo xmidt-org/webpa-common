@@ -1,11 +1,16 @@
 package device
 
 import (
+	"bytes"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/gorilla/websocket"
 	"io"
 	"net/http"
 	"time"
+)
+
+const (
+	transferBufferSize = 64
 )
 
 // Connection represents a websocket connection to a WebPA-compatible device.
@@ -18,10 +23,14 @@ type Connection interface {
 	// this connection should be abandoned and closed.  This method is not safe
 	// for concurrent invocation and must not be invoked concurrently with Write().
 	//
+	// Both the raw data frame (a byte slice) and the decoded message are returned.  This
+	// allows for efficient transfers, since calling code can choose to simply hand the byte
+	// slice off rather than re-encoding the message.
+	//
 	// Read may skip frames if they are not supported by the WRP protocol.  For example,
 	// text frames are not supported and are skipped.  Anytime a frame is skipped, this
 	// method returns a nil message with a nil error.
-	Read() (*wrp.Message, error)
+	Read() ([]byte, *wrp.Message, error)
 
 	// Write sends a WRP frame to the device.  If this method returns an error,
 	// this connection should be abandoned and closed.  This method is not safe
@@ -48,11 +57,13 @@ type Connection interface {
 
 // connection is the internal implementation of Connection
 type connection struct {
-	webSocket    *websocket.Conn
-	idlePeriod   time.Duration
-	writeTimeout time.Duration
-	decoder      wrp.Decoder
-	encoder      wrp.Encoder
+	webSocket      *websocket.Conn
+	idlePeriod     time.Duration
+	writeTimeout   time.Duration
+	transferBuffer []byte
+	messageBuffer  bytes.Buffer
+	decoder        wrp.Decoder
+	encoder        wrp.Encoder
 }
 
 func (c *connection) updateReadDeadline() error {
@@ -100,29 +111,39 @@ func (c *connection) SetPongCallback(callback func(string)) {
 	}
 }
 
-func (c *connection) Read() (*wrp.Message, error) {
+func (c *connection) Read() (raw []byte, message *wrp.Message, err error) {
+	var (
+		messageType int
+		frame       io.Reader
+	)
+
 	for {
-		if err := c.updateReadDeadline(); err != nil {
-			return nil, err
+		if err = c.updateReadDeadline(); err != nil {
+			return
 		}
 
-		messageType, frame, err := c.webSocket.NextReader()
-		if err != nil {
-			return nil, err
+		if messageType, frame, err = c.webSocket.NextReader(); err != nil {
+			return
 		}
 
 		if messageType != websocket.BinaryMessage {
 			// allow the caller to take some action for skipped frames
-			return nil, nil
+			return
 		}
 
-		c.decoder.Reset(frame)
-		message := new(wrp.Message)
-		if err := c.decoder.Decode(message); err != nil {
-			return nil, err
+		c.messageBuffer.Reset()
+		if _, err = io.CopyBuffer(&c.messageBuffer, frame, c.transferBuffer); err != nil {
+			return
 		}
 
-		return message, nil
+		raw = c.messageBuffer.Bytes()
+		c.decoder.ResetBytes(raw)
+		message = new(wrp.Message)
+		if err = c.decoder.Decode(message); err != nil {
+			return
+		}
+
+		return
 	}
 }
 
@@ -199,11 +220,12 @@ func (cf *connectionFactory) NewConnection(response http.ResponseWriter, request
 	}
 
 	c := &connection{
-		webSocket:    webSocket,
-		idlePeriod:   cf.idlePeriod,
-		writeTimeout: cf.writeTimeout,
-		decoder:      wrp.NewDecoder(nil, wrp.Msgpack),
-		encoder:      wrp.NewEncoder(nil, wrp.Msgpack),
+		webSocket:      webSocket,
+		idlePeriod:     cf.idlePeriod,
+		writeTimeout:   cf.writeTimeout,
+		transferBuffer: make([]byte, transferBufferSize),
+		decoder:        wrp.NewDecoder(nil, wrp.Msgpack),
+		encoder:        wrp.NewEncoder(nil, wrp.Msgpack),
 	}
 
 	// initialize the pong callback to the default, which
@@ -276,11 +298,12 @@ func (d *dialer) Dial(URL string, id ID, convey Convey, extra http.Header) (Conn
 	}
 
 	c := &connection{
-		webSocket:    webSocket,
-		idlePeriod:   d.idlePeriod,
-		writeTimeout: d.writeTimeout,
-		decoder:      wrp.NewDecoder(nil, wrp.Msgpack),
-		encoder:      wrp.NewEncoder(nil, wrp.Msgpack),
+		webSocket:      webSocket,
+		idlePeriod:     d.idlePeriod,
+		writeTimeout:   d.writeTimeout,
+		transferBuffer: make([]byte, transferBufferSize),
+		decoder:        wrp.NewDecoder(nil, wrp.Msgpack),
+		encoder:        wrp.NewEncoder(nil, wrp.Msgpack),
 	}
 
 	// initialize the pong callback to the default, which
