@@ -13,8 +13,5 @@ install:
     - glide install
 
 script:
-    - >
-        for package in $(go list ./... | grep -v vendor); do
-            echo $package
-        done
+    - $TRAVIS_BUILD_DIR/test.sh
 
