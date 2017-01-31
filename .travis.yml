@@ -13,6 +13,8 @@ install:
     - glide install
 
 script:
-    - for package in $(go list ./... | grep -v vendor); do
-    -    echo $package
-    - done
+    - >
+        for package in $(go list ./... | grep -v vendor); do
+            echo $package
+        done
+
