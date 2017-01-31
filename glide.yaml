@@ -13,6 +13,10 @@ import:
 - package: github.com/gorilla/schema
 - package: github.com/gorilla/websocket
   version: v1.1.0
+- package: github.com/tinylib/msgp
+  version: "1.0"
+  subpackages:
+  - msgp
 - package: github.com/t-k/fluent-logger-golang/
   version: v1.0.0
   subpackages:
