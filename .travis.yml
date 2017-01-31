@@ -6,10 +6,13 @@ before_install:
     - sudo pip install --user codecov
     - mkdir -p $GOPATH/bin
     - curl https://glide.sh/get | sh
+    - curl -s https://codecov.io/bash > codecov.sh
+    - chmod 755 ./codecov.sh
 
 install:
     - glide install
 
 script:
-    - go test "github.com/Comcast/webpa-common/concurrent" -race -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
-    - go test "github.com/Comcast/webpa-common/conlimiter" -race -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
+    - for package in $(go test ./... | grep -v vendor); do
+    -    echo $package
+    - done
