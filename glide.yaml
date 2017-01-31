@@ -7,6 +7,7 @@ import:
   - jws
   - jwt
 - package: github.com/billhathaway/consistentHash
+  version: addea16d2229dba874111898b45be7f4a78af631
 - package: github.com/gorilla/mux
   version: v1.3.0
 - package: github.com/gorilla/schema
@@ -24,7 +25,9 @@ import:
 - package: github.com/rubyist/circuitbreaker
   version: v2.2.0
 - package: github.com/spf13/pflag
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - package: github.com/spf13/viper
+  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
 - package: github.com/strava/go.serversets
   version: v1.0
 - package: github.com/stretchr/testify
@@ -32,5 +35,10 @@ import:
   subpackages:
   - mock
 - package: github.com/ugorji/go
+  version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
   - codec
+- package: github.com/c9s/goprocinfo
+  version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
+  subpackages:
+  - linux
