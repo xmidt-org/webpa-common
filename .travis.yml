@@ -2,29 +2,6 @@ language: go
 go: 
     - 1.7.3
 
-env:
-    - TEST_DIR=concurrent
-    - TEST_DIR=conlimiter
-    - TEST_DIR=device
-    - TEST_DIR=fact
-    - TEST_DIR=garbagetruck
-    - TEST_DIR=handler
-    - TEST_DIR=hash
-    - TEST_DIR=health
-    - TEST_DIR=httppool
-    - TEST_DIR=resource
-    - TEST_DIR=secure
-    - TEST_DIR=secure/key
-    - TEST_DIR=secure/tools/cmd/keyserver
-    - TEST_DIR=server
-    - TEST_DIR=service
-    - TEST_DIR=service/cmd/endpoint
-    - TEST_DIR=logging
-    - TEST_DIR=logging/golog
-    - TEST_DIR=store
-    - TEST_DIR=types
-    - TEST_DIR=wrp
-
 before_install:
     - sudo pip install --user codecov
     - mkdir -p $GOPATH/bin
@@ -34,7 +11,4 @@ install:
     - glide install
 
 script:
-    - cd $TEST_DIR && go test -coverprofile=coverage.txt
-
-after_success:
-    - bash <(curl -s https://codecov.io/bash)
+    - cd $TRAVIS_BUILD_DIR/concurrent && go test -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
