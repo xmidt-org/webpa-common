@@ -210,17 +210,17 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		mockValidator := record.handler.Validator.(*secure.MockValidator)
-		
+
 		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
 		request.Header.Set(record.headerName, authorizationValue)
 		response := httptest.NewRecorder()
-		
+
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 		token, _ := secure.ParseAuthorization(authorizationValue)
 		mockValidator.On("Validate", ctx, token).Return(true, nil).Once()
-		
+
 		mockHttpHandler := &mockHttpHandler{}
 		mockHttpHandler.On("ServeHTTP", response, request).
 			Run(func(arguments mock.Arguments) {
@@ -270,16 +270,16 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		mockValidator := record.handler.Validator.(*secure.MockValidator)
-		
+
 		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
 		request.Header.Set(record.headerName, authorizationValue)
-		
+
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 		token, _ := secure.ParseAuthorization(authorizationValue)
 		mockValidator.On("Validate", ctx, token).Return(false, errors.New("expected")).Once()
-		
+
 		response := httptest.NewRecorder()
 		mockHttpHandler := &mockHttpHandler{}
 

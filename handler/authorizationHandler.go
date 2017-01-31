@@ -75,11 +75,11 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			WriteJsonError(response, forbiddenStatusCode, message)
 			return
 		}
-		
+
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)	
-		
+		ctx = context.WithValue(ctx, "path", request.URL.Path)
+
 		valid, err := a.Validator.Validate(ctx, token)
 		if err != nil {
 			logger.Error("Validation error: %s", err.Error())

@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"context"
 	"github.com/Comcast/webpa-common/fact"
-	"golang.org/x/net/context"
 	"net/http"
 )
 

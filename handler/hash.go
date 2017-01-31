@@ -1,10 +1,10 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/hash"
-	"golang.org/x/net/context"
 	"net/http"
 )
 
