@@ -1,11 +1,11 @@
 package fact
 
 import (
+	"context"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"net/http"
 	"os"
 	"testing"
