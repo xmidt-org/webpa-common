@@ -14,7 +14,7 @@ import:
 - package: github.com/gorilla/websocket
   version: v1.1.0
 - package: github.com/ian-kent/go-log
-  version: v0.1
+  version: 5731446c36ab9f716106ce0731f484c50fdf1ad1
   subpackages:
   - appenders
   - layout
