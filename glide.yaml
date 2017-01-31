@@ -13,6 +13,10 @@ import:
 - package: github.com/gorilla/schema
 - package: github.com/gorilla/websocket
   version: v1.1.0
+- package: github.com/t-k/fluent-logger-golang/
+  version: v1.0.0
+  subpackages:
+  - fluent
 - package: github.com/ian-kent/go-log
   version: 5731446c36ab9f716106ce0731f484c50fdf1ad1
   subpackages:

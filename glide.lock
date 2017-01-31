@@ -1,5 +1,5 @@
-hash: ab2e548e681220cb3a1381ab6d6ff18ab82d0cab705055b79cf863a7b7aade1a
-updated: 2017-01-31T14:40:10.750466321-08:00
+hash: a5ba49db3e112b0fe5ef8a30087acb336d8ce87b212550f2373d3071da6f0376
+updated: 2017-01-31T15:03:28.105262942-08:00
 imports:
 - name: github.com/billhathaway/consistentHash
   version: addea16d2229dba874111898b45be7f4a78af631
@@ -81,6 +81,10 @@ imports:
   version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
   subpackages:
   - mock
+- name: github.com/t-k/fluent-logger-golang
+  version: 0f8ec08f2057a61574b6943e75045fffbeae894e
+  subpackages:
+  - fluent
 - name: github.com/ugorji/go
   version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
