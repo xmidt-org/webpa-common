@@ -27,9 +27,9 @@ env:
 
 before_install:
     - sudo pip install --user codecov
-    - curl https://glide.sh/get | sh
 
 install:
+    - curl https://glide.sh/get | sh
     - glide install
 
 script:
