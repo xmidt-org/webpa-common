@@ -10,4 +10,7 @@ for package in $(go list ./... | grep -v vendor); do
 
 	# this expects the .travis.yml to setup https://codecov.io/bash locally
 	./codecov.sh
+
+	# remove coverage.txt after each run, to avoid uploading coverage for packages without tests
+	rm coverage.txt
 done
