@@ -11,8 +11,5 @@ install:
     - glide install
 
 script:
-    - cd $TRAVIS_BUILD_DIR/concurrent && go test -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
-    - cd $TRAVIS_BUILD_DIR/conlimiter && go test -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
-    - cd $TRAVIS_BUILD_DIR/device && go test -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
-    - cd $TRAVIS_BUILD_DIR/fact && go test -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
-    - cd $TRAVIS_BUILD_DIR/garbagetruck && go test -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
+    - go test "github.com/Comcast/webpa-common/concurrent" -race -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
+    - go test "github.com/Comcast/webpa-common/conlimiter" -race -coverprofile=coverage.txt && bash <(curl -s https://codecov.io/bash)
