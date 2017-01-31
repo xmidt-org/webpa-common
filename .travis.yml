@@ -27,6 +27,10 @@ env:
 
 before_install:
     - sudo pip install --user codecov
+    - curl https://glide.sh/get | sh
+
+install:
+    - glide install
 
 script:
     - cd $TEST_DIR && go test -coverprofile=coverage.txt

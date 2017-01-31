@@ -1,0 +1,36 @@
+package: github.com/Comcast/webpa-common
+import:
+- package: github.com/SermoDigital/jose
+  version: "1.1"
+  subpackages:
+  - crypto
+  - jws
+  - jwt
+- package: github.com/billhathaway/consistentHash
+- package: github.com/gorilla/mux
+  version: v1.3.0
+- package: github.com/gorilla/schema
+- package: github.com/gorilla/websocket
+  version: v1.1.0
+- package: github.com/ian-kent/go-log
+  version: v0.1
+  subpackages:
+  - appenders
+  - layout
+  - levels
+  - logger
+- package: github.com/jtacoma/uritemplates
+  version: v1.0.0
+- package: github.com/rubyist/circuitbreaker
+  version: v2.2.0
+- package: github.com/spf13/pflag
+- package: github.com/spf13/viper
+- package: github.com/strava/go.serversets
+  version: v1.0
+- package: github.com/stretchr/testify
+  version: v1.1.4
+  subpackages:
+  - mock
+- package: github.com/ugorji/go
+  subpackages:
+  - codec
