@@ -26,7 +26,7 @@ var (
 	// ripped these test claims from the SATS swagger example
 	testClaims = jws.Claims{
 		"valid": true,
-		"scope": []interface{}{"x1:capability:read"},
+		"capabilities": []interface{}{"x1:webpa:api:.*:post"},
 		"allowedResources": map[string]interface{}{
 			"allowedDeviceIds":         []interface{}{"1641529834193109183"},
 			"allowedPartners":          []interface{}{"comcast, cox"},
