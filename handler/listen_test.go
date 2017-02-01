@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"net/http"
 	"testing"
 )

@@ -5,6 +5,7 @@ import (
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/httppool"
 	"github.com/stretchr/testify/mock"
+	"net/http"
 	"testing"
 )
 
@@ -14,6 +15,10 @@ type mockMonitor struct {
 
 func (monitor *mockMonitor) SendEvent(healthFunc health.HealthFunc) {
 	monitor.Called(healthFunc)
+}
+
+func (monitor *mockMonitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	monitor.Called(response, request)
 }
 
 func matchInc(stat health.Stat, delta int) interface{} {

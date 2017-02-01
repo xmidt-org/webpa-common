@@ -1,10 +1,10 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"mime"
 	"net/http"
 	"net/http/httptest"

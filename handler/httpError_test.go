@@ -2,11 +2,11 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"net/http"
 	"net/http/httptest"
 	"testing"

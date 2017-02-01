@@ -1,11 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/fact"
-	"golang.org/x/net/context"
 	"net/http"
 )
 

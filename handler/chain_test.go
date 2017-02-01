@@ -1,12 +1,12 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"net/http"
 	"os"
 	"testing"

@@ -2,13 +2,13 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/fact"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 	"net/http"
 	"os"
 	"testing"

@@ -1,0 +1,52 @@
+package: github.com/Comcast/webpa-common
+import:
+- package: github.com/SermoDigital/jose
+  version: "1.1"
+  subpackages:
+  - crypto
+  - jws
+  - jwt
+- package: github.com/billhathaway/consistentHash
+  version: addea16d2229dba874111898b45be7f4a78af631
+- package: github.com/gorilla/mux
+  version: v1.3.0
+- package: github.com/gorilla/schema
+- package: github.com/gorilla/websocket
+  version: v1.1.0
+- package: github.com/tinylib/msgp
+  version: "1.0"
+  subpackages:
+  - msgp
+- package: github.com/t-k/fluent-logger-golang/
+  version: v1.0.0
+  subpackages:
+  - fluent
+- package: github.com/ian-kent/go-log
+  version: 5731446c36ab9f716106ce0731f484c50fdf1ad1
+  subpackages:
+  - appenders
+  - layout
+  - levels
+  - logger
+- package: github.com/jtacoma/uritemplates
+  version: v1.0.0
+- package: github.com/rubyist/circuitbreaker
+  version: v2.2.0
+- package: github.com/spf13/pflag
+  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+- package: github.com/spf13/viper
+  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
+- package: github.com/strava/go.serversets
+  version: v1.0
+- package: github.com/stretchr/testify
+  version: v1.1.4
+  subpackages:
+  - mock
+- package: github.com/ugorji/go
+  version: d23841a297e5489e787e72fceffabf9d2994b52a
+  subpackages:
+  - codec
+- package: github.com/c9s/goprocinfo
+  version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
+  subpackages:
+  - linux

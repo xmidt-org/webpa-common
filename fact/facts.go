@@ -1,11 +1,11 @@
 package fact
 
 import (
+	"context"
 	"errors"
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
-	"golang.org/x/net/context"
 )
 
 const (
