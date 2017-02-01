@@ -18,12 +18,12 @@ var _ Watch = (*serversets.Watch)(nil)
 // Subscribe consumes watch events and invokes a subscription function with the endpoints.
 // The returned function can be called to cancel the subscription.  This returned cancellation
 // function is idempotent.
-func Subscribe(watch Watch, logger logging.Logger, subscription func([]string)) func() {
+func Subscribe(logger logging.Logger, watch Watch, subscription func([]string)) func() {
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
 
-	logger.Debug("Creating subscription for %v", watch)
+	logger.Debug("Creating subscription for %#v", watch)
 	cancel := make(chan struct{})
 	go func() {
 		defer func() {
@@ -88,7 +88,8 @@ func (a *accessorSubscription) Get(key []byte) (string, error) {
 }
 
 func (a *accessorSubscription) update(endpoints []string) {
-	a.value.Store(a.factory.New(endpoints))
+	accessor, _ := a.factory.New(endpoints)
+	a.value.Store(accessor)
 }
 
 // NewAccessorSubscription subscribes to a watch and updates an atomic Accessor in response
@@ -107,6 +108,6 @@ func NewAccessorSubscription(watch Watch, factory AccessorFactory, o *Options) A
 
 	// use update to initialze the atomic value
 	subscription.update(watch.Endpoints())
-	subscription.cancelFunc = Subscribe(watch, o.logger(), subscription.update)
+	subscription.cancelFunc = Subscribe(o.logger(), watch, subscription.update)
 	return subscription
 }

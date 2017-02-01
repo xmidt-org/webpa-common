@@ -2,11 +2,13 @@ package health
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -21,12 +23,14 @@ func setupHealth() *Health {
 }
 
 func TestLifecycle(t *testing.T) {
-	t.Log("starting TestLifecycle")
-	defer t.Log("TestLifecycle complete")
-	h := setupHealth()
+	var (
+		assert = assert.New(t)
+		h      = setupHealth()
 
-	healthWaitGroup := &sync.WaitGroup{}
-	shutdown := make(chan struct{})
+		healthWaitGroup = &sync.WaitGroup{}
+		shutdown        = make(chan struct{})
+	)
+
 	h.Run(healthWaitGroup, shutdown)
 
 	// verify initial state
@@ -35,15 +39,9 @@ func TestLifecycle(t *testing.T) {
 	testWaitGroup.Add(1)
 	h.SendEvent(func(stats Stats) {
 		defer testWaitGroup.Done()
-		t.Log("verifying initial state")
 		initialListenerCount = len(h.statsListeners)
-		if !reflect.DeepEqual(commonStats, h.stats) {
-			t.Errorf("Initial stats not set properly.  Expected %v, but got %v", commonStats, h.stats)
-		}
-
-		if !reflect.DeepEqual(commonStats, stats) {
-			t.Errorf("Stats not copied properly.  Expected %v, but got %v", commonStats, h.stats)
-		}
+		assert.Equal(NewStats(nil), stats)
+		assert.Equal(stats, h.stats)
 	})
 
 	h.AddStatsListener(StatsListenerFunc(func(Stats) {}))
@@ -98,13 +96,17 @@ func TestLifecycle(t *testing.T) {
 }
 
 func TestServeHTTP(t *testing.T) {
-	h := setupHealth()
-	shutdown := make(chan struct{})
+	var (
+		assert   = assert.New(t)
+		h        = setupHealth()
+		shutdown = make(chan struct{})
+
+		request  = httptest.NewRequest("GET", "http://something.net", nil)
+		response = httptest.NewRecorder()
+	)
+
 	h.Run(&sync.WaitGroup{}, shutdown)
 	defer close(shutdown)
-
-	request, _ := http.NewRequest("GET", "", nil)
-	response := httptest.NewRecorder()
 
 	h.ServeHTTP(response, request)
 
@@ -122,19 +124,119 @@ func TestServeHTTP(t *testing.T) {
 		t.Fatalf("Did not receive next event after ServeHTTP in the allotted time")
 	}
 
-	if response.Code != 200 {
-		t.Error("Status code was not 200.  got: %v", response.Code)
-	}
+	assert.Equal(200, response.Code)
 
 	var result Stats
-	if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
-		t.Fatalf("json Unmarshal error: %v", err)
-	}
+	assert.NoError(json.Unmarshal(response.Body.Bytes(), &result))
 
 	// each key in commonStats should be present in the output
-	for key, _ := range commonStats {
-		if _, ok := result[key]; !ok {
-			t.Errorf("Key %s not present in ServeHTTP results", key)
-		}
+	for _, stat := range memoryStats {
+		_, ok := result[stat.(Stat)]
+		assert.True(ok)
 	}
+}
+
+func TestHealthRequestTracker(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			expectedStatusCode int
+			expectedStats      Stats
+		}{
+			// success codes
+			{0, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{100, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{200, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{201, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{202, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{300, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+			{307, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
+
+			// failure codes
+			{400, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+			{404, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+			{500, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+			{523, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 0, TotalRequestsDenied: 1}},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		var (
+			monitor  = setupHealth()
+			shutdown = make(chan struct{})
+
+			handler  = new(mockHandler)
+			request  = httptest.NewRequest("GET", "http://something.com", nil)
+			response = httptest.NewRecorder()
+		)
+
+		monitor.Run(&sync.WaitGroup{}, shutdown)
+		defer close(shutdown)
+
+		handler.On("ServeHTTP", mock.MatchedBy(func(*ResponseWriter) bool { return true }), request).
+			Once().
+			Run(func(arguments mock.Arguments) {
+				arguments.Get(0).(http.ResponseWriter).WriteHeader(record.expectedStatusCode)
+			})
+
+		compositeHandler := monitor.RequestTracker(handler)
+		compositeHandler.ServeHTTP(response, request)
+		assert.Equal(record.expectedStatusCode, response.Code)
+
+		assertionWaitGroup := new(sync.WaitGroup)
+		assertionWaitGroup.Add(1)
+		monitor.SendEvent(
+			func(actualStats Stats) {
+				defer assertionWaitGroup.Done()
+				t.Logf("actual stats: %v", actualStats)
+				for stat, value := range record.expectedStats {
+					assert.Equal(value, actualStats[stat], fmt.Sprintf("%s should have been %d", stat, value))
+				}
+			},
+		)
+
+		assertionWaitGroup.Wait()
+		handler.AssertExpectations(t)
+	}
+}
+
+func TestHealthRequestTrackerDelegatePanic(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		monitor  = setupHealth()
+		shutdown = make(chan struct{})
+
+		handler  = new(mockHandler)
+		request  = httptest.NewRequest("GET", "http://something.com", nil)
+		response = httptest.NewRecorder()
+	)
+
+	monitor.Run(&sync.WaitGroup{}, shutdown)
+	defer close(shutdown)
+
+	handler.On("ServeHTTP", mock.MatchedBy(func(*ResponseWriter) bool { return true }), request).
+		Once().
+		Run(func(mock.Arguments) {
+			panic("expected")
+		})
+
+	compositeHandler := monitor.RequestTracker(handler)
+	compositeHandler.ServeHTTP(response, request)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+
+	assertionWaitGroup := new(sync.WaitGroup)
+	assertionWaitGroup.Add(1)
+	monitor.SendEvent(
+		func(actualStats Stats) {
+			defer assertionWaitGroup.Done()
+			assert.Equal(1, actualStats[TotalRequestsReceived])
+			assert.Equal(0, actualStats[TotalRequestsSuccessfullyServiced])
+			assert.Equal(1, actualStats[TotalRequestsDenied])
+		},
+	)
+
+	assertionWaitGroup.Wait()
+	handler.AssertExpectations(t)
 }

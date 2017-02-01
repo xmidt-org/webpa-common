@@ -4,21 +4,21 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 )
 
-func defaultMessageListener(Interface, *wrp.Message) {}
-func defaultConnectListener(Interface)               {}
-func defaultDisconnectListener(Interface)            {}
-func defaultPongListener(Interface, string)          {}
+func defaultMessageListener(Interface, []byte, *wrp.Message) {}
+func defaultConnectListener(Interface)                       {}
+func defaultDisconnectListener(Interface)                    {}
+func defaultPongListener(Interface, string)                  {}
 
 // MessageListener represents a sink for device messages
-type MessageListener func(Interface, *wrp.Message)
+type MessageListener func(Interface, []byte, *wrp.Message)
 
 // MessageListeners aggregates multiple listeners into one.  If this
 // method is passed zero (0) listeners, an internal default is used instead.
 func MessageListeners(listeners ...MessageListener) MessageListener {
 	if len(listeners) > 0 {
-		return func(device Interface, message *wrp.Message) {
+		return func(device Interface, raw []byte, message *wrp.Message) {
 			for _, l := range listeners {
-				l(device, message)
+				l(device, raw, message)
 			}
 		}
 	}

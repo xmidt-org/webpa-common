@@ -47,6 +47,35 @@ type Health struct {
 
 var _ Monitor = (*Health)(nil)
 
+// RequestTracker is an Alice-style constructor that wraps the given delegate in request-tracking
+// code.
+func (h *Health) RequestTracker(delegate http.Handler) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		h.SendEvent(Inc(TotalRequestsReceived, 1))
+		wrappedResponse := Wrap(response)
+
+		defer func() {
+			if r := recover(); r != nil {
+				h.log.Error("Delegate handler panicked: %s", r)
+
+				// TODO: Probably need an error stat instead of just "denied"
+				h.SendEvent(Inc(TotalRequestsDenied, 1))
+
+				if wrappedResponse.StatusCode() == 0 {
+					// only write the header if one has not been written yet
+					wrappedResponse.WriteHeader(http.StatusInternalServerError)
+				}
+			} else if wrappedResponse.StatusCode() < 400 {
+				h.SendEvent(Inc(TotalRequestsSuccessfullyServiced, 1))
+			} else {
+				h.SendEvent(Inc(TotalRequestsDenied, 1))
+			}
+		}()
+
+		delegate.ServeHTTP(wrappedResponse, request)
+	})
+}
+
 // AddStatsListener adds a new listener to this Health.  This method
 // is asynchronous.  The listener will eventually receive events, but callers
 // should not assume events will be dispatched immediately after this method call.
@@ -63,8 +92,7 @@ func (h *Health) SendEvent(healthFunc HealthFunc) {
 
 // New creates a Health object with the given statistics.
 func New(interval time.Duration, log logging.Logger, options ...Option) *Health {
-	initialStats := commonStats.Clone()
-	initialStats.Apply(options...)
+	initialStats := NewStats(options)
 
 	return &Health{
 		stats:            initialStats,

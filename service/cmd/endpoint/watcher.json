@@ -1,0 +1,7 @@
+{
+	"discovery": {
+		"servers": ["localhost:2181"],
+		"environment": "dev",
+		"serviceName": "talaria"
+	}
+}

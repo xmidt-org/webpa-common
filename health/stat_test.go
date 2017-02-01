@@ -93,7 +93,7 @@ func TestApply(t *testing.T) {
 
 	for _, record := range testData {
 		actual := record.initial.Clone()
-		actual.Apply(record.options...)
+		actual.Apply(record.options)
 		if !reflect.DeepEqual(record.expected, actual) {
 			t.Errorf("Expected %v, got %v", record.expected, actual)
 		}
@@ -328,8 +328,8 @@ func TestUpdateMemory(t *testing.T) {
 	stats.UpdateMemory(memInfoReader)
 
 	// each key in commonStats should be present in the output
-	for key := range commonStats {
-		if _, ok := stats[key]; !ok {
+	for _, key := range memoryStats {
+		if _, ok := stats[key.(Stat)]; !ok {
 			t.Errorf("Key %s not present in ServeHTTP results", key)
 		}
 	}

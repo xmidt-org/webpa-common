@@ -1,6 +1,7 @@
 package golog
 
 import (
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/ian-kent/go-log/appenders"
 	"github.com/ian-kent/go-log/levels"
@@ -33,11 +34,11 @@ func (a adapter) Printf(format string, parameters ...interface{}) {
 // LoggerFactory is the golog-specific factory for logs.  It is configurable
 // via JSON.
 type LoggerFactory struct {
-	File      string   `json:"file"`
-	Level     LogLevel `json:"level"`
-	Pattern   Pattern  `json:"pattern"`
-	MaxSize   int64    `json:"maxSize"`
-	MaxBackup int      `json:"maxBackup"`
+	File      string  `json:"file"`
+	Level     string  `json:"level"`
+	Pattern   Pattern `json:"pattern"`
+	MaxSize   int64   `json:"maxSize"`
+	MaxBackup int     `json:"maxBackup"`
 }
 
 var _ logging.LoggerFactory = (*LoggerFactory)(nil)
@@ -45,7 +46,7 @@ var _ logging.LoggerFactory = (*LoggerFactory)(nil)
 // NewAppender creates a golog Appender from this LoggerFactory's configuration
 func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
 	var appender appenders.Appender
-	if factory.File == ConsoleFileName {
+	if len(factory.File) == 0 || factory.File == ConsoleFileName {
 		appender = appenders.Console()
 	} else {
 		if _, err := os.Stat(factory.File); err != nil {
@@ -59,6 +60,10 @@ func (factory *LoggerFactory) NewAppender() (appenders.Appender, error) {
 		}
 
 		rollingFileAppender := appenders.RollingFile(factory.File, true)
+		if rollingFileAppender == nil {
+			return nil, fmt.Errorf("Unable to create rolling file: %s", factory.File)
+		}
+
 		rollingFileAppender.MaxFileSize = factory.MaxSize
 		rollingFileAppender.MaxBackupIndex = factory.MaxBackup
 		appender = rollingFileAppender
@@ -79,7 +84,7 @@ func (factory *LoggerFactory) NewLogger(name string) (logging.Logger, error) {
 		return nil, err
 	} else {
 		adapter := &adapter{logger.New(name)}
-		adapter.SetLevel(levels.LogLevel(factory.Level))
+		adapter.SetLevel(levels.StringToLogLevels[factory.Level])
 		adapter.SetAppender(appender)
 
 		return adapter, nil

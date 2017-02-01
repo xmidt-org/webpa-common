@@ -1,105 +1,205 @@
 package server
 
 import (
-	"encoding/json"
+	"errors"
 	"github.com/Comcast/webpa-common/concurrent"
+	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/logging/golog"
+	"net/http"
 	"sync"
+	"time"
 )
 
-// serverExecutor is a local interface describing the set of methods the underlying
-// server object must implement. *http.Server, for example, implements this interface.
-type serverExecutor interface {
+var (
+	// ErrorNoPrimaryAddress is the error returned when no primary address is specified in a WebPA instance
+	ErrorNoPrimaryAddress = errors.New("No primary address configured")
+)
+
+// executor is an internal type used to start an HTTP server.  *http.Server implements
+// this interface.  It can be mocked for testing.
+type executor interface {
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
+}
+
+// Secure exposes the optional certificate information to be used when starting an HTTP server.
+type Secure interface {
+	// Certificate returns the certificate information associated with this Secure instance.
+	// BOTH the returned file paths must be non-empty if a TLS server is desired.
+	Certificate() (certificateFile, keyFile string)
+}
+
+// ListenAndServe invokes the appropriate server method based on the secure information.
+// If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
+// is called to start the server.  Otherwise, e.ListenAndServe() is used.
+func ListenAndServe(logger logging.Logger, s Secure, e executor) {
+	certificateFile, keyFile := s.Certificate()
+	if len(certificateFile) > 0 && len(keyFile) > 0 {
+		go func() {
+			logger.Error(
+				e.ListenAndServeTLS(certificateFile, keyFile),
+			)
+		}()
+	} else {
+		go func() {
+			logger.Error(
+				e.ListenAndServe(),
+			)
+		}()
+	}
+}
+
+// Basic describes a simple HTTP server.  Typically, this struct has its values
+// injected via Viper.  See the New function in this package.
+type Basic struct {
+	Name               string
+	Address            string
+	CertificateFile    string
+	KeyFile            string
+	LogConnectionState bool
+}
+
+func (b *Basic) Certificate() (certificateFile, keyFile string) {
+	return b.CertificateFile, b.KeyFile
+}
+
+// New creates an http.Server using this instance's configuration.  The given logger is required,
+// but the handler may be nil.  If the handler is nil, http.DefaultServeMux is used, which matches
+// the behavior of http.Server.
+//
+// This method returns nil if the configured address is empty, effectively disabling
+// this server from startup.
+func (b *Basic) New(logger logging.Logger, handler http.Handler) *http.Server {
+	if len(b.Address) == 0 {
+		return nil
+	}
+
+	server := &http.Server{
+		Addr:     b.Address,
+		Handler:  handler,
+		ErrorLog: NewErrorLog(b.Name, logger),
+	}
+
+	if b.LogConnectionState {
+		server.ConnState = NewConnectionStateLogger(b.Name, logger)
+	}
+
+	return server
+}
+
+// Health represents a configurable factory for a Health server.
+//
+// Due to a limitation of Viper, this struct does not use an embedded Basic
+// instance.  Rather, it duplicates the fields so that Viper can inject them.
+type Health struct {
+	Name               string
+	Address            string
+	CertificateFile    string
+	KeyFile            string
+	LogConnectionState bool
+	LogInterval        time.Duration
+	Options            []string
+}
+
+func (h *Health) Certificate() (certificateFile, keyFile string) {
+	return h.CertificateFile, h.KeyFile
+}
+
+// New creates both a health.Health monitor (which is also an HTTP handler) and an HTTP server
+// which services health requests.
+//
+// This method returns nils if the configured Address is empty, which effectively disables
+// the health server.
+func (h *Health) New(logger logging.Logger) (handler *health.Health, server *http.Server) {
+	if len(h.Address) == 0 {
+		return
+	}
+
+	options := make([]health.Option, 0, len(h.Options))
+	for _, value := range h.Options {
+		options = append(options, health.Stat(value))
+	}
+
+	handler = health.New(
+		h.LogInterval,
+		logger,
+		options...,
+	)
+
+	server = &http.Server{
+		Addr:     h.Address,
+		Handler:  handler,
+		ErrorLog: NewErrorLog(h.Name, logger),
+	}
+
+	if h.LogConnectionState {
+		server.ConnState = NewConnectionStateLogger(h.Name, logger)
+	}
+
+	return
 }
 
 // WebPA represents a server component within the WebPA cluster.  It is used for both
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
 type WebPA struct {
-	name            string
-	address         string
-	serverExecutor  serverExecutor
-	certificateFile string
-	keyFile         string
-	logger          logging.Logger
-	once            sync.Once
+	// Primary is the main server for this application, e.g. petasos.
+	Primary Basic
+
+	// Alternate is an alternate server which serves the primary application logic.
+	// Used to have the same API served on more than one port and possibly more than
+	// one protocol, e.g. HTTP and HTTPS.
+	Alternate Basic
+
+	// Health describes the health server for this application.  Note that if the Address
+	// is empty, no health server is started.
+	Health Health
+
+	// Pprof describes the pprof server for this application.  Note that if the Address
+	// is empty, no pprof server is started.
+	Pprof Basic
+
+	// Log is the logging configuration for this application.
+	Log golog.LoggerFactory
 }
 
-var _ concurrent.Runnable = (*WebPA)(nil)
-
-func (w *WebPA) Name() string {
-	return w.name
-}
-
-func (w *WebPA) Address() string {
-	return w.address
-}
-
-func (w *WebPA) CertificateFile() string {
-	return w.certificateFile
-}
-
-func (w *WebPA) KeyFile() string {
-	return w.keyFile
-}
-
-func (w *WebPA) Secure() bool {
-	return len(w.certificateFile) > 0 && len(w.keyFile) > 0
-}
-
-func (w *WebPA) Logger() logging.Logger {
-	return w.logger
-}
-
-func (w *WebPA) String() string {
-	data, err := w.MarshalJSON()
-	if err != nil {
-		return err.Error()
-	}
-
-	return string(data)
-}
-
-func (w *WebPA) MarshalJSON() ([]byte, error) {
-	data := struct {
-		Name            string `json:"name"`
-		Address         string `json:"address"`
-		CertificateFile string `json:"cert"`
-		KeyFile         string `json:"key"`
-	}{
-		Name:            w.name,
-		Address:         w.address,
-		CertificateFile: w.certificateFile,
-		KeyFile:         w.keyFile,
-	}
-
-	return json.Marshal(&data)
-}
-
-// Run executes this WebPA server.  If both certificateFile and keyFile are non-empty, this method will start
-// an HTTPS server using the configured certificate and key.  Otherwise, it will
-// start an HTTP server on a separate goroutine and return.
+// Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
+// Runnable may return an error.  The supplied logger will usually come from the New function, but the
+// WebPA.Log object can be used to create a different logger if desired.
 //
-// This method allows WebPA to implement concurrent.Runnable.  However, neither parameter to this method
-// is used.  Because of the way net/http starts servers, there's no controlled way to shut them down.
-//
-// Run is idemptotent.  It can only be execute once, and subsequent invocations have
-// no effect.
-func (w *WebPA) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-	w.once.Do(func() {
-		go func() {
-			var err error
-			w.logger.Info("Starting [%s]", w)
-			if w.Secure() {
-				err = w.serverExecutor.ListenAndServeTLS(w.certificateFile, w.keyFile)
-			} else {
-				err = w.serverExecutor.ListenAndServe()
-			}
+// The supplied http.Handler is used for the primary server.  If the alternate server has an address,
+// it will also be used for that server.  The health server uses an internally create handler, while the pprof
+// server uses http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
+// infrastructure can make use of it.
+func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+	healthHandler, healthServer := w.Health.New(logger)
+	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+		if healthHandler != nil && healthServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Health.Name, w.Health.Address)
+			ListenAndServe(logger, &w.Health, healthServer)
+			healthHandler.Run(waitGroup, shutdown)
 
-			w.logger.Error("%s exiting: %v", w, err)
-		}()
+			// wrap the primary handler in the RequestTracker decorator
+			primaryHandler = healthHandler.RequestTracker(primaryHandler)
+		}
+
+		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Pprof.Name, w.Pprof.Address)
+			ListenAndServe(logger, &w.Pprof, pprofServer)
+		}
+
+		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Primary.Name, w.Primary.Address)
+			ListenAndServe(logger, &w.Primary, primaryServer)
+		} else {
+			return ErrorNoPrimaryAddress
+		}
+
+		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
+			logger.Info("Starting [%s] on [%s]", w.Alternate.Name, w.Alternate.Address)
+			ListenAndServe(logger, &w.Alternate, alternateServer)
+		}
+
+		return nil
 	})
-
-	return nil
 }

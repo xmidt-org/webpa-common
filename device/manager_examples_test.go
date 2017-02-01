@@ -11,7 +11,7 @@ import (
 func ExampleManagerSimple() {
 	options := &Options{
 		Logger: &logging.LoggerWriter{ioutil.Discard},
-		MessageListener: func(device Interface, message *wrp.Message) {
+		MessageListener: func(device Interface, raw []byte, message *wrp.Message) {
 			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 			err := device.Send(
 				wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
@@ -40,14 +40,13 @@ func ExampleManagerSimple() {
 	}
 
 	defer connection.Close()
-
 	requestMessage := wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", []byte("Billy Corgan, Smashing Pumpkins"))
 	if err := connection.Write(requestMessage); err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to send event: %s", err)
 		return
 	}
 
-	responseMessage, err := connection.Read()
+	_, responseMessage, err := connection.Read()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to read response: %s", err)
 		return

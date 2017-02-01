@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-// NewErrorLog creates a new log.Logger appropriate for http.Server.ErrorLog
+// NewErrorLog creates a new logging.Logger appropriate for http.Server.ErrorLog
 func NewErrorLog(serverName string, logger logging.Logger) *log.Logger {
 	return log.New(&logging.ErrorWriter{logger}, serverName, log.LstdFlags|log.LUTC)
 }

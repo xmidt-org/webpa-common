@@ -9,11 +9,15 @@ import (
 
 func TestDefaultListeners(t *testing.T) {
 	t.Log("smoke test for the internal default listeners")
-	device := new(mockDevice)
-	message := new(wrp.Message)
-	pongData := "some lovely pong data!"
 
-	defaultMessageListener(device, message)
+	var (
+		device   = new(mockDevice)
+		raw      = make([]byte, 10)
+		message  = new(wrp.Message)
+		pongData = "some lovely pong data!"
+	)
+
+	defaultMessageListener(device, raw, message)
 	defaultConnectListener(device)
 	defaultDisconnectListener(device)
 	defaultPongListener(device, pongData)
@@ -32,20 +36,24 @@ func TestMessageListeners(t *testing.T) {
 	}
 
 	for _, listeners := range testData {
-		expectedDevice := new(mockDevice)
-		expectedMessage := new(wrp.Message)
+		var (
+			expectedDevice  = new(mockDevice)
+			expectedRaw     = []byte("test raw")
+			expectedMessage = new(wrp.Message)
+		)
 
 		actualCallCount := 0
 		for index, _ := range listeners {
-			listeners[index] = func(actualDevice Interface, actualMessage *wrp.Message) {
+			listeners[index] = func(actualDevice Interface, actualRaw []byte, actualMessage *wrp.Message) {
 				assert.True(expectedDevice == actualDevice)
+				assert.Equal(expectedRaw, actualRaw)
 				assert.True(expectedMessage == actualMessage)
 				actualCallCount++
 			}
 		}
 
 		messageListener := MessageListeners(listeners...)
-		messageListener(expectedDevice, expectedMessage)
+		messageListener(expectedDevice, expectedRaw, expectedMessage)
 
 		assert.Equal(len(listeners), actualCallCount)
 		expectedDevice.AssertExpectations(t)
