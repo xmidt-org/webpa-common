@@ -14,10 +14,13 @@ import (
 	"time"
 )
 
-func ExampleSimpleJWSValidator() {
+func ExampleSimpleJWSValidator(t *testing.T) {
 	// A basic validator with useful defaults
 	// We need to use the publicKeyResolver, as that's what validates
 	// the JWS signed with the private key
+	
+	assert := assert.New(t)
+	
 	validator := JWSValidator{
 		Resolver: publicKeyResolver,
 	}
@@ -27,11 +30,14 @@ func ExampleSimpleJWSValidator() {
 		value:     string(testSerializedJWT),
 	}
 
-	valid, err := validator.Validate(nil, token)
-	fmt.Println(valid, err)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "method", "post")
+	ctx = context.WithValue(ctx, "path", "/api/foo/path")
 
-	// Output:
-	// true <nil>
+	valid, err := validator.Validate(ctx, token)
+
+	assert.True(valid)
+	assert.Nil(err)
 }
 
 func TestValidatorFunc(t *testing.T) {
@@ -225,6 +231,74 @@ func TestJWSValidatorNoSigningMethod(t *testing.T) {
 	}
 }
 
+func TestJWSValidatorCapabilities(t *testing.T) {
+	assert := assert.New(t)
+
+	ctxValid := context.Background()
+	ctxValid = context.WithValue(ctxValid, "method", "post")
+	ctxValid = context.WithValue(ctxValid, "path", "/api/foo/path")
+	
+	ctxInvalidMethod := context.Background()
+	ctxInvalidMethod = context.WithValue(ctxInvalidMethod, "method", "get")
+	ctxInvalidMethod = context.WithValue(ctxInvalidMethod, "path", "/api/foo/path")
+	
+	ctxInvalidPath := context.Background()
+	ctxInvalidPath = context.WithValue(ctxInvalidPath, "method", "post")
+	ctxInvalidPath = context.WithValue(ctxInvalidPath, "path", "/ipa/foo/path")
+
+	var testData = []struct {
+		context       context.Context
+		expectedValid bool
+		useVerify        bool
+	}{
+		{ctxValid, true, true},
+		{ctxInvalidMethod, false, false},
+		{ctxInvalidPath, false, false},
+		{context.Background(), false, false},
+	}
+
+	for _, record := range testData {
+		t.Logf("%v", record)
+		token := &Token{tokenType: Bearer, value: "does not matter"}
+
+		mockPair := &key.MockPair{}
+		expectedPublicKey := interface{}(123)
+		if record.useVerify {
+			mockPair.On("Public").Return(expectedPublicKey).Once()
+		}
+		
+		mockResolver := &key.MockResolver{}
+		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(mockPair, nil).Once()
+
+		expectedSigningMethod := jws.GetSigningMethod("RS256")
+		assert.NotNil(expectedSigningMethod)
+
+		mockJWS := &mockJWS{}
+		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
+		if record.useVerify {
+			mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(nil).Once()
+		}
+		mockJWS.On("Payload").Return(testClaims).Once()
+
+		mockJWSParser := &mockJWSParser{}
+		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
+
+		validator := &JWSValidator{
+			Resolver: mockResolver,
+			Parser:   mockJWSParser,
+		}
+
+		valid, err := validator.Validate(record.context, token)
+		assert.Equal(record.expectedValid, valid)
+		assert.Nil(err)
+
+		mockPair.AssertExpectations(t)
+		mockResolver.AssertExpectations(t)
+		mockJWS.AssertExpectations(t)
+		mockJWSParser.AssertExpectations(t)
+	}
+}
+
 // TestJWSValidatorResolverError also tests the correct key id determination
 // when the header has a "kid" field vs the JWSValidator.DefaultKeyId member being set.
 func TestJWSValidatorResolverError(t *testing.T) {
@@ -299,10 +373,7 @@ func TestJWSValidatorVerify(t *testing.T) {
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
 		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(record.expectedVerifyError).Once()
-
-		claims := make(jws.Claims)
-		claims.Set("capabilities", []string{"x1:webpa:api:.*:all"})
-		mockJWS.On("Payload").Return(claims).Once()
+		mockJWS.On("Payload").Return(testClaims).Once()
 
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
@@ -312,9 +383,9 @@ func TestJWSValidatorVerify(t *testing.T) {
 			Parser:   mockJWSParser,
 		}
 
-		ctx := *new(context.Context)
+		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", "post")
-		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
+		ctx = context.WithValue(ctx, "path", "/api/foo/path")
 
 		valid, err := validator.Validate(ctx, token)
 		assert.Equal(record.expectedValid, valid)
@@ -360,10 +431,7 @@ func TestJWSValidatorValidate(t *testing.T) {
 		mockJWS.On("Validate", expectedPublicKey, expectedSigningMethod, record.expectedJWTValidators).
 			Return(record.expectedValidateError).
 			Once()
-
-		claims := make(jws.Claims)
-		claims.Set("capabilities", []string{"x1:webpa:api:.*:all"})
-		mockJWS.On("Payload").Return(claims).Once()
+		mockJWS.On("Payload").Return(testClaims).Once()
 
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
@@ -374,7 +442,7 @@ func TestJWSValidatorValidate(t *testing.T) {
 			JWTValidators: record.expectedJWTValidators,
 		}
 		
-		ctx := *new(context.Context)
+		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", "post")
 		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
 

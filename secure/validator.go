@@ -71,6 +71,24 @@ type JWSValidator struct {
 	JWTValidators []*jwt.Validator
 }
 
+// capabilityValidation determines if a claim's capability is valid
+func capabilityValidation(ctx context.Context, capability string) (valid_capabilities bool) {
+	pieces := strings.Split(capability, ":")
+	
+	if len(pieces) == 5     &&
+	   pieces[0] == "x1"    && 
+	   pieces[1] == "webpa" {
+		
+		method_value, ok := ctx.Value("method").(string)
+		if ok && (pieces[4] == "all" || strings.EqualFold(pieces[4], method_value)) {
+			claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
+			valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
+		}
+	}
+	
+	return
+}
+
 func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, err error) {
 	if token.Type() != Bearer {
 		return
@@ -109,24 +127,25 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 		return
 	}
 	
-	if caps, ok := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); ok && len(caps) > 0 {
-		var valid_capabilities bool
+	// validate jwt token claims capabilities
+	var valid_capabilities bool
+	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
 		for c:=0; c < len(caps) && !valid_capabilities; c++ {
-			pieces := strings.Split(caps[c], ":")
-			
-			if len(pieces) == 5     &&
-			   pieces[0] == "x1"    && 
-			   pieces[1] == "webpa" && 
-			  (pieces[4] == "all" || pieces[4] == ctx.Value("method")) {
-				
-				claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
-				valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
+			if cap_value, ok := caps[c].(string); ok {
+				valid_capabilities = capabilityValidation(ctx, cap_value)
 			}
 		}
-		
-		if !valid_capabilities {
-			return
+	} else if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); capOkay && len(caps) > 0 {
+		for c:=0; c < len(caps) && !valid_capabilities; c++ {
+			valid_capabilities = capabilityValidation(ctx, caps[c])
 		}
+	} else {
+		return
+	}
+	
+	// if no valid capabilities where found the token is not valid
+	if !valid_capabilities {
+		return
 	}
 	
 	if len(v.JWTValidators) > 0 {
