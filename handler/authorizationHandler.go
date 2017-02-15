@@ -89,7 +89,11 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			return
 		}
 
-		logger.Error("Request denied: %s", request)
+		reqLogMsg := fmt.Sprintf("Request {Method: %s, URL: %s, User-Agent: %s, ContentLength: %d, RemoteAddr: %s}",
+		                         request.Method, request.URL.String(), request.Header.Get("User-Agent"), 
+		                         request.ContentLength, request.RemoteAddr)
+
+		logger.Error("Request denied: %s", reqLogMsg)
 		response.WriteHeader(forbiddenStatusCode)
 	})
 }
