@@ -249,12 +249,11 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	var testData = []struct {
 		context       context.Context
 		expectedValid bool
-		useVerify        bool
 	}{
-		{ctxValid, true, true},
-		{ctxInvalidMethod, false, false},
-		{ctxInvalidPath, false, false},
-		{context.Background(), false, false},
+		{ctxValid, true},
+		{ctxInvalidMethod, false},
+		{ctxInvalidPath, false},
+		{context.Background(), false},
 	}
 
 	for _, record := range testData {
@@ -263,9 +262,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 
 		mockPair := &key.MockPair{}
 		expectedPublicKey := interface{}(123)
-		if record.useVerify {
-			mockPair.On("Public").Return(expectedPublicKey).Once()
-		}
+		mockPair.On("Public").Return(expectedPublicKey).Once()
 		
 		mockResolver := &key.MockResolver{}
 		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(mockPair, nil).Once()
@@ -275,9 +272,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
-		if record.useVerify {
-			mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(nil).Once()
-		}
+		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(nil).Once()
 		mockJWS.On("Payload").Return(testClaims).Once()
 
 		mockJWSParser := &mockJWSParser{}
@@ -373,7 +368,9 @@ func TestJWSValidatorVerify(t *testing.T) {
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
 		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(record.expectedVerifyError).Once()
-		mockJWS.On("Payload").Return(testClaims).Once()
+		if record.expectedVerifyError == nil {
+			mockJWS.On("Payload").Return(testClaims).Once()
+		}
 
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
@@ -431,7 +428,9 @@ func TestJWSValidatorValidate(t *testing.T) {
 		mockJWS.On("Validate", expectedPublicKey, expectedSigningMethod, record.expectedJWTValidators).
 			Return(record.expectedValidateError).
 			Once()
-		mockJWS.On("Payload").Return(testClaims).Once()
+		if record.expectedValidateError == nil {
+			mockJWS.On("Payload").Return(testClaims).Once()
+		}
 
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()

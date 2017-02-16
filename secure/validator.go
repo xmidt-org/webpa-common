@@ -127,27 +127,7 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 		return
 	}
 	
-	// validate jwt token claims capabilities
-	var valid_capabilities bool
-	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
-		for c:=0; c < len(caps) && !valid_capabilities; c++ {
-			if cap_value, ok := caps[c].(string); ok {
-				valid_capabilities = capabilityValidation(ctx, cap_value)
-			}
-		}
-	} else if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); capOkay && len(caps) > 0 {
-		for c:=0; c < len(caps) && !valid_capabilities; c++ {
-			valid_capabilities = capabilityValidation(ctx, caps[c])
-		}
-	} else {
-		return
-	}
-	
-	// if no valid capabilities where found the token is not valid
-	if !valid_capabilities {
-		return
-	}
-	
+	// validate the signature
 	if len(v.JWTValidators) > 0 {
 		// all JWS implementations also implement jwt.JWT
 		err = jwsToken.(jwt.JWT).Validate(pair.Public(), signingMethod, v.JWTValidators...)
@@ -155,7 +135,30 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 		err = jwsToken.Verify(pair.Public(), signingMethod)
 	}
 
-	valid = (err == nil)
+	if nil != err {
+		return
+	}
+
+	// validate jwt token claims capabilities
+	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
+		for c := 0; c < len(caps); c++ {
+			if cap_value, ok := caps[c].(string); ok {
+				if valid = capabilityValidation(ctx, cap_value); valid {
+					return
+				}
+			}
+		}
+	}
+/*	
+	else if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); capOkay && len(caps) > 0 {
+		for c := 0; c < len(caps); c++ {
+			if valid = capabilityValidation(ctx, caps[c]); valid {
+				return
+			}
+		}
+	}
+*/
+	// This fail
 	return
 }
 
