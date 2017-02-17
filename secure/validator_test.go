@@ -295,6 +295,18 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxInvalidHealth = context.WithValue(ctxInvalidHealth, "method", "get")
 	ctxInvalidHealth = context.WithValue(ctxInvalidHealth, "path", "/health")
 	
+	ctxValidEvent := context.Background()
+	ctxValidEvent = context.WithValue(ctxValidEvent, "method", "post")
+	ctxValidEvent = context.WithValue(ctxValidEvent, "path", "/api/v2/notify/mac:112233445566/event/device-status")
+	
+	ctxValidStat := context.Background()
+	ctxValidStat = context.WithValue(ctxValidStat, "method", "get")
+	ctxValidStat = context.WithValue(ctxValidStat, "path", "/api/v2/device/mac:112233445566/stat")
+	validStatClaims := jws.Claims{
+		"capabilities": []interface{}{
+			"x1:webpa:api:device/.*/stat:get",
+		},
+	}
 	
 	var testData = []struct {
 		context       context.Context
@@ -312,6 +324,8 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		{ctxValidHook, defaultClaims, true},
 		{ctxValidHooks, defaultClaims, true},
 		{ctxInvalidHealth, defaultClaims, false},
+		{ctxValidEvent, defaultClaims, true},
+		{ctxValidStat, validStatClaims, true},
 	}
 
 	for _, record := range testData {
