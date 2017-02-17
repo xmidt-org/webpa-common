@@ -149,15 +149,7 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 			}
 		}
 	}
-/*	
-	else if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]string); capOkay && len(caps) > 0 {
-		for c := 0; c < len(caps); c++ {
-			if valid = capabilityValidation(ctx, caps[c]); valid {
-				return
-			}
-		}
-	}
-*/
+	
 	// This fail
 	return
 }
