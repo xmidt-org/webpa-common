@@ -258,8 +258,8 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "path", "/ipa/foo/path")
 	
 	ctxValidConfig := context.Background()
-	ctxValidConfig = context.WithValue(ctxValid, "method", "get")
-	ctxValidConfig = context.WithValue(ctxValid, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
+	ctxValidConfig = context.WithValue(ctxValidConfig, "method", "get")
+	ctxValidConfig = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
 	validConfigClaims := jws.Claims{
 		"capabilities": []interface{}{
 			"x1:webpa:api:device/.*/config/?.*:get",
@@ -267,8 +267,8 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	}
 	
 	ctxInvalidConfig := context.Background()
-	ctxInvalidConfig = context.WithValue(ctxValid, "method", "get")
-	ctxInvalidConfig = context.WithValue(ctxValid, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
+	ctxInvalidConfig = context.WithValue(ctxInvalidConfig, "method", "get")
+	ctxInvalidConfig = context.WithValue(ctxInvalidConfig, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
 	invalidConfigClaims := jws.Claims{
 		"capabilities": []interface{}{
 			"x1:webpa:api:device/.*/config/.*:get",
