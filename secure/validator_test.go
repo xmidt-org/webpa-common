@@ -257,6 +257,14 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "method", "post")
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "path", "/ipa/foo/path")
 	
+	ctxInvalidApi := context.Background()
+	ctxInvalidApi = context.WithValue(ctxInvalidApi, "method", "get")
+	ctxInvalidApi = context.WithValue(ctxInvalidApi, "path", "/api")
+	
+	ctxInvalidVersion := context.Background()
+	ctxInvalidVersion = context.WithValue(ctxInvalidVersion, "method", "get")
+	ctxInvalidVersion = context.WithValue(ctxInvalidVersion, "path", "/api/v2")
+	
 	ctxValidConfig := context.Background()
 	ctxValidConfig = context.WithValue(ctxValidConfig, "method", "get")
 	ctxValidConfig = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
@@ -283,9 +291,9 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxValidHooks = context.WithValue(ctxValidHooks, "method", "get")
 	ctxValidHooks = context.WithValue(ctxValidHooks, "path", "/api/v2/hooks")
 
-	ctxValidHealth := context.Background()
-	ctxValidHealth = context.WithValue(ctxValidHealth, "method", "get")
-	ctxValidHealth = context.WithValue(ctxValidHealth, "path", "/health")
+	ctxInvalidHealth := context.Background()
+	ctxInvalidHealth = context.WithValue(ctxInvalidHealth, "method", "get")
+	ctxInvalidHealth = context.WithValue(ctxInvalidHealth, "path", "/health")
 	
 	
 	var testData = []struct {
@@ -297,11 +305,13 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		{context.Background(), defaultClaims, false},
 		{ctxInvalidMethod, testClaims, false},
 		{ctxInvalidPath, defaultClaims, false},
+		{ctxInvalidApi, defaultClaims, false},
+		{ctxInvalidVersion, defaultClaims, false},
 		{ctxValidConfig, validConfigClaims, true},
 		{ctxInvalidConfig, invalidConfigClaims, false},
 		{ctxValidHook, defaultClaims, true},
 		{ctxValidHooks, defaultClaims, true},
-		{ctxValidHealth, defaultClaims, false},
+		{ctxInvalidHealth, defaultClaims, false},
 	}
 
 	for _, record := range testData {
