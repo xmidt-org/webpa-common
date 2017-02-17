@@ -234,6 +234,17 @@ func TestJWSValidatorNoSigningMethod(t *testing.T) {
 func TestJWSValidatorCapabilities(t *testing.T) {
 	assert := assert.New(t)
 
+	defaultClaims := jws.Claims{
+		"capabilities": []interface{}{
+			"x1:webpa:api:.*:all",
+			"x1:webpa:api:device/.*/config/.*:all",
+			"x1:webpa:api:device/.*/config/.*:get",
+			"x1:webpa:api:device/.*/stat:get",
+			"x1:webpa:api:hook:post",
+			"x1:webpa:api:hooks:get",
+		},
+	}
+
 	ctxValid := context.Background()
 	ctxValid = context.WithValue(ctxValid, "method", "post")
 	ctxValid = context.WithValue(ctxValid, "path", "/api/foo/path")
@@ -245,15 +256,36 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxInvalidPath := context.Background()
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "method", "post")
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "path", "/ipa/foo/path")
+	
+	ctxValidConfig := context.Background()
+	ctxValidConfig = context.WithValue(ctxValid, "method", "get")
+	ctxValidConfig = context.WithValue(ctxValid, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
+	validConfigClaims := jws.Claims{
+		"capabilities": []interface{}{
+			"x1:webpa:api:device/.*/config/?.*:get",
+		},
+	}
+	
+	ctxInvalidConfig := context.Background()
+	ctxInvalidConfig = context.WithValue(ctxValid, "method", "get")
+	ctxInvalidConfig = context.WithValue(ctxValid, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
+	invalidConfigClaims := jws.Claims{
+		"capabilities": []interface{}{
+			"x1:webpa:api:device/.*/config/.*:get",
+		},
+	}
 
 	var testData = []struct {
 		context       context.Context
+		claims        jws.Claims
 		expectedValid bool
 	}{
-		{ctxValid, true},
-		{ctxInvalidMethod, false},
-		{ctxInvalidPath, false},
-		{context.Background(), false},
+		{ctxValid, defaultClaims, true},
+		{context.Background(), defaultClaims, false},
+		{ctxInvalidMethod, testClaims, false},
+		{ctxInvalidPath, defaultClaims, false},
+		{ctxValidConfig, validConfigClaims, true},
+		{ctxInvalidConfig, invalidConfigClaims, false},
 	}
 
 	for _, record := range testData {
@@ -273,7 +305,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		mockJWS := &mockJWS{}
 		mockJWS.On("Protected").Return(jose.Protected{"alg": "RS256"}).Once()
 		mockJWS.On("Verify", expectedPublicKey, expectedSigningMethod).Return(nil).Once()
-		mockJWS.On("Payload").Return(testClaims).Once()
+		mockJWS.On("Payload").Return(record.claims).Once()
 
 		mockJWSParser := &mockJWSParser{}
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
