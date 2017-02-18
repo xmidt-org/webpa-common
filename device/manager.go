@@ -9,9 +9,10 @@ import (
 	"time"
 )
 
-// Manager supplies a hub for connecting and disconnecting devices as well as
-// an access point for obtaining device metadata.
-type Manager interface {
+// Connector is a strategy interface for managing device connections to a server.
+// Implementations are responsible for upgrading websocket connections and providing
+// for explicit disconnection.
+type Connector interface {
 	// Connect upgrade an HTTP connection to a websocket and begins concurrent
 	// managment of the device.
 	Connect(http.ResponseWriter, *http.Request, http.Header) (Interface, error)
@@ -26,6 +27,27 @@ type Manager interface {
 	// returns the count of devices disconnected, which will be zero (0) if no device existed
 	// or one (1) if there was a device with that key.
 	DisconnectOne(Key) int
+}
+
+// Router handles dispatching messages to devices.
+type Router interface {
+	// Route examines the given WRP message to determine the destination, then
+	// sends that message to the appropriate device(s).  The ID of the device(s)
+	// to which the message was sent is returned.
+	Route(*wrp.Message) (ID, error)
+
+	// RouteUsing uses a WRP message for routing information, but actually sends the
+	// supplied bytes as the message.
+	//
+	// This method is useful when reading a WRP message from another source.  It avoids
+	// the overhead of reserializing the message.
+	RouteUsing(*wrp.Message, []byte) (ID, error)
+}
+
+// Manager supplies a hub for connecting and disconnecting devices as well as
+// an access point for obtaining device metadata.
+type Manager interface {
+	Connector
 
 	// DisconnectIf iterates over all devices known to this manager, applying the
 	// given predicate.  For any devices that result in true, this method disconnects them.
