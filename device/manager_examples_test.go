@@ -43,11 +43,17 @@ func ExampleManagerSimple() {
 	defer connection.Close()
 	var (
 		requestMessage = wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", []byte("Billy Corgan, Smashing Pumpkins"))
-		encoder        = wrp.NewEncoder(connection, wrp.Msgpack)
+		requestBuffer  bytes.Buffer
+		encoder        = wrp.NewEncoder(&requestBuffer, wrp.Msgpack)
 	)
 
 	if err := encoder.Encode(requestMessage); err != nil {
-		fmt.Printf("Unable to send event: %s\n", err)
+		fmt.Printf("Unable to encode request: %s\n", err)
+		return
+	}
+
+	if _, err := connection.Write(requestBuffer.Bytes()); err != nil {
+		fmt.Printf("Unable to send request: %s\n", err)
 		return
 	}
 

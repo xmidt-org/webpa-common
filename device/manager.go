@@ -257,6 +257,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
+		frameBuffer.Reset()
 		frameRead, readError = c.Read(&frameBuffer)
 		if readError != nil {
 			return
