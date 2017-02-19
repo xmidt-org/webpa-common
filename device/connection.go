@@ -14,16 +14,31 @@ const (
 // Connection represents a websocket connection to a WebPA-compatible device.
 // Connection implementations abstract the semantics of serverside WRP message
 // handling and enforce policies like idleness.
+//
+// Connection implements both io.Writer and io.Closer, making it convenient for
+// direct encoding via wrp.Encoder.  However, since each websocket frame is a separate
+// byte sequence, this type does not implement io.Reader.  Rather, the Read method
+// transfers the next frame to an io.ReaderFrom.
 type Connection interface {
 	io.WriteCloser
 
-	// Read returns the next binary message frame.  If this method returns an error,
+	// NextReader returns the next binary message frame.  If this method returns an error,
 	// this connection should be abandoned and closed.  This method is not safe
-	// for concurrent invocation and must not be invoked concurrently with Write().
+	// for concurrent invocation and must not be invoked concurrently with Write.
 	//
-	// Read will skip frames if they are not supported by the WRP protocol.  For example,
+	// NextReader will skip frames if they are not supported by the WRP protocol.  For example,
 	// text frames are not supported and are skipped.  Anytime a frame is skipped, this
-	// method returns a false flag and a nil error.
+	// method returns a nil reader and a nil error.
+	NextReader() (io.Reader, error)
+
+	// Read transfers the next binary frame to the given ReaderFrom instance.  If this method
+	// returns an error, this connection should be abandoned and closed.  This method is not safe
+	// for concurrent invocation and must not be invoked concurrently with Write.
+	//
+	// As with NextReader, this method skips frames that are not supported by the WRP protocol.
+	// The first boolean return value indicates whether a frame was skipped.  If true, the frame's
+	// contents were transferred to the target ReaderFrom.  If false, the error will always be nil
+	// and no frame will have been read.
 	Read(io.ReaderFrom) (bool, error)
 
 	// Ping sends a ping message to the device.  This method may be invoked concurrently
@@ -96,27 +111,30 @@ func (c *connection) SetPongCallback(callback func(string)) {
 	}
 }
 
-func (c *connection) Read(target io.ReaderFrom) (frameRead bool, err error) {
+func (c *connection) NextReader() (frame io.Reader, err error) {
 	if err = c.updateReadDeadline(); err != nil {
 		return
 	}
 
-	var (
-		messageType int
-		frame       io.Reader
-	)
-
+	var messageType int
 	if messageType, frame, err = c.webSocket.NextReader(); err != nil {
 		return
+	} else if messageType != websocket.BinaryMessage {
+		// skip this frame, and allow the caller to take some action
+		frame = nil
 	}
 
-	if messageType != websocket.BinaryMessage {
-		// allow the caller to take some action for skipped frames
-		return
+	return
+}
+
+func (c *connection) Read(target io.ReaderFrom) (frameRead bool, err error) {
+	var frame io.Reader
+	frame, err = c.NextReader()
+	frameRead = (frame != nil)
+	if err == nil {
+		_, err = target.ReadFrom(frame)
 	}
 
-	frameRead = true
-	_, err = target.ReadFrom(frame)
 	return
 }
 

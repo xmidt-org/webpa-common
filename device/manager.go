@@ -251,7 +251,6 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
-		frameBuffer.Reset()
 		frameRead, readError = c.Read(&frameBuffer)
 		if readError != nil {
 			return
@@ -264,6 +263,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		message = emptyMessage
 		decoder.ResetBytes(rawFrame)
 		if decodeError := decoder.Decode(&message); decodeError != nil {
+			// malformed WRP messages are allowed: the read pump will keep on chugging
 			m.logger.Error("Skipping malformed frame from device [%s]: %s", d.id, decodeError)
 			continue
 		}
