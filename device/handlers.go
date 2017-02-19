@@ -4,10 +4,85 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 )
+
+func NewJSONHandler(router Router) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		var (
+			decoder = wrp.NewDecoder(request.Body, wrp.JSON)
+			message = new(wrp.Message)
+		)
+
+		if err := decoder.Decode(message); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not decode WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		if _, err := router.Route(message); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Unable to route message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		response.WriteHeader(http.StatusAccepted)
+	})
+}
+
+func NewMsgpackHandler(router Router) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		body, err := ioutil.ReadAll(request.Body)
+		if err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Unable to read request body: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		var (
+			decoder = wrp.NewDecoderBytes(body, wrp.Msgpack)
+			message = new(wrp.Message)
+		)
+
+		if err := decoder.Decode(message); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not decode WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		if _, err := router.RouteUsing(message, body); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Unable to route message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		response.WriteHeader(http.StatusAccepted)
+	})
+}
 
 // NewConnectHandler produces an http.Handler that allows devices to connect
 // to a specific Manager.
