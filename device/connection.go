@@ -1,8 +1,6 @@
 package device
 
 import (
-	"bytes"
-	"github.com/Comcast/webpa-common/wrp"
 	"github.com/gorilla/websocket"
 	"io"
 	"net/http"
@@ -17,25 +15,16 @@ const (
 // Connection implementations abstract the semantics of serverside WRP message
 // handling and enforce policies like idleness.
 type Connection interface {
-	io.Closer
+	io.WriteCloser
 
-	// Read returns the next WRP message frame.  If this method returns an error,
+	// Read returns the next binary message frame.  If this method returns an error,
 	// this connection should be abandoned and closed.  This method is not safe
 	// for concurrent invocation and must not be invoked concurrently with Write().
 	//
-	// Both the raw data frame (a byte slice) and the decoded message are returned.  This
-	// allows for efficient transfers, since calling code can choose to simply hand the byte
-	// slice off rather than re-encoding the message.
-	//
-	// Read may skip frames if they are not supported by the WRP protocol.  For example,
+	// Read will skip frames if they are not supported by the WRP protocol.  For example,
 	// text frames are not supported and are skipped.  Anytime a frame is skipped, this
-	// method returns a nil message with a nil error.
-	Read() ([]byte, *wrp.Message, error)
-
-	// Write sends a WRP frame to the device.  If this method returns an error,
-	// this connection should be abandoned and closed.  This method is not safe
-	// for concurrent invocation and must not be invoked concurrently with Read().
-	Write(*wrp.Message) error
+	// method returns a false flag and a nil error.
+	Read(io.ReaderFrom) (bool, error)
 
 	// Ping sends a ping message to the device.  This method may be invoked concurrently
 	// with any other method of this interface, including Ping() itself.
@@ -57,13 +46,9 @@ type Connection interface {
 
 // connection is the internal implementation of Connection
 type connection struct {
-	webSocket      *websocket.Conn
-	idlePeriod     time.Duration
-	writeTimeout   time.Duration
-	transferBuffer []byte
-	messageBuffer  bytes.Buffer
-	decoder        wrp.Decoder
-	encoder        wrp.Encoder
+	webSocket    *websocket.Conn
+	idlePeriod   time.Duration
+	writeTimeout time.Duration
 }
 
 func (c *connection) updateReadDeadline() error {
@@ -111,62 +96,42 @@ func (c *connection) SetPongCallback(callback func(string)) {
 	}
 }
 
-func (c *connection) Read() (raw []byte, message *wrp.Message, err error) {
+func (c *connection) Read(target io.ReaderFrom) (frameRead bool, err error) {
+	if err = c.updateReadDeadline(); err != nil {
+		return
+	}
+
 	var (
 		messageType int
 		frame       io.Reader
 	)
 
-	for {
-		if err = c.updateReadDeadline(); err != nil {
-			return
-		}
-
-		if messageType, frame, err = c.webSocket.NextReader(); err != nil {
-			return
-		}
-
-		if messageType != websocket.BinaryMessage {
-			// allow the caller to take some action for skipped frames
-			return
-		}
-
-		c.messageBuffer.Reset()
-		if _, err = io.CopyBuffer(&c.messageBuffer, frame, c.transferBuffer); err != nil {
-			return
-		}
-
-		raw = c.messageBuffer.Bytes()
-		c.decoder.ResetBytes(raw)
-		message = new(wrp.Message)
-		if err = c.decoder.Decode(message); err != nil {
-			return
-		}
-
+	if messageType, frame, err = c.webSocket.NextReader(); err != nil {
 		return
 	}
+
+	if messageType != websocket.BinaryMessage {
+		// allow the caller to take some action for skipped frames
+		return
+	}
+
+	frameRead = true
+	_, err = target.ReadFrom(frame)
+	return
 }
 
-func (c *connection) Write(message *wrp.Message) error {
-	if err := c.updateWriteDeadline(); err != nil {
-		return err
+func (c *connection) Write(message []byte) (count int, err error) {
+	if err = c.updateWriteDeadline(); err != nil {
+		return
 	}
 
-	frame, err := c.webSocket.NextWriter(websocket.BinaryMessage)
-	if err != nil {
-		return err
+	var frame io.WriteCloser
+	if frame, err = c.webSocket.NextWriter(websocket.BinaryMessage); err != nil {
+		return
 	}
 
-	c.encoder.Reset(frame)
-	if err := c.encoder.Encode(message); err != nil {
-		return err
-	}
-
-	if err := frame.Close(); err != nil {
-		return err
-	}
-
-	return nil
+	defer frame.Close()
+	return frame.Write(message)
 }
 
 func (c *connection) Close() error {
@@ -220,12 +185,9 @@ func (cf *connectionFactory) NewConnection(response http.ResponseWriter, request
 	}
 
 	c := &connection{
-		webSocket:      webSocket,
-		idlePeriod:     cf.idlePeriod,
-		writeTimeout:   cf.writeTimeout,
-		transferBuffer: make([]byte, transferBufferSize),
-		decoder:        wrp.NewDecoder(nil, wrp.Msgpack),
-		encoder:        wrp.NewEncoder(nil, wrp.Msgpack),
+		webSocket:    webSocket,
+		idlePeriod:   cf.idlePeriod,
+		writeTimeout: cf.writeTimeout,
 	}
 
 	// initialize the pong callback to the default, which
@@ -298,12 +260,9 @@ func (d *dialer) Dial(URL string, id ID, convey Convey, extra http.Header) (Conn
 	}
 
 	c := &connection{
-		webSocket:      webSocket,
-		idlePeriod:     d.idlePeriod,
-		writeTimeout:   d.writeTimeout,
-		transferBuffer: make([]byte, transferBufferSize),
-		decoder:        wrp.NewDecoder(nil, wrp.Msgpack),
-		encoder:        wrp.NewEncoder(nil, wrp.Msgpack),
+		webSocket:    webSocket,
+		idlePeriod:   d.idlePeriod,
+		writeTimeout: d.writeTimeout,
 	}
 
 	// initialize the pong callback to the default, which

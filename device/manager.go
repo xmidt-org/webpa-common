@@ -1,12 +1,18 @@
 package device
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"net/http"
 	"sync"
 	"time"
+)
+
+var (
+	// emptyMessage is a convenient, internal message used to reset wrp.Message instances for reuse
+	emptyMessage wrp.Message
 )
 
 // Connector is a strategy interface for managing device connections to a server.
@@ -230,9 +236,12 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
-		raw       []byte
-		message   *wrp.Message
-		readError error
+		frameRead   bool
+		readError   error
+		frameBuffer bytes.Buffer
+
+		message wrp.Message
+		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
 	defer func() {
@@ -242,15 +251,24 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
-		raw, message, readError = c.Read()
+		frameBuffer.Reset()
+		frameRead, readError = c.Read(&frameBuffer)
 		if readError != nil {
 			return
-		} else if message == nil {
+		} else if !frameRead {
 			m.logger.Warn("Skipping frame from device [%s]", d.id)
 			continue
 		}
 
-		m.messageListener(d, raw, message)
+		rawFrame := frameBuffer.Bytes()
+		message = emptyMessage
+		decoder.ResetBytes(rawFrame)
+		if decodeError := decoder.Decode(&message); decodeError != nil {
+			m.logger.Error("Skipping malformed frame from device [%s]: %s", d.id, decodeError)
+			continue
+		}
+
+		m.messageListener(d, rawFrame, &message)
 	}
 }
 
@@ -272,7 +290,12 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	// dispatch to the connect listener after the device is addressable
 	m.connectListener(d)
 
-	var writeError error
+	var (
+		writeError  error
+		frameBuffer bytes.Buffer
+		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
+	)
+
 	defer func() {
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 	}()
@@ -286,8 +309,20 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		case <-d.shutdown:
 			writeError = c.SendClose()
 			return
-		case message := <-d.messages:
-			writeError = c.Write(message)
+
+		case wrpMessage := <-d.wrpMessages:
+			frameBuffer.Reset()
+			encoder.Reset(&frameBuffer)
+			if encodeError := encoder.Encode(wrpMessage); encodeError != nil {
+				m.logger.Error("Skipping malformed WRP message to [%s]: %s", d.id, encodeError)
+				continue
+			}
+
+			_, writeError = c.Write(frameBuffer.Bytes())
+
+		case rawMessage := <-d.rawMessages:
+			_, writeError = c.Write(rawMessage)
+
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
 		}
