@@ -23,23 +23,23 @@ type mockDevice struct {
 }
 
 func (m *mockDevice) ID() ID {
-	arguments := m.Called()
-	return arguments.Get(0).(ID)
+	return m.Called().Get(0).(ID)
 }
 
 func (m *mockDevice) Key() Key {
-	arguments := m.Called()
-	return arguments.Get(0).(Key)
+	return m.Called().Get(0).(Key)
 }
 
 func (m *mockDevice) Convey() Convey {
-	arguments := m.Called()
-	return arguments.Get(0).(Convey)
+	return m.Called().Get(0).(Convey)
 }
 
 func (m *mockDevice) ConnectedAt() time.Time {
-	arguments := m.Called()
-	return arguments.Get(0).(time.Time)
+	return m.Called().Get(0).(time.Time)
+}
+
+func (m *mockDevice) Pending() int {
+	return m.Called().Int(0)
 }
 
 func (m *mockDevice) RequestClose() {
@@ -52,6 +52,11 @@ func (m *mockDevice) Closed() bool {
 }
 
 func (m *mockDevice) Send(message *wrp.Message) error {
+	arguments := m.Called(message)
+	return arguments.Error(0)
+}
+
+func (m *mockDevice) SendBytes(message []byte) error {
 	arguments := m.Called(message)
 	return arguments.Error(0)
 }
