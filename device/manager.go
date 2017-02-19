@@ -33,6 +33,18 @@ type Connector interface {
 	// returns the count of devices disconnected, which will be zero (0) if no device existed
 	// or one (1) if there was a device with that key.
 	DisconnectOne(Key) int
+
+	// DisconnectIf iterates over all devices known to this manager, applying the
+	// given predicate.  For any devices that result in true, this method disconnects them.
+	// Note that this method may pause connections and disconnections while it is executing.
+	// This method returns the number of devices that were disconnected.
+	//
+	// Only disconnection by ID is supported, which means that any identifier matching
+	// the predicate will result in *all* duplicate devices under that ID being removed.
+	//
+	// No methods on this Manager should be called from within the predicate function, or
+	// a deadlock will likely occur.
+	DisconnectIf(func(ID) bool) int
 }
 
 // Router handles dispatching messages to devices.
@@ -50,23 +62,9 @@ type Router interface {
 	RouteUsing(*wrp.Message, []byte) (ID, error)
 }
 
-// Manager supplies a hub for connecting and disconnecting devices as well as
-// an access point for obtaining device metadata.
-type Manager interface {
-	Connector
-
-	// DisconnectIf iterates over all devices known to this manager, applying the
-	// given predicate.  For any devices that result in true, this method disconnects them.
-	// Note that this method may pause connections and disconnections while it is executing.
-	// This method returns the number of devices that were disconnected.
-	//
-	// Only disconnection by ID is supported, which means that any identifier matching
-	// the predicate will result in *all* duplicate devices under that ID being removed.
-	//
-	// No methods on this Manager should be called from within the predicate function, or
-	// a deadlock will likely occur.
-	DisconnectIf(func(ID) bool) int
-
+// Registry is the strategy interface for querying the set of connected devices.  Methods
+// in this interface follow the Visitor pattern and are typically executed under a read lock.
+type Registry interface {
 	// VisitIf applies a visitor to any device matching the ID predicate.
 	//
 	// No methods on this Manager should be called from within either the predicate
@@ -78,6 +76,13 @@ type Manager interface {
 	// No methods on this Manager should be called from within the visitor function, or
 	// a deadlock will likely occur.
 	VisitAll(func(Interface)) int
+}
+
+// Manager supplies a hub for connecting and disconnecting devices as well as
+// an access point for obtaining device metadata.
+type Manager interface {
+	Connector
+	Registry
 
 	// Send dispatches a message to all devices registered with the given canonical ID.
 	// An optional callback can be supplied to allow the caller to receive information
