@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -296,9 +297,9 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	m.connectListener(d)
 
 	var (
-		writeError  error
-		frameBuffer bytes.Buffer
-		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
+		frame      io.WriteCloser
+		writeError error
+		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 	)
 
 	defer func() {
@@ -316,14 +317,17 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			return
 
 		case wrpMessage := <-d.wrpMessages:
-			frameBuffer.Reset()
-			encoder.Reset(&frameBuffer)
-			if encodeError := encoder.Encode(wrpMessage); encodeError != nil {
-				m.logger.Error("Skipping malformed WRP message to [%s]: %s", d.id, encodeError)
-				continue
+			frame, writeError = c.NextWriter()
+			if writeError != nil {
+				return
 			}
 
-			_, writeError = c.Write(frameBuffer.Bytes())
+			encoder.Reset(frame)
+			if writeError = encoder.Encode(wrpMessage); writeError != nil {
+				return
+			}
+
+			writeError = frame.Close()
 
 		case rawMessage := <-d.rawMessages:
 			_, writeError = c.Write(rawMessage)

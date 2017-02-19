@@ -41,6 +41,10 @@ type Connection interface {
 	// and no frame will have been read.
 	Read(io.ReaderFrom) (bool, error)
 
+	// NextWriter returns a WriteCloser which can be used to construct the next binary frame.
+	// It's semantics are equivalent to the gorilla websocket's method of the same name.
+	NextWriter() (io.WriteCloser, error)
+
 	// Ping sends a ping message to the device.  This method may be invoked concurrently
 	// with any other method of this interface, including Ping() itself.
 	Ping([]byte) error
@@ -138,13 +142,17 @@ func (c *connection) Read(target io.ReaderFrom) (frameRead bool, err error) {
 	return
 }
 
-func (c *connection) Write(message []byte) (count int, err error) {
-	if err = c.updateWriteDeadline(); err != nil {
-		return
+func (c *connection) NextWriter() (io.WriteCloser, error) {
+	if err := c.updateWriteDeadline(); err != nil {
+		return nil, err
 	}
 
+	return c.webSocket.NextWriter(websocket.BinaryMessage)
+}
+
+func (c *connection) Write(message []byte) (count int, err error) {
 	var frame io.WriteCloser
-	if frame, err = c.webSocket.NextWriter(websocket.BinaryMessage); err != nil {
+	if frame, err = c.NextWriter(); err != nil {
 		return
 	}
 
