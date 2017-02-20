@@ -377,7 +377,7 @@ func TestManagerDisconnectIf(t *testing.T) {
 	}
 }
 
-func TestManagerSend(t *testing.T) {
+func TestManagerRoute(t *testing.T) {
 	var (
 		assert      = assert.New(t)
 		require     = require.New(t)
@@ -429,104 +429,31 @@ func TestManagerSend(t *testing.T) {
 		// spawn a goroutine for each send to better detect any race conditions
 		// or other concurrency issues
 		go func(id ID, expectedCount int) {
-			actualCount := 0
-			assert.NoError(
-				manager.Send(
-					id,
-					wrp.NewSimpleEvent("foobar.com", []byte(fmt.Sprintf("message for %s", id))),
-					func(d Interface, err error) {
-						assert.Equal(id, d.ID())
-						assert.NoError(err)
-						actualCount++
-					},
-				),
+			actualID, actualCount, err := manager.Route(
+				wrp.NewSimpleEvent(string(id), []byte(fmt.Sprintf("message for %s", id))),
+				func(d Interface, err error) {
+					assert.Fail("The callback should not have been called")
+				},
 			)
 
+			assert.Equal(id, actualID)
+			assert.NoError(err)
 			assert.Equal(expectedCount, actualCount)
 		}(id, expectedCount)
 	}
 
 	receiveWait.Wait()
 
-	assert.Error(manager.Send(
-		ID("nosuch"),
-		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
+	id, count, err := manager.Route(
+		wrp.NewSimpleEvent("nosuch device", []byte("this shouldn't go anywhere")),
 		func(Interface, error) {
-			assert.Fail("The callback shouldn't have been called")
+			assert.Fail("The callback should not have been called")
 		},
-	))
-}
-
-func TestManagerSendOne(t *testing.T) {
-	var (
-		assert      = assert.New(t)
-		require     = require.New(t)
-		connectWait = new(sync.WaitGroup)
-		receiveWait = new(sync.WaitGroup)
-
-		options = &Options{
-			Logger:          logging.TestLogger(t),
-			ConnectListener: func(Interface) { connectWait.Done() },
-			DisconnectListener: func(candidate Interface) {
-				assert.True(candidate.Closed())
-				assert.Error(candidate.Send(new(wrp.Message)))
-			},
-		}
 	)
 
-	connectWait.Add(testConnectionCount)
-	receiveWait.Add(testConnectionCount)
-
-	var (
-		manager, server, connectURL = startWebsocketServer(options)
-		dialer                      = NewDialer(options, nil)
-		testDevices                 = connectTestDevices(t, assert, dialer, connectURL)
-	)
-
-	defer server.Close()
-	defer closeTestDevices(assert, testDevices)
-
-	for id, connections := range testDevices {
-		for _, c := range connections {
-			go func(id ID, c Connection) {
-				defer receiveWait.Done()
-				var (
-					frame, err = c.NextReader()
-					decoder    = wrp.NewDecoder(frame, wrp.Msgpack)
-					message    wrp.Message
-				)
-
-				require.NotNil(frame)
-				require.NoError(err)
-				require.NoError(decoder.Decode(&message))
-				assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
-			}(id, c)
-		}
-	}
-
-	connectWait.Wait()
-	deviceSet := make(deviceSet)
-	manager.VisitAll(deviceSet.managerCapture())
-	assert.Equal(testConnectionCount, deviceSet.len())
-	for d, _ := range deviceSet {
-		// spawn a goroutine for each send to better detect any race conditions
-		// or other concurrency issues
-		go func(d Interface) {
-			assert.NoError(
-				manager.SendOne(
-					d.Key(),
-					wrp.NewSimpleEvent("foobar.com", []byte(fmt.Sprintf("message for %s", d.ID()))),
-				),
-			)
-		}(d)
-	}
-
-	receiveWait.Wait()
-
-	assert.Error(manager.SendOne(
-		Key("nosuch"),
-		wrp.NewSimpleEvent("foobar.com", []byte("this shouldn't go anywhere")),
-	))
+	assert.Equal(ID(""), id)
+	assert.Zero(count)
+	assert.Error(err)
 }
 
 func TestManagerPingPong(t *testing.T) {

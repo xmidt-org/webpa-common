@@ -85,18 +85,6 @@ type Manager interface {
 	Connector
 	Router
 	Registry
-
-	// Send dispatches a message to all devices registered with the given canonical ID.
-	// An optional callback can be supplied to allow the caller to receive information
-	// for each send attempt.  This callback will be invoked for each send, successes
-	// being indicated by a nil error.
-	//
-	// No methods on this Manager should be called from within the callback function, or
-	// a deadlock will likely occur.
-	Send(ID, *wrp.Message, func(Interface, error)) error
-
-	// SendOne attempts to send a message to the single, unique device identified by the Key.
-	SendOne(Key, *wrp.Message) error
 }
 
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
@@ -441,39 +429,4 @@ func (m *manager) sendMessages(recipient ID, message []byte, callback func(Inter
 	}
 
 	return len(targets)
-}
-
-func (m *manager) Send(id ID, message *wrp.Message, callback func(Interface, error)) (err error) {
-	m.logger.Debug("Send(%s)", id)
-
-	m.whenReadLocked(func() {
-		count := m.registry.visitID(id, func(d *device) {
-			sendError := d.Send(message)
-			if callback != nil {
-				callback(d, sendError)
-			}
-		})
-
-		if count < 1 {
-			err = NewMissingIDError(id)
-		}
-	})
-
-	return
-}
-
-func (m *manager) SendOne(k Key, message *wrp.Message) (err error) {
-	m.logger.Debug("SendOne(%s)", k)
-
-	m.whenReadLocked(func() {
-		count := m.registry.visitKey(k, func(d *device) {
-			err = d.Send(message)
-		})
-
-		if count < 1 {
-			err = NewMissingKeyError(k)
-		}
-	})
-
-	return
 }
