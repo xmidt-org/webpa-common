@@ -53,14 +53,14 @@ type Router interface {
 	// Route examines the given WRP message to determine the destination, then
 	// sends that message to the appropriate device(s).  The ID of the device(s)
 	// to which the message was sent is returned.
-	Route(*wrp.Message) (ID, error)
+	Route(*wrp.Message, func(Interface, error)) (ID, int, error)
 
 	// RouteUsing uses a WRP message for routing information, but actually sends the
 	// supplied bytes as the message.
 	//
 	// This method is useful when reading a WRP message from another source.  It avoids
 	// the overhead of reserializing the message.
-	RouteUsing(*wrp.Message, []byte) (ID, error)
+	RouteUsing(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
 }
 
 // Registry is the strategy interface for querying the set of connected devices.  Methods
@@ -83,6 +83,7 @@ type Registry interface {
 // an access point for obtaining device metadata.
 type Manager interface {
 	Connector
+	Router
 	Registry
 
 	// Send dispatches a message to all devices registered with the given canonical ID.
@@ -401,6 +402,45 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	})
 
 	return
+}
+
+func (m *manager) Route(message *wrp.Message, callback func(Interface, error)) (recipient ID, count int, err error) {
+	var (
+		buffer  bytes.Buffer
+		encoder = wrp.NewEncoder(&buffer, wrp.Msgpack)
+	)
+
+	if err = encoder.Encode(message); err != nil {
+		return
+	}
+
+	return m.RouteUsing(message, buffer.Bytes(), callback)
+}
+
+func (m *manager) RouteUsing(route *wrp.Message, message []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
+	recipient, err = ParseID(route.Destination)
+	if err != nil {
+		return
+	}
+
+	count = m.sendMessages(recipient, message, callback)
+	return
+}
+
+func (m *manager) sendMessages(recipient ID, message []byte, callback func(Interface, error)) int {
+	var targets []*device
+
+	m.whenReadLocked(func() {
+		targets = m.registry.devices(recipient)
+	})
+
+	for _, target := range targets {
+		if err := target.SendBytes(message); err != nil && callback != nil {
+			callback(target, err)
+		}
+	}
+
+	return len(targets)
 }
 
 func (m *manager) Send(id ID, message *wrp.Message, callback func(Interface, error)) (err error) {

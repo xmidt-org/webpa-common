@@ -28,7 +28,7 @@ func NewJSONHandler(router Router) http.Handler {
 			return
 		}
 
-		if _, err := router.Route(message); err != nil {
+		if _, _, err := router.Route(message, nil); err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Unable to route message: %s", err),
@@ -70,7 +70,7 @@ func NewMsgpackHandler(router Router) http.Handler {
 			return
 		}
 
-		if _, err := router.RouteUsing(message, body); err != nil {
+		if _, _, err := router.RouteUsing(message, body, nil); err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Unable to route message: %s", err),
