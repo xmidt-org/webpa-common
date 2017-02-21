@@ -48,14 +48,10 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 	return nil
 }
 
-func NewJSONHandler(router Router) http.Handler {
+func NewJSONHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		var (
-			decoder = wrp.NewDecoder(request.Body, wrp.JSON)
-			message = new(wrp.Message)
-		)
-
-		if err := decoder.Decode(message); err != nil {
+		message, err := decoder.DecodeMessage(request.Body)
+		if err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Could not decode WRP message: %s", err),
@@ -65,8 +61,10 @@ func NewJSONHandler(router Router) http.Handler {
 			return
 		}
 
-		failures := make(Failures)
-		_, totalCount, routeError := router.Route(message, failures.Add)
+		var (
+			failures                  = make(Failures)
+			_, totalCount, routeError = router.Route(message, failures.Add)
+		)
 
 		if routeError != nil {
 			http.Error(
@@ -82,7 +80,7 @@ func NewJSONHandler(router Router) http.Handler {
 	})
 }
 
-func NewMsgpackHandler(router Router) http.Handler {
+func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		body, err := ioutil.ReadAll(request.Body)
 		if err != nil {
@@ -95,12 +93,8 @@ func NewMsgpackHandler(router Router) http.Handler {
 			return
 		}
 
-		var (
-			decoder = wrp.NewDecoderBytes(body, wrp.Msgpack)
-			message = new(wrp.Message)
-		)
-
-		if err := decoder.Decode(message); err != nil {
+		message, err := decoder.DecodeMessageBytes(body)
+		if err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Could not decode WRP message: %s", err),
@@ -110,8 +104,10 @@ func NewMsgpackHandler(router Router) http.Handler {
 			return
 		}
 
-		failures := make(Failures)
-		_, totalCount, routeError := router.RouteUsing(message, nil, failures.Add)
+		var (
+			failures                  = make(Failures)
+			_, totalCount, routeError = router.RouteUsing(message, body, failures.Add)
+		)
 
 		if routeError != nil {
 			http.Error(
