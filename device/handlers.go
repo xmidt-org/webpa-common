@@ -48,7 +48,11 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 	return nil
 }
 
-func NewJSONHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+// NewJSONHandler produces an http.Handler that decodes the body of a request as a JSON WRP message.
+// Router.Route is then used to send the message to one or more devices.
+func NewJSONHandler(o *Options, router Router) http.Handler {
+	decoder := wrp.NewDecoderPool(o.decoderPoolSize(), wrp.JSON)
+
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		message, err := decoder.DecodeMessage(request.Body)
 		if err != nil {
@@ -80,7 +84,11 @@ func NewJSONHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 	})
 }
 
-func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+// NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message,
+// then uses Router.RouteUsing to forward the message to a device.
+func NewMsgpackHandler(o *Options, router Router) http.Handler {
+	decoder := wrp.NewDecoderPool(o.decoderPoolSize(), wrp.Msgpack)
+
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		body, err := ioutil.ReadAll(request.Body)
 		if err != nil {
@@ -104,12 +112,8 @@ func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 			return
 		}
 
-		var (
-			failures                  = make(Failures)
-			_, totalCount, routeError = router.RouteUsing(message, body, failures.Add)
-		)
-
-		if routeError != nil {
+		failures := make(Failures)
+		if _, totalCount, routeError := router.RouteUsing(message, body, failures.Add); routeError != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Unable to route message: %s", routeError),

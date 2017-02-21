@@ -2,6 +2,7 @@ package device
 
 import (
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 	"time"
 )
 
@@ -20,8 +21,8 @@ const (
 	DefaultDeviceMessageQueueSize = 100
 )
 
-// Options represent the available configuration options for device Managers
-// and ConnectionFactories.
+// Options represent the available configuration options for components
+// within this package
 type Options struct {
 	// DeviceNameHeader is the name of the HTTP request header which contains the
 	// device name.  If not specified, DefaultDeviceNameHeader is used.
@@ -65,6 +66,14 @@ type Options struct {
 	// WriteTimeout is the write timeout for each device's websocket.  If not supplied,
 	// DefaultWriteTimeout is used.
 	WriteTimeout time.Duration
+
+	// DecoderPoolSize is the number of pool WRP Decoder instances to keep for each format
+	// A nonpositive value will cause a default pool size to be used.
+	DecoderPoolSize int
+
+	// EncoderPoolSize is the number of pool WRP Encoder instances to keep for each format
+	// A nonpositive value will cause a default pool size to be used.
+	EncoderPoolSize int
 
 	// MessageListener is the notification sink for device messages
 	MessageListener MessageListener
@@ -149,6 +158,22 @@ func (o *Options) writeTimeout() time.Duration {
 	}
 
 	return DefaultWriteTimeout
+}
+
+func (o *Options) decoderPoolSize() int {
+	if o != nil && o.DecoderPoolSize > 0 {
+		return o.DecoderPoolSize
+	}
+
+	return wrp.DefaultPoolSize
+}
+
+func (o *Options) encoderPoolSize() int {
+	if o != nil && o.EncoderPoolSize > 0 {
+		return o.EncoderPoolSize
+	}
+
+	return wrp.DefaultPoolSize
 }
 
 func (o *Options) readBufferSize() int {
