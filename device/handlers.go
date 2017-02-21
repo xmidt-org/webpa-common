@@ -12,6 +12,7 @@ import (
 	"sync"
 )
 
+// Failures is a map type which records device routing failures
 type Failures map[Interface]error
 
 func (df Failures) Add(d Interface, deviceError error) {
@@ -48,9 +49,11 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 	return nil
 }
 
-// NewJSONHandler produces an http.Handler that decodes the body of a request as a JSON WRP message.
-// Router.Route is then used to send the message to one or more devices.
-func NewJSONHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+// NewTranscodingHandler produces an http.Handler that decodes the body of a request as a something other than
+// Msgpack, e.g. JSON.  The exact format is determined by the supplied decoder.
+//
+// Router.Route is used to send the message to one or more devices.
+func NewTranscodingHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		message, err := decoder.DecodeMessage(request.Body)
 		if err != nil {
