@@ -2,6 +2,7 @@ package wrp
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -38,46 +39,80 @@ var (
 	}
 )
 
-func benchmarkCreateEncoderOnTheFly(b *testing.B, format Format) {
-	for repeat := 0; repeat < b.N; repeat++ {
-		var (
-			buffer  = new(bytes.Buffer)
-			encoder = NewEncoder(buffer, format)
-		)
+func benchmarkCreateEncoderOnTheFly(b *testing.B, format Format, routines int) {
+	var (
+		startingLine = make(chan struct{})
+		waitGroup    = new(sync.WaitGroup)
+	)
 
-		encoder.Encode(testMessage)
+	waitGroup.Add(routines)
+	for spawn := 0; spawn < routines; spawn++ {
+		go func() {
+			defer waitGroup.Done()
+			<-startingLine
+
+			for repeat := 0; repeat < b.N; repeat++ {
+				var (
+					buffer  = new(bytes.Buffer)
+					encoder = NewEncoder(buffer, format)
+				)
+
+				encoder.Encode(testMessage)
+			}
+		}()
 	}
+
+	b.ResetTimer()
+	close(startingLine)
+	waitGroup.Wait()
 }
 
 func BenchmarkCreateEncoderOnTheFly(b *testing.B) {
 	for _, format := range []Format{Msgpack, JSON} {
-		b.Run(
-			format.String(),
-			func(b *testing.B) {
-				benchmarkCreateEncoderOnTheFly(b, format)
-			},
-		)
+		for _, routines := range []int{1, 10, 100} {
+			b.Run(
+				fmt.Sprintf("%s/routines=%d", format, routines),
+				func(b *testing.B) { benchmarkCreateEncoderOnTheFly(b, format, routines) },
+			)
+		}
 	}
 }
 
-func benchmarkPooledEncoder(b *testing.B, format Format) {
-	for repeat := 0; repeat < b.N; repeat++ {
-		pooled := encoderPools[format].Get().(*pooledEncoder)
-		pooled.buffer.Reset()
-		pooled.encoder.Reset(pooled.buffer)
-		pooled.encoder.Encode(testMessage)
+func benchmarkPooledEncoder(b *testing.B, format Format, routines int) {
+	var (
+		startingLine = make(chan struct{})
+		waitGroup    = new(sync.WaitGroup)
+	)
 
-		encoderPools[format].Put(pooled)
+	waitGroup.Add(routines)
+	for spawn := 0; spawn < routines; spawn++ {
+		go func() {
+			defer waitGroup.Done()
+			<-startingLine
+
+			for repeat := 0; repeat < b.N; repeat++ {
+				pooled := encoderPools[format].Get().(*pooledEncoder)
+				pooled.buffer.Reset()
+				pooled.encoder.Reset(pooled.buffer)
+				pooled.encoder.Encode(testMessage)
+
+				encoderPools[format].Put(pooled)
+			}
+		}()
 	}
+
+	b.ResetTimer()
+	close(startingLine)
+	waitGroup.Wait()
 }
 
 func BenchmarkPooledEncoder(b *testing.B) {
 	for _, format := range []Format{Msgpack, JSON} {
-		b.Run(
-			format.String(),
-			func(b *testing.B) {
-				benchmarkPooledEncoder(b, format)
-			},
-		)
+		for _, routines := range []int{1, 10, 100} {
+			b.Run(
+				fmt.Sprintf("%s/routines=%d", format, routines),
+				func(b *testing.B) { benchmarkPooledEncoder(b, format, routines) },
+			)
+		}
 	}
 }
