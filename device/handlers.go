@@ -1,6 +1,7 @@
 package device
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
@@ -10,6 +11,42 @@ import (
 	"net/http"
 	"sync"
 )
+
+type Failures map[Interface]error
+
+func (df Failures) Add(d Interface, deviceError error) {
+	df[d] = deviceError
+}
+
+func (df Failures) MarshalJSON() ([]byte, error) {
+	var (
+		buffer    = bytes.NewBufferString(`{"errors": [`)
+		separator = ""
+	)
+
+	for d, deviceError := range df {
+		if deviceError != nil {
+			fmt.Fprintf(buffer, `{"id": "%s", "key": "%s", error: "%s"}%s`, d.ID(), d.Key(), deviceError, separator)
+			separator = ","
+		}
+	}
+
+	buffer.WriteString(`]}`)
+	return buffer.Bytes(), nil
+}
+
+func (df Failures) WriteResponse(response http.ResponseWriter) error {
+	if len(df) > 0 {
+		response.Header().Set("Content-Type", "application/json")
+		response.WriteHeader(http.StatusInternalServerError)
+		data, _ := df.MarshalJSON()
+		_, err := response.Write(data)
+		return err
+	}
+
+	response.WriteHeader(http.StatusOK)
+	return nil
+}
 
 func NewJSONHandler(router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
@@ -28,17 +65,20 @@ func NewJSONHandler(router Router) http.Handler {
 			return
 		}
 
-		if _, _, err := router.Route(message, nil); err != nil {
+		failures := make(Failures)
+		_, totalCount, routeError := router.Route(message, failures.Add)
+
+		if routeError != nil {
 			http.Error(
 				response,
-				fmt.Sprintf("Unable to route message: %s", err),
+				fmt.Sprintf("Unable to route message: %s", routeError),
 				http.StatusBadRequest,
 			)
-
-			return
+		} else if totalCount == 0 {
+			response.WriteHeader(http.StatusNotFound)
 		}
 
-		response.WriteHeader(http.StatusAccepted)
+		failures.WriteResponse(response)
 	})
 }
 
@@ -70,17 +110,20 @@ func NewMsgpackHandler(router Router) http.Handler {
 			return
 		}
 
-		if _, _, err := router.RouteUsing(message, body, nil); err != nil {
+		failures := make(Failures)
+		_, totalCount, routeError := router.RouteUsing(message, nil, failures.Add)
+
+		if routeError != nil {
 			http.Error(
 				response,
-				fmt.Sprintf("Unable to route message: %s", err),
+				fmt.Sprintf("Unable to route message: %s", routeError),
 				http.StatusBadRequest,
 			)
-
-			return
+		} else if totalCount == 0 {
+			response.WriteHeader(http.StatusNotFound)
 		}
 
-		response.WriteHeader(http.StatusAccepted)
+		failures.WriteResponse(response)
 	})
 }
 
