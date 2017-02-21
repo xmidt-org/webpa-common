@@ -16,8 +16,8 @@ var (
 	}
 
 	encoderPools = []*EncoderPool{
-		NewEncoderPool(0, JSON),
-		NewEncoderPool(0, Msgpack),
+		NewEncoderPool(0, 0, JSON),
+		NewEncoderPool(0, 0, Msgpack),
 	}
 )
 
