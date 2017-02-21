@@ -25,8 +25,6 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(DefaultWriteTimeout, o.writeTimeout())
 		assert.Equal(DefaultReadBufferSize, o.readBufferSize())
 		assert.Equal(DefaultWriteBufferSize, o.writeBufferSize())
-		assert.Equal(wrp.DefaultPoolSize, o.decoderPoolSize())
-		assert.Equal(wrp.DefaultPoolSize, o.encoderPoolSize())
 		assert.Empty(o.subprotocols())
 		assert.NotNil(o.keyFunc())
 		assert.NotNil(o.logger())

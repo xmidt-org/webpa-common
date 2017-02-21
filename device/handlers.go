@@ -50,9 +50,7 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 
 // NewJSONHandler produces an http.Handler that decodes the body of a request as a JSON WRP message.
 // Router.Route is then used to send the message to one or more devices.
-func NewJSONHandler(o *Options, router Router) http.Handler {
-	decoder := wrp.NewDecoderPool(o.decoderPoolSize(), wrp.JSON)
-
+func NewJSONHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		message, err := decoder.DecodeMessage(request.Body)
 		if err != nil {
@@ -86,9 +84,7 @@ func NewJSONHandler(o *Options, router Router) http.Handler {
 
 // NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message,
 // then uses Router.RouteUsing to forward the message to a device.
-func NewMsgpackHandler(o *Options, router Router) http.Handler {
-	decoder := wrp.NewDecoderPool(o.decoderPoolSize(), wrp.Msgpack)
-
+func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		body, err := ioutil.ReadAll(request.Body)
 		if err != nil {
