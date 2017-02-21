@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-type pooledEncoder struct {
-	encoder Encoder
-	buffer  *bytes.Buffer
-}
-
-func pooledEncoderFactory(format Format) func() interface{} {
-	return func() interface{} {
-		return &pooledEncoder{
-			encoder: NewEncoder(nil, format),
-			buffer:  new(bytes.Buffer),
-		}
-	}
-}
-
 var (
 	testMessage = Message{
 		Source:          "http://source.comcast.net:9090/test",
@@ -29,13 +15,9 @@ var (
 		Payload:         []byte("ah, some lovely payload here!"),
 	}
 
-	encoderPools = []sync.Pool{
-		sync.Pool{
-			New: pooledEncoderFactory(JSON),
-		},
-		sync.Pool{
-			New: pooledEncoderFactory(Msgpack),
-		},
+	encoderPools = []*EncoderPool{
+		NewEncoderPool(0, JSON),
+		NewEncoderPool(0, Msgpack),
 	}
 )
 
@@ -91,12 +73,7 @@ func benchmarkPooledEncoder(b *testing.B, format Format, routines int) {
 			<-startingLine
 
 			for repeat := 0; repeat < b.N; repeat++ {
-				pooled := encoderPools[format].Get().(*pooledEncoder)
-				pooled.buffer.Reset()
-				pooled.encoder.Reset(pooled.buffer)
-				pooled.encoder.Encode(testMessage)
-
-				encoderPools[format].Put(pooled)
+				encoderPools[format].EncodeBytes(&testMessage)
 			}
 		}()
 	}
