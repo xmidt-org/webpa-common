@@ -70,6 +70,17 @@ func newRegistry(initialCapacity int) *registry {
 	}
 }
 
+func (r *registry) devices(id ID) (devices []*device) {
+	if original, ok := r.ids[id]; ok {
+		devices = make([]*device, 0, len(original))
+		for key, _ := range original {
+			devices = append(devices, key)
+		}
+	}
+
+	return
+}
+
 func (r *registry) visitID(id ID, visitor func(*device)) int {
 	if duplicates, ok := r.ids[id]; ok {
 		for d, _ := range duplicates {

@@ -20,8 +20,8 @@ const (
 	DefaultDeviceMessageQueueSize = 100
 )
 
-// Options represent the available configuration options for device Managers
-// and ConnectionFactories.
+// Options represent the available configuration options for components
+// within this package
 type Options struct {
 	// DeviceNameHeader is the name of the HTTP request header which contains the
 	// device name.  If not specified, DefaultDeviceNameHeader is used.

@@ -133,6 +133,13 @@ func assertStringValue(assert *assert.Assertions, actual *Message) {
 	}
 }
 
+func TestFormatString(t *testing.T) {
+	assert := assert.New(t)
+	assert.NotEmpty(JSON.String())
+	assert.NotEmpty(Msgpack.String())
+	assert.NotEqual(JSON.String(), Msgpack.String())
+}
+
 func TestDecoderBytesMsgpackSimpleRequestResponse(t *testing.T) {
 	assert := assert.New(t)
 

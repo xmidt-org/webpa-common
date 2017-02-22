@@ -31,6 +31,14 @@ var (
 	}
 )
 
+func (f Format) String() string {
+	if f == JSON {
+		return "JSON"
+	}
+
+	return "Msgpack"
+}
+
 // handle looks up the appropriate codec.Handle for this format constant.
 // This method returns nil if the format value is invalid.
 func (f Format) handle() codec.Handle {

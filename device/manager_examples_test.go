@@ -1,6 +1,7 @@
 package device
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
@@ -40,15 +41,36 @@ func ExampleManagerSimple() {
 	}
 
 	defer connection.Close()
-	requestMessage := wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", []byte("Billy Corgan, Smashing Pumpkins"))
-	if err := connection.Write(requestMessage); err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to send event: %s", err)
+	var (
+		requestMessage = wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", []byte("Billy Corgan, Smashing Pumpkins"))
+		requestBuffer  bytes.Buffer
+		encoder        = wrp.NewEncoder(&requestBuffer, wrp.Msgpack)
+	)
+
+	if err := encoder.Encode(requestMessage); err != nil {
+		fmt.Printf("Unable to encode request: %s\n", err)
 		return
 	}
 
-	_, responseMessage, err := connection.Read()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to read response: %s", err)
+	if _, err := connection.Write(requestBuffer.Bytes()); err != nil {
+		fmt.Printf("Unable to send request: %s\n", err)
+		return
+	}
+
+	var (
+		responseMessage wrp.Message
+		responseBuffer  bytes.Buffer
+		decoder         = wrp.NewDecoder(&responseBuffer, wrp.Msgpack)
+	)
+
+	if frameRead, err := connection.Read(&responseBuffer); err != nil {
+		fmt.Printf("Unable to read response: %s\n", err)
+		return
+	} else if !frameRead {
+		fmt.Println("Response frame skipped")
+		return
+	} else if err := decoder.Decode(&responseMessage); err != nil {
+		fmt.Printf("Unable to decode response: %s\n", err)
 		return
 	}
 

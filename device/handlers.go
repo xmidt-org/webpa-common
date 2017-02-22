@@ -1,23 +1,140 @@
 package device
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 )
 
+// Failures is a map type which records device routing failures
+type Failures map[Interface]error
+
+func (df Failures) Add(d Interface, deviceError error) {
+	df[d] = deviceError
+}
+
+func (df Failures) MarshalJSON() ([]byte, error) {
+	var (
+		buffer    = bytes.NewBufferString(`{"errors": [`)
+		separator = ""
+	)
+
+	for d, deviceError := range df {
+		if deviceError != nil {
+			fmt.Fprintf(buffer, `{"id": "%s", "key": "%s", error: "%s"}%s`, d.ID(), d.Key(), deviceError, separator)
+			separator = ","
+		}
+	}
+
+	buffer.WriteString(`]}`)
+	return buffer.Bytes(), nil
+}
+
+func (df Failures) WriteResponse(response http.ResponseWriter) error {
+	if len(df) > 0 {
+		response.Header().Set("Content-Type", "application/json")
+		response.WriteHeader(http.StatusInternalServerError)
+		data, _ := df.MarshalJSON()
+		_, err := response.Write(data)
+		return err
+	}
+
+	response.WriteHeader(http.StatusOK)
+	return nil
+}
+
+// NewTranscodingHandler produces an http.Handler that decodes the body of a request as a something other than
+// Msgpack, e.g. JSON.  The exact format is determined by the supplied decoder.
+//
+// Router.Route is used to send the message to one or more devices.
+func NewTranscodingHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		message, err := decoder.DecodeMessage(request.Body)
+		if err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not decode WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		var (
+			failures                  = make(Failures)
+			_, totalCount, routeError = router.Route(message, failures.Add)
+		)
+
+		if routeError != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Unable to route message: %s", routeError),
+				http.StatusBadRequest,
+			)
+		} else if totalCount == 0 {
+			response.WriteHeader(http.StatusNotFound)
+		}
+
+		failures.WriteResponse(response)
+	})
+}
+
+// NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message,
+// then uses Router.RouteUsing to forward the message to a device.
+func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		body, err := ioutil.ReadAll(request.Body)
+		if err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Unable to read request body: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		message, err := decoder.DecodeMessageBytes(body)
+		if err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not decode WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
+		failures := make(Failures)
+		if _, totalCount, routeError := router.RouteUsing(message, body, failures.Add); routeError != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Unable to route message: %s", routeError),
+				http.StatusBadRequest,
+			)
+		} else if totalCount == 0 {
+			response.WriteHeader(http.StatusNotFound)
+		}
+
+		failures.WriteResponse(response)
+	})
+}
+
 // NewConnectHandler produces an http.Handler that allows devices to connect
 // to a specific Manager.
-func NewConnectHandler(manager Manager, responseHeader http.Header, logger logging.Logger) http.Handler {
+func NewConnectHandler(connector Connector, responseHeader http.Header, logger logging.Logger) http.Handler {
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		device, err := manager.Connect(response, request, responseHeader)
+		device, err := connector.Connect(response, request, responseHeader)
 		if err != nil {
 			logger.Error("Failed to connect device: %s", err)
 		} else {

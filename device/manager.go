@@ -1,17 +1,25 @@
 package device
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 )
 
-// Manager supplies a hub for connecting and disconnecting devices as well as
-// an access point for obtaining device metadata.
-type Manager interface {
+var (
+	// emptyMessage is a convenient, internal message used to reset wrp.Message instances for reuse
+	emptyMessage wrp.Message
+)
+
+// Connector is a strategy interface for managing device connections to a server.
+// Implementations are responsible for upgrading websocket connections and providing
+// for explicit disconnection.
+type Connector interface {
 	// Connect upgrade an HTTP connection to a websocket and begins concurrent
 	// managment of the device.
 	Connect(http.ResponseWriter, *http.Request, http.Header) (Interface, error)
@@ -38,7 +46,26 @@ type Manager interface {
 	// No methods on this Manager should be called from within the predicate function, or
 	// a deadlock will likely occur.
 	DisconnectIf(func(ID) bool) int
+}
 
+// Router handles dispatching messages to devices.
+type Router interface {
+	// Route examines the given WRP message to determine the destination, then
+	// sends that message to the appropriate device(s).  The ID of the device(s)
+	// to which the message was sent is returned.
+	Route(*wrp.Message, func(Interface, error)) (ID, int, error)
+
+	// RouteUsing uses a WRP message for routing information, but actually sends the
+	// supplied bytes as the message.
+	//
+	// This method is useful when reading a WRP message from another source.  It avoids
+	// the overhead of reserializing the message.
+	RouteUsing(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
+}
+
+// Registry is the strategy interface for querying the set of connected devices.  Methods
+// in this interface follow the Visitor pattern and are typically executed under a read lock.
+type Registry interface {
 	// VisitIf applies a visitor to any device matching the ID predicate.
 	//
 	// No methods on this Manager should be called from within either the predicate
@@ -50,18 +77,14 @@ type Manager interface {
 	// No methods on this Manager should be called from within the visitor function, or
 	// a deadlock will likely occur.
 	VisitAll(func(Interface)) int
+}
 
-	// Send dispatches a message to all devices registered with the given canonical ID.
-	// An optional callback can be supplied to allow the caller to receive information
-	// for each send attempt.  This callback will be invoked for each send, successes
-	// being indicated by a nil error.
-	//
-	// No methods on this Manager should be called from within the callback function, or
-	// a deadlock will likely occur.
-	Send(ID, *wrp.Message, func(Interface, error)) error
-
-	// SendOne attempts to send a message to the single, unique device identified by the Key.
-	SendOne(Key, *wrp.Message) error
+// Manager supplies a hub for connecting and disconnecting devices as well as
+// an access point for obtaining device metadata.
+type Manager interface {
+	Connector
+	Router
+	Registry
 }
 
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
@@ -208,9 +231,12 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
-		raw       []byte
-		message   *wrp.Message
-		readError error
+		frameRead   bool
+		readError   error
+		frameBuffer bytes.Buffer
+
+		message wrp.Message
+		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
 	defer func() {
@@ -220,15 +246,25 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
-		raw, message, readError = c.Read()
+		frameBuffer.Reset()
+		frameRead, readError = c.Read(&frameBuffer)
 		if readError != nil {
 			return
-		} else if message == nil {
+		} else if !frameRead {
 			m.logger.Warn("Skipping frame from device [%s]", d.id)
 			continue
 		}
 
-		m.messageListener(d, raw, message)
+		rawFrame := frameBuffer.Bytes()
+		message = emptyMessage
+		decoder.ResetBytes(rawFrame)
+		if decodeError := decoder.Decode(&message); decodeError != nil {
+			// malformed WRP messages are allowed: the read pump will keep on chugging
+			m.logger.Error("Skipping malformed frame from device [%s]: %s", d.id, decodeError)
+			continue
+		}
+
+		m.messageListener(d, rawFrame, &message)
 	}
 }
 
@@ -250,7 +286,12 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	// dispatch to the connect listener after the device is addressable
 	m.connectListener(d)
 
-	var writeError error
+	var (
+		frame      io.WriteCloser
+		writeError error
+		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
+	)
+
 	defer func() {
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 	}()
@@ -264,8 +305,23 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		case <-d.shutdown:
 			writeError = c.SendClose()
 			return
-		case message := <-d.messages:
-			writeError = c.Write(message)
+
+		case wrpMessage := <-d.wrpMessages:
+			frame, writeError = c.NextWriter()
+			if writeError != nil {
+				return
+			}
+
+			encoder.Reset(frame)
+			if writeError = encoder.Encode(wrpMessage); writeError != nil {
+				return
+			}
+
+			writeError = frame.Close()
+
+		case rawMessage := <-d.rawMessages:
+			_, writeError = c.Write(rawMessage)
+
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
 		}
@@ -336,37 +392,41 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	return
 }
 
-func (m *manager) Send(id ID, message *wrp.Message, callback func(Interface, error)) (err error) {
-	m.logger.Debug("Send(%s)", id)
+func (m *manager) Route(message *wrp.Message, callback func(Interface, error)) (recipient ID, count int, err error) {
+	var (
+		buffer  bytes.Buffer
+		encoder = wrp.NewEncoder(&buffer, wrp.Msgpack)
+	)
 
-	m.whenReadLocked(func() {
-		count := m.registry.visitID(id, func(d *device) {
-			sendError := d.Send(message)
-			if callback != nil {
-				callback(d, sendError)
-			}
-		})
+	if err = encoder.Encode(message); err != nil {
+		return
+	}
 
-		if count < 1 {
-			err = NewMissingIDError(id)
-		}
-	})
+	return m.RouteUsing(message, buffer.Bytes(), callback)
+}
 
+func (m *manager) RouteUsing(route *wrp.Message, message []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
+	recipient, err = ParseID(route.Destination)
+	if err != nil {
+		return
+	}
+
+	count = m.sendMessages(recipient, message, callback)
 	return
 }
 
-func (m *manager) SendOne(k Key, message *wrp.Message) (err error) {
-	m.logger.Debug("SendOne(%s)", k)
+func (m *manager) sendMessages(recipient ID, message []byte, callback func(Interface, error)) int {
+	var targets []*device
 
 	m.whenReadLocked(func() {
-		count := m.registry.visitKey(k, func(d *device) {
-			err = d.Send(message)
-		})
-
-		if count < 1 {
-			err = NewMissingKeyError(k)
-		}
+		targets = m.registry.devices(recipient)
 	})
 
-	return
+	for _, target := range targets {
+		if err := target.SendBytes(message); err != nil && callback != nil {
+			callback(target, err)
+		}
+	}
+
+	return len(targets)
 }

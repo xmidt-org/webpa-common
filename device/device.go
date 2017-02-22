@@ -45,6 +45,9 @@ type Interface interface {
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
 
+	// Pending returns the count of pending messages for this device
+	Pending() int
+
 	// RequestClose posts a request for this device to be disconnected.  This method
 	// is asynchronous and idempotent.  If this method is invoked when a shutdown
 	// request has already been queued or when this device is already shut down, this
@@ -63,6 +66,10 @@ type Interface interface {
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
 	Send(*wrp.Message) error
+
+	// SendBytes dispatches a preformatted WRP frame to this device.  All other semantics
+	// are the same as Send.
+	SendBytes([]byte) error
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -76,8 +83,9 @@ type device struct {
 
 	state int32
 
-	shutdown chan struct{}
-	messages chan *wrp.Message
+	shutdown    chan struct{}
+	wrpMessages chan *wrp.Message
+	rawMessages chan []byte
 }
 
 func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
@@ -87,7 +95,8 @@ func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 		connectedAt: time.Now(),
 		state:       stateOpen,
 		shutdown:    make(chan struct{}),
-		messages:    make(chan *wrp.Message, queueSize),
+		wrpMessages: make(chan *wrp.Message, queueSize),
+		rawMessages: make(chan []byte, queueSize),
 	}
 
 	d.updateKey(initialKey)
@@ -112,7 +121,7 @@ func (d *device) MarshalJSON() ([]byte, error) {
 		`{"id": "%s", "key": "%s", "pending": %d, "connectedAt": "%s", "closed": %t, "convey": %s}`,
 		d.id,
 		d.Key(),
-		len(d.messages),
+		d.Pending(),
 		d.connectedAt.Format(time.RFC3339),
 		d.Closed(),
 		conveyJSON,
@@ -153,6 +162,10 @@ func (d *device) ConnectedAt() time.Time {
 	return d.connectedAt
 }
 
+func (d *device) Pending() int {
+	return len(d.wrpMessages) + len(d.rawMessages)
+}
+
 func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
@@ -163,7 +176,20 @@ func (d *device) Send(message *wrp.Message) (err error) {
 	}
 
 	select {
-	case d.messages <- message:
+	case d.wrpMessages <- message:
+		return nil
+	default:
+		return NewBusyError(d.id, d.Key())
+	}
+}
+
+func (d *device) SendBytes(message []byte) (err error) {
+	if d.Closed() {
+		return NewClosedError(d.id, d.Key())
+	}
+
+	select {
+	case d.rawMessages <- message:
 		return nil
 	default:
 		return NewBusyError(d.id, d.Key())
