@@ -18,7 +18,7 @@ type PoolFactory struct {
 
 func NewPoolFactory(v *viper.Viper) (pf *PoolFactory, err error) {
 	pf = new(PoolFactory)
-	if pf != nil {
+	if v != nil {
 		err = v.Unmarshal(pf)
 	}
 
