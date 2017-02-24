@@ -17,7 +17,7 @@ func TestDefaultListeners(t *testing.T) {
 		pongData = "some lovely pong data!"
 	)
 
-	defaultMessageListener(device, raw, message)
+	defaultMessageReceivedListener(device, raw, message)
 	defaultConnectListener(device)
 	defaultDisconnectListener(device)
 	defaultPongListener(device, pongData)
@@ -25,14 +25,14 @@ func TestDefaultListeners(t *testing.T) {
 	device.AssertExpectations(t)
 }
 
-func TestMessageListeners(t *testing.T) {
+func TestMessageReceivedListeners(t *testing.T) {
 	assert := assert.New(t)
-	testData := [][]MessageListener{
+	testData := [][]MessageReceivedListener{
 		nil,
-		make([]MessageListener, 0),
-		make([]MessageListener, 1),
-		make([]MessageListener, 2),
-		make([]MessageListener, 5),
+		make([]MessageReceivedListener, 0),
+		make([]MessageReceivedListener, 1),
+		make([]MessageReceivedListener, 2),
+		make([]MessageReceivedListener, 5),
 	}
 
 	for _, listeners := range testData {
@@ -52,7 +52,7 @@ func TestMessageListeners(t *testing.T) {
 			}
 		}
 
-		messageListener := MessageListeners(listeners...)
+		messageListener := MessageReceivedListeners(listeners...)
 		messageListener(expectedDevice, expectedRaw, expectedMessage)
 
 		assert.Equal(len(listeners), actualCallCount)

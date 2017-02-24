@@ -108,10 +108,10 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		messageListener:    o.messageListener(),
-		connectListener:    o.connectListener(),
-		disconnectListener: o.disconnectListener(),
-		pongListener:       o.pongListener(),
+		messageReceivedListener: o.messageReceivedListener(),
+		connectListener:         o.connectListener(),
+		disconnectListener:      o.disconnectListener(),
+		pongListener:            o.pongListener(),
 	}
 }
 
@@ -133,10 +133,10 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	messageListener    MessageListener
-	connectListener    ConnectListener
-	disconnectListener DisconnectListener
-	pongListener       PongListener
+	messageReceivedListener MessageReceivedListener
+	connectListener         ConnectListener
+	disconnectListener      DisconnectListener
+	pongListener            PongListener
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -264,7 +264,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		m.messageListener(d, rawFrame, &message)
+		m.messageReceivedListener(d, rawFrame, &message)
 	}
 }
 

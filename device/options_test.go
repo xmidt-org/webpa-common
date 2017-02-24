@@ -28,7 +28,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Empty(o.subprotocols())
 		assert.NotNil(o.keyFunc())
 		assert.NotNil(o.logger())
-		assert.NotNil(o.messageListener())
+		assert.NotNil(o.messageReceivedListener())
 		assert.NotNil(o.connectListener())
 		assert.NotNil(o.disconnectListener())
 		assert.NotNil(o.pongListener())
@@ -45,30 +45,30 @@ func TestOptions(t *testing.T) {
 			return expectedKey, nil
 		}
 
-		called                     = make(map[string]bool)
-		expectedMessageListener    = func(Interface, []byte, *wrp.Message) { called["expectedMessageListener"] = true }
-		expectedConnectListener    = func(Interface) { called["expectedConnectListener"] = true }
-		expectedDisconnectListener = func(Interface) { called["expectedDisconnectListener"] = true }
-		expectedPongListener       = func(Interface, string) { called["expectedPongListener"] = true }
+		called                          = make(map[string]bool)
+		expectedMessageReceivedListener = func(Interface, []byte, *wrp.Message) { called["expectedMessageReceivedListener"] = true }
+		expectedConnectListener         = func(Interface) { called["expectedConnectListener"] = true }
+		expectedDisconnectListener      = func(Interface) { called["expectedDisconnectListener"] = true }
+		expectedPongListener            = func(Interface, string) { called["expectedPongListener"] = true }
 
 		o = Options{
-			DeviceNameHeader:       "X-TestOptions-Device-Name",
-			ConveyHeader:           "X-TestOptions-Convey",
-			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
-			InitialCapacity:        DefaultInitialCapacity + 4719,
-			ReadBufferSize:         DefaultReadBufferSize + 48729,
-			WriteBufferSize:        DefaultWriteBufferSize + 926,
-			Subprotocols:           []string{"foobar"},
-			DeviceMessageQueueSize: DefaultDeviceMessageQueueSize + 287342,
-			IdlePeriod:             DefaultIdlePeriod + 3472*time.Minute,
-			PingPeriod:             DefaultPingPeriod + 384*time.Millisecond,
-			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
-			KeyFunc:                expectedKeyFunc,
-			Logger:                 expectedLogger,
-			MessageListener:        expectedMessageListener,
-			ConnectListener:        expectedConnectListener,
-			DisconnectListener:     expectedDisconnectListener,
-			PongListener:           expectedPongListener,
+			DeviceNameHeader:        "X-TestOptions-Device-Name",
+			ConveyHeader:            "X-TestOptions-Convey",
+			HandshakeTimeout:        DefaultHandshakeTimeout + 12377123*time.Second,
+			InitialCapacity:         DefaultInitialCapacity + 4719,
+			ReadBufferSize:          DefaultReadBufferSize + 48729,
+			WriteBufferSize:         DefaultWriteBufferSize + 926,
+			Subprotocols:            []string{"foobar"},
+			DeviceMessageQueueSize:  DefaultDeviceMessageQueueSize + 287342,
+			IdlePeriod:              DefaultIdlePeriod + 3472*time.Minute,
+			PingPeriod:              DefaultPingPeriod + 384*time.Millisecond,
+			WriteTimeout:            DefaultWriteTimeout + 327193*time.Second,
+			KeyFunc:                 expectedKeyFunc,
+			Logger:                  expectedLogger,
+			MessageReceivedListener: expectedMessageReceivedListener,
+			ConnectListener:         expectedConnectListener,
+			DisconnectListener:      expectedDisconnectListener,
+			PongListener:            expectedPongListener,
 		}
 	)
 
@@ -92,9 +92,9 @@ func TestOptions(t *testing.T) {
 		pongData        = "some pong data"
 	)
 
-	o.messageListener()(expectedDevice, expectedRaw, expectedMessage)
+	o.messageReceivedListener()(expectedDevice, expectedRaw, expectedMessage)
 	assert.Len(called, 1)
-	assert.True(called["expectedMessageListener"])
+	assert.True(called["expectedMessageReceivedListener"])
 
 	called = make(map[string]bool)
 	o.connectListener()(expectedDevice)

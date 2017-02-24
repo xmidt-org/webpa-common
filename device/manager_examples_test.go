@@ -12,7 +12,7 @@ import (
 func ExampleManagerSimple() {
 	options := &Options{
 		Logger: &logging.LoggerWriter{ioutil.Discard},
-		MessageListener: func(device Interface, raw []byte, message *wrp.Message) {
+		MessageReceivedListener: func(device Interface, raw []byte, message *wrp.Message) {
 			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 			err := device.Send(
 				wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),

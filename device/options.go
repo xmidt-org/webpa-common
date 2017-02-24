@@ -66,8 +66,8 @@ type Options struct {
 	// DefaultWriteTimeout is used.
 	WriteTimeout time.Duration
 
-	// MessageListener is the notification sink for device messages
-	MessageListener MessageListener
+	// MessageReceivedListener is the notification sink for device messages
+	MessageReceivedListener MessageReceivedListener
 
 	// ConnectListener receives notifications for device connections
 	ConnectListener ConnectListener
@@ -192,12 +192,12 @@ func (o *Options) logger() logging.Logger {
 	return logging.DefaultLogger()
 }
 
-func (o *Options) messageListener() MessageListener {
-	if o != nil && o.MessageListener != nil {
-		return o.MessageListener
+func (o *Options) messageReceivedListener() MessageReceivedListener {
+	if o != nil && o.MessageReceivedListener != nil {
+		return o.MessageReceivedListener
 	}
 
-	return defaultMessageListener
+	return defaultMessageReceivedListener
 }
 
 func (o *Options) connectListener() ConnectListener {
