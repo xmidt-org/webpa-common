@@ -19,33 +19,47 @@ func (df Failures) Add(d Interface, deviceError error) {
 	df[d] = deviceError
 }
 
-func (df Failures) MarshalJSON() ([]byte, error) {
-	var (
-		buffer    = bytes.NewBufferString(`{"errors": [`)
-		separator = ""
-	)
+func (df Failures) WriteJSON(output io.Writer) (count int, err error) {
+	_, err = fmt.Fprintf(output, `{"errors": [`)
+	if err != nil {
+		return
+	}
 
+	separator := ""
 	for d, deviceError := range df {
 		if deviceError != nil {
-			fmt.Fprintf(buffer, `{"id": "%s", "key": "%s", error: "%s"}%s`, d.ID(), d.Key(), deviceError, separator)
+			count++
+			fmt.Fprintf(output, `{"id": "%s", "key": "%s", error: "%s"}%s`, d.ID(), d.Key(), deviceError, separator)
 			separator = ","
 		}
 	}
 
-	buffer.WriteString(`]}`)
-	return buffer.Bytes(), nil
+	_, err = fmt.Fprintf(output, `]}`)
+	return
+}
+
+func (df Failures) MarshalJSON() (data []byte, err error) {
+	var buffer bytes.Buffer
+	_, err = df.WriteJSON(&buffer)
+	data = buffer.Bytes()
+	return
 }
 
 func (df Failures) WriteResponse(response http.ResponseWriter) error {
 	if len(df) > 0 {
-		response.Header().Set("Content-Type", "application/json")
-		response.WriteHeader(http.StatusInternalServerError)
-		data, _ := df.MarshalJSON()
-		_, err := response.Write(data)
-		return err
+		var buffer bytes.Buffer
+		if count, err := df.WriteJSON(&buffer); err != nil {
+			return err
+		} else if count > 0 {
+			// only write the JSON out if any devices actually had errors, as opposed
+			// to devices mapped to nil errors
+			response.Header().Set("Content-Type", "application/json")
+			response.WriteHeader(http.StatusInternalServerError)
+			_, err := buffer.WriteTo(response)
+			return err
+		}
 	}
 
-	response.WriteHeader(http.StatusOK)
 	return nil
 }
 
@@ -53,9 +67,13 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 // Msgpack, e.g. JSON.  The exact format is determined by the supplied decoder.
 //
 // Router.Route is used to send the message to one or more devices.
-func NewTranscodingHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		message, err := decoder.DecodeMessage(request.Body)
+		decoder := decoderPool.Get()
+		decoder.Reset(request.Body)
+		envelope, err := DecodeEnvelope(decoder)
+		decoderPool.Put(decoder)
+
 		if err != nil {
 			http.Error(
 				response,
@@ -66,28 +84,18 @@ func NewTranscodingHandler(decoder *wrp.DecoderPool, router Router) http.Handler
 			return
 		}
 
-		var (
-			failures                  = make(Failures)
-			_, totalCount, routeError = router.Route(message, failures.Add)
-		)
-
-		if routeError != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Unable to route message: %s", routeError),
-				http.StatusBadRequest,
-			)
-		} else if totalCount == 0 {
+		failures := make(Failures)
+		if router.Route(envelope, failures.Add) == 0 {
 			response.WriteHeader(http.StatusNotFound)
+		} else {
+			failures.WriteResponse(response)
 		}
-
-		failures.WriteResponse(response)
 	})
 }
 
 // NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message,
 // then uses Router.RouteUsing to forward the message to a device.
-func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
+func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		body, err := ioutil.ReadAll(request.Body)
 		if err != nil {
@@ -100,7 +108,11 @@ func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 			return
 		}
 
-		message, err := decoder.DecodeMessageBytes(body)
+		decoder := decoderPool.Get()
+		decoder.ResetBytes(body)
+		envelope, err := DecodeEnvelope(decoder)
+		decoderPool.Put(decoder)
+
 		if err != nil {
 			http.Error(
 				response,
@@ -111,18 +123,13 @@ func NewMsgpackHandler(decoder *wrp.DecoderPool, router Router) http.Handler {
 			return
 		}
 
+		envelope.Encoded = body
 		failures := make(Failures)
-		if _, totalCount, routeError := router.RouteUsing(message, body, failures.Add); routeError != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Unable to route message: %s", routeError),
-				http.StatusBadRequest,
-			)
-		} else if totalCount == 0 {
+		if router.Route(envelope, failures.Add) == 0 {
 			response.WriteHeader(http.StatusNotFound)
+		} else {
+			failures.WriteResponse(response)
 		}
-
-		failures.WriteResponse(response)
 	})
 }
 

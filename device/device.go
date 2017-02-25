@@ -3,7 +3,6 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/wrp"
 	"sync/atomic"
 	"time"
 )
@@ -65,11 +64,7 @@ type Interface interface {
 	//
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
-	Send(*wrp.Message) error
-
-	// SendBytes dispatches a preformatted WRP frame to this device.  All other semantics
-	// are the same as Send.
-	SendBytes([]byte) error
+	Send(*Envelope) error
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -83,9 +78,8 @@ type device struct {
 
 	state int32
 
-	shutdown    chan struct{}
-	wrpMessages chan *wrp.Message
-	rawMessages chan []byte
+	shutdown chan struct{}
+	messages chan *Envelope
 }
 
 func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
@@ -95,8 +89,7 @@ func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 		connectedAt: time.Now(),
 		state:       stateOpen,
 		shutdown:    make(chan struct{}),
-		wrpMessages: make(chan *wrp.Message, queueSize),
-		rawMessages: make(chan []byte, queueSize),
+		messages:    make(chan *Envelope, queueSize),
 	}
 
 	d.updateKey(initialKey)
@@ -163,33 +156,20 @@ func (d *device) ConnectedAt() time.Time {
 }
 
 func (d *device) Pending() int {
-	return len(d.wrpMessages) + len(d.rawMessages)
+	return len(d.messages)
 }
 
 func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(message *wrp.Message) (err error) {
+func (d *device) Send(envelope *Envelope) (err error) {
 	if d.Closed() {
 		return NewClosedError(d.id, d.Key())
 	}
 
 	select {
-	case d.wrpMessages <- message:
-		return nil
-	default:
-		return NewBusyError(d.id, d.Key())
-	}
-}
-
-func (d *device) SendBytes(message []byte) (err error) {
-	if d.Closed() {
-		return NewClosedError(d.id, d.Key())
-	}
-
-	select {
-	case d.rawMessages <- message:
+	case d.messages <- envelope:
 		return nil
 	default:
 		return NewBusyError(d.id, d.Key())

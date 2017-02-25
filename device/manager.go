@@ -50,17 +50,8 @@ type Connector interface {
 
 // Router handles dispatching messages to devices.
 type Router interface {
-	// Route examines the given WRP message to determine the destination, then
-	// sends that message to the appropriate device(s).  The ID of the device(s)
-	// to which the message was sent is returned.
-	Route(*wrp.Message, func(Interface, error)) (ID, int, error)
-
-	// RouteUsing uses a WRP message for routing information, but actually sends the
-	// supplied bytes as the message.
-	//
-	// This method is useful when reading a WRP message from another source.  It avoids
-	// the overhead of reserializing the message.
-	RouteUsing(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
+	// Route dispatches the envelope to one or more devices
+	Route(*Envelope, func(Interface, error)) int
 }
 
 // Registry is the strategy interface for querying the set of connected devices.  Methods
@@ -306,21 +297,26 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			writeError = c.SendClose()
 			return
 
-		case wrpMessage := <-d.wrpMessages:
+		case envelope := <-d.messages:
 			frame, writeError = c.NextWriter()
 			if writeError != nil {
 				return
 			}
 
-			encoder.Reset(frame)
-			if writeError = encoder.Encode(wrpMessage); writeError != nil {
-				return
+			// if we have a pre-encoded byte slice, just write that
+			if len(envelope.Encoded) > 0 {
+				_, writeError = frame.Write(envelope.Encoded)
+				if writeError != nil {
+					return
+				}
+			} else {
+				encoder.Reset(frame)
+				if writeError = encoder.Encode(&envelope.Message); writeError != nil {
+					return
+				}
 			}
 
 			writeError = frame.Close()
-
-		case rawMessage := <-d.rawMessages:
-			_, writeError = c.Write(rawMessage)
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
@@ -392,41 +388,14 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	return
 }
 
-func (m *manager) Route(message *wrp.Message, callback func(Interface, error)) (recipient ID, count int, err error) {
-	var (
-		buffer  bytes.Buffer
-		encoder = wrp.NewEncoder(&buffer, wrp.Msgpack)
-	)
-
-	if err = encoder.Encode(message); err != nil {
-		return
-	}
-
-	return m.RouteUsing(message, buffer.Bytes(), callback)
-}
-
-func (m *manager) RouteUsing(route *wrp.Message, message []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
-	recipient, err = ParseID(route.Destination)
-	if err != nil {
-		return
-	}
-
-	count = m.sendMessages(recipient, message, callback)
-	return
-}
-
-func (m *manager) sendMessages(recipient ID, message []byte, callback func(Interface, error)) int {
-	var targets []*device
-
+func (m *manager) Route(envelope *Envelope, callback func(Interface, error)) (count int) {
 	m.whenReadLocked(func() {
-		targets = m.registry.devices(recipient)
+		count = m.registry.visitID(envelope.ID, func(d *device) {
+			if err := d.Send(envelope); err != nil && callback != nil {
+				callback(d, err)
+			}
+		})
 	})
 
-	for _, target := range targets {
-		if err := target.SendBytes(message); err != nil && callback != nil {
-			callback(target, err)
-		}
-	}
-
-	return len(targets)
+	return
 }
