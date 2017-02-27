@@ -187,10 +187,8 @@ func (m *manager) whenReadLocked(when func()) {
 // pumpClose handles the proper shutdown and logging of a device's pumps.
 // This method should be executed within a sync.Once, so that it only executes
 // once for a given device.
-func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
+func (m *manager) pumpClose(d *device, c Connection, failed *envelope, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
-
-	defer m.listeners.Disconnect(d)
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
@@ -202,6 +200,16 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 
 	if closeError := c.Close(); closeError != nil {
 		m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
+	}
+
+	m.listeners.Disconnect(d)
+
+	if failed != nil {
+		m.listeners.MessageFailed(d, failed.message, failed.encoded, pumpError)
+	}
+
+	for queued := range d.messages {
+		m.listeners.MessageFailed(d, queued.message, queued.encoded, pumpError)
 	}
 }
 
@@ -228,7 +236,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	)
 
 	defer func() {
-		closeOnce.Do(func() { m.pumpClose(d, c, readError) })
+		closeOnce.Do(func() { m.pumpClose(d, c, nil, readError) })
 	}()
 
 	c.SetPongCallback(m.pongCallbackFor(d))
@@ -275,13 +283,14 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	m.listeners.Connect(d)
 
 	var (
+		envelope   *envelope
 		frame      io.WriteCloser
 		writeError error
 		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 	)
 
 	defer func() {
-		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
+		closeOnce.Do(func() { m.pumpClose(d, c, envelope, writeError) })
 	}()
 
 	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
@@ -289,12 +298,14 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	defer pingTicker.Stop()
 
 	for writeError == nil {
+		envelope = nil
+
 		select {
 		case <-d.shutdown:
 			writeError = c.SendClose()
 			return
 
-		case envelope := <-d.messages:
+		case envelope = <-d.messages:
 			frame, writeError = c.NextWriter()
 			if writeError != nil {
 				return
