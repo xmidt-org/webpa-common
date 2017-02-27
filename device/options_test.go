@@ -46,7 +46,7 @@ func TestOptions(t *testing.T) {
 		}
 
 		called                          = make(map[string]bool)
-		expectedMessageReceivedListener = func(Interface, []byte, *wrp.Message) { called["expectedMessageReceivedListener"] = true }
+		expectedMessageReceivedListener = func(Interface, *wrp.Message, []byte) { called["expectedMessageReceivedListener"] = true }
 		expectedConnectListener         = func(Interface) { called["expectedConnectListener"] = true }
 		expectedDisconnectListener      = func(Interface) { called["expectedDisconnectListener"] = true }
 		expectedPongListener            = func(Interface, string) { called["expectedPongListener"] = true }
@@ -87,12 +87,12 @@ func TestOptions(t *testing.T) {
 
 	var (
 		expectedDevice  = new(mockDevice)
-		expectedRaw     = make([]byte, 10)
+		expectedEncoded = make([]byte, 10)
 		expectedMessage = new(wrp.Message)
 		pongData        = "some pong data"
 	)
 
-	o.messageReceivedListener()(expectedDevice, expectedRaw, expectedMessage)
+	o.messageReceivedListener()(expectedDevice, expectedMessage, expectedEncoded)
 	assert.Len(called, 1)
 	assert.True(called["expectedMessageReceivedListener"])
 

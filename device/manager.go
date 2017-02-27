@@ -255,7 +255,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		m.messageReceivedListener(d, rawFrame, &message)
+		m.messageReceivedListener(d, &message, rawFrame)
 	}
 }
 

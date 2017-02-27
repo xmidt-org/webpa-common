@@ -12,12 +12,12 @@ func TestDefaultListeners(t *testing.T) {
 
 	var (
 		device   = new(mockDevice)
-		raw      = make([]byte, 10)
+		encoded  = make([]byte, 10)
 		message  = new(wrp.Message)
 		pongData = "some lovely pong data!"
 	)
 
-	defaultMessageReceivedListener(device, raw, message)
+	defaultMessageReceivedListener(device, message, encoded)
 	defaultConnectListener(device)
 	defaultDisconnectListener(device)
 	defaultPongListener(device, pongData)
@@ -38,22 +38,22 @@ func TestMessageReceivedListeners(t *testing.T) {
 	for _, listeners := range testData {
 		var (
 			expectedDevice  = new(mockDevice)
-			expectedRaw     = []byte("test raw")
+			expectedEncoded = []byte("test raw")
 			expectedMessage = new(wrp.Message)
 		)
 
 		actualCallCount := 0
 		for index, _ := range listeners {
-			listeners[index] = func(actualDevice Interface, actualRaw []byte, actualMessage *wrp.Message) {
+			listeners[index] = func(actualDevice Interface, actualMessage *wrp.Message, actualEncoded []byte) {
 				assert.True(expectedDevice == actualDevice)
-				assert.Equal(expectedRaw, actualRaw)
+				assert.Equal(expectedEncoded, actualEncoded)
 				assert.True(expectedMessage == actualMessage)
 				actualCallCount++
 			}
 		}
 
 		messageListener := MessageReceivedListeners(listeners...)
-		messageListener(expectedDevice, expectedRaw, expectedMessage)
+		messageListener(expectedDevice, expectedMessage, expectedEncoded)
 
 		assert.Equal(len(listeners), actualCallCount)
 		expectedDevice.AssertExpectations(t)
