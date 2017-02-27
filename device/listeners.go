@@ -97,3 +97,36 @@ func PongListeners(listeners ...PongListener) PongListener {
 
 	return defaultPongListener
 }
+
+// Listeners contains a set of device listeners
+type Listeners struct {
+	MessageReceived MessageReceivedListener
+	MessageFailed   MessageFailedListener
+	Connect         ConnectListener
+	Disconnect      DisconnectListener
+	Pong            PongListener
+}
+
+// EnsureDefaults sets any nil listener to its default.  This method ensures
+// that no nil listeners are present, but preserves any custom listeners that are set.
+func (l *Listeners) EnsureDefaults() {
+	if l.MessageReceived == nil {
+		l.MessageReceived = defaultMessageReceivedListener
+	}
+
+	if l.MessageFailed == nil {
+		l.MessageFailed = defaultMessageFailedListener
+	}
+
+	if l.Connect == nil {
+		l.Connect = defaultConnectListener
+	}
+
+	if l.Disconnect == nil {
+		l.Disconnect = defaultDisconnectListener
+	}
+
+	if l.Pong == nil {
+		l.Pong = defaultPongListener
+	}
+}

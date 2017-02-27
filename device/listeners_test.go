@@ -204,3 +204,17 @@ func TestPongListeners(t *testing.T) {
 		expectedDevice.AssertExpectations(t)
 	}
 }
+
+func TestListenersEnsureDefaults(t *testing.T) {
+	assert := assert.New(t)
+
+	t.Run("AllNil", func(t *testing.T) {
+		var listeners Listeners
+		listeners.EnsureDefaults()
+		assert.NotNil(listeners.MessageReceived)
+		assert.NotNil(listeners.MessageFailed)
+		assert.NotNil(listeners.Connect)
+		assert.NotNil(listeners.Disconnect)
+		assert.NotNil(listeners.Pong)
+	})
+}

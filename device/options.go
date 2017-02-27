@@ -66,17 +66,8 @@ type Options struct {
 	// DefaultWriteTimeout is used.
 	WriteTimeout time.Duration
 
-	// MessageReceivedListener is the notification sink for device messages
-	MessageReceivedListener MessageReceivedListener
-
-	// ConnectListener receives notifications for device connections
-	ConnectListener ConnectListener
-
-	// DisconnectListener receives notifications when devices disconnect for any reason
-	DisconnectListener DisconnectListener
-
-	// PongListener is the notification sink for pongs
-	PongListener PongListener
+	// Listeners contains the event sinks for managers created using these options
+	Listeners Listeners
 
 	// KeyFunc is the factory function for Keys, used when devices connect.
 	// If this value is nil, then UUIDKeyFunc is used along with crypto/rand's Reader.
@@ -190,36 +181,4 @@ func (o *Options) logger() logging.Logger {
 	}
 
 	return logging.DefaultLogger()
-}
-
-func (o *Options) messageReceivedListener() MessageReceivedListener {
-	if o != nil && o.MessageReceivedListener != nil {
-		return o.MessageReceivedListener
-	}
-
-	return defaultMessageReceivedListener
-}
-
-func (o *Options) connectListener() ConnectListener {
-	if o != nil && o.ConnectListener != nil {
-		return o.ConnectListener
-	}
-
-	return defaultConnectListener
-}
-
-func (o *Options) disconnectListener() DisconnectListener {
-	if o != nil && o.DisconnectListener != nil {
-		return o.DisconnectListener
-	}
-
-	return defaultDisconnectListener
-}
-
-func (o *Options) pongListener() PongListener {
-	if o != nil && o.PongListener != nil {
-		return o.PongListener
-	}
-
-	return defaultPongListener
 }

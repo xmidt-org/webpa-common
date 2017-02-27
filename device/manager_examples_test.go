@@ -12,16 +12,18 @@ import (
 func ExampleManagerSimple() {
 	options := &Options{
 		Logger: &logging.LoggerWriter{ioutil.Discard},
-		MessageReceivedListener: func(device Interface, message *wrp.Message, encoded []byte) {
-			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
-			err := device.Send(
-				wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
-				nil,
-			)
+		Listeners: Listeners{
+			MessageReceived: func(device Interface, message *wrp.Message, encoded []byte) {
+				fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
+				err := device.Send(
+					wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
+					nil,
+				)
 
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Unable to send response: %s", err)
-			}
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Unable to send response: %s", err)
+				}
+			},
 		},
 	}
 

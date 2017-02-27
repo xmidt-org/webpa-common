@@ -85,7 +85,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		cf = NewConnectionFactory(o)
 	}
 
-	return &manager{
+	m := &manager{
 		logger: o.logger(),
 
 		deviceNameHeader:             o.deviceNameHeader(),
@@ -99,11 +99,11 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		messageReceivedListener: o.messageReceivedListener(),
-		connectListener:         o.connectListener(),
-		disconnectListener:      o.disconnectListener(),
-		pongListener:            o.pongListener(),
+		listeners: o.Listeners,
 	}
+
+	m.listeners.EnsureDefaults()
+	return m
 }
 
 // manager is the internal Manager implementation.
@@ -124,10 +124,7 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	messageReceivedListener MessageReceivedListener
-	connectListener         ConnectListener
-	disconnectListener      DisconnectListener
-	pongListener            PongListener
+	listeners Listeners
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -193,7 +190,7 @@ func (m *manager) whenReadLocked(when func()) {
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
 
-	defer m.disconnectListener(d)
+	defer m.listeners.Disconnect(d)
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
@@ -212,7 +209,7 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 // for the given device.
 func (m *manager) pongCallbackFor(d *device) func(string) {
 	return func(data string) {
-		m.pongListener(d, data)
+		m.listeners.Pong(d, data)
 	}
 }
 
@@ -255,7 +252,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		m.messageReceivedListener(d, &message, rawFrame)
+		m.listeners.MessageReceived(d, &message, rawFrame)
 	}
 }
 
@@ -275,7 +272,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	})
 
 	// dispatch to the connect listener after the device is addressable
-	m.connectListener(d)
+	m.listeners.Connect(d)
 
 	var (
 		frame      io.WriteCloser
