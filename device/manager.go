@@ -184,7 +184,7 @@ func (m *manager) whenReadLocked(when func()) {
 	when()
 }
 
-// pumpCleanup handles the proper shutdown and logging of a device's pumps.
+// pumpClose handles the proper shutdown and logging of a device's pumps.
 // This method should be executed within a sync.Once, so that it only executes
 // once for a given device.
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
