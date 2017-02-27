@@ -69,11 +69,7 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 // Router.Route is used to send the message to one or more devices.
 func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		decoder := decoderPool.Get()
-		decoder.Reset(request.Body)
-		envelope, err := DecodeEnvelope(decoder)
-		decoderPool.Put(decoder)
-
+		message, err := decoderPool.DecodeMessage(request.Body)
 		if err != nil {
 			http.Error(
 				response,
@@ -85,7 +81,13 @@ func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Han
 		}
 
 		failures := make(Failures)
-		if router.Route(envelope, failures.Add) == 0 {
+		if _, count, err := router.Route(message, nil, failures.Add); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not route WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+		} else if count == 0 {
 			response.WriteHeader(http.StatusNotFound)
 		} else {
 			failures.WriteResponse(response)
@@ -108,11 +110,7 @@ func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler
 			return
 		}
 
-		decoder := decoderPool.Get()
-		decoder.ResetBytes(body)
-		envelope, err := DecodeEnvelope(decoder)
-		decoderPool.Put(decoder)
-
+		message, err := decoderPool.DecodeMessageBytes(body)
 		if err != nil {
 			http.Error(
 				response,
@@ -123,9 +121,14 @@ func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler
 			return
 		}
 
-		envelope.Encoded = body
 		failures := make(Failures)
-		if router.Route(envelope, failures.Add) == 0 {
+		if _, count, err := router.Route(message, body, failures.Add); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not route WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+		} else if count == 0 {
 			response.WriteHeader(http.StatusNotFound)
 		} else {
 			failures.WriteResponse(response)

@@ -3,6 +3,7 @@ package device
 import (
 	"bytes"
 	"fmt"
+	"github.com/Comcast/webpa-common/wrp"
 	"sync/atomic"
 	"time"
 )
@@ -15,6 +16,13 @@ const (
 var (
 	nullConvey = []byte("null")
 )
+
+// envelope is a tuple of an original WRP message together with that message's
+// (optional) encoded representation.
+type envelope struct {
+	message *wrp.Message
+	encoded []byte
+}
 
 // Interface is the core type for this package.  It provides
 // access to public device metadata and the ability to send messages
@@ -64,7 +72,7 @@ type Interface interface {
 	//
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
-	Send(*Envelope) error
+	Send(*wrp.Message, []byte) error
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -79,7 +87,7 @@ type device struct {
 	state int32
 
 	shutdown chan struct{}
-	messages chan *Envelope
+	messages chan *envelope
 }
 
 func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
@@ -89,7 +97,7 @@ func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 		connectedAt: time.Now(),
 		state:       stateOpen,
 		shutdown:    make(chan struct{}),
-		messages:    make(chan *Envelope, queueSize),
+		messages:    make(chan *envelope, queueSize),
 	}
 
 	d.updateKey(initialKey)
@@ -163,13 +171,13 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(envelope *Envelope) (err error) {
+func (d *device) Send(message *wrp.Message, encoded []byte) (err error) {
 	if d.Closed() {
 		return NewClosedError(d.id, d.Key())
 	}
 
 	select {
-	case d.messages <- envelope:
+	case d.messages <- &envelope{message, encoded}:
 		return nil
 	default:
 		return NewBusyError(d.id, d.Key())

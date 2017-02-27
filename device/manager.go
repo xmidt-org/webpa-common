@@ -51,7 +51,7 @@ type Connector interface {
 // Router handles dispatching messages to devices.
 type Router interface {
 	// Route dispatches the envelope to one or more devices
-	Route(*Envelope, func(Interface, error)) int
+	Route(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
 }
 
 // Registry is the strategy interface for querying the set of connected devices.  Methods
@@ -304,14 +304,14 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			}
 
 			// if we have a pre-encoded byte slice, just write that
-			if len(envelope.Encoded) > 0 {
-				_, writeError = frame.Write(envelope.Encoded)
+			if len(envelope.encoded) > 0 {
+				_, writeError = frame.Write(envelope.encoded)
 				if writeError != nil {
 					return
 				}
 			} else {
 				encoder.Reset(frame)
-				if writeError = encoder.Encode(&envelope.Message); writeError != nil {
+				if writeError = encoder.Encode(&envelope.message); writeError != nil {
 					return
 				}
 			}
@@ -388,11 +388,16 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	return
 }
 
-func (m *manager) Route(envelope *Envelope, callback func(Interface, error)) (count int) {
+func (m *manager) Route(message *wrp.Message, encoded []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
+	recipient, err = ParseID(message.Destination)
+	if err != nil {
+		return
+	}
+
 	m.whenReadLocked(func() {
-		count = m.registry.visitID(envelope.ID, func(d *device) {
-			if err := d.Send(envelope); err != nil && callback != nil {
-				callback(d, err)
+		count = m.registry.visitID(recipient, func(d *device) {
+			if sendError := d.Send(message, encoded); sendError != nil && callback != nil {
+				callback(d, sendError)
 			}
 		})
 	})
