@@ -389,7 +389,7 @@ func TestManagerRoute(t *testing.T) {
 			ConnectListener: func(Interface) { connectWait.Done() },
 			DisconnectListener: func(candidate Interface) {
 				assert.True(candidate.Closed())
-				assert.Error(candidate.Send(new(wrp.Message)))
+				assert.Error(candidate.Send(new(wrp.Message), nil))
 			},
 		}
 	)
@@ -431,6 +431,7 @@ func TestManagerRoute(t *testing.T) {
 		go func(id ID, expectedCount int) {
 			actualID, actualCount, err := manager.Route(
 				wrp.NewSimpleEvent(string(id), []byte(fmt.Sprintf("message for %s", id))),
+				nil,
 				func(d Interface, err error) {
 					assert.Fail("The callback should not have been called")
 				},
@@ -446,6 +447,7 @@ func TestManagerRoute(t *testing.T) {
 
 	id, count, err := manager.Route(
 		wrp.NewSimpleEvent("nosuch device", []byte("this shouldn't go anywhere")),
+		nil,
 		func(Interface, error) {
 			assert.Fail("The callback should not have been called")
 		},

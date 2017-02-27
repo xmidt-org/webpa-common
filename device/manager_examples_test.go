@@ -16,6 +16,7 @@ func ExampleManagerSimple() {
 			fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 			err := device.Send(
 				wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
+				nil,
 			)
 
 			if err != nil {
