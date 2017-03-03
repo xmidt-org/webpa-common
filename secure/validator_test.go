@@ -18,13 +18,13 @@ func ExampleSimpleJWSValidator(t *testing.T) {
 	// A basic validator with useful defaults
 	// We need to use the publicKeyResolver, as that's what validates
 	// the JWS signed with the private key
-	
+
 	assert := assert.New(t)
-	
+
 	validator := JWSValidator{
 		Resolver: publicKeyResolver,
 	}
-	
+
 	token := &Token{
 		tokenType: Bearer,
 		value:     string(testSerializedJWT),
@@ -248,23 +248,23 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxValid := context.Background()
 	ctxValid = context.WithValue(ctxValid, "method", "post")
 	ctxValid = context.WithValue(ctxValid, "path", "/api/foo/path")
-	
+
 	ctxInvalidMethod := context.Background()
 	ctxInvalidMethod = context.WithValue(ctxInvalidMethod, "method", "get")
 	ctxInvalidMethod = context.WithValue(ctxInvalidMethod, "path", "/api/foo/path")
-	
+
 	ctxInvalidPath := context.Background()
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "method", "post")
 	ctxInvalidPath = context.WithValue(ctxInvalidPath, "path", "/ipa/foo/path")
-	
+
 	ctxInvalidApi := context.Background()
 	ctxInvalidApi = context.WithValue(ctxInvalidApi, "method", "get")
 	ctxInvalidApi = context.WithValue(ctxInvalidApi, "path", "/api")
-	
+
 	ctxInvalidVersion := context.Background()
 	ctxInvalidVersion = context.WithValue(ctxInvalidVersion, "method", "get")
 	ctxInvalidVersion = context.WithValue(ctxInvalidVersion, "path", "/api/v2")
-	
+
 	ctxValidConfig := context.Background()
 	ctxValidConfig = context.WithValue(ctxValidConfig, "method", "get")
 	ctxValidConfig = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
@@ -273,26 +273,25 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 			"x1:webpa:api:device/.*/config/?.*:get",
 		},
 	}
-	
+
 	ctxValidConfig2 := context.Background()
 	ctxValidConfig2 = context.WithValue(ctxValidConfig, "method", "get")
 	ctxValidConfig2 = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/config")
-	
+
 	ctxValidConfig3 := context.Background()
 	ctxValidConfig3 = context.WithValue(ctxValidConfig, "method", "get")
 	ctxValidConfig3 = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/config/")
-	
+
 	ctxValidConfig4 := context.Background()
 	ctxValidConfig4 = context.WithValue(ctxValidConfig, "method", "get")
 	ctxValidConfig4 = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/config/bob")
-	
-	validConfigClaims2 :=jws.Claims{
+
+	validConfigClaims2 := jws.Claims{
 		"capabilities": []interface{}{
-			"x1:webpa:api:device/.*/config([/?#].*)?$:get",
+			"x1:webpa:api:device/.*/config\\b:get",
 		},
 	}
-	
-	
+
 	ctxInvalidConfig := context.Background()
 	ctxInvalidConfig = context.WithValue(ctxInvalidConfig, "method", "get")
 	ctxInvalidConfig = context.WithValue(ctxInvalidConfig, "path", "/api/v2/device/mac:112233445566/config?name=foodoo")
@@ -301,21 +300,19 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 			"x1:webpa:api:device/.*/config/.*:get",
 		},
 	}
-	
-	
+
 	ctxInvalidConfig2 := context.Background()
 	ctxInvalidConfig2 = context.WithValue(ctxValidConfig, "method", "get")
 	ctxInvalidConfig2 = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/configure")
-	
+
 	ctxInvalidConfig3 := context.Background()
 	ctxInvalidConfig3 = context.WithValue(ctxValidConfig, "method", "get")
 	ctxInvalidConfig3 = context.WithValue(ctxValidConfig, "path", "/api/v2/device/mac:112233445566/configure/")
-	
-	
+
 	ctxValidHook := context.Background()
 	ctxValidHook = context.WithValue(ctxValidHook, "method", "post")
 	ctxValidHook = context.WithValue(ctxValidHook, "path", "/api/v2/hook")
-	
+
 	ctxValidHooks := context.Background()
 	ctxValidHooks = context.WithValue(ctxValidHooks, "method", "get")
 	ctxValidHooks = context.WithValue(ctxValidHooks, "path", "/api/v2/hooks")
@@ -323,11 +320,11 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxInvalidHealth := context.Background()
 	ctxInvalidHealth = context.WithValue(ctxInvalidHealth, "method", "get")
 	ctxInvalidHealth = context.WithValue(ctxInvalidHealth, "path", "/health")
-	
+
 	ctxValidEvent := context.Background()
 	ctxValidEvent = context.WithValue(ctxValidEvent, "method", "post")
 	ctxValidEvent = context.WithValue(ctxValidEvent, "path", "/api/v2/notify/mac:112233445566/event/device-status")
-	
+
 	ctxValidStat := context.Background()
 	ctxValidStat = context.WithValue(ctxValidStat, "method", "get")
 	ctxValidStat = context.WithValue(ctxValidStat, "path", "/api/v2/device/mac:112233445566/stat")
@@ -337,7 +334,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 			"x1:webpa:api:device/.*/stat:get",
 		},
 	}
-	
+
 	var testData = []struct {
 		context       context.Context
 		claims        jws.Claims
@@ -350,7 +347,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		{ctxInvalidApi, defaultClaims, false},
 		{ctxInvalidVersion, defaultClaims, false},
 		{ctxValidConfig, validConfigClaims, true},
-		
+
 		{ctxValidConfig2, validConfigClaims, true},
 		{ctxValidConfig3, validConfigClaims, true},
 		{ctxValidConfig4, validConfigClaims, true},
@@ -358,14 +355,14 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		{ctxValidConfig2, validConfigClaims2, true},
 		{ctxValidConfig3, validConfigClaims2, true},
 		{ctxValidConfig4, validConfigClaims2, true},
-		
+
 		{ctxInvalidConfig, invalidConfigClaims, false},
-		
+
 		{ctxInvalidConfig2, validConfigClaims, true},
 		{ctxInvalidConfig3, validConfigClaims, true},
 		{ctxInvalidConfig2, validConfigClaims2, false},
 		{ctxInvalidConfig3, validConfigClaims2, false},
-		
+
 		{ctxValidHook, defaultClaims, true},
 		{ctxValidHooks, defaultClaims, true},
 		{ctxInvalidHealth, defaultClaims, false},
@@ -382,14 +379,14 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		if path, ok = record.context.Value("path").(string); ok {
 			path = record.context.Value("path").(string)
 		}
-		
+
 		t.Logf("ctx method: %s, ctx path: %s, claims: %v, expectedValid: %v", method, path, record.claims, record.expectedValid)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
 		mockPair := &key.MockPair{}
 		expectedPublicKey := interface{}(123)
 		mockPair.On("Public").Return(expectedPublicKey).Once()
-		
+
 		mockResolver := &key.MockResolver{}
 		mockResolver.On("ResolveKey", mock.AnythingOfType("string")).Return(mockPair, nil).Once()
 
@@ -566,10 +563,10 @@ func TestJWSValidatorValidate(t *testing.T) {
 			Parser:        mockJWSParser,
 			JWTValidators: record.expectedJWTValidators,
 		}
-		
+
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, "method", "post")
-		ctx = context.WithValue(ctx, "path", "/api/foo/path")	
+		ctx = context.WithValue(ctx, "path", "/api/foo/path")
 
 		valid, err := validator.Validate(ctx, token)
 		assert.Equal(record.expectedValid, valid)
