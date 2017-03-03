@@ -141,12 +141,12 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 
 	// validate jwt token claims capabilities
 	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
-		
-/*  commenting out for now
+/*		
+    commenting out for now
     1. remove code in use below
     2. make sure to bring a back tests for this as well.
         - TestJWSValidatorCapabilities()
-		
+*/		
 		for c := 0; c < len(caps); c++ {
 			if cap_value, ok := caps[c].(string); ok {
 				if valid = capabilityValidation(ctx, cap_value); valid {
@@ -154,11 +154,11 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 				}
 			}
 		}
-*/
+
 		
 		// *****  REMOVE THIS CODE AFTER BRING BACK THE COMMENTED CODE ABOVE *****
 		// ***** vvvvvvvvvvvvvvv *****
-		return true, nil
+//		return true, nil
 		// ***** ^^^^^^^^^^^^^^^ *****
 	}
 	
