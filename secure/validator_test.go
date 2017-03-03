@@ -374,7 +374,16 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	}
 
 	for _, record := range testData {
-		t.Logf("ctx method: %s, ctx path: %s, claims: %v, expectedValid: %v", record.context.Value("method").(string), record.context.Value("path").(string), record.claims, record.expectedValid)
+		var ok bool
+		var method, path string
+		if method, ok = record.context.Value("method").(string); ok {
+			method = record.context.Value("method").(string)
+		}
+		if path, ok = record.context.Value("path").(string); ok {
+			path = record.context.Value("path").(string)
+		}
+		
+		t.Logf("ctx method: %s, ctx path: %s, claims: %v, expectedValid: %v", method, path, record.claims, record.expectedValid)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
 		mockPair := &key.MockPair{}
