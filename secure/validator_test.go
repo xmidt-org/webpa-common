@@ -288,7 +288,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	
 	validConfigClaims2 :=jws.Claims{
 		"capabilities": []interface{}{
-			"x1:webpa:api:device/.*/config(/.*)?:get",
+			"x1:webpa:api:device/.*/config([/?#].*)?$:get",
 		},
 	}
 	
@@ -331,6 +331,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	ctxValidStat := context.Background()
 	ctxValidStat = context.WithValue(ctxValidStat, "method", "get")
 	ctxValidStat = context.WithValue(ctxValidStat, "path", "/api/v2/device/mac:112233445566/stat")
+
 	validStatClaims := jws.Claims{
 		"capabilities": []interface{}{
 			"x1:webpa:api:device/.*/stat:get",
@@ -360,8 +361,8 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		
 		{ctxInvalidConfig, invalidConfigClaims, false},
 		
-		{ctxInvalidConfig2, validConfigClaims, false},
-		{ctxInvalidConfig3, validConfigClaims, false},
+		{ctxInvalidConfig2, validConfigClaims, true},
+		{ctxInvalidConfig3, validConfigClaims, true},
 		{ctxInvalidConfig2, validConfigClaims2, false},
 		{ctxInvalidConfig3, validConfigClaims2, false},
 		
@@ -373,7 +374,7 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 	}
 
 	for _, record := range testData {
-		t.Logf("%v", record)
+		t.Logf("ctx method: %s, ctx path: %s, claims: %v, expectedValid: %v", record.context.Value("method").(string), record.context.Value("path").(string), record.claims, record.expectedValid)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
 		mockPair := &key.MockPair{}
