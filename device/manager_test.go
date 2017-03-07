@@ -162,10 +162,12 @@ func TestManagerPongCallbackFor(t *testing.T) {
 
 	manager := &manager{
 		logger: logging.TestLogger(t),
-		pongListener: func(actualDevice Interface, actualData string) {
-			listenerCalled = true
-			assert.True(expectedDevice == actualDevice)
-			assert.Equal(expectedData, actualData)
+		listeners: Listeners{
+			Pong: func(actualDevice Interface, actualData string) {
+				listenerCalled = true
+				assert.True(expectedDevice == actualDevice)
+				assert.Equal(expectedData, actualData)
+			},
 		},
 	}
 
@@ -182,13 +184,15 @@ func TestManagerConnectAndVisit(t *testing.T) {
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
-		ConnectListener: func(candidate Interface) {
-			defer connectWait.Done()
-			select {
-			case connections <- candidate:
-			default:
-				assert.Fail("The connect listener should not block")
-			}
+		Listeners: Listeners{
+			Connect: func(candidate Interface) {
+				defer connectWait.Done()
+				select {
+				case connections <- candidate:
+				default:
+					assert.Fail("The connect listener should not block")
+				}
+			},
 		},
 	}
 
@@ -247,12 +251,14 @@ func TestManagerDisconnect(t *testing.T) {
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger:          logging.TestLogger(t),
-		ConnectListener: func(Interface) { connectWait.Done() },
-		DisconnectListener: func(candidate Interface) {
-			defer disconnectWait.Done()
-			assert.True(candidate.Closed())
-			disconnections <- candidate
+		Logger: logging.TestLogger(t),
+		Listeners: Listeners{
+			Connect: func(Interface) { connectWait.Done() },
+			Disconnect: func(candidate Interface) {
+				defer disconnectWait.Done()
+				assert.True(candidate.Closed())
+				disconnections <- candidate
+			},
 		},
 	}
 
@@ -285,12 +291,14 @@ func TestManagerDisconnectOne(t *testing.T) {
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger:          logging.TestLogger(t),
-		ConnectListener: func(Interface) { connectWait.Done() },
-		DisconnectListener: func(candidate Interface) {
-			t.Logf("disconnecting: %s", candidate)
-			assert.True(candidate.Closed())
-			disconnections <- candidate
+		Logger: logging.TestLogger(t),
+		Listeners: Listeners{
+			Connect: func(Interface) { connectWait.Done() },
+			Disconnect: func(candidate Interface) {
+				t.Logf("disconnecting: %s", candidate)
+				assert.True(candidate.Closed())
+				disconnections <- candidate
+			},
 		},
 	}
 
@@ -334,12 +342,14 @@ func TestManagerDisconnectIf(t *testing.T) {
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger:          logging.TestLogger(t),
-		ConnectListener: func(Interface) { connectWait.Done() },
-		DisconnectListener: func(candidate Interface) {
-			t.Logf("disconnecting: %s", candidate)
-			assert.True(candidate.Closed())
-			disconnections <- candidate
+		Logger: logging.TestLogger(t),
+		Listeners: Listeners{
+			Connect: func(Interface) { connectWait.Done() },
+			Disconnect: func(candidate Interface) {
+				t.Logf("disconnecting: %s", candidate)
+				assert.True(candidate.Closed())
+				disconnections <- candidate
+			},
 		},
 	}
 
@@ -385,11 +395,13 @@ func TestManagerRoute(t *testing.T) {
 		receiveWait = new(sync.WaitGroup)
 
 		options = &Options{
-			Logger:          logging.TestLogger(t),
-			ConnectListener: func(Interface) { connectWait.Done() },
-			DisconnectListener: func(candidate Interface) {
-				assert.True(candidate.Closed())
-				assert.Error(candidate.Send(new(wrp.Message)))
+			Logger: logging.TestLogger(t),
+			Listeners: Listeners{
+				Connect: func(Interface) { connectWait.Done() },
+				Disconnect: func(candidate Interface) {
+					assert.True(candidate.Closed())
+					assert.Error(candidate.Send(new(wrp.Message), nil))
+				},
 			},
 		}
 	)
@@ -431,6 +443,7 @@ func TestManagerRoute(t *testing.T) {
 		go func(id ID, expectedCount int) {
 			actualID, actualCount, err := manager.Route(
 				wrp.NewSimpleEvent(string(id), []byte(fmt.Sprintf("message for %s", id))),
+				nil,
 				func(d Interface, err error) {
 					assert.Fail("The callback should not have been called")
 				},
@@ -446,6 +459,7 @@ func TestManagerRoute(t *testing.T) {
 
 	id, count, err := manager.Route(
 		wrp.NewSimpleEvent("nosuch device", []byte("this shouldn't go anywhere")),
+		nil,
 		func(Interface, error) {
 			assert.Fail("The callback should not have been called")
 		},
@@ -463,11 +477,13 @@ func TestManagerPingPong(t *testing.T) {
 		pongs       = make(chan Interface, 100)
 
 		options = &Options{
-			Logger:          logging.TestLogger(t),
-			ConnectListener: func(Interface) { connectWait.Done() },
-			PongListener: func(candidate Interface, data string) {
-				t.Logf("pong from %s: %s", candidate.ID(), data)
-				pongs <- candidate
+			Logger: logging.TestLogger(t),
+			Listeners: Listeners{
+				Connect: func(Interface) { connectWait.Done() },
+				Pong: func(candidate Interface, data string) {
+					t.Logf("pong from %s: %s", candidate.ID(), data)
+					pongs <- candidate
+				},
 			},
 			PingPeriod: 500 * time.Millisecond,
 		}

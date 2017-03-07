@@ -2,7 +2,6 @@ package device
 
 import (
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
@@ -28,10 +27,6 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Empty(o.subprotocols())
 		assert.NotNil(o.keyFunc())
 		assert.NotNil(o.logger())
-		assert.NotNil(o.messageListener())
-		assert.NotNil(o.connectListener())
-		assert.NotNil(o.disconnectListener())
-		assert.NotNil(o.pongListener())
 	}
 }
 
@@ -44,12 +39,6 @@ func TestOptions(t *testing.T) {
 		expectedKeyFunc = func(ID, Convey, *http.Request) (Key, error) {
 			return expectedKey, nil
 		}
-
-		called                     = make(map[string]bool)
-		expectedMessageListener    = func(Interface, []byte, *wrp.Message) { called["expectedMessageListener"] = true }
-		expectedConnectListener    = func(Interface) { called["expectedConnectListener"] = true }
-		expectedDisconnectListener = func(Interface) { called["expectedDisconnectListener"] = true }
-		expectedPongListener       = func(Interface, string) { called["expectedPongListener"] = true }
 
 		o = Options{
 			DeviceNameHeader:       "X-TestOptions-Device-Name",
@@ -65,10 +54,6 @@ func TestOptions(t *testing.T) {
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
 			KeyFunc:                expectedKeyFunc,
 			Logger:                 expectedLogger,
-			MessageListener:        expectedMessageListener,
-			ConnectListener:        expectedConnectListener,
-			DisconnectListener:     expectedDisconnectListener,
-			PongListener:           expectedPongListener,
 		}
 	)
 
@@ -84,34 +69,6 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.WriteBufferSize, o.writeBufferSize())
 	assert.Equal(o.Subprotocols, o.subprotocols())
 	assert.Equal(expectedLogger, o.logger())
-
-	var (
-		expectedDevice  = new(mockDevice)
-		expectedRaw     = make([]byte, 10)
-		expectedMessage = new(wrp.Message)
-		pongData        = "some pong data"
-	)
-
-	o.messageListener()(expectedDevice, expectedRaw, expectedMessage)
-	assert.Len(called, 1)
-	assert.True(called["expectedMessageListener"])
-
-	called = make(map[string]bool)
-	o.connectListener()(expectedDevice)
-	assert.Len(called, 1)
-	assert.True(called["expectedConnectListener"])
-
-	called = make(map[string]bool)
-	o.disconnectListener()(expectedDevice)
-	assert.Len(called, 1)
-	assert.True(called["expectedDisconnectListener"])
-
-	called = make(map[string]bool)
-	o.pongListener()(expectedDevice, pongData)
-	assert.Len(called, 1)
-	assert.True(called["expectedPongListener"])
-
-	expectedDevice.AssertExpectations(t)
 
 	actualKeyFunc := o.keyFunc()
 	if assert.NotNil(actualKeyFunc) {

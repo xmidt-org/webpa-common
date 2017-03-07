@@ -50,17 +50,8 @@ type Connector interface {
 
 // Router handles dispatching messages to devices.
 type Router interface {
-	// Route examines the given WRP message to determine the destination, then
-	// sends that message to the appropriate device(s).  The ID of the device(s)
-	// to which the message was sent is returned.
-	Route(*wrp.Message, func(Interface, error)) (ID, int, error)
-
-	// RouteUsing uses a WRP message for routing information, but actually sends the
-	// supplied bytes as the message.
-	//
-	// This method is useful when reading a WRP message from another source.  It avoids
-	// the overhead of reserializing the message.
-	RouteUsing(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
+	// Route dispatches the envelope to one or more devices
+	Route(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
 }
 
 // Registry is the strategy interface for querying the set of connected devices.  Methods
@@ -94,7 +85,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		cf = NewConnectionFactory(o)
 	}
 
-	return &manager{
+	m := &manager{
 		logger: o.logger(),
 
 		deviceNameHeader:             o.deviceNameHeader(),
@@ -108,11 +99,11 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		messageListener:    o.messageListener(),
-		connectListener:    o.connectListener(),
-		disconnectListener: o.disconnectListener(),
-		pongListener:       o.pongListener(),
+		listeners: o.Listeners,
 	}
+
+	m.listeners.EnsureDefaults()
+	return m
 }
 
 // manager is the internal Manager implementation.
@@ -133,10 +124,7 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	messageListener    MessageListener
-	connectListener    ConnectListener
-	disconnectListener DisconnectListener
-	pongListener       PongListener
+	listeners Listeners
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -196,13 +184,11 @@ func (m *manager) whenReadLocked(when func()) {
 	when()
 }
 
-// pumpCleanup handles the proper shutdown and logging of a device's pumps.
+// pumpClose handles the proper shutdown and logging of a device's pumps.
 // This method should be executed within a sync.Once, so that it only executes
 // once for a given device.
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
-
-	defer m.disconnectListener(d)
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
@@ -215,13 +201,15 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	if closeError := c.Close(); closeError != nil {
 		m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
 	}
+
+	m.listeners.Disconnect(d)
 }
 
 // pongCallbackFor creates a callback that delegates to this Manager's Listeners
 // for the given device.
 func (m *manager) pongCallbackFor(d *device) func(string) {
 	return func(data string) {
-		m.pongListener(d, data)
+		m.listeners.Pong(d, data)
 	}
 }
 
@@ -239,10 +227,9 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
-	defer func() {
-		closeOnce.Do(func() { m.pumpClose(d, c, readError) })
-	}()
-
+	// all the read pump has to do is ensure the device and the connection are closed
+	// it is the write pump's responsibility to do further cleanup
+	defer closeOnce.Do(func() { m.pumpClose(d, c, readError) })
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
@@ -264,7 +251,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		m.messageListener(d, rawFrame, &message)
+		m.listeners.MessageReceived(d, &message, rawFrame)
 	}
 }
 
@@ -279,48 +266,70 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		m.registry.add(d)
 	})
 
-	defer m.whenWriteLocked(func() {
-		m.registry.removeOne(d)
-	})
-
 	// dispatch to the connect listener after the device is addressable
-	m.connectListener(d)
+	m.listeners.Connect(d)
 
 	var (
-		frame      io.WriteCloser
-		writeError error
-		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
+		envelope    *envelope
+		frame       io.WriteCloser
+		writeError  error
+		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
+		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
+		pingTicker  = time.NewTicker(m.pingPeriod)
 	)
 
+	// cleanup: we not only ensure that the device and connection are closed but also
+	// ensure that any messages that were waiting and/or failed are dispatched to
+	// the configured listener
 	defer func() {
+		pingTicker.Stop()
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
+
+		m.whenWriteLocked(func() {
+			m.registry.removeOne(d)
+		})
+
+		// notify listener of any message that just now failed
+		if envelope != nil {
+			m.listeners.MessageFailed(d, envelope.message, envelope.encoded, writeError)
+		}
+
+		// drain the messages, dispatching them as message failed events.  we never close
+		// the message channel, so just drain until a receive would block.
+		for {
+			select {
+			case failed := <-d.messages:
+				m.listeners.MessageFailed(d, failed.message, failed.encoded, writeError)
+			default:
+				break
+			}
+		}
 	}()
 
-	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
-	pingTicker := time.NewTicker(m.pingPeriod)
-	defer pingTicker.Stop()
-
 	for writeError == nil {
+		envelope = nil
+
 		select {
 		case <-d.shutdown:
 			writeError = c.SendClose()
-			return
 
-		case wrpMessage := <-d.wrpMessages:
-			frame, writeError = c.NextWriter()
-			if writeError != nil {
-				return
+		case envelope = <-d.messages:
+			if frame, writeError = c.NextWriter(); writeError == nil {
+				// if we have a pre-encoded byte slice, just write that
+				if len(envelope.encoded) > 0 {
+					_, writeError = frame.Write(envelope.encoded)
+				} else {
+					encoder.Reset(frame)
+					writeError = encoder.Encode(envelope.message)
+				}
+
+				if writeError == nil {
+					writeError = frame.Close()
+				} else {
+					// don't hide the original error, but ensure the frame is closed
+					frame.Close()
+				}
 			}
-
-			encoder.Reset(frame)
-			if writeError = encoder.Encode(wrpMessage); writeError != nil {
-				return
-			}
-
-			writeError = frame.Close()
-
-		case rawMessage := <-d.rawMessages:
-			_, writeError = c.Write(rawMessage)
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
@@ -392,41 +401,19 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	return
 }
 
-func (m *manager) Route(message *wrp.Message, callback func(Interface, error)) (recipient ID, count int, err error) {
-	var (
-		buffer  bytes.Buffer
-		encoder = wrp.NewEncoder(&buffer, wrp.Msgpack)
-	)
-
-	if err = encoder.Encode(message); err != nil {
-		return
-	}
-
-	return m.RouteUsing(message, buffer.Bytes(), callback)
-}
-
-func (m *manager) RouteUsing(route *wrp.Message, message []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
-	recipient, err = ParseID(route.Destination)
+func (m *manager) Route(message *wrp.Message, encoded []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
+	recipient, err = ParseID(message.Destination)
 	if err != nil {
 		return
 	}
 
-	count = m.sendMessages(recipient, message, callback)
-	return
-}
-
-func (m *manager) sendMessages(recipient ID, message []byte, callback func(Interface, error)) int {
-	var targets []*device
-
 	m.whenReadLocked(func() {
-		targets = m.registry.devices(recipient)
+		count = m.registry.visitID(recipient, func(d *device) {
+			if sendError := d.Send(message, encoded); sendError != nil && callback != nil {
+				callback(d, sendError)
+			}
+		})
 	})
 
-	for _, target := range targets {
-		if err := target.SendBytes(message); err != nil && callback != nil {
-			callback(target, err)
-		}
-	}
-
-	return len(targets)
+	return
 }

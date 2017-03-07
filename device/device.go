@@ -17,6 +17,13 @@ var (
 	nullConvey = []byte("null")
 )
 
+// envelope is a tuple of an original WRP message together with that message's
+// (optional) encoded representation.
+type envelope struct {
+	message *wrp.Message
+	encoded []byte
+}
+
 // Interface is the core type for this package.  It provides
 // access to public device metadata and the ability to send messages
 // directly the a device.
@@ -65,11 +72,7 @@ type Interface interface {
 	//
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
-	Send(*wrp.Message) error
-
-	// SendBytes dispatches a preformatted WRP frame to this device.  All other semantics
-	// are the same as Send.
-	SendBytes([]byte) error
+	Send(*wrp.Message, []byte) error
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -83,9 +86,8 @@ type device struct {
 
 	state int32
 
-	shutdown    chan struct{}
-	wrpMessages chan *wrp.Message
-	rawMessages chan []byte
+	shutdown chan struct{}
+	messages chan *envelope
 }
 
 func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
@@ -95,8 +97,7 @@ func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 		connectedAt: time.Now(),
 		state:       stateOpen,
 		shutdown:    make(chan struct{}),
-		wrpMessages: make(chan *wrp.Message, queueSize),
-		rawMessages: make(chan []byte, queueSize),
+		messages:    make(chan *envelope, queueSize),
 	}
 
 	d.updateKey(initialKey)
@@ -163,33 +164,20 @@ func (d *device) ConnectedAt() time.Time {
 }
 
 func (d *device) Pending() int {
-	return len(d.wrpMessages) + len(d.rawMessages)
+	return len(d.messages)
 }
 
 func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(message *wrp.Message) (err error) {
+func (d *device) Send(message *wrp.Message, encoded []byte) (err error) {
 	if d.Closed() {
 		return NewClosedError(d.id, d.Key())
 	}
 
 	select {
-	case d.wrpMessages <- message:
-		return nil
-	default:
-		return NewBusyError(d.id, d.Key())
-	}
-}
-
-func (d *device) SendBytes(message []byte) (err error) {
-	if d.Closed() {
-		return NewClosedError(d.id, d.Key())
-	}
-
-	select {
-	case d.rawMessages <- message:
+	case d.messages <- &envelope{message, encoded}:
 		return nil
 	default:
 		return NewBusyError(d.id, d.Key())

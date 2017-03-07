@@ -83,12 +83,12 @@ func TestDevice(t *testing.T) {
 
 		t.Log("queue size should be honored")
 		for repeat := 0; repeat < record.expectedQueueSize; repeat++ {
-			if !assert.Nil(device.Send(testMessage)) {
+			if !assert.Nil(device.Send(testMessage, nil)) {
 				t.FailNow()
 			}
 		}
 
-		if sendError := device.Send(testMessage); assert.NotNil(sendError) {
+		if sendError := device.Send(testMessage, nil); assert.NotNil(sendError) {
 			if busyError, ok := sendError.(DeviceError); assert.True(ok) {
 				assert.Equal(device.ID(), busyError.ID())
 				assert.Equal(device.Key(), busyError.Key())
@@ -112,7 +112,7 @@ func TestDevice(t *testing.T) {
 		}
 
 		t.Log("Send should fail when device is closed")
-		if sendError := device.Send(testMessage); assert.NotNil(sendError) {
+		if sendError := device.Send(testMessage, nil); assert.NotNil(sendError) {
 			if closeError, ok := sendError.(DeviceError); assert.True(ok) {
 				assert.Equal(device.ID(), closeError.ID())
 				assert.Equal(device.Key(), closeError.Key())

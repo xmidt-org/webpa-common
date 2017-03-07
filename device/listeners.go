@@ -4,26 +4,44 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 )
 
-func defaultMessageListener(Interface, []byte, *wrp.Message) {}
-func defaultConnectListener(Interface)                       {}
-func defaultDisconnectListener(Interface)                    {}
-func defaultPongListener(Interface, string)                  {}
+func defaultMessageReceivedListener(Interface, *wrp.Message, []byte)      {}
+func defaultMessageFailedListener(Interface, *wrp.Message, []byte, error) {}
+func defaultConnectListener(Interface)                                    {}
+func defaultDisconnectListener(Interface)                                 {}
+func defaultPongListener(Interface, string)                               {}
 
-// MessageListener represents a sink for device messages
-type MessageListener func(Interface, []byte, *wrp.Message)
+// MessageReceivedListener represents a sink for device messages
+type MessageReceivedListener func(Interface, *wrp.Message, []byte)
 
-// MessageListeners aggregates multiple listeners into one.  If this
+// MessageReceivedListeners aggregates multiple listeners into one.  If this
 // method is passed zero (0) listeners, an internal default is used instead.
-func MessageListeners(listeners ...MessageListener) MessageListener {
+func MessageReceivedListeners(listeners ...MessageReceivedListener) MessageReceivedListener {
 	if len(listeners) > 0 {
-		return func(device Interface, raw []byte, message *wrp.Message) {
+		return func(device Interface, message *wrp.Message, encoded []byte) {
 			for _, l := range listeners {
-				l(device, raw, message)
+				l(device, message, encoded)
 			}
 		}
 	}
 
-	return defaultMessageListener
+	return defaultMessageReceivedListener
+}
+
+// MessageFailedListener represents a sink for failed messages
+type MessageFailedListener func(Interface, *wrp.Message, []byte, error)
+
+// MessageFailedListeners aggregates multiple listeners into one.  If this
+// method is passed zero (0) listeners, an internal default is used instead.
+func MessageFailedListeners(listeners ...MessageFailedListener) MessageFailedListener {
+	if len(listeners) > 0 {
+		return func(device Interface, message *wrp.Message, encoded []byte, err error) {
+			for _, l := range listeners {
+				l(device, message, encoded, err)
+			}
+		}
+	}
+
+	return defaultMessageFailedListener
 }
 
 // ConnectListener is a function which receives notifications when devices
@@ -78,4 +96,37 @@ func PongListeners(listeners ...PongListener) PongListener {
 	}
 
 	return defaultPongListener
+}
+
+// Listeners contains a set of device listeners
+type Listeners struct {
+	MessageReceived MessageReceivedListener
+	MessageFailed   MessageFailedListener
+	Connect         ConnectListener
+	Disconnect      DisconnectListener
+	Pong            PongListener
+}
+
+// EnsureDefaults sets any nil listener to its default.  This method ensures
+// that no nil listeners are present, but preserves any custom listeners that are set.
+func (l *Listeners) EnsureDefaults() {
+	if l.MessageReceived == nil {
+		l.MessageReceived = defaultMessageReceivedListener
+	}
+
+	if l.MessageFailed == nil {
+		l.MessageFailed = defaultMessageFailedListener
+	}
+
+	if l.Connect == nil {
+		l.Connect = defaultConnectListener
+	}
+
+	if l.Disconnect == nil {
+		l.Disconnect = defaultDisconnectListener
+	}
+
+	if l.Pong == nil {
+		l.Pong = defaultPongListener
+	}
 }
