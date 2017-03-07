@@ -187,7 +187,7 @@ func (m *manager) whenReadLocked(when func()) {
 // pumpClose handles the proper shutdown and logging of a device's pumps.
 // This method should be executed within a sync.Once, so that it only executes
 // once for a given device.
-func (m *manager) pumpClose(d *device, c Connection, failed *envelope, pumpError error) {
+func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
 
 	// always request a close, to ensure that the write goroutine is
@@ -203,14 +203,6 @@ func (m *manager) pumpClose(d *device, c Connection, failed *envelope, pumpError
 	}
 
 	m.listeners.Disconnect(d)
-
-	if failed != nil {
-		m.listeners.MessageFailed(d, failed.message, failed.encoded, pumpError)
-	}
-
-	for queued := range d.messages {
-		m.listeners.MessageFailed(d, queued.message, queued.encoded, pumpError)
-	}
 }
 
 // pongCallbackFor creates a callback that delegates to this Manager's Listeners
@@ -235,10 +227,9 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
-	defer func() {
-		closeOnce.Do(func() { m.pumpClose(d, c, nil, readError) })
-	}()
-
+	// all the read pump has to do is ensure the device and the connection are closed
+	// it is the write pump's responsibility to do further cleanup
+	defer closeOnce.Do(func() { m.pumpClose(d, c, readError) })
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
@@ -275,27 +266,45 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		m.registry.add(d)
 	})
 
-	defer m.whenWriteLocked(func() {
-		m.registry.removeOne(d)
-	})
-
 	// dispatch to the connect listener after the device is addressable
 	m.listeners.Connect(d)
 
 	var (
-		envelope   *envelope
-		frame      io.WriteCloser
-		writeError error
-		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
+		envelope    *envelope
+		frame       io.WriteCloser
+		writeError  error
+		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
+		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
+		pingTicker  = time.NewTicker(m.pingPeriod)
 	)
 
+	// cleanup: we not only ensure that the device and connection are closed but also
+	// ensure that any messages that were waiting and/or failed are dispatched to
+	// the configured listener
 	defer func() {
-		closeOnce.Do(func() { m.pumpClose(d, c, envelope, writeError) })
-	}()
+		pingTicker.Stop()
+		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 
-	pingMessage := []byte(fmt.Sprintf("ping[%s]", d.id))
-	pingTicker := time.NewTicker(m.pingPeriod)
-	defer pingTicker.Stop()
+		m.whenWriteLocked(func() {
+			m.registry.removeOne(d)
+		})
+
+		// notify listener of any message that just now failed
+		if envelope != nil {
+			m.listeners.MessageFailed(d, envelope.message, envelope.encoded, writeError)
+		}
+
+		// drain the messages, dispatching them as message failed events.  we never close
+		// the message channel, so just drain until a receive would block.
+		for {
+			select {
+			case failed := <-d.messages:
+				m.listeners.MessageFailed(d, failed.message, failed.encoded, writeError)
+			default:
+				break
+			}
+		}
+	}()
 
 	for writeError == nil {
 		envelope = nil
@@ -303,28 +312,24 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		select {
 		case <-d.shutdown:
 			writeError = c.SendClose()
-			return
 
 		case envelope = <-d.messages:
-			frame, writeError = c.NextWriter()
-			if writeError != nil {
-				return
-			}
-
-			// if we have a pre-encoded byte slice, just write that
-			if len(envelope.encoded) > 0 {
-				_, writeError = frame.Write(envelope.encoded)
-				if writeError != nil {
-					return
+			if frame, writeError = c.NextWriter(); writeError == nil {
+				// if we have a pre-encoded byte slice, just write that
+				if len(envelope.encoded) > 0 {
+					_, writeError = frame.Write(envelope.encoded)
+				} else {
+					encoder.Reset(frame)
+					writeError = encoder.Encode(envelope.message)
 				}
-			} else {
-				encoder.Reset(frame)
-				if writeError = encoder.Encode(&envelope.message); writeError != nil {
-					return
+
+				if writeError == nil {
+					writeError = frame.Close()
+				} else {
+					// don't hide the original error, but ensure the frame is closed
+					frame.Close()
 				}
 			}
-
-			writeError = frame.Close()
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
