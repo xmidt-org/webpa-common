@@ -1,6 +1,7 @@
 package wrp
 
 import (
+	"fmt"
 	"github.com/ugorji/go/codec"
 	"io"
 )
@@ -11,42 +12,47 @@ type Format int
 const (
 	JSON Format = iota
 	Msgpack
+
+	InvalidFormatString = "!!INVALID!!"
 )
 
 var (
-	// handles contains the canonical codec.Handle supported by WRP, in order
-	// of Format constants
-	handles = []codec.Handle{
-		&codec.JsonHandle{
-			BasicHandle: codec.BasicHandle{
-				TypeInfos: codec.NewTypeInfos([]string{"json"}),
-			},
-			IntegerAsString: 'L',
+	jsonHandle = codec.JsonHandle{
+		BasicHandle: codec.BasicHandle{
+			TypeInfos: codec.NewTypeInfos([]string{"wrp"}),
 		},
-		&codec.MsgpackHandle{
-			BasicHandle: codec.BasicHandle{
-				TypeInfos: codec.NewTypeInfos([]string{"msgpack"}),
-			},
+		IntegerAsString: 'L',
+	}
+
+	msgpackHandle = codec.MsgpackHandle{
+		BasicHandle: codec.BasicHandle{
+			TypeInfos: codec.NewTypeInfos([]string{"wrp"}),
 		},
 	}
 )
 
 func (f Format) String() string {
-	if f == JSON {
+	switch f {
+	case JSON:
 		return "JSON"
+	case Msgpack:
+		return "Msgpack"
 	}
 
-	return "Msgpack"
+	return InvalidFormatString
 }
 
 // handle looks up the appropriate codec.Handle for this format constant.
-// This method returns nil if the format value is invalid.
+// This method panics if the format is not a valid value.
 func (f Format) handle() codec.Handle {
-	if int(f) < len(handles) {
-		return handles[f]
+	switch f {
+	case JSON:
+		return &jsonHandle
+	case Msgpack:
+		return &msgpackHandle
 	}
 
-	return nil
+	panic(fmt.Errorf("Invalid format constant: %d", f))
 }
 
 // Encoder represents the underlying ugorji behavior that WRP supports
@@ -54,6 +60,22 @@ type Encoder interface {
 	Encode(interface{}) error
 	Reset(io.Writer)
 	ResetBytes(*[]byte)
+}
+
+// encoderDecorator wraps a ugorji Encoder and implements the wrp.Encoder interface.
+type encoderDecorator struct {
+	*codec.Encoder
+}
+
+// Encode checks to see if value implements EncoderTo and if it does, uses the
+// value.EncodeTo() method.  Otherwise, the value is passed as is to the decorated
+// ugorji Encoder.
+func (ed *encoderDecorator) Encode(value interface{}) error {
+	if encoderTo, ok := value.(EncoderTo); ok {
+		return encoderTo.EncodeTo(ed.Encoder)
+	}
+
+	return ed.Encoder.Encode(value)
 }
 
 // Decoder represents the underlying ugorji behavior that WRP supports
@@ -66,13 +88,17 @@ type Decoder interface {
 // NewEncoder produces a ugorji Encoder using the appropriate WRP configuration
 // for the given format
 func NewEncoder(output io.Writer, f Format) Encoder {
-	return codec.NewEncoder(output, f.handle())
+	return &encoderDecorator{
+		codec.NewEncoder(output, f.handle()),
+	}
 }
 
 // NewEncoderBytes produces a ugorji Encoder using the appropriate WRP configuration
 // for the given format
 func NewEncoderBytes(output *[]byte, f Format) Encoder {
-	return codec.NewEncoderBytes(output, f.handle())
+	return &encoderDecorator{
+		codec.NewEncoderBytes(output, f.handle()),
+	}
 }
 
 // NewDecoder produces a ugorji Decoder using the appropriate WRP configuration

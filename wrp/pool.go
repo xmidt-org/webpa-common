@@ -10,7 +10,8 @@ const (
 )
 
 // EncoderPool represents a pool of Encoder objects that can be used as is
-// encode WRP messages.
+// encode WRP messages.  Unlike a sync.Pool, this pool holds on to its pooled
+// encoders across garbage collections.
 type EncoderPool struct {
 	pool              chan Encoder
 	factory           func() Encoder
@@ -42,6 +43,8 @@ func NewEncoderPool(poolSize, initialBufferSize int, f Format) *EncoderPool {
 	return ep
 }
 
+// Get returns an Encoder from the pool.  If the pool is empty, a new Encoder is
+// created using the initial pool configuration.  This method never returns nil.
 func (ep *EncoderPool) Get() (encoder Encoder) {
 	select {
 	case encoder = <-ep.pool:
@@ -52,10 +55,14 @@ func (ep *EncoderPool) Get() (encoder Encoder) {
 	return
 }
 
+// Put returns an Encoder to the pool.  If this pool is full or if the supplied
+// encoder is nil, this method does nothing.
 func (ep *EncoderPool) Put(encoder Encoder) {
-	select {
-	case ep.pool <- encoder:
-	default:
+	if encoder != nil {
+		select {
+		case ep.pool <- encoder:
+		default:
+		}
 	}
 }
 
@@ -105,6 +112,8 @@ func NewDecoderPool(poolSize int, f Format) *DecoderPool {
 	return dp
 }
 
+// Get returns a Decoder to the pool.  If the pool is empty, a new Decoder is
+// created using the initial pool configuration.  This method never returns nil.
 func (dp *DecoderPool) Get() (decoder Decoder) {
 	select {
 	case decoder = <-dp.pool:
@@ -115,10 +124,14 @@ func (dp *DecoderPool) Get() (decoder Decoder) {
 	return
 }
 
+// Put returns a Decoder to the pool.  If this pool is full or if the supplied
+// decoder is nil, this method does nothing.
 func (dp *DecoderPool) Put(decoder Decoder) {
-	select {
-	case dp.pool <- decoder:
-	default:
+	if decoder != nil {
+		select {
+		case dp.pool <- decoder:
+		default:
+		}
 	}
 }
 
@@ -132,13 +145,6 @@ func (dp *DecoderPool) Decode(destination interface{}, source io.Reader) error {
 	return decoder.Decode(destination)
 }
 
-// DecodeMessage decodes a WRP message from the source Reader
-func (dp *DecoderPool) DecodeMessage(source io.Reader) (message *Message, err error) {
-	message = new(Message)
-	err = dp.Decode(message, source)
-	return
-}
-
 // DecodeBytes unmarshals data from the source byte slice onto the destination instance.
 // The destination is typically a pointer to a struct, such as *Message.
 func (dp *DecoderPool) DecodeBytes(destination interface{}, source []byte) error {
@@ -147,11 +153,4 @@ func (dp *DecoderPool) DecodeBytes(destination interface{}, source []byte) error
 
 	decoder.ResetBytes(source)
 	return decoder.Decode(destination)
-}
-
-// DecodeMessageBytes unmarshals a WRP message from a source byte slice
-func (dp *DecoderPool) DecodeMessageBytes(source []byte) (message *Message, err error) {
-	message = new(Message)
-	err = dp.DecodeBytes(message, source)
-	return
 }

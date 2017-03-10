@@ -11,7 +11,7 @@ func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool) {
 	var (
 		initialSize = len(encoderPool.pool)
 
-		testMessage = Message{
+		testMessage = SimpleEvent{
 			Destination: "foobar.com/test",
 			Source:      "mac:11112222333",
 			Payload:     []byte("testEncoderPool"),
@@ -77,14 +77,13 @@ func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *Deco
 	var (
 		initialSize = len(decoderPool.pool)
 
-		originalMessage = Message{
+		originalMessage = SimpleEvent{
 			Destination: "foobar.com/test",
 			Source:      "mac:11112222333",
 			Payload:     []byte("testDecoderPool"),
 		}
 
-		testMessage *Message
-		decodeError error
+		testMessage *SimpleEvent
 		encoded     []byte
 	)
 
@@ -94,24 +93,12 @@ func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *Deco
 
 	assert.True(initialSize > 0)
 
-	testMessage = new(Message)
+	testMessage = new(SimpleEvent)
 	assert.NoError(decoderPool.Decode(testMessage, bytes.NewReader(encoded)))
 	assert.Equal(initialSize, len(decoderPool.pool))
 	assert.Equal(originalMessage, *testMessage)
 
 	assert.NoError(decoderPool.DecodeBytes(testMessage, encoded))
-	assert.Equal(initialSize, len(decoderPool.pool))
-	assert.Equal(originalMessage, *testMessage)
-
-	testMessage, decodeError = decoderPool.DecodeMessage(bytes.NewReader(encoded))
-	assert.NotNil(testMessage)
-	assert.NoError(decodeError)
-	assert.Equal(initialSize, len(decoderPool.pool))
-	assert.Equal(originalMessage, *testMessage)
-
-	testMessage, decodeError = decoderPool.DecodeMessageBytes(encoded)
-	assert.NotNil(testMessage)
-	assert.NoError(decodeError)
 	assert.Equal(initialSize, len(decoderPool.pool))
 	assert.Equal(originalMessage, *testMessage)
 
