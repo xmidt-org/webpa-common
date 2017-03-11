@@ -404,3 +404,320 @@ func TestSimpleRequestResponse(t *testing.T) {
 		})
 	}
 }
+
+func testSimpleEventEncode(t *testing.T, f Format, original SimpleEvent) {
+	var (
+		assert  = assert.New(t)
+		decoded SimpleEvent
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	assert.NoError(encoder.Encode(&original))
+	assert.True(buffer.Len() > 0)
+	assert.Equal(SimpleEventMessageType, original.Type)
+	assert.NoError(decoder.Decode(&decoded))
+	assert.Equal(original, decoded)
+}
+
+func testSimpleEventRouting(t *testing.T, f Format, original SimpleEvent) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		routing Routing
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	require.NoError(encoder.Encode(&original))
+	assert.NoError(decoder.Decode(&routing))
+	assert.Equal(SimpleEventMessageType, routing.Type)
+	assert.Equal(original.Source, routing.Source)
+	assert.Equal(original.Destination, routing.Destination)
+}
+
+func TestSimpleEvent(t *testing.T) {
+	var messages = []SimpleEvent{
+		SimpleEvent{},
+		SimpleEvent{
+			Source:      "simple.com/foo",
+			Destination: "uuid:111111111111111",
+			Payload:     []byte("this is a lovely payloed"),
+		},
+		SimpleEvent{
+			Source:      "mac:123123123123123123",
+			Destination: "something.webpa.comcast.net:9090/here/is/a/path",
+			ContentType: "text/plain",
+			Headers:     []string{"header1"},
+			Metadata:    map[string]string{"a": "b", "c": "d"},
+			Payload:     []byte("check this out!"),
+		},
+	}
+
+	for _, format := range allFormats {
+		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
+			for _, message := range messages {
+				testSimpleEventEncode(t, format, message)
+			}
+		})
+
+		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
+			for _, message := range messages {
+				testSimpleEventRouting(t, format, message)
+			}
+		})
+	}
+}
+
+func testCRUDSetStatus(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		message CRUD
+	)
+
+	assert.Nil(message.Status)
+	assert.True(&message == message.SetStatus(-72))
+	assert.NotNil(message.Status)
+	assert.Equal(int64(-72), *message.Status)
+	assert.True(&message == message.SetStatus(172))
+	assert.NotNil(message.Status)
+	assert.Equal(int64(172), *message.Status)
+}
+
+func testCRUDSetRequestDeliveryResponse(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		message CRUD
+	)
+
+	assert.Nil(message.RequestDeliveryResponse)
+	assert.True(&message == message.SetRequestDeliveryResponse(123))
+	assert.NotNil(message.RequestDeliveryResponse)
+	assert.Equal(int64(123), *message.RequestDeliveryResponse)
+	assert.True(&message == message.SetRequestDeliveryResponse(543543))
+	assert.NotNil(message.RequestDeliveryResponse)
+	assert.Equal(int64(543543), *message.RequestDeliveryResponse)
+}
+
+func testCRUDSetIncludeSpans(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		message CRUD
+	)
+
+	assert.Nil(message.IncludeSpans)
+	assert.True(&message == message.SetIncludeSpans(true))
+	assert.NotNil(message.IncludeSpans)
+	assert.Equal(true, *message.IncludeSpans)
+	assert.True(&message == message.SetIncludeSpans(false))
+	assert.NotNil(message.IncludeSpans)
+	assert.Equal(false, *message.IncludeSpans)
+}
+
+func testCRUDEncode(t *testing.T, f Format, original CRUD) {
+	var (
+		assert  = assert.New(t)
+		decoded CRUD
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	assert.NoError(encoder.Encode(&original))
+	assert.True(buffer.Len() > 0)
+	assert.NoError(decoder.Decode(&decoded))
+	assert.Equal(original, decoded)
+}
+
+func testCRUDRouting(t *testing.T, f Format, original CRUD) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		routing Routing
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	require.NoError(encoder.Encode(&original))
+	assert.NoError(decoder.Decode(&routing))
+	assert.Equal(original.Type, routing.Type)
+	assert.Equal(original.Source, routing.Source)
+	assert.Equal(original.Destination, routing.Destination)
+}
+
+func TestCRUD(t *testing.T) {
+	t.Run("SetStatus", testCRUDSetStatus)
+	t.Run("SetRequestDeliveryResponse", testCRUDSetRequestDeliveryResponse)
+	t.Run("SetIncludeSpans", testCRUDSetIncludeSpans)
+
+	var (
+		expectedStatus                  int64 = -273
+		expectedRequestDeliveryResponse int64 = 7223
+		expectedIncludeSpans            bool  = true
+
+		messages = []CRUD{
+			CRUD{},
+			CRUD{
+				Type:            DeleteMessageType,
+				Source:          "mac:121234345656",
+				Destination:     "foobar.com/service",
+				TransactionUUID: "a unique identifier",
+				Path:            "/a/b/c/d",
+			},
+			CRUD{
+				Type:                    CreateMessageType,
+				Source:                  "somewhere.comcast.net:9090/something",
+				Destination:             "serial:1234/blergh",
+				TransactionUUID:         "123-123-123",
+				Status:                  &expectedStatus,
+				RequestDeliveryResponse: &expectedRequestDeliveryResponse,
+				IncludeSpans:            &expectedIncludeSpans,
+				Path:                    "/somewhere/over/rainbow",
+				Objects:                 "asldkfja;sdkjfas;ldkjfasdkfj",
+			},
+			CRUD{
+				Type:            UpdateMessageType,
+				Source:          "external.com",
+				Destination:     "mac:FFEEAADD44443333",
+				TransactionUUID: "DEADBEEF",
+				Headers:         []string{"Header1", "Header2"},
+				Metadata:        map[string]string{"name": "value"},
+				Spans:           [][]string{[]string{"1", "2"}, []string{"3"}},
+			},
+		}
+	)
+
+	for _, format := range allFormats {
+		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
+			for _, message := range messages {
+				testCRUDEncode(t, format, message)
+			}
+		})
+
+		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
+			for _, message := range messages {
+				testCRUDRouting(t, format, message)
+			}
+		})
+	}
+}
+
+func testServiceRegistrationEncode(t *testing.T, f Format, original ServiceRegistration) {
+	var (
+		assert  = assert.New(t)
+		decoded ServiceRegistration
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	assert.NoError(encoder.Encode(&original))
+	assert.True(buffer.Len() > 0)
+	assert.Equal(ServiceRegistrationMessageType, original.Type)
+	assert.NoError(decoder.Decode(&decoded))
+	assert.Equal(original, decoded)
+}
+
+func testServiceRegistrationRouting(t *testing.T, f Format, original ServiceRegistration) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		routing Routing
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	require.NoError(encoder.Encode(&original))
+	assert.NoError(decoder.Decode(&routing))
+	assert.Equal(ServiceRegistrationMessageType, routing.Type)
+	assert.Empty(routing.Source)
+	assert.Empty(routing.Destination)
+}
+
+func TestServiceRegistration(t *testing.T) {
+	var messages = []ServiceRegistration{
+		ServiceRegistration{},
+		ServiceRegistration{
+			ServiceName: "systemd",
+		},
+		ServiceRegistration{
+			ServiceName: "systemd",
+			URL:         "local:/location/here",
+		},
+	}
+
+	for _, format := range allFormats {
+		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
+			for _, message := range messages {
+				testServiceRegistrationEncode(t, format, message)
+			}
+		})
+
+		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
+			for _, message := range messages {
+				testServiceRegistrationRouting(t, format, message)
+			}
+		})
+	}
+}
+
+func testServiceAliveEncode(t *testing.T, f Format) {
+	var (
+		assert   = assert.New(t)
+		original = ServiceAlive{}
+
+		decoded ServiceAlive
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	assert.NoError(encoder.Encode(&original))
+	assert.True(buffer.Len() > 0)
+	assert.Equal(ServiceAliveMessageType, original.Type)
+	assert.NoError(decoder.Decode(&decoded))
+	assert.Equal(original, decoded)
+}
+
+func testServiceAliveRouting(t *testing.T, f Format) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		original = ServiceAlive{}
+
+		routing Routing
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	require.NoError(encoder.Encode(&original))
+	assert.NoError(decoder.Decode(&routing))
+	assert.Equal(ServiceAliveMessageType, routing.Type)
+	assert.Empty(routing.Source)
+	assert.Empty(routing.Destination)
+}
+
+func TestServiceAlive(t *testing.T) {
+	for _, format := range allFormats {
+		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
+			testServiceAliveEncode(t, format)
+		})
+
+		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
+			testServiceAliveRouting(t, format)
+		})
+	}
+}
