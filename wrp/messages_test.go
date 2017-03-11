@@ -207,33 +207,6 @@ func testMessageEncode(t *testing.T, f Format, original Message) {
 	assert.Equal(original, decoded)
 }
 
-func testMessageTranscode(t *testing.T, source, target Format, original Message) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		intermediate, transcoded Message
-
-		sourceBuffer  bytes.Buffer
-		sourceEncoder = NewEncoder(&sourceBuffer, source)
-		sourceDecoder = NewDecoder(&sourceBuffer, source)
-
-		targetBuffer  bytes.Buffer
-		targetEncoder = NewEncoder(&targetBuffer, target)
-		targetDecoder = NewDecoder(&targetBuffer, target)
-	)
-
-	// first, simulate an external source sending a message in the source format
-	require.NoError(sourceEncoder.Encode(&original))
-
-	// now, simulate a server reading from this source format and transcoding to the target format
-	require.NoError(sourceDecoder.Decode(&intermediate))
-	require.Equal(original, intermediate)
-	require.NoError(targetEncoder.Encode(&intermediate))
-	require.NoError(targetDecoder.Decode(&transcoded))
-	assert.Equal(original, transcoded)
-}
-
 func TestMessage(t *testing.T) {
 	t.Run("SetStatus", testMessageSetStatus)
 	t.Run("SetRequestDeliveryResponse", testMessageSetRequestDeliveryResponse)
@@ -297,18 +270,6 @@ func TestMessage(t *testing.T) {
 				testMessageRouting(t, source, message)
 			}
 		})
-
-		for _, target := range allFormats {
-			if source == target {
-				continue
-			}
-
-			t.Run(fmt.Sprintf("Transcode%sTo%s", source, target), func(t *testing.T) {
-				for _, message := range messages {
-					testMessageTranscode(t, source, target, message)
-				}
-			})
-		}
 	}
 }
 

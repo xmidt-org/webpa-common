@@ -2,25 +2,12 @@ package wrp
 
 import (
 	"bytes"
-	"encoding/base64"
+	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"reflect"
 	"testing"
 )
-
-func encodeBase64(input string) string {
-	var output bytes.Buffer
-	encoder := base64.NewEncoder(base64.StdEncoding, &output)
-	_, err := encoder.Write([]byte(input))
-	if err != nil {
-		panic(err)
-	}
-
-	if err = encoder.Close(); err != nil {
-		panic(err)
-	}
-
-	return output.String()
-}
 
 func TestSampleMsgpack(t *testing.T) {
 	var (
@@ -105,4 +92,98 @@ func TestFormatHandle(t *testing.T) {
 	assert.NotNil(JSON.handle())
 	assert.NotNil(Msgpack.handle())
 	assert.Panics(func() { Format(999).handle() })
+}
+
+// testTranscodeMessage expects a nonpointer reference to a WRP message struct as the original parameter
+func testTranscodeMessage(t *testing.T, target, source Format, original interface{}) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		originalValue = reflect.ValueOf(original)
+		encodeValue   = reflect.New(originalValue.Type())
+		decodeValue   = reflect.New(originalValue.Type())
+	)
+
+	// encodeValue is now a pointer to a copy of the original
+	encodeValue.Elem().Set(originalValue)
+
+	var (
+		sourceBuffer  bytes.Buffer
+		sourceEncoder = NewEncoder(&sourceBuffer, source)
+		sourceDecoder = NewDecoder(&sourceBuffer, source)
+
+		targetBuffer  bytes.Buffer
+		targetEncoder = NewEncoder(&targetBuffer, target)
+		targetDecoder = NewDecoder(&targetBuffer, target)
+	)
+
+	// create the input first
+	require.NoError(sourceEncoder.Encode(encodeValue.Interface()))
+
+	// now we can attempt the transcode
+	message, err := TranscodeMessage(targetEncoder, sourceDecoder)
+	assert.NotNil(message)
+	assert.NoError(err)
+
+	assert.NoError(targetDecoder.Decode(decodeValue.Interface()))
+	assert.Equal(encodeValue.Elem().Interface(), decodeValue.Elem().Interface())
+}
+
+func TestTranscodeMessage(t *testing.T) {
+	var (
+		expectedStatus                  int64 = 123
+		expectedRequestDeliveryResponse int64 = -1234
+
+		messages = []interface{}{
+			AuthorizationStatus{},
+			AuthorizationStatus{
+				Status: expectedStatus,
+			},
+			SimpleRequestResponse{},
+			SimpleRequestResponse{
+				Source:      "foobar.com",
+				Destination: "mac:FFEEDDCCBBAA",
+				Payload:     []byte("hi!"),
+			},
+			SimpleRequestResponse{
+				Source:                  "foobar.com",
+				Destination:             "mac:FFEEDDCCBBAA",
+				ContentType:             "application/wrp",
+				Accept:                  "application/wrp",
+				Status:                  &expectedStatus,
+				RequestDeliveryResponse: &expectedRequestDeliveryResponse,
+				Headers:                 []string{"X-Header-1", "X-Header-2"},
+				Metadata:                map[string]string{"hi": "there"},
+				Payload:                 []byte("hi!"),
+			},
+			Message{},
+			Message{
+				Source:      "foobar.com",
+				Destination: "mac:FFEEDDCCBBAA",
+				Payload:     []byte("hi!"),
+			},
+			Message{
+				Source:                  "foobar.com",
+				Destination:             "mac:FFEEDDCCBBAA",
+				ContentType:             "application/wrp",
+				Accept:                  "application/wrp",
+				Status:                  &expectedStatus,
+				RequestDeliveryResponse: &expectedRequestDeliveryResponse,
+				Headers:                 []string{"X-Header-1", "X-Header-2"},
+				Metadata:                map[string]string{"hi": "there"},
+				Payload:                 []byte("hi!"),
+			},
+		}
+	)
+
+	for _, target := range allFormats {
+		for _, source := range allFormats {
+			t.Run(fmt.Sprintf("%sTo%s", source, target), func(t *testing.T) {
+				for _, original := range messages {
+					testTranscodeMessage(t, target, source, original)
+				}
+			})
+		}
+	}
 }

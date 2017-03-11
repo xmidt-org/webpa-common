@@ -112,3 +112,16 @@ func NewDecoder(input io.Reader, f Format) Decoder {
 func NewDecoderBytes(input []byte, f Format) Decoder {
 	return codec.NewDecoderBytes(input, f.handle())
 }
+
+// TranscodeMessage converts a WRP message of any type from one format into another,
+// e.g. from JSON into Msgpack.  The intermediate, generic Message used to hold decoded
+// values is returned in addition to any error.  If a decode error occurs, this function
+// will not perform the encoding step.
+func TranscodeMessage(target Encoder, source Decoder) (msg *Message, err error) {
+	msg = new(Message)
+	if err = source.Decode(msg); err == nil {
+		err = target.Encode(msg)
+	}
+
+	return
+}
