@@ -76,6 +76,16 @@ func TestSampleMsgpack(t *testing.T) {
 		assert.NoError(decoder.Decode(&actualMessage))
 		assert.Equal(sampleMessage, actualMessage)
 	})
+
+	t.Run("DecodeBytes", func(t *testing.T) {
+		var (
+			decoder       = NewDecoderBytes(sampleEncoded, Msgpack)
+			actualMessage SimpleRequestResponse
+		)
+
+		assert.NoError(decoder.Decode(&actualMessage))
+		assert.Equal(sampleMessage, actualMessage)
+	})
 }
 
 func TestFormatString(t *testing.T) {
