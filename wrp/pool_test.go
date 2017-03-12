@@ -60,6 +60,8 @@ func TestEncoderPool(t *testing.T) {
 			{10, 10, Msgpack},
 			{0, 0, JSON},
 			{10, 10, JSON},
+			{0, 1000, JSON},
+			{10, 1000, JSON},
 		}
 	)
 
