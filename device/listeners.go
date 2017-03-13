@@ -10,7 +10,11 @@ func defaultConnectListener(Interface)                                    {}
 func defaultDisconnectListener(Interface)                                 {}
 func defaultPongListener(Interface, string)                               {}
 
-// MessageReceivedListener represents a sink for device messages
+// MessageReceivedListener represents a sink for device messages.
+//
+// IMPORTANT: the supplied message and encoded bytes will be reused across multiple
+// inbound messages from any given device.  Implementations should make copies of the message
+// and the encoded bytes if any modifications are required.
 type MessageReceivedListener func(Interface, *wrp.Message, []byte)
 
 // MessageReceivedListeners aggregates multiple listeners into one.  If this
@@ -27,7 +31,11 @@ func MessageReceivedListeners(listeners ...MessageReceivedListener) MessageRecei
 	return defaultMessageReceivedListener
 }
 
-// MessageFailedListener represents a sink for failed messages
+// MessageFailedListener represents a sink for failed messages.
+//
+// IMPORTANT: the supplied message and encoded bytes will be reused across multiple
+// inbound messages from any given device.  Implementations should make copies of the message
+// and the encoded bytes if any modifications are required.
 type MessageFailedListener func(Interface, *wrp.Message, []byte, error)
 
 // MessageFailedListeners aggregates multiple listeners into one.  If this

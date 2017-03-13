@@ -65,12 +65,10 @@ func (df Failures) WriteResponse(response http.ResponseWriter) error {
 
 // NewTranscodingHandler produces an http.Handler that decodes the body of a request as a something other than
 // Msgpack, e.g. JSON.  The exact format is determined by the supplied decoder.
-//
-// Router.Route is used to send the message to one or more devices.
-func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
+func NewTranscodingHandler(encoderPool *wrp.EncoderPool, decoderPool *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		message, err := decoderPool.DecodeMessage(request.Body)
-		if err != nil {
+		message := new(wrp.Message)
+		if err := decoderPool.Decode(message, request.Body); err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Could not decode WRP message: %s", err),
@@ -80,8 +78,19 @@ func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Han
 			return
 		}
 
+		var encoded []byte
+		if err := encoderPool.EncodeBytes(&encoded, message); err != nil {
+			http.Error(
+				response,
+				fmt.Sprintf("Could not transcode WRP message: %s", err),
+				http.StatusBadRequest,
+			)
+
+			return
+		}
+
 		failures := make(Failures)
-		if _, count, err := router.Route(message, nil, failures.Add); err != nil {
+		if _, count, err := router.Route(message, encoded, failures.Add); err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Could not route WRP message: %s", err),
@@ -95,8 +104,8 @@ func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Han
 	})
 }
 
-// NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message,
-// then uses Router.RouteUsing to forward the message to a device.
+// NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message
+// and dispatches that message via the supplied Router.
 func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		body, err := ioutil.ReadAll(request.Body)
@@ -110,8 +119,8 @@ func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler
 			return
 		}
 
-		message, err := decoderPool.DecodeMessageBytes(body)
-		if err != nil {
+		message := new(wrp.Message)
+		if err := decoderPool.DecodeBytes(message, body); err != nil {
 			http.Error(
 				response,
 				fmt.Sprintf("Could not decode WRP message: %s", err),
