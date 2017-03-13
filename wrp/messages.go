@@ -46,7 +46,9 @@ func (mt MessageType) String() string {
 // Implementations of this interface will ensure that the MessageType is
 // set correctly prior to encoding.
 type EncoderTo interface {
-	// EncodeTo encodes this message to the given Encoder
+	// EncodeTo encodes this message to the given Encoder.  Note that this method
+	// may alter the state of this instance, as it will set the message type appropriate
+	// to the kind of WRP message being sent.
 	EncodeTo(Encoder) error
 }
 
@@ -66,6 +68,13 @@ type Routable interface {
 	// From is the originator of this Routable instance.  It corresponds to the Source field
 	// in WRP messages defined in this package.
 	From() string
+
+	// Response produces a new Routable instance which is a response to this one.  The new Routable's
+	// destination (From) is set to the original source (To), with the supplied newSource used as the response's source.
+	// The requestDeliveryResponse parameter indicates the success or failure of this response.
+	//
+	// If applicable, the response's payload is set to nil.  All other fields are copied as is into the response.
+	Response(newSource string, requestDeliveryResponse int64) Routable
 }
 
 // Message is the union of all WRP fields, made optional (except for Type).  This type is
@@ -100,37 +109,6 @@ type Message struct {
 	URL                     string            `wrp:"url,omitempty"`
 }
 
-// FailureResponse produces a Message which is the response to the failed delivery of this message.  If the response
-// parameter is non-nil, that Message instance is used and is returned.  Otherwise, a new Message instance is created
-// and returned.  Passing in this message as the response parameter is supported, but will mutate this message.
-//
-// The returned message will have the following changes from this message:
-//
-// (1) The Destination will be the Source of this message
-// (2) The Source will be set to newSource
-// (3) The RequestDeliveryResponse field will be set to requestDeliveryResponse
-// (4) The Payload will be nil
-//
-// All other fields of the original message are copied over to the returned message.  If response was nil or
-// points to a message other than this message, the returned message may be freely changed without affecting
-// this message.
-func (msg *Message) FailureResponse(response *Message, newSource string, requestDeliveryResponse int64) *Message {
-	if response == nil {
-		response = new(Message)
-	}
-
-	*response = *msg
-
-	// set the destination first, to allow for response == msg
-	response.Destination = msg.Source
-	response.Source = newSource
-
-	response.RequestDeliveryResponse = &requestDeliveryResponse
-	response.Payload = nil
-
-	return response
-}
-
 func (msg *Message) MessageType() MessageType {
 	return msg.Type
 }
@@ -141,6 +119,17 @@ func (msg *Message) To() string {
 
 func (msg *Message) From() string {
 	return msg.Source
+}
+
+func (msg *Message) Response(newSource string, requestDeliveryResponse int64) Routable {
+	var response Message = *msg
+
+	response.Destination = msg.Source
+	response.Source = newSource
+	response.RequestDeliveryResponse = &requestDeliveryResponse
+	response.Payload = nil
+
+	return &response
 }
 
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
@@ -232,6 +221,17 @@ func (msg *SimpleRequestResponse) From() string {
 	return msg.Source
 }
 
+func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResponse int64) Routable {
+	var response SimpleRequestResponse = *msg
+
+	response.Destination = msg.Source
+	response.Source = newSource
+	response.RequestDeliveryResponse = &requestDeliveryResponse
+	response.Payload = nil
+
+	return &response
+}
+
 // SimpleEvent represents a WRP message of type SimpleEventMessageType.
 //
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-event-definition
@@ -262,6 +262,16 @@ func (msg *SimpleEvent) To() string {
 
 func (msg *SimpleEvent) From() string {
 	return msg.Source
+}
+
+func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64) Routable {
+	var response SimpleEvent = *msg
+
+	response.Destination = msg.Source
+	response.Source = newSource
+	response.Payload = nil
+
+	return &response
 }
 
 // CRUD represents a WRP message of one of the CRUD message types.  This type does not implement EncodeTo,
@@ -311,6 +321,16 @@ func (msg *CRUD) To() string {
 
 func (msg *CRUD) From() string {
 	return msg.Source
+}
+
+func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routable {
+	var response CRUD = *msg
+
+	response.Destination = msg.Source
+	response.Source = newSource
+	response.RequestDeliveryResponse = &requestDeliveryResponse
+
+	return &response
 }
 
 // ServiceRegistration represents a WRP message of type ServiceRegistrationMessageType.
