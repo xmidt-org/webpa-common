@@ -234,6 +234,10 @@ func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResp
 
 // SimpleEvent represents a WRP message of type SimpleEventMessageType.
 //
+// This type implements Routable, and as such has a Response method.  However, in actual practice
+// failure responses are not sent for messages of this type.  Response is merely supplied in order to satisfy
+// the Routable interface.
+//
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-event-definition
 type SimpleEvent struct {
 	// Type is exposed principally for encoding.  This field *must* be set to SimpleEventMessageType,
