@@ -5,35 +5,28 @@ import (
 )
 
 const (
-	DefaultPoolSize          = 100
-	DefaultInitialBufferSize = 200
+	DefaultPoolSize = 100
 )
 
 // EncoderPool represents a pool of Encoder objects that can be used as is
 // encode WRP messages.  Unlike a sync.Pool, this pool holds on to its pooled
 // encoders across garbage collections.
 type EncoderPool struct {
-	pool              chan Encoder
-	factory           func() Encoder
-	initialBufferSize int
+	pool    chan Encoder
+	factory func() Encoder
 }
 
 // NewEncoderPool returns an EncoderPool for a given format.  The initialBufferSize is
 // used when encoding to byte arrays.  If this value is nonpositive, DefaultInitialBufferSize
 // is used instead.
-func NewEncoderPool(poolSize, initialBufferSize int, f Format) *EncoderPool {
+func NewEncoderPool(poolSize int, f Format) *EncoderPool {
 	if poolSize < 1 {
 		poolSize = DefaultPoolSize
 	}
 
-	if initialBufferSize < 1 {
-		initialBufferSize = DefaultInitialBufferSize
-	}
-
 	ep := &EncoderPool{
-		pool:              make(chan Encoder, poolSize),
-		factory:           func() Encoder { return NewEncoder(nil, f) },
-		initialBufferSize: initialBufferSize,
+		pool:    make(chan Encoder, poolSize),
+		factory: func() Encoder { return NewEncoder(nil, f) },
 	}
 
 	for repeat := 0; repeat < poolSize; repeat++ {
@@ -76,16 +69,15 @@ func (ep *EncoderPool) Encode(destination io.Writer, source interface{}) error {
 }
 
 // EncodeBytes uses an encoder from the pool to encode the source into a byte array.
-// This method attempts to minimize memory allocation overhead by allocating the initialBufferSize
-// specified in NewEncoderPool.
-func (ep *EncoderPool) EncodeBytes(source interface{}) (data []byte, err error) {
-	data = make([]byte, ep.initialBufferSize)
+// The destination pointer will be replaced with a slice sized for the encoded data,
+// using a zero-copy approach.  If destination has points to a slice with adequate capacity,
+// no new memory allocation is done.
+func (ep *EncoderPool) EncodeBytes(destination *[]byte, source interface{}) error {
 	encoder := ep.Get()
 	defer ep.Put(encoder)
 
-	encoder.ResetBytes(&data)
-	err = encoder.Encode(source)
-	return
+	encoder.ResetBytes(destination)
+	return encoder.Encode(source)
 }
 
 // DecoderPool is a pool of Decoder instances for a specific format

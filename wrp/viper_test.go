@@ -21,7 +21,8 @@ func TestNewPoolFactory(t *testing.T) {
 
 		for _, format := range []Format{JSON, Msgpack} {
 			t.Run(format.String(), func(t *testing.T) {
-				testEncoderPool(assert, factory.NewEncoderPool(format))
+				var output []byte
+				testEncoderPool(assert, factory.NewEncoderPool(format), &output)
 				testDecoderPool(assert, format, factory.NewDecoderPool(format))
 			})
 		}
@@ -33,8 +34,7 @@ func TestNewPoolFactory(t *testing.T) {
 		require.NoError(v.ReadConfig(strings.NewReader(`{
 			"wrp": {
 				"decoderPoolSize": 131,
-				"encoderPoolSize": 67,
-				"initialBufferSize": 128
+				"encoderPoolSize": 67
 			}
 		}`)))
 
@@ -44,7 +44,8 @@ func TestNewPoolFactory(t *testing.T) {
 
 		for _, format := range []Format{JSON, Msgpack} {
 			t.Run(format.String(), func(t *testing.T) {
-				testEncoderPool(assert, factory.NewEncoderPool(format))
+				var output []byte
+				testEncoderPool(assert, factory.NewEncoderPool(format), &output)
 				testDecoderPool(assert, format, factory.NewDecoderPool(format))
 			})
 		}

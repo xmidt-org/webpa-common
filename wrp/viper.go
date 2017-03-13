@@ -11,9 +11,8 @@ const (
 
 // PoolFactory is a configurable Factory for pooled WRP encoders and decoders.
 type PoolFactory struct {
-	DecoderPoolSize   int
-	EncoderPoolSize   int
-	InitialBufferSize int
+	DecoderPoolSize int
+	EncoderPoolSize int
 }
 
 func NewPoolFactory(v *viper.Viper) (pf *PoolFactory, err error) {
@@ -26,7 +25,7 @@ func NewPoolFactory(v *viper.Viper) (pf *PoolFactory, err error) {
 }
 
 func (pf *PoolFactory) NewEncoderPool(f Format) *EncoderPool {
-	return NewEncoderPool(pf.EncoderPoolSize, pf.InitialBufferSize, f)
+	return NewEncoderPool(pf.EncoderPoolSize, f)
 }
 
 func (pf *PoolFactory) NewDecoderPool(f Format) *DecoderPool {

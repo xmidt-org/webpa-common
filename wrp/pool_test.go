@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool) {
+func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool, output *[]byte) {
 	var (
 		initialSize = len(encoderPool.pool)
 
@@ -26,11 +26,11 @@ func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool) {
 	assert.Equal(initialSize, len(encoderPool.pool))
 	assert.True(buffer.Len() > 0)
 
-	encoded, err := encoderPool.EncodeBytes(&testMessage)
+	err := encoderPool.EncodeBytes(output, &testMessage)
 	assert.Equal(initialSize, len(encoderPool.pool))
-	assert.NotEmpty(encoded)
+	assert.NotEmpty(*output)
 	assert.NoError(err)
-	assert.Equal(encoded, buffer.Bytes())
+	assert.Equal(*output, buffer.Bytes())
 
 	for len(encoderPool.pool) > 0 {
 		assert.NotNil(encoderPool.Get())
@@ -69,7 +69,8 @@ func TestEncoderPool(t *testing.T) {
 		t.Run(
 			fmt.Sprintf("%s/poolSize=%d/initialBufferSize=%d", record.format, record.poolSize, record.initialBufferSize),
 			func(t *testing.T) {
-				testEncoderPool(assert, NewEncoderPool(record.poolSize, record.initialBufferSize, record.format))
+				output := make([]byte, record.initialBufferSize)
+				testEncoderPool(assert, NewEncoderPool(record.poolSize, record.format), &output)
 			},
 		)
 	}
