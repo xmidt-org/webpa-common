@@ -89,6 +89,13 @@ func testMessageSetIncludeSpans(t *testing.T) {
 	assert.Equal(false, *message.IncludeSpans)
 }
 
+func testMessageRoutable(t *testing.T, original Message) {
+	assert := assert.New(t)
+	assert.Equal(original.Type, original.MessageType())
+	assert.Equal(original.Destination, original.To())
+	assert.Equal(original.Source, original.From())
+}
+
 func testMessageEncode(t *testing.T, f Format, original Message) {
 	var (
 		assert  = assert.New(t)
@@ -223,6 +230,12 @@ func TestMessage(t *testing.T) {
 		}
 	)
 
+	t.Run("Routable", func(t *testing.T) {
+		for _, message := range messages {
+			testMessageRoutable(t, message)
+		}
+	})
+
 	for _, source := range allFormats {
 		t.Run(fmt.Sprintf("Encode%s", source), func(t *testing.T) {
 			for _, message := range messages {
@@ -312,6 +325,13 @@ func testSimpleRequestResponseSetIncludeSpans(t *testing.T) {
 	assert.Equal(false, *message.IncludeSpans)
 }
 
+func testSimpleRequestResponseRoutable(t *testing.T, original SimpleRequestResponse) {
+	assert := assert.New(t)
+	assert.Equal(original.Type, original.MessageType())
+	assert.Equal(original.Destination, original.To())
+	assert.Equal(original.Source, original.From())
+}
+
 func testSimpleRequestResponseEncode(t *testing.T, f Format, original SimpleRequestResponse) {
 	var (
 		assert  = assert.New(t)
@@ -366,6 +386,12 @@ func TestSimpleRequestResponse(t *testing.T) {
 		}
 	)
 
+	t.Run("Routable", func(t *testing.T) {
+		for _, message := range messages {
+			testSimpleRequestResponseRoutable(t, message)
+		}
+	})
+
 	for _, format := range allFormats {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
 			for _, message := range messages {
@@ -373,6 +399,13 @@ func TestSimpleRequestResponse(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testSimpleEventRoutable(t *testing.T, original SimpleEvent) {
+	assert := assert.New(t)
+	assert.Equal(original.Type, original.MessageType())
+	assert.Equal(original.Destination, original.To())
+	assert.Equal(original.Source, original.From())
 }
 
 func testSimpleEventEncode(t *testing.T, f Format, original SimpleEvent) {
@@ -409,6 +442,12 @@ func TestSimpleEvent(t *testing.T) {
 			Payload:     []byte("check this out!"),
 		},
 	}
+
+	t.Run("Routable", func(t *testing.T) {
+		for _, message := range messages {
+			testSimpleEventRoutable(t, message)
+		}
+	})
 
 	for _, format := range allFormats {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
@@ -462,6 +501,13 @@ func testCRUDSetIncludeSpans(t *testing.T) {
 	assert.True(&message == message.SetIncludeSpans(false))
 	assert.NotNil(message.IncludeSpans)
 	assert.Equal(false, *message.IncludeSpans)
+}
+
+func testCRUDRoutable(t *testing.T, original CRUD) {
+	assert := assert.New(t)
+	assert.Equal(original.Type, original.MessageType())
+	assert.Equal(original.Destination, original.To())
+	assert.Equal(original.Source, original.From())
 }
 
 func testCRUDEncode(t *testing.T, f Format, original CRUD) {
@@ -521,6 +567,12 @@ func TestCRUD(t *testing.T) {
 			},
 		}
 	)
+
+	t.Run("Routable", func(t *testing.T) {
+		for _, message := range messages {
+			testCRUDRoutable(t, message)
+		}
+	})
 
 	for _, format := range allFormats {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {

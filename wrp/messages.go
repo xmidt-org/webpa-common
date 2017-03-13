@@ -42,6 +42,32 @@ func (mt MessageType) String() string {
 	return InvalidMessageTypeString
 }
 
+// EncoderTo describes the behavior of a message that can encode itself.
+// Implementations of this interface will ensure that the MessageType is
+// set correctly prior to encoding.
+type EncoderTo interface {
+	// EncodeTo encodes this message to the given Encoder
+	EncodeTo(Encoder) error
+}
+
+// Routable describes an object which can be routed.  Implementations will most
+// often also be WRP messages, and can be passed to decoders and encoders.
+//
+// Not all WRP messages are Routable.  Only messages that can be sent through
+// routing software (e.g. talaria) implement this interface.
+type Routable interface {
+	// MessageType is the type of message represented by this Routable.
+	MessageType() MessageType
+
+	// To is the destination of this Routable instance.  It corresponds to the Destination field
+	// in WRP messages defined in this package.
+	To() string
+
+	// From is the originator of this Routable instance.  It corresponds to the Source field
+	// in WRP messages defined in this package.
+	From() string
+}
+
 // Message is the union of all WRP fields, made optional (except for Type).  This type is
 // useful for transcoding streams, since deserializing from non-msgpack formats like JSON
 // has some undesireable side effects.
@@ -105,6 +131,18 @@ func (msg *Message) FailureResponse(response *Message, newSource string, request
 	return response
 }
 
+func (msg *Message) MessageType() MessageType {
+	return msg.Type
+}
+
+func (msg *Message) To() string {
+	return msg.Destination
+}
+
+func (msg *Message) From() string {
+	return msg.Source
+}
+
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
 func (msg *Message) SetStatus(value int64) *Message {
 	msg.Status = &value
@@ -121,14 +159,6 @@ func (msg *Message) SetRequestDeliveryResponse(value int64) *Message {
 func (msg *Message) SetIncludeSpans(value bool) *Message {
 	msg.IncludeSpans = &value
 	return msg
-}
-
-// EncoderTo describes the behavior of a message that can encode itself.
-// Implementations of this interface will ensure that the MessageType is
-// set correctly prior to encoding.
-type EncoderTo interface {
-	// EncodeTo encodes this message to the given Encoder
-	EncodeTo(Encoder) error
 }
 
 // AuthorizationStatus represents a WRP message of type AuthMessageType.
@@ -190,6 +220,18 @@ func (msg *SimpleRequestResponse) EncodeTo(e Encoder) error {
 	return e.Encode(msg)
 }
 
+func (msg *SimpleRequestResponse) MessageType() MessageType {
+	return msg.Type
+}
+
+func (msg *SimpleRequestResponse) To() string {
+	return msg.Destination
+}
+
+func (msg *SimpleRequestResponse) From() string {
+	return msg.Source
+}
+
 // SimpleEvent represents a WRP message of type SimpleEventMessageType.
 //
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-event-definition
@@ -208,6 +250,18 @@ type SimpleEvent struct {
 func (msg *SimpleEvent) EncodeTo(e Encoder) error {
 	msg.Type = SimpleEventMessageType
 	return e.Encode(msg)
+}
+
+func (msg *SimpleEvent) MessageType() MessageType {
+	return msg.Type
+}
+
+func (msg *SimpleEvent) To() string {
+	return msg.Destination
+}
+
+func (msg *SimpleEvent) From() string {
+	return msg.Source
 }
 
 // CRUD represents a WRP message of one of the CRUD message types.  This type does not implement EncodeTo,
@@ -245,6 +299,18 @@ func (msg *CRUD) SetRequestDeliveryResponse(value int64) *CRUD {
 func (msg *CRUD) SetIncludeSpans(value bool) *CRUD {
 	msg.IncludeSpans = &value
 	return msg
+}
+
+func (msg *CRUD) MessageType() MessageType {
+	return msg.Type
+}
+
+func (msg *CRUD) To() string {
+	return msg.Destination
+}
+
+func (msg *CRUD) From() string {
+	return msg.Source
 }
 
 // ServiceRegistration represents a WRP message of type ServiceRegistrationMessageType.
