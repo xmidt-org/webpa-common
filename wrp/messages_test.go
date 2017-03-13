@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -41,35 +42,6 @@ func TestMessageTypeString(t *testing.T) {
 	assert.Equal(len(messageTypes), len(strings))
 	assert.Equal(InvalidMessageTypeString, MessageType(-1).String())
 	assert.NotContains(strings, InvalidMessageTypeString)
-}
-
-func testAuthorizationStatusEncode(t *testing.T, f Format) {
-	var (
-		assert   = assert.New(t)
-		original = AuthorizationStatus{
-			Status: 27,
-		}
-
-		decoded AuthorizationStatus
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	assert.NoError(encoder.Encode(&original))
-	assert.True(buffer.Len() > 0)
-	assert.Equal(AuthMessageType, original.Type)
-	assert.NoError(decoder.Decode(&decoded))
-	assert.Equal(original, decoded)
-}
-
-func TestAuthorizationStatus(t *testing.T) {
-	for _, format := range allFormats {
-		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
-			testAuthorizationStatusEncode(t, format)
-		})
-	}
 }
 
 func testMessageSetStatus(t *testing.T) {
@@ -133,6 +105,73 @@ func testMessageEncode(t *testing.T, f Format, original Message) {
 	assert.Equal(original, decoded)
 }
 
+func testMessageFailureResponse(t *testing.T, original Message) {
+	const (
+		expectedSource                        = "testMessageFailureResponse"
+		expectedRequestDeliveryResponse int64 = 65873
+	)
+
+	var (
+		assert        = assert.New(t)
+		require       = require.New(t)
+		checkResponse = func(actual *Message) {
+			// these fields should have been changed in some way
+			assert.Equal(original.Source, actual.Destination)
+			assert.Equal(expectedSource, actual.Source)
+			require.NotNil(actual.RequestDeliveryResponse)
+			assert.Equal(expectedRequestDeliveryResponse, *actual.RequestDeliveryResponse)
+			assert.Nil(actual.Payload)
+
+			// these fields should be the same
+			assert.Equal(original.Type, actual.Type)
+			assert.Equal(original.TransactionUUID, actual.TransactionUUID)
+			assert.Equal(original.ContentType, actual.ContentType)
+			assert.Equal(original.Accept, actual.Accept)
+			assert.Equal(original.Status, actual.Status)
+			assert.Equal(original.Headers, actual.Headers)
+			assert.Equal(original.Metadata, actual.Metadata)
+			assert.Equal(original.Spans, actual.Spans)
+			assert.Equal(original.Path, actual.Path)
+			assert.Equal(original.Objects, actual.Objects)
+			assert.Equal(original.ServiceName, actual.ServiceName)
+			assert.Equal(original.URL, actual.URL)
+		}
+	)
+
+	{
+		var (
+			clone    = original
+			response = clone.FailureResponse(nil, expectedSource, expectedRequestDeliveryResponse)
+		)
+
+		require.NotNil(response)
+		checkResponse(response)
+	}
+
+	{
+		var (
+			clone            = original
+			existingResponse Message
+			response         = clone.FailureResponse(&existingResponse, expectedSource, expectedRequestDeliveryResponse)
+		)
+
+		require.NotNil(response)
+		assert.Equal(&existingResponse, response)
+		checkResponse(response)
+	}
+
+	{
+		var (
+			clone    = original
+			response = clone.FailureResponse(&clone, expectedSource, expectedRequestDeliveryResponse)
+		)
+
+		require.NotNil(response)
+		assert.Equal(&clone, response)
+		checkResponse(response)
+	}
+}
+
 func TestMessage(t *testing.T) {
 	t.Run("SetStatus", testMessageSetStatus)
 	t.Run("SetRequestDeliveryResponse", testMessageSetRequestDeliveryResponse)
@@ -189,6 +228,41 @@ func TestMessage(t *testing.T) {
 			for _, message := range messages {
 				testMessageEncode(t, source, message)
 			}
+		})
+	}
+
+	t.Run("FailureResponse", func(t *testing.T) {
+		for _, message := range messages {
+			testMessageFailureResponse(t, message)
+		}
+	})
+}
+
+func testAuthorizationStatusEncode(t *testing.T, f Format) {
+	var (
+		assert   = assert.New(t)
+		original = AuthorizationStatus{
+			Status: 27,
+		}
+
+		decoded AuthorizationStatus
+
+		buffer  bytes.Buffer
+		encoder = NewEncoder(&buffer, f)
+		decoder = NewDecoder(&buffer, f)
+	)
+
+	assert.NoError(encoder.Encode(&original))
+	assert.True(buffer.Len() > 0)
+	assert.Equal(AuthMessageType, original.Type)
+	assert.NoError(decoder.Decode(&decoded))
+	assert.Equal(original, decoded)
+}
+
+func TestAuthorizationStatus(t *testing.T) {
+	for _, format := range allFormats {
+		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
+			testAuthorizationStatusEncode(t, format)
 		})
 	}
 }

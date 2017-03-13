@@ -74,6 +74,37 @@ type Message struct {
 	URL                     string            `wrp:"url,omitempty"`
 }
 
+// FailureResponse produces a Message which is the response to the failed delivery of this message.  If the response
+// parameter is non-nil, that Message instance is used and is returned.  Otherwise, a new Message instance is created
+// and returned.  Passing in this message as the response parameter is supported, but will mutate this message.
+//
+// The returned message will have the following changes from this message:
+//
+// (1) The Destination will be the Source of this message
+// (2) The Source will be set to newSource
+// (3) The RequestDeliveryResponse field will be set to requestDeliveryResponse
+// (4) The Payload will be nil
+//
+// All other fields of the original message are copied over to the returned message.  If response was nil or
+// points to a message other than this message, the returned message may be freely changed without affecting
+// this message.
+func (msg *Message) FailureResponse(response *Message, newSource string, requestDeliveryResponse int64) *Message {
+	if response == nil {
+		response = new(Message)
+	}
+
+	*response = *msg
+
+	// set the destination first, to allow for response == msg
+	response.Destination = msg.Source
+	response.Source = newSource
+
+	response.RequestDeliveryResponse = &requestDeliveryResponse
+	response.Payload = nil
+
+	return response
+}
+
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
 func (msg *Message) SetStatus(value int64) *Message {
 	msg.Status = &value
