@@ -20,7 +20,7 @@ var (
 // envelope is a tuple of an original WRP message together with that message's
 // (optional) encoded representation.
 type envelope struct {
-	message *wrp.Message
+	message wrp.Routable
 	encoded []byte
 }
 
@@ -70,9 +70,13 @@ type Interface interface {
 	// Send dispatches a message to this device.  This method is useful outside
 	// a Manager if multiple messages should be sent to the device.
 	//
+	// Similar to Manager.Route, the byte slice, if supplied, must be valid msgpack-encoded
+	// WRP to send to the device.  If this byte slice is empty, the given message is encoded
+	// using msgpack.
+	//
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
-	Send(*wrp.Message, []byte) error
+	Send(wrp.Routable, []byte) error
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -171,7 +175,7 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(message *wrp.Message, encoded []byte) (err error) {
+func (d *device) Send(message wrp.Routable, encoded []byte) (err error) {
 	if d.Closed() {
 		return NewClosedError(d.id, d.Key())
 	}

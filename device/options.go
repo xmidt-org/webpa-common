@@ -14,6 +14,7 @@ const (
 	DefaultWriteTimeout     time.Duration = 60 * time.Second
 	DefaultPingPeriod       time.Duration = 45 * time.Second
 
+	DefaultEncoderPoolSize        = 1000
 	DefaultInitialCapacity        = 100000
 	DefaultReadBufferSize         = 4096
 	DefaultWriteBufferSize        = 4096
@@ -35,6 +36,10 @@ type Options struct {
 	// HandshakeTimeout is the optional websocket handshake timeout.  If not supplied,
 	// the internal gorilla default is used.
 	HandshakeTimeout time.Duration
+
+	// EncoderPoolSize is the size of the pool of wrp.Encoder objects used internally
+	// to encode messages that have no encoded byte representation.
+	EncoderPoolSize int
 
 	// InitialCapacity is used as the starting capacity of the internal map of
 	// registered devices.  If not supplied, DefaultInitialCapacity is used.
@@ -108,6 +113,14 @@ func (o *Options) handshakeTimeout() time.Duration {
 	}
 
 	return DefaultHandshakeTimeout
+}
+
+func (o *Options) encoderPoolSize() int {
+	if o != nil && o.EncoderPoolSize > 0 {
+		return o.EncoderPoolSize
+	}
+
+	return DefaultEncoderPoolSize
 }
 
 func (o *Options) initialCapacity() int {

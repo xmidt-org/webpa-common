@@ -49,7 +49,7 @@ func TestMessageReceivedListeners(t *testing.T) {
 
 		actualCallCount := 0
 		for index, _ := range listeners {
-			listeners[index] = func(actualDevice Interface, actualMessage *wrp.Message, actualEncoded []byte) {
+			listeners[index] = func(actualDevice Interface, actualMessage wrp.Routable, actualEncoded []byte) {
 				assert.True(expectedDevice == actualDevice)
 				assert.Equal(expectedEncoded, actualEncoded)
 				assert.True(expectedMessage == actualMessage)
@@ -87,7 +87,7 @@ func TestMessageFailedListeners(t *testing.T) {
 
 		actualCallCount := 0
 		for index, _ := range listeners {
-			listeners[index] = func(actualDevice Interface, actualMessage *wrp.Message, actualEncoded []byte, actualError error) {
+			listeners[index] = func(actualDevice Interface, actualMessage wrp.Routable, actualEncoded []byte, actualError error) {
 				assert.True(expectedDevice == actualDevice)
 				assert.Equal(expectedEncoded, actualEncoded)
 				assert.True(expectedMessage == actualMessage)

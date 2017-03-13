@@ -442,7 +442,10 @@ func TestManagerRoute(t *testing.T) {
 		// or other concurrency issues
 		go func(id ID, expectedCount int) {
 			actualID, actualCount, err := manager.Route(
-				wrp.NewSimpleEvent(string(id), []byte(fmt.Sprintf("message for %s", id))),
+				&wrp.SimpleEvent{
+					Destination: string(id),
+					Payload:     []byte(fmt.Sprintf("message for %s", id)),
+				},
 				nil,
 				func(d Interface, err error) {
 					assert.Fail("The callback should not have been called")
@@ -458,7 +461,10 @@ func TestManagerRoute(t *testing.T) {
 	receiveWait.Wait()
 
 	id, count, err := manager.Route(
-		wrp.NewSimpleEvent("nosuch device", []byte("this shouldn't go anywhere")),
+		&wrp.SimpleEvent{
+			Destination: "nosuch device",
+			Payload:     []byte("this shouldn't go anywhere"),
+		},
 		nil,
 		func(Interface, error) {
 			assert.Fail("The callback should not have been called")
