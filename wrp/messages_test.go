@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"testing"
 )
 
@@ -12,36 +11,6 @@ var (
 	// allFormats enumerates all of the supported formats to use in testing
 	allFormats = []Format{JSON, Msgpack}
 )
-
-func benchmarkEncodeDecode(b *testing.B, f Format, v interface{}) {
-	var (
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	b.ResetTimer()
-	for repeat := 0; repeat < b.N; repeat++ {
-		encoder.Encode(v)
-		decoder.Decode(v)
-	}
-}
-
-func BenchmarkRouting(b *testing.B) {
-	for _, format := range allFormats {
-		b.Run(format.String(), func(b *testing.B) {
-			benchmarkEncodeDecode(b, format, new(Routing))
-		})
-	}
-}
-
-func BenchmarkMessage(b *testing.B) {
-	for _, format := range allFormats {
-		b.Run(format.String(), func(b *testing.B) {
-			benchmarkEncodeDecode(b, format, new(Message))
-		})
-	}
-}
 
 func TestMessageTypeString(t *testing.T) {
 	var (
@@ -95,36 +64,10 @@ func testAuthorizationStatusEncode(t *testing.T, f Format) {
 	assert.Equal(original, decoded)
 }
 
-func testAuthorizationStatusRouting(t *testing.T, f Format) {
-	var (
-		assert   = assert.New(t)
-		require  = require.New(t)
-		original = AuthorizationStatus{
-			Status: 13,
-		}
-
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(AuthMessageType, routing.Type)
-	assert.Empty(routing.Source)
-	assert.Empty(routing.Destination)
-}
-
 func TestAuthorizationStatus(t *testing.T) {
 	for _, format := range allFormats {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
 			testAuthorizationStatusEncode(t, format)
-		})
-
-		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
-			testAuthorizationStatusRouting(t, format)
 		})
 	}
 }
@@ -172,23 +115,6 @@ func testMessageSetIncludeSpans(t *testing.T) {
 	assert.True(&message == message.SetIncludeSpans(false))
 	assert.NotNil(message.IncludeSpans)
 	assert.Equal(false, *message.IncludeSpans)
-}
-
-func testMessageRouting(t *testing.T, f Format, original Message) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(original.Source, routing.Source)
-	assert.Equal(original.Destination, routing.Destination)
 }
 
 func testMessageEncode(t *testing.T, f Format, original Message) {
@@ -264,12 +190,6 @@ func TestMessage(t *testing.T) {
 				testMessageEncode(t, source, message)
 			}
 		})
-
-		t.Run(fmt.Sprintf("Routing%s", source), func(t *testing.T) {
-			for _, message := range messages {
-				testMessageRouting(t, source, message)
-			}
-		})
 	}
 }
 
@@ -335,24 +255,6 @@ func testSimpleRequestResponseEncode(t *testing.T, f Format, original SimpleRequ
 	assert.Equal(original, decoded)
 }
 
-func testSimpleRequestResponseRouting(t *testing.T, f Format, original SimpleRequestResponse) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(SimpleRequestResponseMessageType, routing.Type)
-	assert.Equal(original.Source, routing.Source)
-	assert.Equal(original.Destination, routing.Destination)
-}
-
 func TestSimpleRequestResponse(t *testing.T) {
 	t.Run("SetStatus", testSimpleRequestResponseSetStatus)
 	t.Run("SetRequestDeliveryResponse", testSimpleRequestResponseSetRequestDeliveryResponse)
@@ -396,12 +298,6 @@ func TestSimpleRequestResponse(t *testing.T) {
 				testSimpleRequestResponseEncode(t, format, message)
 			}
 		})
-
-		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
-			for _, message := range messages {
-				testSimpleRequestResponseRouting(t, format, message)
-			}
-		})
 	}
 }
 
@@ -420,24 +316,6 @@ func testSimpleEventEncode(t *testing.T, f Format, original SimpleEvent) {
 	assert.Equal(SimpleEventMessageType, original.Type)
 	assert.NoError(decoder.Decode(&decoded))
 	assert.Equal(original, decoded)
-}
-
-func testSimpleEventRouting(t *testing.T, f Format, original SimpleEvent) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(SimpleEventMessageType, routing.Type)
-	assert.Equal(original.Source, routing.Source)
-	assert.Equal(original.Destination, routing.Destination)
 }
 
 func TestSimpleEvent(t *testing.T) {
@@ -462,12 +340,6 @@ func TestSimpleEvent(t *testing.T) {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
 			for _, message := range messages {
 				testSimpleEventEncode(t, format, message)
-			}
-		})
-
-		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
-			for _, message := range messages {
-				testSimpleEventRouting(t, format, message)
 			}
 		})
 	}
@@ -534,24 +406,6 @@ func testCRUDEncode(t *testing.T, f Format, original CRUD) {
 	assert.Equal(original, decoded)
 }
 
-func testCRUDRouting(t *testing.T, f Format, original CRUD) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(original.Type, routing.Type)
-	assert.Equal(original.Source, routing.Source)
-	assert.Equal(original.Destination, routing.Destination)
-}
-
 func TestCRUD(t *testing.T) {
 	t.Run("SetStatus", testCRUDSetStatus)
 	t.Run("SetRequestDeliveryResponse", testCRUDSetRequestDeliveryResponse)
@@ -600,12 +454,6 @@ func TestCRUD(t *testing.T) {
 				testCRUDEncode(t, format, message)
 			}
 		})
-
-		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
-			for _, message := range messages {
-				testCRUDRouting(t, format, message)
-			}
-		})
 	}
 }
 
@@ -626,24 +474,6 @@ func testServiceRegistrationEncode(t *testing.T, f Format, original ServiceRegis
 	assert.Equal(original, decoded)
 }
 
-func testServiceRegistrationRouting(t *testing.T, f Format, original ServiceRegistration) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(ServiceRegistrationMessageType, routing.Type)
-	assert.Empty(routing.Source)
-	assert.Empty(routing.Destination)
-}
-
 func TestServiceRegistration(t *testing.T) {
 	var messages = []ServiceRegistration{
 		ServiceRegistration{},
@@ -660,12 +490,6 @@ func TestServiceRegistration(t *testing.T) {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
 			for _, message := range messages {
 				testServiceRegistrationEncode(t, format, message)
-			}
-		})
-
-		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
-			for _, message := range messages {
-				testServiceRegistrationRouting(t, format, message)
 			}
 		})
 	}
@@ -690,34 +514,10 @@ func testServiceAliveEncode(t *testing.T, f Format) {
 	assert.Equal(original, decoded)
 }
 
-func testServiceAliveRouting(t *testing.T, f Format) {
-	var (
-		assert   = assert.New(t)
-		require  = require.New(t)
-		original = ServiceAlive{}
-
-		routing Routing
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	require.NoError(encoder.Encode(&original))
-	assert.NoError(decoder.Decode(&routing))
-	assert.Equal(ServiceAliveMessageType, routing.Type)
-	assert.Empty(routing.Source)
-	assert.Empty(routing.Destination)
-}
-
 func TestServiceAlive(t *testing.T) {
 	for _, format := range allFormats {
 		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
 			testServiceAliveEncode(t, format)
-		})
-
-		t.Run(fmt.Sprintf("Routing%s", format), func(t *testing.T) {
-			testServiceAliveRouting(t, format)
 		})
 	}
 }

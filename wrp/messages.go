@@ -42,19 +42,6 @@ func (mt MessageType) String() string {
 	return InvalidMessageTypeString
 }
 
-// Routing contains only the fields necessary for WRP intermediaries (e.g. talaria) to route
-// messages.  This type does not map to a concrete WRP message type; rather, it's intended for
-// situations when only a partial decoding of a WRP message is required.
-//
-// This type does not implement EncoderTo because it is typically only used for decoding.
-type Routing struct {
-	// Type is the message type of the WRP message.  This value is not automatically set, save
-	// through decoding.
-	Type        MessageType `wrp:"msg_type"`
-	Source      string      `wrp:"source,omitempty"`
-	Destination string      `wrp:"dest,omitempty"`
-}
-
 // Message is the union of all WRP fields, made optional (except for Type).  This type is
 // useful for transcoding streams, since deserializing from non-msgpack formats like JSON
 // has some undesireable side effects.
