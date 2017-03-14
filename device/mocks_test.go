@@ -51,7 +51,7 @@ func (m *mockDevice) Closed() bool {
 	return arguments.Bool(0)
 }
 
-func (m *mockDevice) Send(message *wrp.Message, encoded []byte) error {
+func (m *mockDevice) Send(message wrp.Routable, encoded []byte) error {
 	arguments := m.Called(message, encoded)
 	return arguments.Error(0)
 }

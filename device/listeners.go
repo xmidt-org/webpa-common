@@ -4,20 +4,24 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 )
 
-func defaultMessageReceivedListener(Interface, *wrp.Message, []byte)      {}
-func defaultMessageFailedListener(Interface, *wrp.Message, []byte, error) {}
+func defaultMessageReceivedListener(Interface, wrp.Routable, []byte)      {}
+func defaultMessageFailedListener(Interface, wrp.Routable, []byte, error) {}
 func defaultConnectListener(Interface)                                    {}
 func defaultDisconnectListener(Interface)                                 {}
 func defaultPongListener(Interface, string)                               {}
 
-// MessageReceivedListener represents a sink for device messages
-type MessageReceivedListener func(Interface, *wrp.Message, []byte)
+// MessageReceivedListener represents a sink for device messages.
+//
+// IMPORTANT: the supplied message and encoded bytes will be reused across multiple
+// inbound messages from any given device.  Implementations should make copies of the message
+// and the encoded bytes if any modifications are required.
+type MessageReceivedListener func(Interface, wrp.Routable, []byte)
 
 // MessageReceivedListeners aggregates multiple listeners into one.  If this
 // method is passed zero (0) listeners, an internal default is used instead.
 func MessageReceivedListeners(listeners ...MessageReceivedListener) MessageReceivedListener {
 	if len(listeners) > 0 {
-		return func(device Interface, message *wrp.Message, encoded []byte) {
+		return func(device Interface, message wrp.Routable, encoded []byte) {
 			for _, l := range listeners {
 				l(device, message, encoded)
 			}
@@ -27,14 +31,18 @@ func MessageReceivedListeners(listeners ...MessageReceivedListener) MessageRecei
 	return defaultMessageReceivedListener
 }
 
-// MessageFailedListener represents a sink for failed messages
-type MessageFailedListener func(Interface, *wrp.Message, []byte, error)
+// MessageFailedListener represents a sink for failed messages.
+//
+// IMPORTANT: the supplied message and encoded bytes will be reused across multiple
+// inbound messages from any given device.  Implementations should make copies of the message
+// and the encoded bytes if any modifications are required.
+type MessageFailedListener func(Interface, wrp.Routable, []byte, error)
 
 // MessageFailedListeners aggregates multiple listeners into one.  If this
 // method is passed zero (0) listeners, an internal default is used instead.
 func MessageFailedListeners(listeners ...MessageFailedListener) MessageFailedListener {
 	if len(listeners) > 0 {
-		return func(device Interface, message *wrp.Message, encoded []byte, err error) {
+		return func(device Interface, message wrp.Routable, encoded []byte, err error) {
 			for _, l := range listeners {
 				l(device, message, encoded, err)
 			}

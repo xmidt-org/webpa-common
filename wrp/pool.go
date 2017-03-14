@@ -5,34 +5,28 @@ import (
 )
 
 const (
-	DefaultPoolSize          = 100
-	DefaultInitialBufferSize = 200
+	DefaultPoolSize = 100
 )
 
 // EncoderPool represents a pool of Encoder objects that can be used as is
-// encode WRP messages.
+// encode WRP messages.  Unlike a sync.Pool, this pool holds on to its pooled
+// encoders across garbage collections.
 type EncoderPool struct {
-	pool              chan Encoder
-	factory           func() Encoder
-	initialBufferSize int
+	pool    chan Encoder
+	factory func() Encoder
 }
 
 // NewEncoderPool returns an EncoderPool for a given format.  The initialBufferSize is
 // used when encoding to byte arrays.  If this value is nonpositive, DefaultInitialBufferSize
 // is used instead.
-func NewEncoderPool(poolSize, initialBufferSize int, f Format) *EncoderPool {
+func NewEncoderPool(poolSize int, f Format) *EncoderPool {
 	if poolSize < 1 {
 		poolSize = DefaultPoolSize
 	}
 
-	if initialBufferSize < 1 {
-		initialBufferSize = DefaultInitialBufferSize
-	}
-
 	ep := &EncoderPool{
-		pool:              make(chan Encoder, poolSize),
-		factory:           func() Encoder { return NewEncoder(nil, f) },
-		initialBufferSize: initialBufferSize,
+		pool:    make(chan Encoder, poolSize),
+		factory: func() Encoder { return NewEncoder(nil, f) },
 	}
 
 	for repeat := 0; repeat < poolSize; repeat++ {
@@ -42,6 +36,8 @@ func NewEncoderPool(poolSize, initialBufferSize int, f Format) *EncoderPool {
 	return ep
 }
 
+// Get returns an Encoder from the pool.  If the pool is empty, a new Encoder is
+// created using the initial pool configuration.  This method never returns nil.
 func (ep *EncoderPool) Get() (encoder Encoder) {
 	select {
 	case encoder = <-ep.pool:
@@ -52,10 +48,14 @@ func (ep *EncoderPool) Get() (encoder Encoder) {
 	return
 }
 
+// Put returns an Encoder to the pool.  If this pool is full or if the supplied
+// encoder is nil, this method does nothing.
 func (ep *EncoderPool) Put(encoder Encoder) {
-	select {
-	case ep.pool <- encoder:
-	default:
+	if encoder != nil {
+		select {
+		case ep.pool <- encoder:
+		default:
+		}
 	}
 }
 
@@ -69,16 +69,15 @@ func (ep *EncoderPool) Encode(destination io.Writer, source interface{}) error {
 }
 
 // EncodeBytes uses an encoder from the pool to encode the source into a byte array.
-// This method attempts to minimize memory allocation overhead by allocating the initialBufferSize
-// specified in NewEncoderPool.
-func (ep *EncoderPool) EncodeBytes(source interface{}) (data []byte, err error) {
-	data = make([]byte, ep.initialBufferSize)
+// The destination pointer will be replaced with a slice sized for the encoded data,
+// using a zero-copy approach.  If destination has points to a slice with adequate capacity,
+// no new memory allocation is done.
+func (ep *EncoderPool) EncodeBytes(destination *[]byte, source interface{}) error {
 	encoder := ep.Get()
 	defer ep.Put(encoder)
 
-	encoder.ResetBytes(&data)
-	err = encoder.Encode(source)
-	return
+	encoder.ResetBytes(destination)
+	return encoder.Encode(source)
 }
 
 // DecoderPool is a pool of Decoder instances for a specific format
@@ -105,6 +104,8 @@ func NewDecoderPool(poolSize int, f Format) *DecoderPool {
 	return dp
 }
 
+// Get returns a Decoder to the pool.  If the pool is empty, a new Decoder is
+// created using the initial pool configuration.  This method never returns nil.
 func (dp *DecoderPool) Get() (decoder Decoder) {
 	select {
 	case decoder = <-dp.pool:
@@ -115,10 +116,14 @@ func (dp *DecoderPool) Get() (decoder Decoder) {
 	return
 }
 
+// Put returns a Decoder to the pool.  If this pool is full or if the supplied
+// decoder is nil, this method does nothing.
 func (dp *DecoderPool) Put(decoder Decoder) {
-	select {
-	case dp.pool <- decoder:
-	default:
+	if decoder != nil {
+		select {
+		case dp.pool <- decoder:
+		default:
+		}
 	}
 }
 
@@ -132,13 +137,6 @@ func (dp *DecoderPool) Decode(destination interface{}, source io.Reader) error {
 	return decoder.Decode(destination)
 }
 
-// DecodeMessage decodes a WRP message from the source Reader
-func (dp *DecoderPool) DecodeMessage(source io.Reader) (message *Message, err error) {
-	message = new(Message)
-	err = dp.Decode(message, source)
-	return
-}
-
 // DecodeBytes unmarshals data from the source byte slice onto the destination instance.
 // The destination is typically a pointer to a struct, such as *Message.
 func (dp *DecoderPool) DecodeBytes(destination interface{}, source []byte) error {
@@ -147,11 +145,4 @@ func (dp *DecoderPool) DecodeBytes(destination interface{}, source []byte) error
 
 	decoder.ResetBytes(source)
 	return decoder.Decode(destination)
-}
-
-// DecodeMessageBytes unmarshals a WRP message from a source byte slice
-func (dp *DecoderPool) DecodeMessageBytes(source []byte) (message *Message, err error) {
-	message = new(Message)
-	err = dp.DecodeBytes(message, source)
-	return
 }

@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool) {
+func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool, output *[]byte) {
 	var (
 		initialSize = len(encoderPool.pool)
 
-		testMessage = Message{
+		testMessage = SimpleEvent{
 			Destination: "foobar.com/test",
 			Source:      "mac:11112222333",
 			Payload:     []byte("testEncoderPool"),
@@ -26,11 +26,11 @@ func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool) {
 	assert.Equal(initialSize, len(encoderPool.pool))
 	assert.True(buffer.Len() > 0)
 
-	encoded, err := encoderPool.EncodeBytes(&testMessage)
+	err := encoderPool.EncodeBytes(output, &testMessage)
 	assert.Equal(initialSize, len(encoderPool.pool))
-	assert.NotEmpty(encoded)
+	assert.NotEmpty(*output)
 	assert.NoError(err)
-	assert.Equal(encoded, buffer.Bytes())
+	assert.Equal(*output, buffer.Bytes())
 
 	for len(encoderPool.pool) > 0 {
 		assert.NotNil(encoderPool.Get())
@@ -60,6 +60,8 @@ func TestEncoderPool(t *testing.T) {
 			{10, 10, Msgpack},
 			{0, 0, JSON},
 			{10, 10, JSON},
+			{0, 1000, JSON},
+			{10, 1000, JSON},
 		}
 	)
 
@@ -67,7 +69,8 @@ func TestEncoderPool(t *testing.T) {
 		t.Run(
 			fmt.Sprintf("%s/poolSize=%d/initialBufferSize=%d", record.format, record.poolSize, record.initialBufferSize),
 			func(t *testing.T) {
-				testEncoderPool(assert, NewEncoderPool(record.poolSize, record.initialBufferSize, record.format))
+				output := make([]byte, record.initialBufferSize)
+				testEncoderPool(assert, NewEncoderPool(record.poolSize, record.format), &output)
 			},
 		)
 	}
@@ -77,14 +80,13 @@ func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *Deco
 	var (
 		initialSize = len(decoderPool.pool)
 
-		originalMessage = Message{
+		originalMessage = SimpleEvent{
 			Destination: "foobar.com/test",
 			Source:      "mac:11112222333",
 			Payload:     []byte("testDecoderPool"),
 		}
 
-		testMessage *Message
-		decodeError error
+		testMessage *SimpleEvent
 		encoded     []byte
 	)
 
@@ -94,24 +96,12 @@ func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *Deco
 
 	assert.True(initialSize > 0)
 
-	testMessage = new(Message)
+	testMessage = new(SimpleEvent)
 	assert.NoError(decoderPool.Decode(testMessage, bytes.NewReader(encoded)))
 	assert.Equal(initialSize, len(decoderPool.pool))
 	assert.Equal(originalMessage, *testMessage)
 
 	assert.NoError(decoderPool.DecodeBytes(testMessage, encoded))
-	assert.Equal(initialSize, len(decoderPool.pool))
-	assert.Equal(originalMessage, *testMessage)
-
-	testMessage, decodeError = decoderPool.DecodeMessage(bytes.NewReader(encoded))
-	assert.NotNil(testMessage)
-	assert.NoError(decodeError)
-	assert.Equal(initialSize, len(decoderPool.pool))
-	assert.Equal(originalMessage, *testMessage)
-
-	testMessage, decodeError = decoderPool.DecodeMessageBytes(encoded)
-	assert.NotNil(testMessage)
-	assert.NoError(decodeError)
 	assert.Equal(initialSize, len(decoderPool.pool))
 	assert.Equal(originalMessage, *testMessage)
 

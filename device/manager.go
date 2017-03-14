@@ -50,8 +50,12 @@ type Connector interface {
 
 // Router handles dispatching messages to devices.
 type Router interface {
-	// Route dispatches the envelope to one or more devices
-	Route(*wrp.Message, []byte, func(Interface, error)) (ID, int, error)
+	// Route dispatches a Routable WRP message to one or more devices.
+	//
+	// The byte slice, if not empty, is used as the actual on-the-wire message sent to
+	// the device(s).  It *must* be valid msgpack-encoded WRP.  If this byte slice is empty, the given
+	// message is encoded as msgpack prior to enqueuing.
+	Route(wrp.Routable, []byte, func(Interface, error)) (ID, int, error)
 }
 
 // Registry is the strategy interface for querying the set of connected devices.  Methods
@@ -99,7 +103,8 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		listeners: o.Listeners,
+		listeners:   o.Listeners,
+		encoderPool: wrp.NewEncoderPool(o.encoderPoolSize(), wrp.Msgpack),
 	}
 
 	m.listeners.EnsureDefaults()
@@ -124,7 +129,8 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	listeners Listeners
+	listeners   Listeners
+	encoderPool *wrp.EncoderPool
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -401,10 +407,18 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	return
 }
 
-func (m *manager) Route(message *wrp.Message, encoded []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
-	recipient, err = ParseID(message.Destination)
+func (m *manager) Route(message wrp.Routable, encoded []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
+	recipient, err = ParseID(message.To())
 	if err != nil {
 		return
+	}
+
+	if len(encoded) == 0 {
+		encoded = make([]byte, 200)
+		err = m.encoderPool.EncodeBytes(&encoded, message)
+		if err != nil {
+			return
+		}
 	}
 
 	m.whenReadLocked(func() {

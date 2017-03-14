@@ -18,6 +18,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(DefaultConveyHeader, o.conveyHeader())
 		assert.Equal(DefaultDeviceMessageQueueSize, o.deviceMessageQueueSize())
 		assert.Equal(DefaultHandshakeTimeout, o.handshakeTimeout())
+		assert.Equal(DefaultEncoderPoolSize, o.encoderPoolSize())
 		assert.Equal(DefaultInitialCapacity, o.initialCapacity())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
 		assert.Equal(DefaultPingPeriod, o.pingPeriod())

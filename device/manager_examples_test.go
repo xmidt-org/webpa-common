@@ -13,10 +13,15 @@ func ExampleManagerSimple() {
 	options := &Options{
 		Logger: &logging.LoggerWriter{ioutil.Discard},
 		Listeners: Listeners{
-			MessageReceived: func(device Interface, message *wrp.Message, encoded []byte) {
+			MessageReceived: func(device Interface, routable wrp.Routable, encoded []byte) {
+				message := routable.(*wrp.Message)
 				fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
 				err := device.Send(
-					wrp.NewSimpleRequestResponse(message.Destination, message.Source, []byte("Homer Simpson, smiling politely")),
+					&wrp.SimpleRequestResponse{
+						Source:      message.Destination,
+						Destination: message.Source,
+						Payload:     []byte("Homer Simpson, smiling politely"),
+					},
 					nil,
 				)
 
@@ -45,9 +50,14 @@ func ExampleManagerSimple() {
 
 	defer connection.Close()
 	var (
-		requestMessage = wrp.NewSimpleRequestResponse("destination.com", "somewhere.com", []byte("Billy Corgan, Smashing Pumpkins"))
-		requestBuffer  bytes.Buffer
-		encoder        = wrp.NewEncoder(&requestBuffer, wrp.Msgpack)
+		requestMessage = &wrp.SimpleRequestResponse{
+			Source:      "somewhere.com",
+			Destination: "destination.com",
+			Payload:     []byte("Billy Corgan, Smashing Pumpkins"),
+		}
+
+		requestBuffer bytes.Buffer
+		encoder       = wrp.NewEncoder(&requestBuffer, wrp.Msgpack)
 	)
 
 	if err := encoder.Encode(requestMessage); err != nil {
