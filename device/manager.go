@@ -317,17 +317,21 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		})
 
 		// notify listener of any message that just now failed
+		// any writeError is passed via this event
 		if envelope != nil {
-			event.setMessageFailed(d, envelope.message, envelope.encoded)
+			event.setMessageFailed(d, envelope.message, envelope.encoded, writeError)
 			m.dispatch(&event)
 		}
 
 		// drain the messages, dispatching them as message failed events.  we never close
 		// the message channel, so just drain until a receive would block.
+		//
+		// Nil is passed explicitly as the error to indicate that these messages failed due
+		// to the device disconnecting, not due to an actual I/O error.
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				event.setMessageFailed(d, undeliverable.message, undeliverable.encoded)
+				event.setMessageFailed(d, undeliverable.message, undeliverable.encoded, nil)
 				m.dispatch(&event)
 			default:
 				break

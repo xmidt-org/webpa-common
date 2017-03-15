@@ -1,6 +1,7 @@
 package device
 
 import (
+	"errors"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -29,7 +30,27 @@ func testEventString(t *testing.T) {
 	assert.Equal(InvalidEventString, EventType(255).String())
 }
 
-func testEventSetMessageFailed(t *testing.T, event Event) {
+func testEventSetMessageFailedWithError(t *testing.T, event Event) {
+	var (
+		assert  = assert.New(t)
+		device  = new(mockDevice)
+		message = new(wrp.Message)
+		encoded = []byte("testEventSetMessageFailed")
+		err     = errors.New("testEventSetMessageFailed")
+	)
+
+	event.setMessageFailed(device, message, encoded, err)
+	assert.Equal(MessageFailed, event.Type)
+	assert.Equal(device, event.Device)
+	assert.True(message == event.Message)
+	assert.Equal(encoded, event.Encoded)
+	assert.True(err == event.Err)
+	assert.Empty(event.Data)
+
+	device.AssertExpectations(t)
+}
+
+func testEventSetMessageFailedWithoutError(t *testing.T, event Event) {
 	var (
 		assert  = assert.New(t)
 		device  = new(mockDevice)
@@ -37,12 +58,14 @@ func testEventSetMessageFailed(t *testing.T, event Event) {
 		encoded = []byte("testEventSetMessageFailed")
 	)
 
-	event.setMessageFailed(device, message, encoded)
+	event.setMessageFailed(device, message, encoded, nil)
 	assert.Equal(MessageFailed, event.Type)
 	assert.Equal(device, event.Device)
 	assert.True(message == event.Message)
 	assert.Equal(encoded, event.Encoded)
+	assert.NoError(event.Err)
 	assert.Empty(event.Data)
+
 	device.AssertExpectations(t)
 }
 
@@ -59,6 +82,7 @@ func testEventSetMessageReceived(t *testing.T, event Event) {
 	assert.Equal(device, event.Device)
 	assert.True(message == event.Message)
 	assert.Equal(encoded, event.Encoded)
+	assert.NoError(event.Err)
 	assert.Empty(event.Data)
 	device.AssertExpectations(t)
 }
@@ -75,6 +99,7 @@ func testEventSetPong(t *testing.T, event Event) {
 	assert.Equal(device, event.Device)
 	assert.Nil(event.Message)
 	assert.Empty(event.Encoded)
+	assert.NoError(event.Err)
 	assert.Equal(data, event.Data)
 	device.AssertExpectations(t)
 }
@@ -103,6 +128,13 @@ func TestEvent(t *testing.T) {
 				Encoded: []byte("encoded"),
 			},
 			Event{
+				Type:    MessageFailed,
+				Device:  device,
+				Message: new(wrp.Message),
+				Encoded: []byte("encoded"),
+				Err:     errors.New("some random I/O problem"),
+			},
+			Event{
 				Type:    MessageReceived,
 				Device:  device,
 				Message: new(wrp.Message),
@@ -118,7 +150,8 @@ func TestEvent(t *testing.T) {
 
 	t.Run("setMessageFailed", func(t *testing.T) {
 		for _, original := range events {
-			testEventSetMessageFailed(t, original)
+			testEventSetMessageFailedWithError(t, original)
+			testEventSetMessageFailedWithoutError(t, original)
 		}
 	})
 
