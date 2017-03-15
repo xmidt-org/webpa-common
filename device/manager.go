@@ -107,7 +107,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		encoderPool: wrp.NewEncoderPool(o.encoderPoolSize(), wrp.Msgpack),
 	}
 
-	m.listeners.EnsureDefaults()
 	return m
 }
 
@@ -129,7 +128,7 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	listeners   Listeners
+	listeners   []Listener
 	encoderPool *wrp.EncoderPool
 }
 
@@ -178,6 +177,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	return d, nil
 }
 
+func (m *manager) dispatch(e *Event) {
+	for _, listener := range m.listeners {
+		listener(e)
+	}
+}
+
 func (m *manager) whenWriteLocked(when func()) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
@@ -208,14 +213,23 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 		m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
 	}
 
-	m.listeners.Disconnect(d)
+	m.dispatch(
+		&Event{
+			Type:   Disconnect,
+			Device: d,
+		},
+	)
 }
 
 // pongCallbackFor creates a callback that delegates to this Manager's Listeners
 // for the given device.
 func (m *manager) pongCallbackFor(d *device) func(string) {
+	// reuse the same event instance to ease gc pressure
+	event := new(Event)
+
 	return func(data string) {
-		m.listeners.Pong(d, data)
+		event.setPong(d, data)
+		m.dispatch(event)
 	}
 }
 
@@ -228,6 +242,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		frameRead   bool
 		readError   error
 		frameBuffer bytes.Buffer
+		event       Event
 
 		message wrp.Message
 		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
@@ -257,7 +272,8 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		m.listeners.MessageReceived(d, &message, rawFrame)
+		event.setMessageReceived(d, &message, rawFrame)
+		m.dispatch(&event)
 	}
 }
 
@@ -272,8 +288,13 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		m.registry.add(d)
 	})
 
-	// dispatch to the connect listener after the device is addressable
-	m.listeners.Connect(d)
+	// we'll reuse this event instance
+	event := Event{
+		Type:   Connect,
+		Device: d,
+	}
+
+	m.dispatch(&event)
 
 	var (
 		envelope    *envelope
@@ -297,15 +318,17 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		// notify listener of any message that just now failed
 		if envelope != nil {
-			m.listeners.MessageFailed(d, envelope.message, envelope.encoded, writeError)
+			event.setMessageFailed(d, envelope.message, envelope.encoded)
+			m.dispatch(&event)
 		}
 
 		// drain the messages, dispatching them as message failed events.  we never close
 		// the message channel, so just drain until a receive would block.
 		for {
 			select {
-			case failed := <-d.messages:
-				m.listeners.MessageFailed(d, failed.message, failed.encoded, writeError)
+			case undeliverable := <-d.messages:
+				event.setMessageFailed(d, undeliverable.message, undeliverable.encoded)
+				m.dispatch(&event)
 			default:
 				break
 			}

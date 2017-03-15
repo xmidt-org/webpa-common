@@ -162,11 +162,11 @@ func TestManagerPongCallbackFor(t *testing.T) {
 
 	manager := &manager{
 		logger: logging.TestLogger(t),
-		listeners: Listeners{
-			Pong: func(actualDevice Interface, actualData string) {
+		listeners: []Listener{
+			func(event *Event) {
 				listenerCalled = true
-				assert.True(expectedDevice == actualDevice)
-				assert.Equal(expectedData, actualData)
+				assert.True(expectedDevice == event.Device)
+				assert.Equal(expectedData, event.Data)
 			},
 		},
 	}
@@ -184,13 +184,15 @@ func TestManagerConnectAndVisit(t *testing.T) {
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
-		Listeners: Listeners{
-			Connect: func(candidate Interface) {
-				defer connectWait.Done()
-				select {
-				case connections <- candidate:
-				default:
-					assert.Fail("The connect listener should not block")
+		Listeners: []Listener{
+			func(event *Event) {
+				if event.Type == Connect {
+					defer connectWait.Done()
+					select {
+					case connections <- event.Device:
+					default:
+						assert.Fail("The connect listener should not block")
+					}
 				}
 			},
 		},
@@ -252,12 +254,16 @@ func TestManagerDisconnect(t *testing.T) {
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
-		Listeners: Listeners{
-			Connect: func(Interface) { connectWait.Done() },
-			Disconnect: func(candidate Interface) {
-				defer disconnectWait.Done()
-				assert.True(candidate.Closed())
-				disconnections <- candidate
+		Listeners: []Listener{
+			func(event *Event) {
+				switch event.Type {
+				case Connect:
+					connectWait.Done()
+				case Disconnect:
+					defer disconnectWait.Done()
+					assert.True(event.Device.Closed())
+					disconnections <- event.Device
+				}
 			},
 		},
 	}
@@ -292,12 +298,15 @@ func TestManagerDisconnectOne(t *testing.T) {
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
-		Listeners: Listeners{
-			Connect: func(Interface) { connectWait.Done() },
-			Disconnect: func(candidate Interface) {
-				t.Logf("disconnecting: %s", candidate)
-				assert.True(candidate.Closed())
-				disconnections <- candidate
+		Listeners: []Listener{
+			func(event *Event) {
+				switch event.Type {
+				case Connect:
+					connectWait.Done()
+				case Disconnect:
+					assert.True(event.Device.Closed())
+					disconnections <- event.Device
+				}
 			},
 		},
 	}
@@ -343,12 +352,15 @@ func TestManagerDisconnectIf(t *testing.T) {
 
 	options := &Options{
 		Logger: logging.TestLogger(t),
-		Listeners: Listeners{
-			Connect: func(Interface) { connectWait.Done() },
-			Disconnect: func(candidate Interface) {
-				t.Logf("disconnecting: %s", candidate)
-				assert.True(candidate.Closed())
-				disconnections <- candidate
+		Listeners: []Listener{
+			func(event *Event) {
+				switch event.Type {
+				case Connect:
+					connectWait.Done()
+				case Disconnect:
+					assert.True(event.Device.Closed())
+					disconnections <- event.Device
+				}
 			},
 		},
 	}
@@ -396,11 +408,15 @@ func TestManagerRoute(t *testing.T) {
 
 		options = &Options{
 			Logger: logging.TestLogger(t),
-			Listeners: Listeners{
-				Connect: func(Interface) { connectWait.Done() },
-				Disconnect: func(candidate Interface) {
-					assert.True(candidate.Closed())
-					assert.Error(candidate.Send(new(wrp.Message), nil))
+			Listeners: []Listener{
+				func(event *Event) {
+					switch event.Type {
+					case Connect:
+						connectWait.Done()
+					case Disconnect:
+						assert.True(event.Device.Closed())
+						assert.Error(event.Device.Send(new(wrp.Message), nil))
+					}
 				},
 			},
 		}
@@ -484,11 +500,14 @@ func TestManagerPingPong(t *testing.T) {
 
 		options = &Options{
 			Logger: logging.TestLogger(t),
-			Listeners: Listeners{
-				Connect: func(Interface) { connectWait.Done() },
-				Pong: func(candidate Interface, data string) {
-					t.Logf("pong from %s: %s", candidate.ID(), data)
-					pongs <- candidate
+			Listeners: []Listener{
+				func(event *Event) {
+					switch event.Type {
+					case Connect:
+						connectWait.Done()
+					case Pong:
+						pongs <- event.Device
+					}
 				},
 			},
 			PingPeriod: 500 * time.Millisecond,
