@@ -12,21 +12,23 @@ import (
 func ExampleManagerSimple() {
 	options := &Options{
 		Logger: &logging.LoggerWriter{ioutil.Discard},
-		Listeners: Listeners{
-			MessageReceived: func(device Interface, routable wrp.Routable, encoded []byte) {
-				message := routable.(*wrp.Message)
-				fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
-				err := device.Send(
-					&wrp.SimpleRequestResponse{
-						Source:      message.Destination,
-						Destination: message.Source,
-						Payload:     []byte("Homer Simpson, smiling politely"),
-					},
-					nil,
-				)
+		Listeners: []Listener{
+			func(event *Event) {
+				if event.Type == MessageReceived {
+					message := event.Message.(*wrp.Message)
+					fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
+					err := event.Device.Send(
+						&wrp.SimpleRequestResponse{
+							Source:      message.Destination,
+							Destination: message.Source,
+							Payload:     []byte("Homer Simpson, smiling politely"),
+						},
+						nil,
+					)
 
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "Unable to send response: %s", err)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Unable to send response: %s", err)
+					}
 				}
 			},
 		},

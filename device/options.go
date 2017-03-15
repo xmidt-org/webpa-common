@@ -72,7 +72,7 @@ type Options struct {
 	WriteTimeout time.Duration
 
 	// Listeners contains the event sinks for managers created using these options
-	Listeners Listeners
+	Listeners []Listener
 
 	// KeyFunc is the factory function for Keys, used when devices connect.
 	// If this value is nil, then UUIDKeyFunc is used along with crypto/rand's Reader.
