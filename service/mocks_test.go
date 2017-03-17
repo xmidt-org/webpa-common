@@ -62,8 +62,9 @@ type mockAccessorFactory struct {
 	mock.Mock
 }
 
-func (m *mockAccessorFactory) New(endpoints []string) Accessor {
+func (m *mockAccessorFactory) New(endpoints []string) (Accessor, []string) {
 	arguments := m.Called(endpoints)
 	first, _ := arguments.Get(0).(Accessor)
-	return first
+	second, _ := arguments.Get(1).([]string)
+	return first, second
 }

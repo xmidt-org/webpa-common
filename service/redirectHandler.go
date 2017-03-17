@@ -13,6 +13,10 @@ func NewRedirectHandler(accessor Accessor, code int, keyFunc func(*http.Request)
 		logger = logging.DefaultLogger()
 	}
 
+	if code < 300 {
+		code = http.StatusTemporaryRedirect
+	}
+
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		key, err := keyFunc(request)
 		if err != nil {

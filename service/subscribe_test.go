@@ -4,12 +4,11 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"sync"
 	"testing"
 )
 
-func TestSubscribeEndWhenWatchClosed(t *testing.T) {
+func TestSubscribe(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		logger = logging.TestLogger(t)
@@ -183,83 +182,6 @@ func TestSubscribeEndWhenSubscriptionPanics(t *testing.T) {
 	// cancelling any number of times after a panic should be idempotent
 	cancelFunc()
 	cancelFunc()
-
-	mockWatch.AssertExpectations(t)
-}
-
-func TestAccessorSubscription(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		key               = []byte("does not matter")
-		expectedEndpoints = [][]string{
-			[]string{"localhost:9090"},
-			[]string{"[http://92.15.16.178]:4256"},
-			[]string{"[https://webpa.comcast.net]:15672"},
-		}
-
-		expectedHashedEndpoints = map[string]bool{
-			"http://localhost:9090":           true,
-			"http://92.15.16.178:4256":        true,
-			"https://webpa.comcast.net:15672": true,
-		}
-
-		watchEvent                        = make(chan struct{})
-		receiveWatchEvent <-chan struct{} = watchEvent
-		mockWatch                         = new(mockWatch)
-	)
-
-	// initializing the accessor subscription itself
-	mockWatch.On("Endpoints").Return(expectedEndpoints[0]).Once()
-
-	// first update
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedEndpoints[1]).Once()
-
-	// second update
-	secondUpdate := new(sync.WaitGroup)
-	secondUpdate.Add(1)
-	mockWatch.On("Event").Run(func(mock.Arguments) { secondUpdate.Done() }).Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedEndpoints[2]).Once()
-
-	// watch is cancelled
-	finalUpdate := new(sync.WaitGroup)
-	finalUpdate.Add(1)
-	mockWatch.On("Event").Run(func(mock.Arguments) { finalUpdate.Done() }).Return(receiveWatchEvent).Once()
-
-	accessorSubscription := NewAccessorSubscription(mockWatch, nil, nil)
-	require.NotNil(accessorSubscription)
-
-	hashedEndpoint, err := accessorSubscription.Get(key)
-	assert.True(expectedHashedEndpoints[hashedEndpoint])
-	assert.NoError(err)
-
-	// after the second update starts, the changes from the first should be visible
-	watchEvent <- struct{}{}
-	secondUpdate.Wait()
-	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.True(expectedHashedEndpoints[hashedEndpoint])
-	assert.NoError(err)
-
-	watchEvent <- struct{}{}
-	finalUpdate.Wait()
-	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.True(expectedHashedEndpoints[hashedEndpoint])
-	assert.NoError(err)
-
-	accessorSubscription.Cancel()
-	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.True(expectedHashedEndpoints[hashedEndpoint])
-	assert.NoError(err)
-
-	// Cancel should be idempotent
-	accessorSubscription.Cancel()
-	hashedEndpoint, err = accessorSubscription.Get(key)
-	assert.True(expectedHashedEndpoints[hashedEndpoint])
-	assert.NoError(err)
 
 	mockWatch.AssertExpectations(t)
 }
