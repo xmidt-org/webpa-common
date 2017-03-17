@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/billhathaway/consistentHash"
@@ -9,6 +10,11 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync/atomic"
+)
+
+var (
+	ErrorAccessorNotInitialized = errors.New("No calls to Update have been made")
 )
 
 // ParseHostPort parses a value of the form returned by net.JoinHostPort and
@@ -74,7 +80,7 @@ type Accessor interface {
 type AccessorFactory interface {
 	// New creates an Accessor using a slice of endpoints.  Each endpoint must
 	// be of the form parseable by ParseHostPort.  Invalid endpoints are skipped
-	// with an error log message.  The returned slice of strings is the sorted
+	// with an error log message.  The returned slice of strings is the sorted, deduped
 	// list of base URLs added to the Accessor.
 	New([]string) (Accessor, []string)
 }
@@ -95,14 +101,23 @@ type consistentHashFactory struct {
 }
 
 func (f *consistentHashFactory) New(endpoints []string) (Accessor, []string) {
-	hash := consistentHash.New()
+	var (
+		hash     = consistentHash.New()
+		baseURLs = make([]string, 0, len(endpoints))
+		dedupe   = make(map[string]bool, len(endpoints))
+	)
+
 	hash.SetVnodeCount(f.vnodeCount)
 
-	baseURLs := make([]string, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		if baseURL, err := ParseHostPort(endpoint); err != nil {
-			f.logger.Error("Skipping bad endpoint: %s", endpoint)
-		} else {
+		baseURL, err := ParseHostPort(endpoint)
+		if err != nil {
+			f.logger.Error("Skipping bad endpoint [%s]: %s", endpoint, err)
+			continue
+		}
+
+		if _, ok := dedupe[baseURL]; !ok {
+			dedupe[baseURL] = true
 			baseURLs = append(baseURLs, baseURL)
 		}
 	}
@@ -114,4 +129,55 @@ func (f *consistentHashFactory) New(endpoints []string) (Accessor, []string) {
 	}
 
 	return hash, baseURLs
+}
+
+// UpdatableAccessor represents an accessor whose set of hashed endpoints can be changed.
+// Changes to this accessor via its Update method are atomic.  It is safe to use Get and
+// Update from multiple goroutines.
+type UpdatableAccessor interface {
+	Accessor
+
+	// Update atomically changes the set of endpoints returned by Get.  This method is
+	// safe for concurrent use with any method of this interface.
+	//
+	// This method may be used as a closure in a call to one or more subscriptions:
+	//
+	//     var (
+	//       registrarWatcher RegistrarWatcher = /* obtain a RegistrarWatcher, possibly from Viper */
+	//       o *Options = /* obtain an options somehow */
+	//       accessor = NewUpdatableAccessor(o)
+	//       watch, _ = registrarWatcher.Watch()
+	//     )
+	//
+	//     Subscribe(logger, watch, accessor.Update)
+	Update([]string)
+}
+
+// updatableAccessor is the internal UpdatableAccessor implementation
+type updatableAccessor struct {
+	factory  AccessorFactory
+	accessor atomic.Value
+}
+
+func (ua *updatableAccessor) Get(key []byte) (string, error) {
+	return ua.accessor.Load().(Accessor).Get(key)
+}
+
+func (ua *updatableAccessor) Update(endpoints []string) {
+	newAccessor, _ := ua.factory.New(endpoints)
+	ua.accessor.Store(newAccessor)
+}
+
+// NewUpdatableAccessor is a factory function that produces an UpdatableAccessor
+// from a set of Options, which can be nil for defaults.
+//
+// The initialEndpoints slice contains the first set of available endpoints.  This slice can
+// be empty, in which case Get will return errors until Update is called with a nonempty slice.
+func NewUpdatableAccessor(o *Options, initialEndpoints []string) UpdatableAccessor {
+	accessor := &updatableAccessor{
+		factory: NewAccessorFactory(o),
+	}
+
+	accessor.Update(initialEndpoints)
+	return accessor
 }

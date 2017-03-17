@@ -199,3 +199,110 @@ func TestNewAccessorFactory(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdatableAccessor(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		firstEndpoints = []string{"endpoint1"}
+		firstAccessor  = new(mockAccessor)
+		firstKey       = []byte("first key")
+		firstHash      = "first hash"
+
+		secondEndpoints = []string{"endpoint2", "endpoint3"}
+		secondAccessor  = new(mockAccessor)
+		secondKey       = []byte("second key")
+		secondHash      = "second hash"
+
+		accessorFactory = new(mockAccessorFactory)
+
+		updatableAccessor = &updatableAccessor{factory: accessorFactory}
+	)
+
+	firstAccessor.On("Get", firstKey).
+		Once().
+		Return(firstHash, nil)
+
+	secondAccessor.On("Get", secondKey).
+		Once().
+		Return(secondHash, nil)
+
+	accessorFactory.On("New", firstEndpoints).
+		Once().
+		Return(firstAccessor, firstEndpoints)
+
+	accessorFactory.On("New", secondEndpoints).
+		Once().
+		Return(secondAccessor, secondEndpoints)
+
+	updatableAccessor.Update(firstEndpoints)
+	hash, err := updatableAccessor.Get(firstKey)
+	assert.Equal(firstHash, hash)
+	assert.NoError(err)
+
+	updatableAccessor.Update(secondEndpoints)
+	hash, err = updatableAccessor.Get(secondKey)
+	assert.Equal(secondHash, hash)
+	assert.NoError(err)
+
+	firstAccessor.AssertExpectations(t)
+	secondAccessor.AssertExpectations(t)
+	accessorFactory.AssertExpectations(t)
+}
+
+func testNewUpdatableAccessorNoInitialEndpoints(t *testing.T, o *Options) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		accessor = NewUpdatableAccessor(o, nil)
+	)
+
+	require.NotNil(accessor)
+
+	hash, err := accessor.Get([]byte("something"))
+	assert.Empty(hash)
+	assert.Error(err)
+}
+
+func testNewUpdatableAccessorWithInitialEndpoints(t *testing.T, o *Options, initialEndpoints []string) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		accessor = NewUpdatableAccessor(o, initialEndpoints)
+	)
+
+	require.NotNil(accessor)
+
+	hash, err := accessor.Get([]byte("something"))
+	assert.NotEmpty(hash)
+	assert.NoError(err)
+}
+
+func TestNewUpdatableAccessor(t *testing.T) {
+	var (
+		options = []*Options{
+			nil,
+			&Options{VnodeCount: 123},
+		}
+
+		initialEndpoints = [][]string{
+			[]string{"endpoint1:8100"},
+			[]string{"endpoint1:1234", "endpoint2:712"},
+			[]string{"endpoint1:80", "endpoint2:443", "endpoint3:50610"},
+		}
+	)
+
+	t.Run("NoInitialEndpoints", func(t *testing.T) {
+		for _, o := range options {
+			testNewUpdatableAccessorNoInitialEndpoints(t, o)
+		}
+	})
+
+	t.Run("WithInitialEndpoints", func(t *testing.T) {
+		for _, o := range options {
+			for _, i := range initialEndpoints {
+				testNewUpdatableAccessorWithInitialEndpoints(t, o, i)
+			}
+		}
+	})
+}

@@ -96,8 +96,10 @@ func (l *LoggerWriter) Printf(format string, parameters ...interface{}) {
 	l.logf(infoLevel, format, parameters)
 }
 
+var defaultLogger Logger = &LoggerWriter{os.Stdout}
+
 func DefaultLogger() Logger {
-	return &LoggerWriter{os.Stdout}
+	return defaultLogger
 }
 
 // testDelegate is an internal interface implemented by testing.T and testing.B
