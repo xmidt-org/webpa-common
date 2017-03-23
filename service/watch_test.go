@@ -24,7 +24,6 @@ func (tw *TestWatch) Close() {
 		select {
 		case event := <-tw.events:
 			close(event)
-			close(tw.events)
 		default:
 		}
 	}

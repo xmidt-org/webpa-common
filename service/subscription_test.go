@@ -57,17 +57,17 @@ func testSubscriptionListenerPanic(t *testing.T) {
 
 	// simulate one event, which should dispatch then panic
 	watch.NextEndpoints(expectedEndpoints)
+	<-listenerCalled
 
-	// assert that the listener was called
-	select {
-	case <-listenerCalled:
-		// passing
-	default:
-		assert.Fail("The listener should have been called")
-	}
+	// the monitor goroutine calls Cancel, so we can't guarantee that invoking
+	// Cancel here will happen before (or after) that call.
+	err := subscription.Cancel()
+	assert.True(err == nil || err == ErrorNotRunning)
+	assert.True(watch.IsClosed())
 
+	// However, a second Cancel will always behave the same
 	assert.Equal(ErrorNotRunning, subscription.Cancel())
-	//	assert.True(watch.IsClosed())
+	assert.True(watch.IsClosed())
 
 	registrar.AssertExpectations(t)
 }
