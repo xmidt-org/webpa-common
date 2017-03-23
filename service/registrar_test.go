@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestNewRegistrarWatcher(t *testing.T) {
+func TestNewRegistrar(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
@@ -35,16 +35,14 @@ func TestNewRegistrarWatcher(t *testing.T) {
 		serversets.BaseDirectory = oldBaseDirectory
 		serversets.MemberPrefix = oldMemberPrefix
 
-		registrar := NewRegistrarWatcher(o)
+		r := NewRegistrar(o)
+		registrar, ok := r.(*registrar)
 		require.NotNil(registrar)
-		serverSet, ok := registrar.(*serversets.ServerSet)
-		require.NotNil(serverSet)
 		require.True(ok)
 
 		assert.Equal(o.baseDirectory(), serversets.BaseDirectory)
 		assert.Equal(o.memberPrefix(), serversets.MemberPrefix)
-		assert.Equal(o.servers(), serverSet.ZookeeperServers())
-		assert.Equal(o.timeout(), serverSet.ZKTimeout)
+		assert.Equal(o.timeout(), registrar.ZKTimeout)
 	}
 }
 

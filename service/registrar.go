@@ -7,28 +7,35 @@ import (
 	"strconv"
 )
 
-// Registrar is the interface which is used to register endpoints.
-// *serversets.ServerSet implements this interface.
+// Watch is the subset of methods required by this package that *serversets.Watch implements
+type Watch interface {
+	Close()
+	IsClosed() bool
+	Event() <-chan struct{}
+	Endpoints() []string
+}
+
+// Registrar is the interface which is used to register and watch endpoints
 type Registrar interface {
 	RegisterEndpoint(string, int, func() error) (*serversets.Endpoint, error)
+	Watch() (Watch, error)
 }
 
-// Watcher is the interface used to observe changes to the set of endpoints.
-// *serversets.ServerSet implements this interface.
-type Watcher interface {
-	Watch() (*serversets.Watch, error)
+// registrar is an internal type used to make ServerSet conform to the Registrar interface
+type registrar serversets.ServerSet
+
+func (r *registrar) RegisterEndpoint(host string, port int, ping func() error) (*serversets.Endpoint, error) {
+	return (*serversets.ServerSet)(r).RegisterEndpoint(host, port, ping)
 }
 
-// RegistrarWatcher is simply the union of the serversets interfaces in this package.
-type RegistrarWatcher interface {
-	Registrar
-	Watcher
+func (r *registrar) Watch() (Watch, error) {
+	return (*serversets.ServerSet)(r).Watch()
 }
 
-// NewRegistrarWatcher produces a serversets.ServerSet using a supplied set of options.
+// NewRegistrar produces a serversets.ServerSet using a supplied set of options.
 // Because of limitations with the underlying go.serversets library, this function should
 // be called exactly once for any given process.
-func NewRegistrarWatcher(o *Options) RegistrarWatcher {
+func NewRegistrar(o *Options) Registrar {
 	// yuck, really? in 2016 people use global variables for configuration?
 	serversets.BaseDirectory = o.baseDirectory()
 	serversets.MemberPrefix = o.memberPrefix()
@@ -40,7 +47,7 @@ func NewRegistrarWatcher(o *Options) RegistrarWatcher {
 	)
 
 	serverSet.ZKTimeout = o.timeout()
-	return serverSet
+	return (*registrar)(serverSet)
 }
 
 var (

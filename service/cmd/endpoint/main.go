@@ -46,13 +46,15 @@ func endpoint(arguments []string) int {
 		return 1
 	}
 
-	watch, err := registrar.Watch()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not set watch: %s\n", err)
-	} else {
-		service.Subscribe(logger, watch, func(update []string) {
+	subscription := service.Subscription{
+		Registrar: registrar,
+		Listener: func([]string) {
 			// no need to do anything, as the service package logs an INFO message
-		})
+		},
+	}
+
+	if err := subscription.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Could not run subscription: %s\n", err)
 	}
 
 	fmt.Println("Send any signal to this process to exit ...")
