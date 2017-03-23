@@ -19,18 +19,18 @@ func (m *mockRegistrar) RegisterEndpoint(host string, port int, pingFunc func() 
 	return first, arguments.Error(1)
 }
 
-type mockWatcher struct {
-	mock.Mock
-}
-
-func (m *mockWatcher) Watch() (*serversets.Watch, error) {
+func (m *mockRegistrar) Watch() (Watch, error) {
 	arguments := m.Called()
-	first, _ := arguments.Get(0).(*serversets.Watch)
+	first, _ := arguments.Get(0).(Watch)
 	return first, arguments.Error(1)
 }
 
 type mockWatch struct {
 	mock.Mock
+}
+
+func (m *mockWatch) Close() {
+	m.Called()
 }
 
 func (m *mockWatch) IsClosed() bool {

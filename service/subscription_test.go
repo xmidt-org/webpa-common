@@ -1,187 +1,191 @@
 package service
 
 import (
-	"github.com/Comcast/webpa-common/logging"
+	"errors"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"sync"
 	"testing"
+	"time"
 )
 
-func TestSubscribe(t *testing.T) {
+func testSubscriptionWatchError(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedError = errors.New("testSubscriptionWatchError")
+		registrar     = new(mockRegistrar)
+
+		subscription = Subscription{
+			Registrar: registrar,
+			Listener: func([]string) {
+				assert.Fail("The listener should not have been called")
+			},
+		}
+	)
+
+	registrar.On("Watch").Once().Return(nil, expectedError)
+
+	assert.Equal(expectedError, subscription.Run())
+	assert.Equal(ErrorNotRunning, subscription.Cancel())
+
+	registrar.AssertExpectations(t)
+}
+
+func testSubscriptionListenerPanic(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedError = errors.New("testSubscriptionListenerPanic")
+
+		watch     = NewTestWatch(t)
+		registrar = new(mockRegistrar)
+
+		expectedEndpoints = []string{"expected endpoint"}
+		listenerCalled    = make(chan struct{})
+
+		subscription = Subscription{
+			Registrar: registrar,
+			Listener: func(endpoints []string) {
+				defer close(listenerCalled)
+				assert.Equal(expectedEndpoints, endpoints)
+				panic(expectedError)
+			},
+		}
+	)
+
+	registrar.On("Watch").Once().Return(watch, nil)
+
+	assert.NoError(subscription.Run())
+	assert.Equal(ErrorAlreadyRunning, subscription.Run())
+
+	// simulate one event, which should dispatch then panic
+	watch.NextEndpoints(expectedEndpoints)
+
+	// assert that the listener was called
+	select {
+	case <-listenerCalled:
+		// passing
+	default:
+		assert.Fail("The listener should have been called")
+	}
+
+	assert.Equal(ErrorNotRunning, subscription.Cancel())
+	//	assert.True(watch.IsClosed())
+
+	registrar.AssertExpectations(t)
+}
+
+func testSubscriptionNoTimeout(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.TestLogger(t)
 
-		expectedUpdates = [][]string{
-			[]string{"updated1"},
-			[]string{"updated2", "updated3"},
-		}
-		actualUpdates = make(chan []string, len(expectedUpdates))
+		watch     = NewTestWatch(t)
+		registrar = new(mockRegistrar)
 
-		subscriptionCounter = new(sync.WaitGroup)
-		subscription        = func(update []string) {
-			logger.Info("Test subscription called: %v", update)
-			defer subscriptionCounter.Done()
-
-			select {
-			case actualUpdates <- update:
-			default:
-				assert.Fail("Subscription was called too many times")
-			}
+		expectedEndpoints = [][]string{
+			[]string{"testSubscriptionNoTimeout1"},
+			[]string{"testSubscriptionNoTimeout2", "testSubscriptionNoTimeout3"},
+			[]string{"testSubscriptionNoTimeout4", "testSubscriptionNoTimeout5", "testSubscriptionNoTimeout6"},
 		}
 
-		watchEvent                        = make(chan struct{})
-		receiveWatchEvent <-chan struct{} = watchEvent
-		mockWatch                         = new(mockWatch)
+		listenerOutput = make(chan []string, 1)
+		subscription   = Subscription{
+			Registrar: registrar,
+			Listener: func(endpoints []string) {
+				listenerOutput <- endpoints
+			},
+		}
 	)
 
-	subscriptionCounter.Add(len(expectedUpdates))
+	registrar.On("Watch").Once().Return(watch, nil)
 
-	// first update
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedUpdates[0]).Once()
+	assert.NoError(subscription.Run())
+	assert.Equal(ErrorAlreadyRunning, subscription.Run())
 
-	// second update
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedUpdates[1]).Once()
-
-	// watch is closed
-	closeWait := new(sync.WaitGroup)
-	closeWait.Add(1)
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Run(func(mock.Arguments) { closeWait.Done() }).Return(true).Once()
-
-	logger.Info("Invoking subscribe, expecting updates: %v\n", expectedUpdates)
-	cancelFunc := Subscribe(logger, mockWatch, subscription)
-	if !assert.NotNil(cancelFunc) {
-		close(watchEvent)
-		return
+	// this simulates a succession of events
+	for _, endpoints := range expectedEndpoints {
+		watch.NextEndpoints(endpoints)
+		assert.Equal(endpoints, <-listenerOutput)
 	}
 
-	watchEvent <- struct{}{}
-	watchEvent <- struct{}{}
-	subscriptionCounter.Wait()
+	assert.NoError(subscription.Cancel())
+	assert.True(watch.IsClosed())
+	assert.Equal(ErrorNotRunning, subscription.Cancel())
+	assert.True(watch.IsClosed())
 
-	// simulate a watch event closure ...
-	// need to wait, to ensure the other goroutine is finished before
-	// we assert expectations
-	watchEvent <- struct{}{}
-	closeWait.Wait()
-
-	close(actualUpdates)
-	position := 0
-	for update := range actualUpdates {
-		assert.Equal(expectedUpdates[position], update)
-		position++
-	}
-
-	mockWatch.AssertExpectations(t)
+	registrar.AssertExpectations(t)
 }
 
-func TestSubscribeEndWhenCancelled(t *testing.T) {
-	assert := assert.New(t)
-	logger := logging.TestLogger(t)
+func testSubscriptionWithTimeout(t *testing.T) {
+	var (
+		assert = assert.New(t)
 
-	expectedUpdates := [][]string{
-		[]string{"updated1"},
-		[]string{"updated2", "updated3"},
-	}
+		watch     = NewTestWatch(t)
+		registrar = new(mockRegistrar)
+		delay     = make(chan time.Time)
 
-	subscriptionCounter := new(sync.WaitGroup)
-	subscriptionCounter.Add(len(expectedUpdates))
-	actualUpdates := make(chan []string, len(expectedUpdates))
-	subscription := func(update []string) {
-		logger.Info("Test subscription called: %v", update)
-		defer subscriptionCounter.Done()
+		expectedEndpoints = [][]string{
+			[]string{"testSubscriptionWithTimeout1"},
+			[]string{"testSubscriptionWithTimeout2", "testSubscriptionWithTimeout3"},
+			[]string{"testSubscriptionWithTimeout4", "testSubscriptionWithTimeout5", "testSubscriptionWithTimeout6"},
+		}
+
+		afterCalled     = make(chan struct{})
+		expectedTimeout = 12856 * time.Second
+		listenerOutput  = make(chan []string, 1)
+		subscription    = Subscription{
+			Registrar: registrar,
+			Timeout:   expectedTimeout,
+			After: func(timeout time.Duration) <-chan time.Time {
+				t.Logf("After function called with %s", timeout)
+				defer close(afterCalled)
+				assert.Equal(expectedTimeout, timeout)
+				return delay
+			},
+			Listener: func(endpoints []string) {
+				listenerOutput <- endpoints
+			},
+		}
+	)
+
+	registrar.On("Watch").Once().Return(watch, nil)
+
+	assert.NoError(subscription.Run())
+	assert.Equal(ErrorAlreadyRunning, subscription.Run())
+
+	// this simulates a succession of events
+	for _, endpoints := range expectedEndpoints {
+		t.Logf("next endpoints: %s", endpoints)
+		watch.NextEndpoints(endpoints)
 
 		select {
-		case actualUpdates <- update:
+		case <-listenerOutput:
+			assert.Fail("The listener should not have been invoked")
 		default:
-			assert.Fail("Subscription was called too many times")
+			// passing
 		}
 	}
 
-	var (
-		watchEvent                        = make(chan struct{})
-		receiveWatchEvent <-chan struct{} = watchEvent
-		mockWatch                         = new(mockWatch)
-	)
-
-	// first update
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedUpdates[0]).Once()
-
-	// second update
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedUpdates[1]).Once()
-
-	// watch is cancelled
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-
-	logger.Info("Invoking subscribe, expecting updates: %v\n", expectedUpdates)
-	cancelFunc := Subscribe(logger, mockWatch, subscription)
-	if !assert.NotNil(cancelFunc) {
-		close(watchEvent)
-		return
+	// ensure that our After function was called
+	select {
+	case <-afterCalled:
+		// passing
+	default:
+		assert.Fail("The After function should have been called")
 	}
 
-	watchEvent <- struct{}{}
-	watchEvent <- struct{}{}
-	subscriptionCounter.Wait()
-	cancelFunc()
+	// simulate the timer elapsing
+	delay <- time.Now()
+	assert.Equal(expectedEndpoints[len(expectedEndpoints)-1], <-listenerOutput)
 
-	// the cancel function should be idempotent
-	cancelFunc()
+	assert.NoError(subscription.Cancel())
+	assert.True(watch.IsClosed())
+	assert.Equal(ErrorNotRunning, subscription.Cancel())
+	assert.True(watch.IsClosed())
 
-	close(actualUpdates)
-	position := 0
-	for update := range actualUpdates {
-		assert.Equal(expectedUpdates[position], update)
-		position++
-	}
-
-	mockWatch.AssertExpectations(t)
+	registrar.AssertExpectations(t)
 }
 
-func TestSubscribeEndWhenSubscriptionPanics(t *testing.T) {
-	assert := assert.New(t)
-
-	expectedUpdate := []string{"update1", "update2"}
-	subscriptionCounter := new(sync.WaitGroup)
-	subscriptionCounter.Add(1)
-	badSubscription := func(actualUpdate []string) {
-		defer subscriptionCounter.Done()
-		assert.Equal(expectedUpdate, actualUpdate)
-		panic("Expected panic from bad subscription")
-	}
-
-	var (
-		watchEvent                        = make(chan struct{})
-		receiveWatchEvent <-chan struct{} = watchEvent
-		mockWatch                         = new(mockWatch)
-	)
-
-	// the only update that will be attempted, as the subscription will panic
-	mockWatch.On("Event").Return(receiveWatchEvent).Once()
-	mockWatch.On("IsClosed").Return(false).Once()
-	mockWatch.On("Endpoints").Return(expectedUpdate).Once()
-
-	cancelFunc := Subscribe(nil, mockWatch, badSubscription)
-	if !assert.NotNil(cancelFunc) {
-		return
-	}
-
-	watchEvent <- struct{}{}
-	subscriptionCounter.Wait()
-
-	// cancelling any number of times after a panic should be idempotent
-	cancelFunc()
-	cancelFunc()
-
-	mockWatch.AssertExpectations(t)
+func TestSubscription(t *testing.T) {
+	t.Run("WatchError", testSubscriptionWatchError)
+	t.Run("ListenerPanic", testSubscriptionListenerPanic)
+	t.Run("NoTimeout", testSubscriptionNoTimeout)
+	t.Run("WithTimeout", testSubscriptionWithTimeout)
 }
