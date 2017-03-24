@@ -95,7 +95,12 @@ func (ul *updatableList) Update(newItems []W) {
 
 func (ul *updatableList) Filter(filter func([]W) []W) {
 	if list, ok := ul.value.Load().([]W); ok {
-		ul.Update(filter(list))
+		copyOf := make([]W, len(list))
+		for i, w := range list {
+			copyOf[i] = w
+		}
+
+		ul.Update(filter(copyOf))
 	}
 }
 
