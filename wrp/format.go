@@ -55,6 +55,16 @@ func (f Format) handle() codec.Handle {
 	panic(fmt.Errorf("Invalid format constant: %d", f))
 }
 
+// EncoderTo describes the behavior of a message that can encode itself.
+// Implementations of this interface will ensure that the MessageType is
+// set correctly prior to encoding.
+type EncoderTo interface {
+	// EncodeTo encodes this message to the given Encoder.  Note that this method
+	// may alter the state of this instance, as it will set the message type appropriate
+	// to the kind of WRP message being sent.
+	EncodeTo(Encoder) error
+}
+
 // Encoder represents the underlying ugorji behavior that WRP supports
 type Encoder interface {
 	Encode(interface{}) error
@@ -78,11 +88,28 @@ func (ed *encoderDecorator) Encode(value interface{}) error {
 	return ed.Encoder.Encode(value)
 }
 
+// DecoderFrom describes the behavior of a message that can decode itself.
+type DecoderFrom interface {
+	DecodeFrom(Decoder) error
+}
+
 // Decoder represents the underlying ugorji behavior that WRP supports
 type Decoder interface {
 	Decode(interface{}) error
 	Reset(io.Reader)
 	ResetBytes([]byte)
+}
+
+type decoderDecorator struct {
+	*codec.Decoder
+}
+
+func (dd *decoderDecorator) Decode(value interface{}) error {
+	if decoderFrom, ok := value.(DecoderFrom); ok {
+		return decoderFrom.DecodeFrom(dd.Decoder)
+	}
+
+	return dd.Decoder.Decode(value)
 }
 
 // NewEncoder produces a ugorji Encoder using the appropriate WRP configuration
@@ -104,13 +131,17 @@ func NewEncoderBytes(output *[]byte, f Format) Encoder {
 // NewDecoder produces a ugorji Decoder using the appropriate WRP configuration
 // for the given format
 func NewDecoder(input io.Reader, f Format) Decoder {
-	return codec.NewDecoder(input, f.handle())
+	return &decoderDecorator{
+		codec.NewDecoder(input, f.handle()),
+	}
 }
 
 // NewDecoderBytes produces a ugorji Decoder using the appropriate WRP configuration
 // for the given format
 func NewDecoderBytes(input []byte, f Format) Decoder {
-	return codec.NewDecoderBytes(input, f.handle())
+	return &decoderDecorator{
+		codec.NewDecoderBytes(input, f.handle()),
+	}
 }
 
 // TranscodeMessage converts a WRP message of any type from one format into another,
