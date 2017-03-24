@@ -42,6 +42,16 @@ func (mt MessageType) String() string {
 	return InvalidMessageTypeString
 }
 
+// EncoderTo describes the behavior of a message that can encode itself.
+// Implementations of this interface will ensure that the MessageType is
+// set correctly prior to encoding.
+type EncoderTo interface {
+	// EncodeTo encodes this message to the given Encoder.  Note that this method
+	// may alter the state of this instance, as it will set the message type appropriate
+	// to the kind of WRP message being sent.
+	EncodeTo(Encoder) error
+}
+
 // Routable describes an object which can be routed.  Implementations will most
 // often also be WRP messages, and can be passed to decoders and encoders.
 //
