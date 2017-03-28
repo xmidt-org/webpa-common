@@ -69,6 +69,10 @@ type Routable interface {
 	// in WRP messages defined in this package.
 	From() string
 
+	// TransactionKey corresponds to the transaction_uuid field.  If present, this field is used
+	// to match up responses from devices.
+	TransactionKey() string
+
 	// Response produces a new Routable instance which is a response to this one.  The new Routable's
 	// destination (From) is set to the original source (To), with the supplied newSource used as the response's source.
 	// The requestDeliveryResponse parameter indicates the success or failure of this response.
@@ -119,6 +123,10 @@ func (msg *Message) To() string {
 
 func (msg *Message) From() string {
 	return msg.Source
+}
+
+func (msg *Message) TransactionKey() string {
+	return msg.TransactionUUID
 }
 
 func (msg *Message) Response(newSource string, requestDeliveryResponse int64) Routable {
@@ -221,6 +229,10 @@ func (msg *SimpleRequestResponse) From() string {
 	return msg.Source
 }
 
+func (msg *SimpleRequestResponse) TransactionKey() string {
+	return msg.TransactionUUID
+}
+
 func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResponse int64) Routable {
 	var response SimpleRequestResponse = *msg
 
@@ -266,6 +278,10 @@ func (msg *SimpleEvent) To() string {
 
 func (msg *SimpleEvent) From() string {
 	return msg.Source
+}
+
+func (msg *SimpleEvent) TransactionKey() string {
+	return ""
 }
 
 func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64) Routable {
@@ -325,6 +341,10 @@ func (msg *CRUD) To() string {
 
 func (msg *CRUD) From() string {
 	return msg.Source
+}
+
+func (msg *CRUD) TransactionKey() string {
+	return msg.TransactionUUID
 }
 
 func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routable {
