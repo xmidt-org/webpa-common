@@ -31,15 +31,27 @@ var (
 	}
 )
 
+// ContentType returns the MIME type associated with this format
+func (f Format) ContentType() string {
+	switch f {
+	case JSON:
+		return "application/json"
+	case Msgpack:
+		return "application/msgpack"
+	default:
+		return "application/octet-stream"
+	}
+}
+
 func (f Format) String() string {
 	switch f {
 	case JSON:
 		return "JSON"
 	case Msgpack:
 		return "Msgpack"
+	default:
+		return InvalidFormatString
 	}
-
-	return InvalidFormatString
 }
 
 // handle looks up the appropriate codec.Handle for this format constant.

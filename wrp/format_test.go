@@ -88,20 +88,36 @@ func TestSampleMsgpack(t *testing.T) {
 	})
 }
 
-func TestFormatString(t *testing.T) {
+func testFormatString(t *testing.T) {
 	assert := assert.New(t)
+
 	assert.NotEmpty(JSON.String())
 	assert.NotEmpty(Msgpack.String())
 	assert.NotEqual(JSON.String(), Msgpack.String())
 	assert.Equal(InvalidFormatString, Format(999).String())
 }
 
-func TestFormatHandle(t *testing.T) {
+func testFormatHandle(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.NotNil(JSON.handle())
 	assert.NotNil(Msgpack.handle())
 	assert.Panics(func() { Format(999).handle() })
+}
+
+func testFormatContentType(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.NotEmpty(JSON.ContentType())
+	assert.NotEmpty(Msgpack.ContentType())
+	assert.NotEqual(JSON.ContentType(), Msgpack.ContentType())
+	assert.Equal("application/octet-stream", Format(999).ContentType())
+}
+
+func TestFormat(t *testing.T) {
+	t.Run("String", testFormatString)
+	t.Run("Handle", testFormatHandle)
+	t.Run("ContentType", testFormatContentType)
 }
 
 // testTranscodeMessage expects a nonpointer reference to a WRP message struct as the original parameter
