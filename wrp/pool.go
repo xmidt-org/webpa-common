@@ -12,8 +12,8 @@ const (
 // encode WRP messages.  Unlike a sync.Pool, this pool holds on to its pooled
 // encoders across garbage collections.
 type EncoderPool struct {
-	pool    chan Encoder
-	factory func() Encoder
+	pool   chan Encoder
+	format Format
 }
 
 // NewEncoderPool returns an EncoderPool for a given format.  The initialBufferSize is
@@ -25,15 +25,27 @@ func NewEncoderPool(poolSize int, f Format) *EncoderPool {
 	}
 
 	ep := &EncoderPool{
-		pool:    make(chan Encoder, poolSize),
-		factory: func() Encoder { return NewEncoder(nil, f) },
+		pool:   make(chan Encoder, poolSize),
+		format: f,
 	}
 
 	for repeat := 0; repeat < poolSize; repeat++ {
-		ep.pool <- ep.factory()
+		ep.pool <- ep.New()
 	}
 
 	return ep
+}
+
+// Format returns the wrp format this pool encodes to
+func (ep *EncoderPool) Format() Format {
+	return ep.format
+}
+
+// New simply creates a new Encoder using this pool's configuration.
+// This method is used internally to populate and manage the pool, but
+// can also be used externally to obtain a new, unpooled instance.
+func (ep *EncoderPool) New() Encoder {
+	return NewEncoder(nil, ep.format)
 }
 
 // Get returns an Encoder from the pool.  If the pool is empty, a new Encoder is
@@ -42,7 +54,7 @@ func (ep *EncoderPool) Get() (encoder Encoder) {
 	select {
 	case encoder = <-ep.pool:
 	default:
-		encoder = ep.factory()
+		encoder = ep.New()
 	}
 
 	return
@@ -82,8 +94,8 @@ func (ep *EncoderPool) EncodeBytes(destination *[]byte, source interface{}) erro
 
 // DecoderPool is a pool of Decoder instances for a specific format
 type DecoderPool struct {
-	pool    chan Decoder
-	factory func() Decoder
+	pool   chan Decoder
+	format Format
 }
 
 // NewDecoderPool returns a DecoderPool that works with a given Format
@@ -93,24 +105,36 @@ func NewDecoderPool(poolSize int, f Format) *DecoderPool {
 	}
 
 	dp := &DecoderPool{
-		pool:    make(chan Decoder, poolSize),
-		factory: func() Decoder { return NewDecoder(nil, f) },
+		pool:   make(chan Decoder, poolSize),
+		format: f,
 	}
 
 	for repeat := 0; repeat < poolSize; repeat++ {
-		dp.pool <- dp.factory()
+		dp.pool <- dp.New()
 	}
 
 	return dp
 }
 
-// Get returns a Decoder to the pool.  If the pool is empty, a new Decoder is
+// Format returns the wrp format this pool decodes from
+func (ep *DecoderPool) Format() Format {
+	return ep.format
+}
+
+// New simply creates a new Decoder using this pool's configuration.
+// This method is used internally to populate and manage the pool, but
+// can also be used externally to obtain a new, unpooled instance.
+func (ep *DecoderPool) New() Decoder {
+	return NewDecoder(nil, ep.format)
+}
+
+// Get obtains a Decoder from the pool.  If the pool is empty, a new Decoder is
 // created using the initial pool configuration.  This method never returns nil.
 func (dp *DecoderPool) Get() (decoder Decoder) {
 	select {
 	case decoder = <-dp.pool:
 	default:
-		decoder = dp.factory()
+		decoder = dp.New()
 	}
 
 	return
