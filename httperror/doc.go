@@ -1,4 +1,4 @@
 /*
-Package httperror provides common error handling, particularly around golang errors and responses
+Package httperror provides simple HTTP response formatting targetted at reporting errors as JSON.
 */
 package httperror
