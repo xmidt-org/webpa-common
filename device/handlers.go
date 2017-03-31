@@ -1,154 +1,165 @@
 package device
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
+	"time"
 )
 
-// Failures is a map type which records device routing failures
-type Failures map[Interface]error
+// MessageHandler is a configurable http.Handler which handles inbound WRP traffic
+// to be sent to devices.
+type MessageHandler struct {
+	// Logger is the sink for logging output.  If not set, logging will be sent to logging.DefaultLogger().
+	Logger logging.Logger
 
-func (df Failures) Add(d Interface, deviceError error) {
-	df[d] = deviceError
+	// RequestDecoders is the pool of wrp.Decoder objects used to decode http.Request bodies
+	// sent to this handler.  This field is required.
+	RequestDecoders *wrp.DecoderPool
+
+	// ResponseEncoders is the pool of wrp.Encoder objects used to encode wrp messages sent
+	// as HTTP responses.  This field is required.
+	ResponseEncoders *wrp.EncoderPool
+
+	// DeviceEncoders is the optional pool of wrp.Encoder objects used to transcode messages
+	// into the format accepted by devices, which is normally wrp.Msgpack.  If this field is not
+	// sent, then the HTTP request body is assumed to be valid for on-the-wire transport to devices.
+	DeviceEncoders *wrp.EncoderPool
+
+	// Router is the device message Router to use.  This field is required.
+	Router Router
+
+	// Timeout is the optional timeout for all operations through this handler
+	Timeout time.Duration
 }
 
-func (df Failures) WriteJSON(output io.Writer) (count int, err error) {
-	_, err = fmt.Fprintf(output, `{"errors": [`)
-	if err != nil {
+func (mh *MessageHandler) createContext(request *http.Request) (ctx context.Context, cancel context.CancelFunc) {
+	ctx = request.Context()
+	if mh.Timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, mh.Timeout)
+	}
+
+	return
+}
+
+func (mh *MessageHandler) decodeRequest(request *http.Request) (message wrp.Routable, body []byte, err error) {
+	if body, err = ioutil.ReadAll(request.Body); err != nil {
 		return
 	}
 
-	separator := ""
-	for d, deviceError := range df {
-		if deviceError != nil {
-			count++
-			fmt.Fprintf(output, `{"id": "%s", "key": "%s", error: "%s"}%s`, d.ID(), d.Key(), deviceError, separator)
-			separator = ","
-		}
-	}
-
-	_, err = fmt.Fprintf(output, `]}`)
+	message = new(wrp.Message)
+	err = mh.RequestDecoders.DecodeBytes(message, body)
 	return
 }
 
-func (df Failures) MarshalJSON() (data []byte, err error) {
-	var buffer bytes.Buffer
-	_, err = df.WriteJSON(&buffer)
-	data = buffer.Bytes()
-	return
-}
-
-func (df Failures) WriteResponse(response http.ResponseWriter) error {
-	if len(df) > 0 {
-		var buffer bytes.Buffer
-		if count, err := df.WriteJSON(&buffer); err != nil {
-			return err
-		} else if count > 0 {
-			// only write the JSON out if any devices actually had errors, as opposed
-			// to devices mapped to nil errors
-			response.Header().Set("Content-Type", "application/json")
-			response.WriteHeader(http.StatusInternalServerError)
-			_, err := buffer.WriteTo(response)
-			return err
-		}
-	}
-
-	return nil
-}
-
-// NewTranscodingHandler produces an http.Handler that decodes the body of a request as a something other than
-// Msgpack, e.g. JSON.  The exact format is determined by the supplied decoder.
-func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		message := new(wrp.Message)
-		if err := decoderPool.Decode(message, request.Body); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not decode WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-
-			return
-		}
-
-		failures := make(Failures)
-		if _, count, err := router.Route(message, nil, failures.Add); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not route WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-		} else if count == 0 {
-			response.WriteHeader(http.StatusNotFound)
-		} else {
-			failures.WriteResponse(response)
-		}
-	})
-}
-
-// NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message
-// and dispatches that message via the supplied Router.
-func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		body, err := ioutil.ReadAll(request.Body)
-		if err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Unable to read request body: %s", err),
-				http.StatusBadRequest,
-			)
-
-			return
-		}
-
-		message := new(wrp.Message)
-		if err := decoderPool.DecodeBytes(message, body); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not decode WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-
-			return
-		}
-
-		failures := make(Failures)
-		if _, count, err := router.Route(message, body, failures.Add); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not route WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-		} else if count == 0 {
-			response.WriteHeader(http.StatusNotFound)
-		} else {
-			failures.WriteResponse(response)
-		}
-	})
-}
-
-// NewConnectHandler produces an http.Handler that allows devices to connect
-// to a specific Manager.
-func NewConnectHandler(connector Connector, responseHeader http.Header, logger logging.Logger) http.Handler {
+func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	logger := mh.Logger
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
 
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		device, err := connector.Connect(response, request, responseHeader)
-		if err != nil {
-			logger.Error("Failed to connect device: %s", err)
-		} else {
-			logger.Debug("Connected device: %s", device.ID())
+	ctx, cancel := mh.createContext(request)
+	if cancel != nil {
+		defer cancel()
+	}
+
+	message, contents, err := mh.decodeRequest(request)
+	if err != nil {
+		httperror.Formatf(
+			response,
+			http.StatusBadRequest,
+			"Could not decode WRP message: %s",
+			err,
+		)
+
+		return
+	}
+
+	if mh.DeviceEncoders != nil {
+		contents = contents[:0]
+		if err := mh.DeviceEncoders.EncodeBytes(&contents, message); err != nil {
+			httperror.Formatf(
+				response,
+				http.StatusInternalServerError,
+				"Could not encode WRP message: %s",
+				err,
+			)
+
+			return
 		}
-	})
+	}
+
+	deviceRequest, err := NewRequest(message, contents, ctx)
+	if err != nil {
+		httperror.Formatf(
+			response,
+			http.StatusBadRequest,
+			"Could not create device request: %s",
+			err,
+		)
+
+		return
+	}
+
+	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
+		code := http.StatusInternalServerError
+		if err == ErrorDeviceNotFound {
+			code = http.StatusNotFound
+		}
+
+		httperror.Formatf(
+			response,
+			code,
+			"Could not process device request: %s",
+			err,
+		)
+	} else if deviceResponse != nil {
+		if deviceResponse.Error != nil {
+			httperror.Formatf(
+				response,
+				http.StatusInternalServerError,
+				"Device transaction failed: %s",
+				err,
+			)
+		} else if mh.ResponseEncoders != nil {
+			response.Header().Set("Content-Type", mh.ResponseEncoders.Format().ContentType())
+			if err := mh.ResponseEncoders.Encode(response, deviceResponse); err != nil {
+				logger.Error("Error while encoding WRP response: %s", err)
+			}
+		} else {
+			response.Header().Set("Content-Type", wrp.Msgpack.ContentType())
+			if _, err := response.Write(deviceResponse.Contents); err != nil {
+				logger.Error("Error while writing response contents: %s", err)
+			}
+		}
+	}
+}
+
+type ConnectHandler struct {
+	Logger         logging.Logger
+	Connector      Connector
+	ResponseHeader http.Header
+}
+
+func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	logger := ch.Logger
+	if logger == nil {
+		logger = logging.DefaultLogger()
+	}
+
+	device, err := ch.Connector.Connect(response, request, ch.ResponseHeader)
+	if err != nil {
+		logger.Error("Failed to connect device: %s", err)
+	} else {
+		logger.Debug("Connected device: %s", device.ID())
+	}
 }
 
 // NewDeviceListHandler returns an http.Handler that renders a JSON listing

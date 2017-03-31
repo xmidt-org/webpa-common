@@ -67,10 +67,10 @@ type Event struct {
 	// data structure.
 	Encoded []byte
 
-	// Err is the error which occurred during an attempt to send a message.  This field is only populated
+	// Error is the error which occurred during an attempt to send a message.  This field is only populated
 	// for MessageFailed events when there was an actual error.  For MessageFailed events that indicate a
 	// device was disconnected with enqueued messages, this field will be nil.
-	Err error
+	Error error
 
 	// Data is the pong data associated with this event.  This field is only set for a Pong event.
 	Data string
@@ -82,7 +82,7 @@ func (e *Event) setMessageFailed(device Interface, message wrp.Routable, encoded
 	e.Device = device
 	e.Message = message
 	e.Encoded = encoded
-	e.Err = err
+	e.Error = err
 	e.Data = emptyString
 }
 
@@ -92,7 +92,7 @@ func (e *Event) setMessageReceived(device Interface, message wrp.Routable, encod
 	e.Device = device
 	e.Message = message
 	e.Encoded = encoded
-	e.Err = nil
+	e.Error = nil
 	e.Data = emptyString
 }
 
@@ -102,7 +102,7 @@ func (e *Event) setPong(device Interface, data string) {
 	e.Device = device
 	e.Message = nil
 	e.Encoded = nil
-	e.Err = nil
+	e.Error = nil
 	e.Data = data
 }
 

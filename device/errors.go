@@ -47,14 +47,10 @@ func NewBusyError(id ID, key Key) DeviceError {
 	return newDeviceError(id, key, "busy")
 }
 
-func NewMissingIDError(id ID) DeviceError {
-	return newDeviceError(id, invalidKey, "ID does not exist")
-}
-
-func NewMissingKeyError(key Key) DeviceError {
-	return newDeviceError(invalidID, key, "Key does not exist")
-}
-
 func NewDuplicateKeyError(key Key) DeviceError {
-	return newDeviceError(invalidID, key, "duplicate key")
+	return newDeviceError("", key, "duplicate key")
+}
+
+func NewDeviceNotFoundError(id ID) DeviceError {
+	return newDeviceError(id, "", "not found")
 }

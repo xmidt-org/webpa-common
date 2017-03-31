@@ -3,7 +3,6 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/wrp"
 	"sync/atomic"
 	"time"
 )
@@ -17,11 +16,12 @@ var (
 	nullConvey = []byte("null")
 )
 
-// envelope is a tuple of an original WRP message together with that message's
-// (optional) encoded representation.
+// envelope is a tuple of a device Request and a send-only channel for errors.
+// The write pump goroutine will use the complete channel to communicate the result
+// of the write operation.
 type envelope struct {
-	message wrp.Routable
-	encoded []byte
+	request  *Request
+	complete chan<- error
 }
 
 // Interface is the core type for this package.  It provides
@@ -36,6 +36,11 @@ type envelope struct {
 // The only piece of metadata that is mutable is the Key.  A device Manager
 // allows clients to change the routing Key of a device.  All other public
 // metadata is immutable.
+//
+// Each device will have a pair of goroutines within the enclosing manager:
+// a read and write, referred to as pumps.  The write pump services the queue
+// of messages used by Send, while the read pump rarely needs to interact
+// with devices directly.
 type Interface interface {
 	// ID returns the canonicalized identifer for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
@@ -76,7 +81,7 @@ type Interface interface {
 	//
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
-	Send(wrp.Routable, []byte) error
+	Send(*Request) (*Response, error)
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -90,18 +95,20 @@ type device struct {
 
 	state int32
 
-	shutdown chan struct{}
-	messages chan *envelope
+	shutdown     chan struct{}
+	messages     chan *envelope
+	transactions *Transactions
 }
 
 func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 	d := &device{
-		id:          id,
-		convey:      convey,
-		connectedAt: time.Now(),
-		state:       stateOpen,
-		shutdown:    make(chan struct{}),
-		messages:    make(chan *envelope, queueSize),
+		id:           id,
+		convey:       convey,
+		connectedAt:  time.Now(),
+		state:        stateOpen,
+		shutdown:     make(chan struct{}),
+		messages:     make(chan *envelope, queueSize),
+		transactions: NewTransactions(),
 	}
 
 	d.updateKey(initialKey)
@@ -123,10 +130,11 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	output := new(bytes.Buffer)
 	fmt.Fprintf(
 		output,
-		`{"id": "%s", "key": "%s", "pending": %d, "connectedAt": "%s", "closed": %t, "convey": %s}`,
+		`{"id": "%s", "key": "%s", "pendingMessageCount": %d, "pendingTransactionCount": %d, "connectedAt": "%s", "closed": %t, "convey": %s}`,
 		d.id,
 		d.Key(),
 		d.Pending(),
+		d.transactions.Len(),
 		d.connectedAt.Format(time.RFC3339),
 		d.Closed(),
 		conveyJSON,
@@ -175,15 +183,73 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(message wrp.Routable, encoded []byte) (err error) {
-	if d.Closed() {
-		return NewClosedError(d.id, d.Key())
+func (d *device) sendRequest(request *Request) error {
+	var (
+		done     = request.Context().Done()
+		complete = make(chan error, 1)
+		envelope = &envelope{
+			request,
+			complete,
+		}
+	)
+
+	// attempt to enqueue the message
+	select {
+	case <-done:
+		return request.Context().Err()
+	case d.messages <- envelope:
+	}
+
+	// once enqueued, wait until the context is cancelled
+	// or there's a result
+	select {
+	case <-done:
+		return request.Context().Err()
+	case err := <-complete:
+		return err
+	}
+}
+
+func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Response, error) {
+	// if there is no result channel, then this request is not expecting
+	// a response
+	if result == nil {
+		return nil, nil
 	}
 
 	select {
-	case d.messages <- &envelope{message, encoded}:
-		return nil
-	default:
-		return NewBusyError(d.id, d.Key())
+	case <-request.Context().Done():
+		return nil, request.Context().Err()
+	case response := <-result:
+		return response, nil
 	}
+}
+
+func (d *device) Send(request *Request) (*Response, error) {
+	if d.Closed() {
+		return nil, NewClosedError(d.id, d.Key())
+	}
+
+	var (
+		transactionKey = request.Routing.TransactionKey()
+		result         <-chan *Response
+	)
+
+	if len(transactionKey) > 0 {
+		var err error
+		if result, err = d.transactions.Register(transactionKey); err != nil {
+			return nil, err
+		}
+
+		// ensure that the transaction is cleared
+		// this will just return an error that we can ignore if another
+		// goroutine completed the transaction
+		defer d.transactions.Complete(transactionKey, nil)
+	}
+
+	if err := d.sendRequest(request); err != nil {
+		return nil, err
+	}
+
+	return d.awaitResponse(request, result)
 }

@@ -2,6 +2,7 @@ package device
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
@@ -12,7 +13,11 @@ import (
 )
 
 var (
-	// emptyMessage is a convenient, internal message used to reset wrp.Message instances for reuse
+	ErrorDeviceNotFound = errors.New("The device does not exist")
+	ErrorNonUniqueID    = errors.New("That device ID has more than one connection")
+
+	// emptyMessage is used to reset a Message instance so that it can be reused
+	// and save a bit of gc overhead
 	emptyMessage wrp.Message
 )
 
@@ -50,12 +55,10 @@ type Connector interface {
 
 // Router handles dispatching messages to devices.
 type Router interface {
-	// Route dispatches a Routable WRP message to one or more devices.
-	//
-	// The byte slice, if not empty, is used as the actual on-the-wire message sent to
-	// the device(s).  It *must* be valid msgpack-encoded WRP.  If this byte slice is empty, the given
-	// message is encoded as msgpack prior to enqueuing.
-	Route(wrp.Routable, []byte, func(Interface, error)) (ID, int, error)
+	// Route dispatches a WRP request to exactly one device, identified by the ID
+	// field of the request.  Route is synchronous, and honors the cancellation semantics
+	// of the Request's context.
+	Route(*Request) (*Response, error)
 }
 
 // Registry is the strategy interface for querying the set of connected devices.  Methods
@@ -103,8 +106,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		listeners:   o.Listeners,
-		encoderPool: wrp.NewEncoderPool(o.encoderPoolSize(), wrp.Msgpack),
+		listeners: o.Listeners,
 	}
 
 	return m
@@ -128,8 +130,7 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	listeners   []Listener
-	encoderPool *wrp.EncoderPool
+	listeners []Listener
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -239,13 +240,12 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
-		frameRead   bool
 		readError   error
+		frameRead   bool
 		frameBuffer bytes.Buffer
+		message     wrp.Message
 		event       Event
-
-		message wrp.Message
-		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
+		decoder     = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
 	// all the read pump has to do is ensure the device and the connection are closed
@@ -263,13 +263,40 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		rawFrame := frameBuffer.Bytes()
 		message = emptyMessage
+		rawFrame := frameBuffer.Bytes()
 		decoder.ResetBytes(rawFrame)
 		if decodeError := decoder.Decode(&message); decodeError != nil {
 			// malformed WRP messages are allowed: the read pump will keep on chugging
 			m.logger.Error("Skipping malformed frame from device [%s]: %s", d.id, decodeError)
 			continue
+		}
+
+		// update any waiting transaction
+		transactionKey := message.TransactionKey()
+		if len(transactionKey) > 0 {
+			// only when a transaction requires a response do we make
+			// copies of things
+			var (
+				safeMessage = new(wrp.Message)
+				safeFrame   = make([]byte, len(rawFrame))
+			)
+
+			*safeMessage = message
+			copy(safeFrame, rawFrame)
+
+			err := d.transactions.Complete(
+				transactionKey,
+				&Response{
+					Device:   d,
+					Routing:  safeMessage,
+					Contents: safeFrame,
+				},
+			)
+
+			if err != nil {
+				m.logger.Error("Error while completing transaction: %s", err)
+			}
 		}
 
 		event.setMessageReceived(d, &message, rawFrame)
@@ -300,7 +327,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		envelope    *envelope
 		frame       io.WriteCloser
 		writeError  error
-		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
 		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
 		pingTicker  = time.NewTicker(m.pingPeriod)
 	)
@@ -319,7 +345,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
 		if envelope != nil {
-			event.setMessageFailed(d, envelope.message, envelope.encoded, writeError)
+			event.setMessageFailed(d, envelope.request.Routing, envelope.request.Contents, writeError)
 			m.dispatch(&event)
 		}
 
@@ -331,7 +357,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				event.setMessageFailed(d, undeliverable.message, undeliverable.encoded, nil)
+				event.setMessageFailed(d, undeliverable.request.Routing, undeliverable.request.Contents, nil)
 				m.dispatch(&event)
 			default:
 				break
@@ -345,16 +371,11 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		select {
 		case <-d.shutdown:
 			writeError = c.SendClose()
+			return
 
 		case envelope = <-d.messages:
 			if frame, writeError = c.NextWriter(); writeError == nil {
-				// if we have a pre-encoded byte slice, just write that
-				if len(envelope.encoded) > 0 {
-					_, writeError = frame.Write(envelope.encoded)
-				} else {
-					encoder.Reset(frame)
-					writeError = encoder.Encode(envelope.message)
-				}
+				_, writeError = frame.Write(envelope.request.Contents)
 
 				if writeError == nil {
 					writeError = frame.Close()
@@ -363,6 +384,12 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 					frame.Close()
 				}
 			}
+
+			if writeError != nil {
+				envelope.complete <- writeError
+			}
+
+			close(envelope.complete)
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
@@ -434,27 +461,22 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 	return
 }
 
-func (m *manager) Route(message wrp.Routable, encoded []byte, callback func(Interface, error)) (recipient ID, count int, err error) {
-	recipient, err = ParseID(message.To())
-	if err != nil {
-		return
-	}
-
-	if len(encoded) == 0 {
-		encoded = make([]byte, 200)
-		err = m.encoderPool.EncodeBytes(&encoded, message)
-		if err != nil {
-			return
-		}
-	}
+func (m *manager) Route(request *Request) (*Response, error) {
+	var (
+		count int
+		d     *device
+	)
 
 	m.whenReadLocked(func() {
-		count = m.registry.visitID(recipient, func(d *device) {
-			if sendError := d.Send(message, encoded); sendError != nil && callback != nil {
-				callback(d, sendError)
-			}
-		})
+		count = m.registry.visitID(request.ID, func(e *device) { d = e })
 	})
 
-	return
+	switch count {
+	case 0:
+		return nil, ErrorDeviceNotFound
+	case 1:
+		return d.Send(request)
+	default:
+		return nil, ErrorNonUniqueID
+	}
 }
