@@ -1,9 +1,9 @@
 package webhook
 
 import (
+	"encoding/json"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
-	"json"
 	"net/http"
 	"time"
 )
@@ -64,7 +64,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler) {
 	}
 
 	// Populate list from the static json
-	hooks := loadHooksList()
+	hooks := LoadHooksList()
 
 	monitor := &monitor{
 		list:             NewList(hooks),
@@ -78,7 +78,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler) {
 	return monitor.list, monitor.webHookPostHandler
 }
 
-func loadHooksList() []W {
+func LoadHooksList() []W {
 	// Load hoooks-list.json and populate in W[]
 	file, err := os.Open("hooks-list.json")
 	defer file.Close()
