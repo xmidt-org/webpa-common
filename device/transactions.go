@@ -11,6 +11,7 @@ var (
 	ErrorInvalidTransactionKey        = errors.New("Transaction keys must be non-empty strings")
 	ErrorNoSuchTransactionKey         = errors.New("That transaction key is not registered")
 	ErrorTransactionAlreadyRegistered = errors.New("That transaction is already registered")
+	ErrorTransactionCancelled         = errors.New("The transaction has been cancelled")
 )
 
 // Request represents a single device Request, carrying routing information and message contents.
@@ -79,7 +80,8 @@ type Response struct {
 	Error    error
 }
 
-// Transactions represents a set of pending transactions.
+// Transactions represents a set of pending transactions.  Instances are safe for
+// concurrent access.
 type Transactions struct {
 	lock    sync.RWMutex
 	pending map[string]chan *Response
@@ -116,9 +118,17 @@ func (t *Transactions) Keys() []string {
 	return keys
 }
 
+// Complete dispatches the given response to the appropriate channel returned from Register
+// and removes the transaction from the internal pending set.  This method is intended for
+// goroutines that are servicing queues of messages, e.g. the read pump of a Manager.  Such goroutines
+// use this method to indicate that a transaction is complete.
+//
+// If this method is passed a nil response, it panics.
 func (t *Transactions) Complete(transactionKey string, response *Response) error {
 	if len(transactionKey) == 0 {
 		return ErrorInvalidTransactionKey
+	} else if response == nil {
+		panic("nil response")
 	}
 
 	t.lock.Lock()
@@ -130,14 +140,39 @@ func (t *Transactions) Complete(transactionKey string, response *Response) error
 		return ErrorNoSuchTransactionKey
 	}
 
-	if response != nil {
-		result <- response
-	}
-
+	result <- response
 	close(result)
 	return nil
 }
 
+// Cancel simply cancels a transaction.  The transaction key is removed from the pending set.  If that
+// transaction key is not registered, this method does nothing.  The channel returned from Register
+// is closed, which will cause any code waiting for a response to get a nil Response.
+//
+// This method is normally called by the same goroutine that calls Register to ensure that transactions
+// are cleaned up.
+func (t *Transactions) Cancel(transactionKey string) {
+	t.lock.Lock()
+	result, ok := t.pending[transactionKey]
+	delete(t.pending, transactionKey)
+	t.lock.Unlock()
+
+	if ok {
+		close(result)
+	}
+}
+
+// Register inserts a transaction key into the pending set and returns a channel that a Response
+// will be repoted on.  This method is intended to be called by goroutines which want to wait for
+// a transaction to complete.
+//
+// This method returns an error if either transactionKey is the empty string or if a transaction
+// with this key has already been registered.  The latter is a more serious problem, since it indicates
+// that higher-level code has generated duplicate transaction identifiers.  For safety, a Transactions
+// instance expressly does not allow that case.
+//
+// The returned channel will either receive a non-nil response from some code calling Complete, or will
+// see a channel closure (nil Response) from some code calling Cancel.
 func (t *Transactions) Register(transactionKey string) (<-chan *Response, error) {
 	if len(transactionKey) == 0 {
 		return nil, ErrorInvalidTransactionKey

@@ -81,6 +81,9 @@ type Interface interface {
 	//
 	// This method will return an error if this device has been closed or
 	// if the device is busy and cannot accept more messages.
+	//
+	// Internally, the requests passed to this method are serviced by the write pump in
+	// the enclosing Manager instance.
 	Send(*Request) (*Response, error)
 }
 
@@ -183,6 +186,11 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
+// sendRequest attempts to enqueue the given request for the write pump that is
+// servicing this device.  This method honors the request context's cancellation semantics.
+//
+// This function returns when either (1) the write pump has attempted to send the message to
+// the device, or (2) the request's context has been cancelled, which includes timing out.
 func (d *device) sendRequest(request *Request) error {
 	var (
 		done     = request.Context().Done()
@@ -197,6 +205,8 @@ func (d *device) sendRequest(request *Request) error {
 	select {
 	case <-done:
 		return request.Context().Err()
+	case <-d.shutdown:
+		return NewClosedError(d.id, d.Key())
 	case d.messages <- envelope:
 	}
 
@@ -205,22 +215,27 @@ func (d *device) sendRequest(request *Request) error {
 	select {
 	case <-done:
 		return request.Context().Err()
+	case <-d.shutdown:
+		return NewClosedError(d.id, d.Key())
 	case err := <-complete:
 		return err
 	}
 }
 
+// awaitResponse waits for the read pump to acquire a response that corresponds to the
+// request's transaction key.  The result channel will receive the response from the
+// read pump.
 func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Response, error) {
-	// if there is no result channel, then this request is not expecting
-	// a response
-	if result == nil {
-		return nil, nil
-	}
-
 	select {
 	case <-request.Context().Done():
 		return nil, request.Context().Err()
+	case <-d.shutdown:
+		return nil, NewClosedError(d.id, d.Key())
 	case response := <-result:
+		if response == nil {
+			return nil, ErrorTransactionCancelled
+		}
+
 		return response, nil
 	}
 }
@@ -238,17 +253,22 @@ func (d *device) Send(request *Request) (*Response, error) {
 	if len(transactionKey) > 0 {
 		var err error
 		if result, err = d.transactions.Register(transactionKey); err != nil {
+			// if a transaction key cannot be registered, we don't want to proceed.
+			// this indicates some larger problem, most often a duplicate transaction key.
 			return nil, err
 		}
 
 		// ensure that the transaction is cleared
-		// this will just return an error that we can ignore if another
-		// goroutine completed the transaction
-		defer d.transactions.Complete(transactionKey, nil)
+		defer d.transactions.Cancel(transactionKey)
 	}
 
 	if err := d.sendRequest(request); err != nil {
 		return nil, err
+	}
+
+	if result == nil {
+		// if there is no pending transaction, we're done
+		return nil, nil
 	}
 
 	return d.awaitResponse(request, result)
