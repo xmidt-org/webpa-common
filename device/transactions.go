@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/Comcast/webpa-common/wrp"
+	"io"
+	"io/ioutil"
 	"sync"
 )
 
@@ -22,7 +24,12 @@ type Request struct {
 	// Routing is the original, decoded WRP message containing the routing information
 	Routing wrp.Routable
 
-	// Contents is the required Msgpack-encoded WRP message.  This is sent on-the-wire to the device.
+	// Format is the WRP format of the Contents member.  If Format is not JSON, then Routing
+	// will be encoded prior to sending to devices.
+	Format wrp.Format
+
+	// Contents is the encoded form of Routing in Format format.  If this member is of 0 length,
+	// then Routing will be encoded prior to sending to devices.
 	Contents []byte
 
 	// ctx is the API context for this request, which can be nil.  Normally, it's best to
@@ -51,23 +58,31 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 	return r
 }
 
-// NewRequest creates a Request addressed to the Destination of the message, which
-// must be a valid device ID.  The context of the returned request is context.Background(),
-// which can be changed after this function returns.
+// DecodeRequest decodes a WRP source into a device Request.  Typically, this is used
+// to produce a device Request from an http.Request.
 //
-// If the destination of the message could not be parsed into a device ID, this function
-// returns a nil Request with the parse error.
-func NewRequest(routing wrp.Routable, contents []byte, ctx context.Context) (*Request, error) {
-	destination, err := ParseID(routing.To())
+// The returned request will not be associated with any context.
+func DecodeRequest(source io.Reader, pool *wrp.DecoderPool) (*Request, error) {
+	contents, err := ioutil.ReadAll(source)
+	if err != nil {
+		return nil, err
+	}
+
+	message := new(wrp.Message)
+	if err := pool.DecodeBytes(message, contents); err != nil {
+		return nil, err
+	}
+
+	destination, err := ParseID(message.To())
 	if err != nil {
 		return nil, err
 	}
 
 	return &Request{
 		ID:       destination,
-		Routing:  routing,
+		Routing:  message,
+		Format:   pool.Format(),
 		Contents: contents,
-		ctx:      ctx,
 	}, nil
 }
 

@@ -8,7 +8,6 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -49,16 +48,6 @@ func (mh *MessageHandler) createContext(request *http.Request) (ctx context.Cont
 	return
 }
 
-func (mh *MessageHandler) decodeRequest(request *http.Request) (message wrp.Routable, body []byte, err error) {
-	if body, err = ioutil.ReadAll(request.Body); err != nil {
-		return
-	}
-
-	message = new(wrp.Message)
-	err = mh.RequestDecoders.DecodeBytes(message, body)
-	return
-}
-
 func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	logger := mh.Logger
 	if logger == nil {
@@ -70,7 +59,7 @@ func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.
 		defer cancel()
 	}
 
-	message, contents, err := mh.decodeRequest(request)
+	deviceRequest, err := DecodeRequest(request.Body, mh.RequestDecoders)
 	if err != nil {
 		httperror.Formatf(
 			response,
@@ -82,32 +71,7 @@ func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.
 		return
 	}
 
-	if mh.DeviceEncoders != nil {
-		contents = contents[:0]
-		if err := mh.DeviceEncoders.EncodeBytes(&contents, message); err != nil {
-			httperror.Formatf(
-				response,
-				http.StatusInternalServerError,
-				"Could not encode WRP message: %s",
-				err,
-			)
-
-			return
-		}
-	}
-
-	deviceRequest, err := NewRequest(message, contents, ctx)
-	if err != nil {
-		httperror.Formatf(
-			response,
-			http.StatusBadRequest,
-			"Could not create device request: %s",
-			err,
-		)
-
-		return
-	}
-
+	deviceRequest = deviceRequest.WithContext(ctx)
 	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
 		code := http.StatusInternalServerError
 		if err == ErrorDeviceNotFound {

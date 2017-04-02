@@ -61,9 +61,7 @@ type Interface interface {
 	Pending() int
 
 	// RequestClose posts a request for this device to be disconnected.  This method
-	// is asynchronous and idempotent.  If this method is invoked when a shutdown
-	// request has already been queued or when this device is already shut down, this
-	// method returns an error.
+	// is asynchronous and idempotent.
 	RequestClose()
 
 	// Closed tests if this device is closed.  When this method returns true,
@@ -75,15 +73,12 @@ type Interface interface {
 	// Send dispatches a message to this device.  This method is useful outside
 	// a Manager if multiple messages should be sent to the device.
 	//
-	// Similar to Manager.Route, the byte slice, if supplied, must be valid msgpack-encoded
-	// WRP to send to the device.  If this byte slice is empty, the given message is encoded
-	// using msgpack.
-	//
-	// This method will return an error if this device has been closed or
-	// if the device is busy and cannot accept more messages.
+	// This method is synchronous.  If the request is of a type that should expect a response,
+	// that response is returned.  An error is returned if this device has been closed or
+	// if there were any I/O issues sending the request.
 	//
 	// Internally, the requests passed to this method are serviced by the write pump in
-	// the enclosing Manager instance.
+	// the enclosing Manager instance.  The read pump will handle sending the response.
 	Send(*Request) (*Response, error)
 }
 

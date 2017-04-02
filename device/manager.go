@@ -326,6 +326,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	var (
 		envelope    *envelope
 		frame       io.WriteCloser
+		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError  error
 		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
 		pingTicker  = time.NewTicker(m.pingPeriod)
@@ -375,7 +376,15 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		case envelope = <-d.messages:
 			if frame, writeError = c.NextWriter(); writeError == nil {
-				_, writeError = frame.Write(envelope.request.Contents)
+				if envelope.request.Format != wrp.Msgpack || len(envelope.request.Contents) == 0 {
+					// if the request was in a format other than Msgpack, or if the caller did not pass
+					// Contents, then do the encoding here.  This is the path typically taken by JSON request.
+					encoder.Reset(frame)
+					writeError = encoder.Encode(envelope.request.Routing)
+				} else {
+					// we have Msgpack-formatted Contents
+					_, writeError = frame.Write(envelope.request.Contents)
+				}
 
 				if writeError == nil {
 					writeError = frame.Close()
