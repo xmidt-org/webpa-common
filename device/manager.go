@@ -379,7 +379,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			if frame, writeError = c.NextWriter(); writeError == nil {
 				if envelope.request.Format != wrp.Msgpack || len(envelope.request.Contents) == 0 {
 					// if the request was in a format other than Msgpack, or if the caller did not pass
-					// Contents, then do the encoding here.  This is the path typically taken by JSON request.
+					// Contents, then do the encoding here.
 					encoder.Reset(frame)
 					writeError = encoder.Encode(envelope.request.Routing)
 				} else {
@@ -473,12 +473,17 @@ func (m *manager) VisitAll(visitor func(Interface)) (count int) {
 
 func (m *manager) Route(request *Request) (*Response, error) {
 	var (
-		count int
-		d     *device
+		count            int
+		d                *device
+		destination, err = request.ID()
 	)
 
+	if err != nil {
+		return nil, err
+	}
+
 	m.whenReadLocked(func() {
-		count = m.registry.visitID(request.ID, func(e *device) { d = e })
+		count = m.registry.visitID(destination, func(e *device) { d = e })
 	})
 
 	switch count {
