@@ -19,18 +19,13 @@ type MessageHandler struct {
 	// Logger is the sink for logging output.  If not set, logging will be sent to logging.DefaultLogger().
 	Logger logging.Logger
 
-	// RequestDecoders is the pool of wrp.Decoder objects used to decode http.Request bodies
+	// Decoders is the pool of wrp.Decoder objects used to decode http.Request bodies
 	// sent to this handler.  This field is required.
-	RequestDecoders *wrp.DecoderPool
+	Decoders *wrp.DecoderPool
 
-	// ResponseEncoders is the pool of wrp.Encoder objects used to encode wrp messages sent
+	// Encoders is the pool of wrp.Encoder objects used to encode wrp messages sent
 	// as HTTP responses.  This field is required.
-	ResponseEncoders *wrp.EncoderPool
-
-	// DeviceEncoders is the optional pool of wrp.Encoder objects used to transcode messages
-	// into the format accepted by devices, which is normally wrp.Msgpack.  If this field is not
-	// sent, then the HTTP request body is assumed to be valid for on-the-wire transport to devices.
-	DeviceEncoders *wrp.EncoderPool
+	Encoders *wrp.EncoderPool
 
 	// Router is the device message Router to use.  This field is required.
 	Router Router
@@ -59,7 +54,7 @@ func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.
 		defer cancel()
 	}
 
-	deviceRequest, err := DecodeRequest(request.Body, mh.RequestDecoders)
+	deviceRequest, err := DecodeRequest(request.Body, mh.Decoders)
 	if err != nil {
 		httperror.Formatf(
 			response,
@@ -92,9 +87,9 @@ func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.
 				"Device transaction failed: %s",
 				err,
 			)
-		} else if mh.ResponseEncoders != nil {
-			response.Header().Set("Content-Type", mh.ResponseEncoders.Format().ContentType())
-			if err := mh.ResponseEncoders.Encode(response, deviceResponse); err != nil {
+		} else if mh.Encoders != nil {
+			response.Header().Set("Content-Type", mh.Encoders.Format().ContentType())
+			if err := mh.Encoders.Encode(response, deviceResponse); err != nil {
 				logger.Error("Error while encoding WRP response: %s", err)
 			}
 		} else {
