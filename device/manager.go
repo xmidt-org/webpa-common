@@ -2,7 +2,6 @@ package device
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
@@ -11,11 +10,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-)
-
-var (
-	ErrorDeviceNotFound = errors.New("The device does not exist")
-	ErrorNonUniqueID    = errors.New("That device ID has more than one connection")
 )
 
 // Connector is a strategy interface for managing device connections to a server.
@@ -261,6 +255,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
+		frameRead bool
 		readError error
 		event     Event // reuse the same event as a carrier of data to listeners
 		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
@@ -272,11 +267,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
-		var (
-			frameBuffer bytes.Buffer
-			frameRead   bool
-		)
-
+		var frameBuffer bytes.Buffer
 		frameRead, readError = c.Read(&frameBuffer)
 		if readError != nil {
 			return
@@ -370,7 +361,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				event.setMessageFailed(d, undeliverable.request.Message, undeliverable.request.Format, undeliverable.request.Contents, nil)
+				event.setRequestFailed(d, undeliverable.request, nil)
 				m.dispatch(&event)
 			default:
 				break

@@ -2,21 +2,12 @@ package device
 
 import (
 	"context"
-	"errors"
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
-)
-
-var (
-	ErrorInvalidTransactionKey        = errors.New("Transaction keys must be non-empty strings")
-	ErrorNoSuchTransactionKey         = errors.New("That transaction key is not registered")
-	ErrorTransactionAlreadyRegistered = errors.New("That transaction is already registered")
-	ErrorTransactionCancelled         = errors.New("The transaction has been cancelled")
-	ErrorResponseNoContents           = errors.New("The response has no contents")
 )
 
 // Request represents a single device Request, carrying routing information and message contents.
