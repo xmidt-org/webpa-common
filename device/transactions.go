@@ -21,9 +21,9 @@ var (
 
 // Request represents a single device Request, carrying routing information and message contents.
 type Request struct {
-	// Routing is the original, decoded WRP message containing the routing information.  This is the
+	// Message is the original, decoded WRP message containing the routing information.  This is the
 	// only absolutely required field of a device Request.
-	Routing wrp.Routable
+	Message wrp.Routable
 
 	// Format is the WRP format of the Contents member.  If Format is not JSON, then Routing
 	// will be encoded prior to sending to devices.
@@ -61,7 +61,7 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 
 // ID parses the Routing.To() value into a device identifier.
 func (r *Request) ID() (ID, error) {
-	return ParseID(r.Routing.To())
+	return ParseID(r.Message.To())
 }
 
 // DecodeRequest decodes a WRP source into a device Request.  Typically, this is used
@@ -80,7 +80,7 @@ func DecodeRequest(source io.Reader, pool *wrp.DecoderPool) (*Request, error) {
 	}
 
 	return &Request{
-		Routing:  message,
+		Message:  message,
 		Format:   pool.Format(),
 		Contents: contents,
 	}, nil

@@ -241,7 +241,7 @@ func (d *device) Send(request *Request) (*Response, error) {
 	}
 
 	var (
-		transactionKey = request.Routing.TransactionKey()
+		transactionKey = request.Message.TransactionKey()
 		result         <-chan *Response
 	)
 

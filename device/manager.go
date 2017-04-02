@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"io"
@@ -15,10 +16,6 @@ import (
 var (
 	ErrorDeviceNotFound = errors.New("The device does not exist")
 	ErrorNonUniqueID    = errors.New("That device ID has more than one connection")
-
-	// emptyMessage is used to reset a Message instance so that it can be reused
-	// and save a bit of gc overhead
-	emptyMessage wrp.Message
 )
 
 // Connector is a strategy interface for managing device connections to a server.
@@ -137,14 +134,24 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	m.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
 	deviceName := request.Header.Get(m.deviceNameHeader)
 	if len(deviceName) == 0 {
-		http.Error(response, m.missingDeviceNameHeaderError.Error(), http.StatusBadRequest)
+		httperror.Format(
+			response,
+			http.StatusBadRequest,
+			m.missingDeviceNameHeaderError,
+		)
+
 		return nil, m.missingDeviceNameHeaderError
 	}
 
 	id, err := ParseID(deviceName)
 	if err != nil {
 		badDeviceNameError := fmt.Errorf("Bad device name: %s", err)
-		http.Error(response, badDeviceNameError.Error(), http.StatusBadRequest)
+		httperror.Format(
+			response,
+			http.StatusBadRequest,
+			badDeviceNameError,
+		)
+
 		return nil, badDeviceNameError
 	}
 
@@ -153,7 +160,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		convey, err = ParseConvey(rawConvey, nil)
 		if err != nil {
 			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", rawConvey, err)
-			http.Error(response, badConveyError.Error(), http.StatusBadRequest)
+			httperror.Format(
+				response,
+				http.StatusBadRequest,
+				badConveyError,
+			)
+
 			return nil, badConveyError
 		}
 	}
@@ -161,7 +173,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	var initialKey Key
 	if initialKey, err = m.keyFunc(id, convey, request); err != nil {
 		keyError := fmt.Errorf("Unable to obtain key for device [%s]: %s", id, err)
-		http.Error(response, keyError.Error(), http.StatusBadRequest)
+		httperror.Format(
+			response,
+			http.StatusBadRequest,
+			keyError,
+		)
+
 		return nil, keyError
 	}
 
@@ -199,6 +216,10 @@ func (m *manager) whenReadLocked(when func()) {
 // pumpClose handles the proper shutdown and logging of a device's pumps.
 // This method should be executed within a sync.Once, so that it only executes
 // once for a given device.
+//
+// Note that the write pump does additional cleanup.  In particular, the write pump
+// dispatches message failed events for any messages that were waiting to be delivered
+// at the time of pump closure.
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
 
@@ -240,12 +261,9 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("readPump(%s)", d.id)
 
 	var (
-		readError   error
-		frameRead   bool
-		frameBuffer bytes.Buffer
-		message     wrp.Message
-		event       Event
-		decoder     = wrp.NewDecoder(nil, wrp.Msgpack)
+		readError error
+		event     Event // reuse the same event as a carrier of data to listeners
+		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
 	// all the read pump has to do is ensure the device and the connection are closed
@@ -254,7 +272,11 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	c.SetPongCallback(m.pongCallbackFor(d))
 
 	for {
-		frameBuffer.Reset()
+		var (
+			frameBuffer bytes.Buffer
+			frameRead   bool
+		)
+
 		frameRead, readError = c.Read(&frameBuffer)
 		if readError != nil {
 			return
@@ -263,35 +285,27 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
-		message = emptyMessage
-		rawFrame := frameBuffer.Bytes()
+		var (
+			message  = new(wrp.Message)
+			rawFrame = frameBuffer.Bytes()
+		)
+
 		decoder.ResetBytes(rawFrame)
-		if decodeError := decoder.Decode(&message); decodeError != nil {
+		if decodeError := decoder.Decode(message); decodeError != nil {
 			// malformed WRP messages are allowed: the read pump will keep on chugging
 			m.logger.Error("Skipping malformed frame from device [%s]: %s", d.id, decodeError)
 			continue
 		}
 
 		// update any waiting transaction
-		transactionKey := message.TransactionKey()
-		if len(transactionKey) > 0 {
-			// only when a transaction requires a response do we make
-			// copies of things
-			var (
-				safeMessage = new(wrp.Message)
-				safeFrame   = make([]byte, len(rawFrame))
-			)
-
-			*safeMessage = message
-			copy(safeFrame, rawFrame)
-
+		if transactionKey := message.TransactionKey(); len(transactionKey) > 0 {
 			err := d.transactions.Complete(
 				transactionKey,
 				&Response{
 					Device:   d,
-					Routing:  safeMessage,
+					Routing:  message,
 					Format:   wrp.Msgpack,
-					Contents: safeFrame,
+					Contents: rawFrame,
 				},
 			)
 
@@ -300,7 +314,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			}
 		}
 
-		event.setMessageReceived(d, &message, rawFrame)
+		event.setMessageReceived(d, message, wrp.Msgpack, rawFrame)
 		m.dispatch(&event)
 	}
 }
@@ -316,15 +330,10 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		m.registry.add(d)
 	})
 
-	// we'll reuse this event instance
-	event := Event{
-		Type:   Connect,
-		Device: d,
-	}
-
-	m.dispatch(&event)
-
 	var (
+		// we'll reuse this event instance
+		event = Event{Type: Connect, Device: d}
+
 		envelope    *envelope
 		frame       io.WriteCloser
 		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
@@ -332,6 +341,8 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
 		pingTicker  = time.NewTicker(m.pingPeriod)
 	)
+
+	m.dispatch(&event)
 
 	// cleanup: we not only ensure that the device and connection are closed but also
 	// ensure that any messages that were waiting and/or failed are dispatched to
@@ -347,7 +358,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
 		if envelope != nil {
-			event.setMessageFailed(d, envelope.request.Routing, envelope.request.Contents, writeError)
+			event.setRequestFailed(d, envelope.request, writeError)
 			m.dispatch(&event)
 		}
 
@@ -359,7 +370,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				event.setMessageFailed(d, undeliverable.request.Routing, undeliverable.request.Contents, nil)
+				event.setMessageFailed(d, undeliverable.request.Message, undeliverable.request.Format, undeliverable.request.Contents, nil)
 				m.dispatch(&event)
 			default:
 				break
@@ -381,7 +392,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 					// if the request was in a format other than Msgpack, or if the caller did not pass
 					// Contents, then do the encoding here.
 					encoder.Reset(frame)
-					writeError = encoder.Encode(envelope.request.Routing)
+					writeError = encoder.Encode(envelope.request.Message)
 				} else {
 					// we have Msgpack-formatted Contents
 					_, writeError = frame.Write(envelope.request.Contents)

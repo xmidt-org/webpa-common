@@ -59,13 +59,16 @@ type Event struct {
 	// data structure.
 	Message wrp.Routable
 
-	// Encoded is the encoded representation of the Message field.  It is always set if and only if
+	// Format is the encoding format of the Contents field
+	Format wrp.Format
+
+	// Contents is the encoded representation of the Message field.  It is always set if and only if
 	// the Message field is set.
 	//
 	// Never assume that it is safe to use this byte slice outside the listener invocation.  Make
 	// a copy if this byte slice is needed by other goroutines or if it needs to be part of a long-lived
 	// data structure.
-	Encoded []byte
+	Contents []byte
 
 	// Error is the error which occurred during an attempt to send a message.  This field is only populated
 	// for MessageFailed events when there was an actual error.  For MessageFailed events that indicate a
@@ -77,21 +80,34 @@ type Event struct {
 }
 
 // setMessageFailed sets or resets this event's fields to represent a MessageFailed event.
-func (e *Event) setMessageFailed(device Interface, message wrp.Routable, encoded []byte, err error) {
+func (e *Event) setMessageFailed(device Interface, message wrp.Routable, format wrp.Format, contents []byte, err error) {
 	e.Type = MessageFailed
 	e.Device = device
 	e.Message = message
-	e.Encoded = encoded
+	e.Format = format
+	e.Contents = contents
+	e.Error = err
+	e.Data = emptyString
+}
+
+// setRequestFailed sets or resets this event's field to represent a MessageFailed event for a device Request
+func (e *Event) setRequestFailed(device Interface, request *Request, err error) {
+	e.Type = MessageFailed
+	e.Device = device
+	e.Message = request.Message
+	e.Format = request.Format
+	e.Contents = request.Contents
 	e.Error = err
 	e.Data = emptyString
 }
 
 // setMessageReceived sets or resets this event's fields to represent a MessageReceived event.
-func (e *Event) setMessageReceived(device Interface, message wrp.Routable, encoded []byte) {
+func (e *Event) setMessageReceived(device Interface, message wrp.Routable, format wrp.Format, contents []byte) {
 	e.Type = MessageReceived
 	e.Device = device
 	e.Message = message
-	e.Encoded = encoded
+	e.Format = format
+	e.Contents = contents
 	e.Error = nil
 	e.Data = emptyString
 }
@@ -101,7 +117,8 @@ func (e *Event) setPong(device Interface, data string) {
 	e.Type = Pong
 	e.Device = device
 	e.Message = nil
-	e.Encoded = nil
+	e.Format = wrp.Format(-1)
+	e.Contents = nil
 	e.Error = nil
 	e.Data = data
 }
