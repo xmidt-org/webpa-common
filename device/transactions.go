@@ -3,9 +3,11 @@ package device
 import (
 	"context"
 	"errors"
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"sync"
 )
 
@@ -14,6 +16,7 @@ var (
 	ErrorNoSuchTransactionKey         = errors.New("That transaction key is not registered")
 	ErrorTransactionAlreadyRegistered = errors.New("That transaction is already registered")
 	ErrorTransactionCancelled         = errors.New("The transaction has been cancelled")
+	ErrorResponseNoContents           = errors.New("The response has no contents")
 )
 
 // Request represents a single device Request, carrying routing information and message contents.
@@ -89,10 +92,66 @@ func DecodeRequest(source io.Reader, pool *wrp.DecoderPool) (*Request, error) {
 // Response represents the response to a device request.  Some requests have no response, in which case
 // a Response without a Routing or Contents will be returned.
 type Response struct {
-	Device   Interface
-	Routing  wrp.Routable
+	// Device is the sink to which the corresponding Request was sent
+	Device Interface
+
+	// Routing is the decoded WRP message received from the device
+	Routing wrp.Routable
+
+	// Format is the encoding Format of the Contents field.  Almost always, this will be Msgpack.
+	Format wrp.Format
+
+	// Contents is the encoded form of Routing, formatted in Format
 	Contents []byte
-	Error    error
+
+	// Error is set if there was any error while processing the transaction.  If this field
+	// is set, Format and Contents should be ignored.
+	Error error
+}
+
+// EncodeResponse writes out a device transaction Response to an http Response.
+//
+// If response.Error is set, a JSON-formatted error with status http.StatusInternalServerError is
+// written to the HTTP response.
+//
+// If the encoder pool is nil, or if the pool is supplied but it's format is the same as the response,
+// this function assumes that the format of the HTTP response is the same as response.Contents.
+// It is an error if response.Contents is empty in this case.  The response.Format field dictates
+// the Content-Type of the HTTP response.
+//
+// If none of the above applies, the encoder pool is used to encode response.Routing to the HTTP
+// response.  The content type is set to pool.Format().
+func EncodeResponse(output http.ResponseWriter, response *Response, pool *wrp.EncoderPool) (err error) {
+	if response.Error != nil {
+		_, err = httperror.Formatf(
+			output,
+			http.StatusInternalServerError,
+			"Transaction error: %s",
+			response.Error,
+		)
+
+		return
+	}
+
+	if pool == nil || pool.Format() == response.Format {
+		if len(response.Contents) == 0 {
+			_, err = httperror.Format(
+				output,
+				http.StatusInternalServerError,
+				"Transaction response had no content",
+			)
+
+			return
+		}
+
+		output.Header().Set("Content-Type", response.Format.ContentType())
+		_, err = output.Write(response.Contents)
+		return
+	}
+
+	output.Header().Set("Content-Type", pool.Format().ContentType())
+	err = pool.Encode(output, response.Routing)
+	return
 }
 
 // Transactions represents a set of pending transactions.  Instances are safe for

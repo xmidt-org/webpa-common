@@ -290,6 +290,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 				&Response{
 					Device:   d,
 					Routing:  safeMessage,
+					Format:   wrp.Msgpack,
 					Contents: safeFrame,
 				},
 			)

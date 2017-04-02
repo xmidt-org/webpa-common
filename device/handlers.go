@@ -80,23 +80,8 @@ func (mh *MessageHandler) ServeHTTP(response http.ResponseWriter, request *http.
 			err,
 		)
 	} else if deviceResponse != nil {
-		if deviceResponse.Error != nil {
-			httperror.Formatf(
-				response,
-				http.StatusInternalServerError,
-				"Device transaction failed: %s",
-				err,
-			)
-		} else if mh.Encoders != nil {
-			response.Header().Set("Content-Type", mh.Encoders.Format().ContentType())
-			if err := mh.Encoders.Encode(response, deviceResponse); err != nil {
-				logger.Error("Error while encoding WRP response: %s", err)
-			}
-		} else {
-			response.Header().Set("Content-Type", wrp.Msgpack.ContentType())
-			if _, err := response.Write(deviceResponse.Contents); err != nil {
-				logger.Error("Error while writing response contents: %s", err)
-			}
+		if err := EncodeResponse(response, deviceResponse, mh.Encoders); err != nil {
+			logger.Error("Error while writing transaction response: %s", err)
 		}
 	}
 }
