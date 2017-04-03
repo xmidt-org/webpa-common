@@ -13,25 +13,31 @@ import (
 // This could also go in the server package, in which case I'd change the name to Webhook, since
 // service.Webhook works better.  See https://blog.golang.org/package-names)
 type W struct {
-	// The URL to deliver messages to.
-	URL string `json:"url"`
+	// Configuration for message delivery
+	Config struct {
+		// The URL to deliver messages to.
+		URL string `json:"url"`
+
+		// The content-type to set the messages to (unless specified by WRP).
+		ContentType string `json:"content_type"`
+
+		// The secret to use for the SHA1 HMAC.
+		// Optional, set to "" to disable behavior.
+		Secret string `json:"secret,omitempty"`
+	} `json:"config"`
 
 	// The URL to notify when we cut off a client due to overflow.
 	// Optional, set to "" to disable behavior
 	FailureURL string `json:"failure_url"`
 
-	// The content-type to set the messages to (unless specified by WRP).
-	ContentType string `json:"content_type"`
-
-	// The secret to use for the SHA1 HMAC.
-	// Optional, set to "" to disable behavior.
-	Secret string `json:"secret,omitempty"`
-
 	// The list of regular expressions to match event type against.
 	Events []string `json:"events"`
 
-	// The list of regular expressions to match against the metadata.
-	Matchers map[string][]string `json:"matchers,omitempty"`
+	// Matcher type contains values to match against the metadata.
+	Matcher struct {
+		// The list of regular expressions to match device id type against.
+		DeviceId []string `json:"device_id"`
+	} `json:"matcher,omitempty"`
 
 	// The specified duration for this hook to live
 	Duration time.Duration `json:"duration"`
@@ -45,7 +51,7 @@ type W struct {
 
 // ID creates the canonical string identifing a WebhookListener
 func (w *W) ID() string {
-	return w.URL
+	return w.Config.URL
 }
 
 // List is a read-only random access interface to a set of W's
