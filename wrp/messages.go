@@ -53,7 +53,8 @@ type EncoderTo interface {
 }
 
 // Routable describes an object which can be routed.  Implementations will most
-// often also be WRP messages, and can be passed to decoders and encoders.
+// often also be WRP Message instances.  All Routable objects may be passed to
+// Encoders and Decoders.
 //
 // Not all WRP messages are Routable.  Only messages that can be sent through
 // routing software (e.g. talaria) implement this interface.
@@ -71,6 +72,9 @@ type Routable interface {
 
 	// TransactionKey corresponds to the transaction_uuid field.  If present, this field is used
 	// to match up responses from devices.
+	//
+	// Not all Routables support transactions, e.g. SimpleEvent.  For those Routable messages that do
+	// not possess a transaction_uuid field, this method returns an empty string.
 	TransactionKey() string
 
 	// Response produces a new Routable instance which is a response to this one.  The new Routable's
