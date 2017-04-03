@@ -29,6 +29,9 @@ type Request struct {
 	ctx context.Context
 }
 
+// Context returns the context.Context object associated with this Request.
+// This method never returns nil.  If no context is associated with this Request,
+// this method returns context.Background().
 func (r *Request) Context() context.Context {
 	if r.ctx != nil {
 		return r.ctx

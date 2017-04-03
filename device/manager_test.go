@@ -34,16 +34,18 @@ var (
 
 // startWebsocketServer sets up a server-side environment for testing device-related websocket code
 func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
-	manager := NewManager(o, nil)
-	server := httptest.NewServer(
-		NewConnectHandler(
-			manager,
-			nil,
-			o.logger(),
-		),
+	var (
+		manager = NewManager(o, nil)
+		server  = httptest.NewServer(
+			&ConnectHandler{
+				Logger:    o.logger(),
+				Connector: manager,
+			},
+		)
+
+		websocketURL, err = url.Parse(server.URL)
 	)
 
-	websocketURL, err := url.Parse(server.URL)
 	if err != nil {
 		server.Close()
 		panic(fmt.Errorf("Unable to parse test server URL: %s", err))

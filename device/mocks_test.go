@@ -1,7 +1,6 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"time"
@@ -51,9 +50,10 @@ func (m *mockDevice) Closed() bool {
 	return arguments.Bool(0)
 }
 
-func (m *mockDevice) Send(message wrp.Routable, encoded []byte) error {
-	arguments := m.Called(message, encoded)
-	return arguments.Error(0)
+func (m *mockDevice) Send(request *Request) (*Response, error) {
+	arguments := m.Called(request)
+	first, _ := arguments.Get(0).(*Response)
+	return first, arguments.Error(1)
 }
 
 func (m *mockDevice) SendBytes(message []byte) error {
