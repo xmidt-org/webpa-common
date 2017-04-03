@@ -6,20 +6,26 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
 )
 
-func ExampleManagerSimple() {
+func ExampleManagerTransaction() {
 	var (
+		// we use a WaitGroup so that we can predictably order output
+		messageReceived = new(sync.WaitGroup)
+
 		options = &Options{
-			Logger: &logging.LoggerWriter{ioutil.Discard},
+			Logger: logging.DefaultLogger(),
 			Listeners: []Listener{
 				func(e *Event) {
-					if e.Type == MessageReceived {
-						message := e.Message.(*wrp.Message)
-						fmt.Printf("%s to %s -> %s\n", message.Source, message.Destination, message.Payload)
+					switch e.Type {
+					case Connect:
+						fmt.Printf("%s connected\n", e.Device.ID())
+						messageReceived.Add(1)
+					case MessageReceived:
+						fmt.Println("response received")
+						messageReceived.Done()
 					}
 				},
 			},
@@ -27,34 +33,26 @@ func ExampleManagerSimple() {
 
 		manager, server, websocketURL = startWebsocketServer(options)
 
-		deviceDone = new(sync.WaitGroup)
+		dialer                   = NewDialer(options, nil)
+		connection, _, dialError = dialer.Dial(
+			websocketURL,
+			"mac:111122223333",
+			nil,
+			nil,
+		)
 	)
 
 	defer server.Close()
-	deviceDone.Add(1)
+	if dialError != nil {
+		fmt.Fprintf(os.Stderr, "Dial error: %s\n", dialError)
+		return
+	}
+
+	defer connection.Close()
 
 	// spawn a goroutine that simply waits for a request/response and responds
 	go func() {
-		defer deviceDone.Done()
-
-		var (
-			readFrame = new(bytes.Buffer)
-
-			dialer             = NewDialer(options, nil)
-			connection, _, err = dialer.Dial(
-				websocketURL,
-				"mac:111122223333",
-				nil,
-				nil,
-			)
-		)
-
-		if err != nil {
-			return
-		}
-
-		defer connection.Close()
-
+		readFrame := new(bytes.Buffer)
 		if frameRead, err := connection.Read(readFrame); !frameRead || err != nil {
 			fmt.Fprintf(os.Stderr, "Read failed: frameRead=%b, err=%s\n", frameRead, err)
 			return
@@ -81,28 +79,35 @@ func ExampleManagerSimple() {
 			)
 
 			response.Payload = []byte("Homer Simpson, Smiling Politely")
-			fmt.Printf("%s to %s -> %s\n", response.Source, response.Destination, response.Payload)
 			writeError = encoder.Encode(response)
 		}
 
 		if writeError != nil {
-			fmt.Fprintf(os.Stderr, "Could not write response: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Could not write response: %s\n", writeError)
 		}
 	}()
 
+	// Route will block until the corresponding message returns from the device
 	response, err := manager.Route(
 		&Request{
 			Message: &wrp.SimpleRequestResponse{
-				Source:      "Example",
-				Destination: "mac:111122223333",
-				Payload:     []byte("Billy Corgan, Smashing Pumpkins"),
+				Source:          "Example",
+				Destination:     "mac:111122223333",
+				Payload:         []byte("Billy Corgan, Smashing Pumpkins"),
+				TransactionUUID: "MyTransactionUUID",
 			},
 		},
 	)
 
-	deviceDone.Wait()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Route error: %s\n", err)
+	} else if response != nil {
+		messageReceived.Wait()
+		fmt.Printf("(%s): %s to %s -> %s\n", response.Message.TransactionUUID, response.Message.Source, response.Message.Destination, response.Message.Payload)
+	}
 
 	// Output:
-	// Example to mac:111122223333 -> Billy Corgan, Smashing Pumpkins
-	// mac:111122223333 to Example -> Homer Simpson, smiling politely
+	// mac:111122223333 connected
+	// response received
+	// (MyTransactionUUID): mac:111122223333 to Example -> Homer Simpson, Smiling Politely
 }

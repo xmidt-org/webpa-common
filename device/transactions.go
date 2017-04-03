@@ -86,8 +86,8 @@ type Response struct {
 	// Device is the sink to which the corresponding Request was sent
 	Device Interface
 
-	// Routing is the decoded WRP message received from the device
-	Routing wrp.Routable
+	// Message is the decoded WRP message received from the device
+	Message *wrp.Message
 
 	// Format is the encoding Format of the Contents field.  Almost always, this will be Msgpack.
 	Format wrp.Format
@@ -141,7 +141,7 @@ func EncodeResponse(output http.ResponseWriter, response *Response, pool *wrp.En
 	}
 
 	output.Header().Set("Content-Type", pool.Format().ContentType())
-	err = pool.Encode(output, response.Routing)
+	err = pool.Encode(output, response.Message)
 	return
 }
 

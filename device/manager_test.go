@@ -4,9 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -402,96 +400,6 @@ func TestManagerDisconnectIf(t *testing.T) {
 }
 
 func TestManagerRoute(t *testing.T) {
-	var (
-		assert      = assert.New(t)
-		require     = require.New(t)
-		connectWait = new(sync.WaitGroup)
-		receiveWait = new(sync.WaitGroup)
-
-		options = &Options{
-			Logger: logging.TestLogger(t),
-			Listeners: []Listener{
-				func(event *Event) {
-					switch event.Type {
-					case Connect:
-						connectWait.Done()
-					case Disconnect:
-						assert.True(event.Device.Closed())
-						assert.Error(event.Device.Send(new(wrp.Message), nil))
-					}
-				},
-			},
-		}
-	)
-
-	connectWait.Add(testConnectionCount)
-	receiveWait.Add(testConnectionCount)
-
-	var (
-		manager, server, connectURL = startWebsocketServer(options)
-		dialer                      = NewDialer(options, nil)
-		testDevices                 = connectTestDevices(t, assert, dialer, connectURL)
-	)
-
-	defer server.Close()
-	defer closeTestDevices(assert, testDevices)
-
-	for id, connections := range testDevices {
-		for _, c := range connections {
-			go func(id ID, c Connection) {
-				defer receiveWait.Done()
-				var (
-					frame, err = c.NextReader()
-					decoder    = wrp.NewDecoder(frame, wrp.Msgpack)
-					message    wrp.Message
-				)
-
-				require.NotNil(frame)
-				require.NoError(err)
-				require.NoError(decoder.Decode(&message))
-				assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
-			}(id, c)
-		}
-	}
-
-	connectWait.Wait()
-	for id, expectedCount := range testDeviceIDs {
-		// spawn a goroutine for each send to better detect any race conditions
-		// or other concurrency issues
-		go func(id ID, expectedCount int) {
-			actualID, actualCount, err := manager.Route(
-				&wrp.SimpleEvent{
-					Destination: string(id),
-					Payload:     []byte(fmt.Sprintf("message for %s", id)),
-				},
-				nil,
-				func(d Interface, err error) {
-					assert.Fail("The callback should not have been called")
-				},
-			)
-
-			assert.Equal(id, actualID)
-			assert.NoError(err)
-			assert.Equal(expectedCount, actualCount)
-		}(id, expectedCount)
-	}
-
-	receiveWait.Wait()
-
-	id, count, err := manager.Route(
-		&wrp.SimpleEvent{
-			Destination: "nosuch device",
-			Payload:     []byte("this shouldn't go anywhere"),
-		},
-		nil,
-		func(Interface, error) {
-			assert.Fail("The callback should not have been called")
-		},
-	)
-
-	assert.Equal(ID(""), id)
-	assert.Zero(count)
-	assert.Error(err)
 }
 
 func TestManagerPingPong(t *testing.T) {

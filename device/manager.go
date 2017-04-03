@@ -294,7 +294,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 				transactionKey,
 				&Response{
 					Device:   d,
-					Routing:  message,
+					Message:  message,
 					Format:   wrp.Msgpack,
 					Contents: rawFrame,
 				},
