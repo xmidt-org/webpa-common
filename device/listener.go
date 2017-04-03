@@ -8,10 +8,27 @@ import (
 type EventType uint8
 
 const (
+	// Connect indicates a successful device connection.  After receipt of this event, the given
+	// Device is able to receive requests.
 	Connect EventType = iota
+
+	// Disconnect indicates a device disconnection.  After receipt of this event, the given
+	// Device can no longer receive requests.
 	Disconnect
+
+	// MessageSent indicates that a message was successfully dispatched to a device.
+	MessageSent
+
+	// MessageReceived indicates that a message has been successfully received and
+	// dispatched to any goroutine waiting on it, as would be the case for a response.
 	MessageReceived
+
+	// MessageFailed indicates that a message could not be sent to a device, either because
+	// of a communications error or due to the device disconnecting.  For each enqueued message
+	// at the time of a device's disconnection, there will be (1) MessageFailed event.
 	MessageFailed
+
+	// Pong occurs when a device has responded to a ping
 	Pong
 
 	InvalidEventString string = "!!INVALID DEVICE EVENT TYPE!!"
@@ -28,6 +45,8 @@ func (et EventType) String() string {
 		return "Connect"
 	case Disconnect:
 		return "Disconnect"
+	case MessageSent:
+		return "MessageSent"
 	case MessageReceived:
 		return "MessageReceived"
 	case MessageFailed:
