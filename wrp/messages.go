@@ -75,7 +75,9 @@ type Routable interface {
 
 	// Response produces a new Routable instance which is a response to this one.  The new Routable's
 	// destination (From) is set to the original source (To), with the supplied newSource used as the response's source.
-	// The requestDeliveryResponse parameter indicates the success or failure of this response.
+	// The requestDeliveryResponse parameter indicates the success or failure of this response.  The underlying
+	// type of the returned Routable will be the same as this type, i.e. if this instance is a Message,
+	// the returned Routable will also be a Message.
 	//
 	// If applicable, the response's payload is set to nil.  All other fields are copied as is into the response.
 	Response(newSource string, requestDeliveryResponse int64) Routable
@@ -130,8 +132,7 @@ func (msg *Message) TransactionKey() string {
 }
 
 func (msg *Message) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response Message = *msg
-
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.RequestDeliveryResponse = &requestDeliveryResponse
@@ -234,8 +235,7 @@ func (msg *SimpleRequestResponse) TransactionKey() string {
 }
 
 func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response SimpleRequestResponse = *msg
-
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.RequestDeliveryResponse = &requestDeliveryResponse
@@ -285,8 +285,7 @@ func (msg *SimpleEvent) TransactionKey() string {
 }
 
 func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response SimpleEvent = *msg
-
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.Payload = nil
@@ -348,8 +347,7 @@ func (msg *CRUD) TransactionKey() string {
 }
 
 func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response CRUD = *msg
-
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.RequestDeliveryResponse = &requestDeliveryResponse
