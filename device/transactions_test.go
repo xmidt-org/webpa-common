@@ -3,11 +3,14 @@ package device
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -154,5 +157,132 @@ func TestDecodeRequest(t *testing.T) {
 		for _, format := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 			testDecodeRequestDecodeError(t, format)
 		}
+	})
+}
+
+func testEncodeResponsePool(t *testing.T, message wrp.Message, responseFormat, poolFormat wrp.Format) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		setupEncoders  = wrp.NewEncoderPool(1, responseFormat)
+		pool           = wrp.NewEncoderPool(1, poolFormat)
+		verifyDecoders = wrp.NewDecoderPool(1, poolFormat)
+		contents       []byte
+		httpResponse   = httptest.NewRecorder()
+	)
+
+	require.NoError(setupEncoders.EncodeBytes(&contents, &message))
+	deviceResponse := &Response{
+		Message:  &message,
+		Format:   responseFormat,
+		Contents: contents,
+	}
+
+	assert.NoError(EncodeResponse(httpResponse, deviceResponse, pool))
+	assert.Equal(http.StatusOK, httpResponse.Code)
+	assert.Equal(poolFormat.ContentType(), httpResponse.HeaderMap.Get("Content-Type"))
+
+	actualMessage := new(wrp.Message)
+	assert.NoError(verifyDecoders.Decode(actualMessage, httpResponse.Body))
+	assert.Equal(message, *actualMessage)
+}
+
+func testEncodeResponsePoolAndNoContents(t *testing.T, format wrp.Format) {
+	var (
+		assert         = assert.New(t)
+		actualContents = make(map[string]interface{})
+		pool           = wrp.NewEncoderPool(1, format)
+
+		deviceResponse = &Response{
+			Message: new(wrp.Message),
+			Format:  format,
+		}
+
+		httpResponse = httptest.NewRecorder()
+	)
+
+	assert.NoError(EncodeResponse(httpResponse, deviceResponse, pool))
+	assert.Equal(http.StatusInternalServerError, httpResponse.Code)
+	assert.Equal("application/json", httpResponse.HeaderMap.Get("Content-Type"))
+	assert.NoError(
+		json.Unmarshal(httpResponse.Body.Bytes(), &actualContents),
+	)
+}
+
+func testEncodeResponseNoPool(t *testing.T, message wrp.Message, format wrp.Format) {
+	var (
+		assert       = assert.New(t)
+		require      = require.New(t)
+		encoders     = wrp.NewEncoderPool(1, format)
+		contents     []byte
+		httpResponse = httptest.NewRecorder()
+	)
+
+	require.NoError(encoders.EncodeBytes(&contents, &message))
+	deviceResponse := &Response{
+		Message:  &message,
+		Format:   format,
+		Contents: contents,
+	}
+
+	assert.NoError(EncodeResponse(httpResponse, deviceResponse, nil))
+	assert.Equal(http.StatusOK, httpResponse.Code)
+	assert.Equal(format.ContentType(), httpResponse.HeaderMap.Get("Content-Type"))
+	assert.Equal(contents, httpResponse.Body.Bytes())
+}
+
+func testEncodeResponseNoPoolAndNoContents(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		actualContents = make(map[string]interface{})
+
+		deviceResponse = &Response{
+			Message: new(wrp.Message),
+		}
+
+		httpResponse = httptest.NewRecorder()
+	)
+
+	assert.NoError(EncodeResponse(httpResponse, deviceResponse, nil))
+	assert.Equal(http.StatusInternalServerError, httpResponse.Code)
+	assert.Equal("application/json", httpResponse.HeaderMap.Get("Content-Type"))
+	assert.NoError(
+		json.Unmarshal(httpResponse.Body.Bytes(), &actualContents),
+	)
+}
+
+func TestEncodeResponse(t *testing.T) {
+	testData := []wrp.Message{
+		wrp.Message{},
+		wrp.Message{
+			Type:        wrp.SimpleEventMessageType,
+			ContentType: "text/plain",
+			Payload:     []byte("here is a payload"),
+		},
+	}
+
+	t.Run("Pool", func(t *testing.T) {
+		for _, responseFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
+			for _, poolFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
+				for _, message := range testData {
+					testEncodeResponsePool(t, message, responseFormat, poolFormat)
+				}
+			}
+
+			t.Run("NoContents", func(t *testing.T) {
+				testEncodeResponsePoolAndNoContents(t, responseFormat)
+			})
+		}
+	})
+
+	t.Run("NoPool", func(t *testing.T) {
+		for _, format := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
+			for _, message := range testData {
+				testEncodeResponseNoPool(t, message, format)
+			}
+		}
+
+		t.Run("NoContents", testEncodeResponseNoPoolAndNoContents)
 	})
 }
