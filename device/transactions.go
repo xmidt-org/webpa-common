@@ -92,7 +92,7 @@ type Response struct {
 	// Format is the encoding Format of the Contents field.  Almost always, this will be Msgpack.
 	Format wrp.Format
 
-	// Contents is the encoded form of Routing, formatted in Format
+	// Contents is the encoded form of Message, formatted in Format
 	Contents []byte
 
 	// Error is set if there was any error while processing the transaction.  If this field

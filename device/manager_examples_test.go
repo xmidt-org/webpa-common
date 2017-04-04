@@ -74,6 +74,7 @@ func ExampleManagerTransaction() {
 		if writeFrame, writeError = connection.NextWriter(); writeError == nil {
 			defer writeFrame.Close()
 			var (
+				// casting is fine here since we know what type message is
 				response = message.Response("mac:111122223333", 1).(*wrp.Message)
 				encoder  = wrp.NewEncoder(writeFrame, wrp.Msgpack)
 			)

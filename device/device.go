@@ -128,11 +128,9 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	output := new(bytes.Buffer)
 	fmt.Fprintf(
 		output,
-		`{"id": "%s", "key": "%s", "pendingMessageCount": %d, "pendingTransactionCount": %d, "connectedAt": "%s", "closed": %t, "convey": %s}`,
+		`{"id": "%s", "key": "%s", "connectedAt": "%s", "closed": %t, "convey": %s}`,
 		d.id,
 		d.Key(),
-		d.Pending(),
-		d.transactions.Len(),
 		d.connectedAt.Format(time.RFC3339),
 		d.Closed(),
 		conveyJSON,

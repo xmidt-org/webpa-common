@@ -50,7 +50,7 @@ func TestUUIDKeyFunc(t *testing.T) {
 	for _, record := range uuidEncodings {
 		t.Logf("%v", record)
 
-		mockRandom := new(mockRandom)
+		mockRandom := new(mockReader)
 		mockRandom.
 			On("Read", mock.MatchedBy(uuidKeyReadMatcher)).
 			Run(copyExpectedKey).
@@ -79,7 +79,7 @@ func TestUUIDKeyFuncSourceError(t *testing.T) {
 	for _, record := range uuidEncodings {
 		t.Logf("%v", record)
 
-		mockRandom := new(mockRandom)
+		mockRandom := new(mockReader)
 		mockRandom.
 			On("Read", mock.MatchedBy(uuidKeyReadMatcher)).
 			Return(0, sourceError).

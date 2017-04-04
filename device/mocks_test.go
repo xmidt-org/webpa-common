@@ -6,17 +6,15 @@ import (
 	"time"
 )
 
-// mockRandom provides an io.Reader mock for a source of random bytes
-type mockRandom struct {
+type mockReader struct {
 	mock.Mock
 }
 
-func (m *mockRandom) Read(b []byte) (int, error) {
+func (m *mockReader) Read(b []byte) (int, error) {
 	arguments := m.Called(b)
 	return arguments.Int(0), arguments.Error(1)
 }
 
-// mockDevice mocks the Interface type
 type mockDevice struct {
 	mock.Mock
 }
@@ -54,11 +52,6 @@ func (m *mockDevice) Send(request *Request) (*Response, error) {
 	arguments := m.Called(request)
 	first, _ := arguments.Get(0).(*Response)
 	return first, arguments.Error(1)
-}
-
-func (m *mockDevice) SendBytes(message []byte) error {
-	arguments := m.Called(message)
-	return arguments.Error(0)
 }
 
 // deviceSet is a convenient map type for capturing visited devices
