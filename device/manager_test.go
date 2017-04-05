@@ -133,19 +133,22 @@ func testManagerConnectBadConveyHeader(t *testing.T) {
 }
 
 func testManagerConnectKeyError(t *testing.T) {
-	assert := assert.New(t)
-	badKeyFunc := func(ID, Convey, *http.Request) (Key, error) {
-		return invalidKey, errors.New("expected")
-	}
+	var (
+		assert     = assert.New(t)
+		badKeyFunc = func(ID, Convey, *http.Request) (Key, error) {
+			return invalidKey, errors.New("expected")
+		}
 
-	options := &Options{
-		Logger:  logging.TestLogger(t),
-		KeyFunc: badKeyFunc,
-	}
+		options = &Options{
+			Logger:  logging.TestLogger(t),
+			KeyFunc: badKeyFunc,
+		}
 
-	manager := NewManager(options, nil)
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest("POST", "http://localhost.com", nil)
+		manager  = NewManager(options, nil)
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "http://localhost.com", nil)
+	)
+
 	request.Header.Set(DefaultDeviceNameHeader, "mac:112233445566")
 
 	device, err := manager.Connect(response, request, nil)
@@ -154,33 +157,69 @@ func testManagerConnectKeyError(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func testManagerConnectVisit(t *testing.T) {
-	assert := assert.New(t)
-	connectWait := new(sync.WaitGroup)
-	connectWait.Add(testConnectionCount)
-	connections := make(chan Interface, testConnectionCount)
-
-	options := &Options{
-		Logger: logging.TestLogger(t),
-		Listeners: []Listener{
-			func(event *Event) {
-				if event.Type == Connect {
-					defer connectWait.Done()
-					select {
-					case connections <- event.Device:
-					default:
-						assert.Fail("The connect listener should not block")
-					}
-				}
+func testManagerConnectConnectionFactoryError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		options = &Options{
+			Logger: logging.TestLogger(t),
+			Listeners: []Listener{
+				func(e *Event) {
+					assert.Fail("The listener should not have been called")
+				},
 			},
-		},
-	}
+		}
 
-	manager, server, connectURL := startWebsocketServer(options)
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(options, connectionFactory)
+		response          = httptest.NewRecorder()
+		request           = httptest.NewRequest("POST", "http://localhost.com", nil)
+		responseHeader    http.Header
+		expectedError     = errors.New("expected error")
+	)
+
+	connectionFactory.On("NewConnection", response, request, responseHeader).Once().Return(nil, expectedError)
+
+	request.Header.Set(DefaultDeviceNameHeader, "mac:123412341234")
+	device, actualError := manager.Connect(response, request, responseHeader)
+	assert.Nil(device)
+	assert.Equal(expectedError, actualError)
+
+	connectionFactory.AssertExpectations(t)
+}
+
+func testManagerConnectVisit(t *testing.T) {
+	var (
+		assert      = assert.New(t)
+		connectWait = new(sync.WaitGroup)
+		connections = make(chan Interface, testConnectionCount)
+
+		options = &Options{
+			Logger: logging.TestLogger(t),
+			Listeners: []Listener{
+				func(event *Event) {
+					if event.Type == Connect {
+						defer connectWait.Done()
+						select {
+						case connections <- event.Device:
+						default:
+							assert.Fail("The connect listener should not block")
+						}
+					}
+				},
+			},
+		}
+
+		manager, server, connectURL = startWebsocketServer(options)
+	)
+
 	defer server.Close()
+	connectWait.Add(testConnectionCount)
 
-	dialer := NewDialer(options, nil)
-	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	var (
+		dialer      = NewDialer(options, nil)
+		testDevices = connectTestDevices(t, assert, dialer, connectURL)
+	)
+
 	defer closeTestDevices(assert, testDevices)
 
 	connectWait.Wait()
@@ -470,6 +509,7 @@ func TestManager(t *testing.T) {
 		t.Run("BadDeviceNameHeader", testManagerConnectBadDeviceNameHeader)
 		t.Run("BadConveyHeader", testManagerConnectBadConveyHeader)
 		t.Run("KeyError", testManagerConnectKeyError)
+		t.Run("ConnectionFactoryError", testManagerConnectConnectionFactoryError)
 		t.Run("Visit", testManagerConnectVisit)
 	})
 

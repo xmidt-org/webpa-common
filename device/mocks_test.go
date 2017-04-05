@@ -3,6 +3,7 @@ package device
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"net/http"
 	"time"
 )
 
@@ -51,6 +52,16 @@ func (m *mockDevice) Closed() bool {
 func (m *mockDevice) Send(request *Request) (*Response, error) {
 	arguments := m.Called(request)
 	first, _ := arguments.Get(0).(*Response)
+	return first, arguments.Error(1)
+}
+
+type mockConnectionFactory struct {
+	mock.Mock
+}
+
+func (m *mockConnectionFactory) NewConnection(response http.ResponseWriter, request *http.Request, header http.Header) (Connection, error) {
+	arguments := m.Called(response, request, header)
+	first, _ := arguments.Get(0).(Connection)
 	return first, arguments.Error(1)
 }
 
