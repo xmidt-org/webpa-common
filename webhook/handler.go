@@ -7,40 +7,30 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	"time"
-)
-
-const (
-	DEFAULT_EXPIRATION_DURATION time.Duration = time.Second * 300
 )
 
 type Registry struct {
 	UpdatableList
 }
 
-// getAll builds a list of registered listeners
-func (r *Registry) getAll() (all []*W) {
-	for i:=0; i<r.Len(); i++ {
-		all = append(all, r.Get(i))
-	}
-	
-	return
+// jsonResponse is an internal convenience function to write a json response
+func jsonResponse(rw http.ResponseWriter, code int, msg string) {
+	rw.Header().Set("Content-Type", "application/json")
+	rw.WriteHeader(code)
+	rw.Write( []byte(fmt.Sprintf(`{"message":"%s"}`, msg)) )
 }
 
-// getRegistered is an api call to return all the registered listeners
-func (r *Registry) getRegistered(rw http.ResponseWriter, req *http.Request) {
-	if json, err := json.Marshal( r.getAll() ); err != nil {
-//		log.Error("JSON marshal hooks error %v", err.Error())
-		rw.Header().Set("Content-Type", "application/json")
-		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln( rw, fmt.Sprintf(`{"message":"%s"}`, err.Error()) )
+// get is an api call to return all the registered listeners
+func (r *Registry) get(rw http.ResponseWriter, req *http.Request) {
+	if msg, err := json.Marshal( r.GetAll() ); err != nil {
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 	} else {
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Write(json)
+		rw.Write(msg)
 	}
 }
 
-
+// parspIP returns just the ip address from "IP:port"
 func parseIP(s string) (string, error) {
 	ip1, _, err := net.SplitHostPort(s)
 	if err == nil {
@@ -55,11 +45,12 @@ func parseIP(s string) (string, error) {
 	return ip2.String(), nil
 }
 
-func (w *W) registrationCheck() (string, int) {
-	if w.URL == "" {
+// registrationValidation checks W value requirements
+func (w *W) registrationValidation() (string, int) {
+	if w.Config.URL == "" {
 		return "invalid Config URL", http.StatusBadRequest
 	}
-	if w.ContentType == "" || w.ContentType != "json" {
+	if w.Config.ContentType == "" || w.Config.ContentType != "json" {
 		return "invalid content_type", http.StatusBadRequest
 	}
 	if len(w.Matcher.DeviceId) == 0 {
@@ -72,59 +63,39 @@ func (w *W) registrationCheck() (string, int) {
 	return "", http.StatusOK
 }
 
-func (r *Registry) register(rw http.ResponseWriter, req *http.Request) {
+// update is an api call to processes a listenener registration for adding and updating
+func (r *Registry) update(rw http.ResponseWriter, req *http.Request) {
 	payload, err := ioutil.ReadAll(req.Body)
 	req.Body.Close()
 	
 	w := new(W)
 	err = json.Unmarshal(payload, w)
 	if err != nil {
-		rw.Header().Set("Content-Type", "application/json")
-		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln( rw, fmt.Sprintf(`{"message":"%s"}`, err.Error()) )
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
 	
+	issue, code := w.registrationValidation()
+	if issue != "" || code != http.StatusOK {
+		jsonResponse(rw, code, issue)
+		return
+	}
+	
+	// update the requesters address
 	ip, err := parseIP(req.RemoteAddr)
 	if err != nil {
-		rw.Header().Set("Content-Type", "application/json")
-		rw.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprintln( rw, fmt.Sprintf(`{"message":"%s"}`, err.Error()) )
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
 	w.Address = ip
 	
-	msg, code := w.registrationCheck()
-	if msg != "" || code != http.StatusOK {
-		rw.WriteHeader(code)
-		fmt.Fprintln( rw, fmt.Sprintf(`{"message":"%s"}`, msg) )
+	// send W as a single item array
+	msg, err := json.Marshal( [1]W{*w} )
+	if err != nil {
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
 	
-	regListeners := r.getAll()
-	found := false
-	for i:=0; i<len(regListeners) && !found; i++ {
-		if regListeners[i].URL == w.Address {
-			found = true
-			if w.Duration > 0 && w.Duration < DEFAULT_EXPIRATION_DURATION {
-				regListeners[i].Until = time.Now().Unix() + w.Duration
-			} else {
-				regListeners[i].Until = time.Now().Unix() + int64(DEFAULT_EXPIRATION_DURATION.Seconds())
-			}
-			regListeners[i].Matcher = w.Matcher
-			regListeners[i].Events = w.Events
-			regListeners[i].Groups = w.Groups
-			regListeners[i].Config.ContentType = w.ContentType
-			regListeners[i].Config.Secret = w.Secret
-		}
-	}
-	if !found {
-		w.Until = time.Now().Unix() + int64(DEFAULT_EXPIRATION_DURATION.Seconds())
-		regListeners := append(regListeners, w)
-	}
-	
-	r.Update(regListeners)
-	
-	rw.Header().Set("Content-Type", "application/json")
-	rw.Write([]byte(`{"message":"Success"}`))
+	fmt.Printf("Publish message to aws.sns here: %+v\n", msg)
+	//PublishMessage( string(msg) )  // publish message to aws.sns // TODO: not implemented yet
 }

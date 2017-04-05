@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+const (
+	DEFAULT_EXPIRATION_DURATION time.Duration = time.Second * 300
+)
+
 // W is the structure that represents the Webhook listener
 // data we share.
 //
@@ -59,6 +63,7 @@ func (w *W) ID() string {
 type List interface {
 	Len() int
 	Get(int) *W
+	GetAll() []*W
 }
 
 // UpdatableList is mutable list that can be updated en masse
@@ -95,8 +100,46 @@ func (ul *updatableList) Get(index int) *W {
 	return nil
 }
 
+// getAll builds a list of registered listeners
+func (ul *updatableList) GetAll() (all []*W) {
+	for i:=0; i<ul.Len(); i++ {
+		all = append(all, ul.Get(i))
+	}
+	
+	return
+}
+
 func (ul *updatableList) Update(newItems []W) {
-	ul.value.Store(newItems)
+	for _, newItem := range newItems {
+		found := false
+		items := ul.GetAll()
+		
+		// update item
+		for i:=0; i<len(items) && !found; i++  {
+			if items[i].Config.URL == newItem.Config.URL {
+				found = true
+				
+				if newItem.Duration > 0 && newItem.Duration < DEFAULT_EXPIRATION_DURATION {
+					items[i].Until = time.Now().Add(newItem.Duration)
+				} else {
+					items[i].Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
+				}
+				items[i].Matcher = newItem.Matcher
+				items[i].Events = newItem.Events
+				items[i].Config.ContentType = newItem.Config.ContentType
+				items[i].Config.Secret = newItem.Config.Secret
+			}
+		}
+		
+		// add item
+		if !found {
+			newItem.Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
+			items = append(items, &newItem)
+		}
+		
+		// store items
+		ul.value.Store(items)
+	}
 }
 
 func (ul *updatableList) Filter(filter func([]W) []W) {
