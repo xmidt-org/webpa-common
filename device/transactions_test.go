@@ -286,3 +286,151 @@ func TestEncodeResponse(t *testing.T) {
 		t.Run("NoContents", testEncodeResponseNoPoolAndNoContents)
 	})
 }
+
+func testTransactionsInitialState(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		transactions = NewTransactions()
+	)
+
+	assert.Equal(0, transactions.Len())
+	assert.Empty(transactions.Keys())
+}
+
+func testTransactionsCompleteEmptyTransactionKey(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		transactions = NewTransactions()
+	)
+
+	assert.Equal(ErrorInvalidTransactionKey, transactions.Complete("", &Response{}))
+}
+
+func testTransactionsCompleteNoSuchTransactionKey(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		transactions = NewTransactions()
+	)
+
+	assert.Equal(ErrorNoSuchTransactionKey, transactions.Complete("nosuch", &Response{}))
+}
+
+func testTransactionsCompleteNilResponse(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		transactions = NewTransactions()
+	)
+
+	assert.Panics(func() {
+		transactions.Complete("transaction-uuid", nil)
+	})
+}
+
+func testTransactionsRegisterEmptyTransactionKey(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		transactions = NewTransactions()
+		output, err  = transactions.Register("")
+	)
+
+	assert.Equal(0, transactions.Len())
+	assert.Empty(transactions.Keys())
+	assert.Nil(output)
+	assert.Equal(ErrorInvalidTransactionKey, err)
+}
+
+func testTransactionsRegisterDuplicateTransactionKey(t *testing.T) {
+	const transactionKey = "valid-transaction-id"
+
+	var (
+		assert           = assert.New(t)
+		transactions     = NewTransactions()
+		firstOutput, err = transactions.Register(transactionKey)
+	)
+
+	assert.NotNil(firstOutput)
+	assert.NoError(err)
+
+	secondOutput, err := transactions.Register(transactionKey)
+	assert.Nil(secondOutput)
+	assert.Equal(ErrorTransactionAlreadyRegistered, err)
+}
+
+func testTransactionsLifecycle(t *testing.T) {
+	const transactionKey = "transaction-id"
+
+	var (
+		assert           = assert.New(t)
+		transactions     = NewTransactions()
+		expectedResponse = new(Response)
+		registered       = make(chan struct{})
+		finished         = make(chan struct{})
+	)
+
+	go func() {
+		defer close(finished)
+		output, err := transactions.Register(transactionKey)
+		assert.Equal(1, transactions.Len())
+		assert.Equal([]string{transactionKey}, transactions.Keys())
+		close(registered)
+
+		if assert.NotNil(output) && assert.NoError(err) {
+			assert.True(expectedResponse == <-output)
+		}
+	}()
+
+	go func() {
+		<-registered
+		transactions.Complete(transactionKey, expectedResponse)
+	}()
+
+	<-finished
+}
+
+func testTransactionsCancellation(t *testing.T) {
+	const transactionKey = "transaction-id"
+
+	var (
+		assert       = assert.New(t)
+		transactions = NewTransactions()
+		registered   = make(chan struct{})
+		finished     = make(chan struct{})
+	)
+
+	go func() {
+		defer close(finished)
+		output, err := transactions.Register(transactionKey)
+		assert.Equal(1, transactions.Len())
+		assert.Equal([]string{transactionKey}, transactions.Keys())
+		close(registered)
+
+		if assert.NotNil(output) && assert.NoError(err) {
+			assert.Nil(<-output)
+		}
+	}()
+
+	go func() {
+		<-registered
+		transactions.Cancel(transactionKey)
+	}()
+
+	<-finished
+}
+
+func TestTransactions(t *testing.T) {
+	t.Run("InitialState", testTransactionsInitialState)
+
+	t.Run("Complete", func(t *testing.T) {
+		t.Run("EmptyTransactionKey", testTransactionsCompleteEmptyTransactionKey)
+		t.Run("NoSuchTransactionKey", testTransactionsCompleteNoSuchTransactionKey)
+		t.Run("NilResponse", testTransactionsCompleteNilResponse)
+	})
+
+	t.Run("Register", func(t *testing.T) {
+		t.Run("EmptyTransactionKey", testTransactionsRegisterEmptyTransactionKey)
+		t.Run("DuplicateTransactionKey", testTransactionsRegisterDuplicateTransactionKey)
+	})
+
+	t.Run("Lifecycle", testTransactionsLifecycle)
+	t.Run("Cancellation", testTransactionsCancellation)
+}
