@@ -81,7 +81,7 @@ func closeTestDevices(assert *assert.Assertions, devices map[ID][]Connection) {
 	}
 }
 
-func TestManagerConnectMissingDeviceNameHeader(t *testing.T) {
+func testManagerConnectMissingDeviceNameHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -97,7 +97,7 @@ func TestManagerConnectMissingDeviceNameHeader(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerBadDeviceNameHeader(t *testing.T) {
+func testManagerConnectBadDeviceNameHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -114,7 +114,7 @@ func TestManagerBadDeviceNameHeader(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerBadConveyHeader(t *testing.T) {
+func testManagerConnectBadConveyHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -132,7 +132,7 @@ func TestManagerBadConveyHeader(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerKeyError(t *testing.T) {
+func testManagerConnectKeyError(t *testing.T) {
 	assert := assert.New(t)
 	badKeyFunc := func(ID, Convey, *http.Request) (Key, error) {
 		return invalidKey, errors.New("expected")
@@ -154,29 +154,7 @@ func TestManagerKeyError(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerPongCallbackFor(t *testing.T) {
-	assert := assert.New(t)
-	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, 1)
-	expectedData := "expected pong data"
-	listenerCalled := false
-
-	manager := &manager{
-		logger: logging.TestLogger(t),
-		listeners: []Listener{
-			func(event *Event) {
-				listenerCalled = true
-				assert.True(expectedDevice == event.Device)
-				assert.Equal(expectedData, event.Data)
-			},
-		},
-	}
-
-	pongCallback := manager.pongCallbackFor(expectedDevice)
-	pongCallback(expectedData)
-	assert.True(listenerCalled)
-}
-
-func TestManagerConnectAndVisit(t *testing.T) {
+func testManagerConnectVisit(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -243,7 +221,29 @@ func TestManagerConnectAndVisit(t *testing.T) {
 	deviceSet.assertDistributionOfIDs(assert, testDeviceIDs)
 }
 
-func TestManagerDisconnect(t *testing.T) {
+func testManagerPongCallbackFor(t *testing.T) {
+	assert := assert.New(t)
+	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, 1)
+	expectedData := "expected pong data"
+	listenerCalled := false
+
+	manager := &manager{
+		logger: logging.TestLogger(t),
+		listeners: []Listener{
+			func(event *Event) {
+				listenerCalled = true
+				assert.True(expectedDevice == event.Device)
+				assert.Equal(expectedData, event.Data)
+			},
+		},
+	}
+
+	pongCallback := manager.pongCallbackFor(expectedDevice)
+	pongCallback(expectedData)
+	assert.True(listenerCalled)
+}
+
+func testManagerDisconnect(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -290,7 +290,7 @@ func TestManagerDisconnect(t *testing.T) {
 	assert.Equal(testConnectionCount, deviceSet.len())
 }
 
-func TestManagerDisconnectOne(t *testing.T) {
+func testManagerDisconnectOne(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -344,7 +344,7 @@ func TestManagerDisconnectOne(t *testing.T) {
 	}
 }
 
-func TestManagerDisconnectIf(t *testing.T) {
+func testManagerDisconnectIf(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -399,10 +399,7 @@ func TestManagerDisconnectIf(t *testing.T) {
 	}
 }
 
-func TestManagerRoute(t *testing.T) {
-}
-
-func TestManagerPingPong(t *testing.T) {
+func testManagerPingPong(t *testing.T) {
 	var (
 		assert      = assert.New(t)
 		connectWait = new(sync.WaitGroup)
@@ -465,4 +462,21 @@ func TestManagerPingPong(t *testing.T) {
 	}()
 
 	pongWait.Wait()
+}
+
+func TestManager(t *testing.T) {
+	t.Run("Connect", func(t *testing.T) {
+		t.Run("MissingDeviceNameHeader", testManagerConnectMissingDeviceNameHeader)
+		t.Run("BadDeviceNameHeader", testManagerConnectBadDeviceNameHeader)
+		t.Run("BadConveyHeader", testManagerConnectBadConveyHeader)
+		t.Run("KeyError", testManagerConnectKeyError)
+		t.Run("Visit", testManagerConnectVisit)
+	})
+
+	t.Run("Disconnect", testManagerDisconnect)
+	t.Run("DisconnectOne", testManagerDisconnectOne)
+	t.Run("DisconnectIf", testManagerDisconnectIf)
+
+	t.Run("PongCallbackFor", testManagerPongCallbackFor)
+	t.Run("PingPong", testManagerPingPong)
 }
