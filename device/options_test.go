@@ -29,6 +29,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Empty(o.subprotocols())
 		assert.NotNil(o.keyFunc())
 		assert.NotNil(o.logger())
+		assert.Empty(o.listeners())
 	}
 }
 
@@ -58,6 +59,7 @@ func TestOptions(t *testing.T) {
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
 			KeyFunc:                expectedKeyFunc,
 			Logger:                 expectedLogger,
+			Listeners:              []Listener{func(*Event) {}},
 		}
 	)
 
@@ -75,6 +77,7 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.WriteBufferSize, o.writeBufferSize())
 	assert.Equal(o.Subprotocols, o.subprotocols())
 	assert.Equal(expectedLogger, o.logger())
+	assert.Equal(o.Listeners, o.listeners())
 
 	actualKeyFunc := o.keyFunc()
 	if assert.NotNil(actualKeyFunc) {

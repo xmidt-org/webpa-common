@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -438,6 +439,72 @@ func testManagerDisconnectIf(t *testing.T) {
 	}
 }
 
+func testManagerRouteBadDestination(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		request = &Request{
+			Message: &wrp.Message{
+				Destination: "this is a bad destination",
+			},
+		}
+
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(nil, connectionFactory)
+	)
+
+	response, err := manager.Route(request)
+	assert.Nil(response)
+	assert.Error(err)
+
+	connectionFactory.AssertExpectations(t)
+}
+
+func testManagerRouteDeviceNotFound(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		request = &Request{
+			Message: &wrp.Message{
+				Destination: "mac:112233445566",
+			},
+		}
+
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(nil, connectionFactory)
+	)
+
+	response, err := manager.Route(request)
+	assert.Nil(response)
+	assert.Equal(ErrorDeviceNotFound, err)
+
+	connectionFactory.AssertExpectations(t)
+}
+
+func testManagerRouteNonUniqueID(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		request = &Request{
+			Message: &wrp.Message{
+				Destination: "mac:112233445566",
+			},
+		}
+
+		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, 1)
+		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, 1)
+
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(nil, connectionFactory).(*manager)
+	)
+
+	manager.registry.add(device1)
+	manager.registry.add(device2)
+
+	response, err := manager.Route(request)
+	assert.Nil(response)
+	assert.Equal(ErrorNonUniqueID, err)
+
+	connectionFactory.AssertExpectations(t)
+}
+
 func testManagerPingPong(t *testing.T) {
 	var (
 		assert      = assert.New(t)
@@ -511,6 +578,12 @@ func TestManager(t *testing.T) {
 		t.Run("KeyError", testManagerConnectKeyError)
 		t.Run("ConnectionFactoryError", testManagerConnectConnectionFactoryError)
 		t.Run("Visit", testManagerConnectVisit)
+	})
+
+	t.Run("Route", func(t *testing.T) {
+		t.Run("BadDestination", testManagerRouteBadDestination)
+		t.Run("DeviceNotFound", testManagerRouteDeviceNotFound)
+		t.Run("NonUniqueID", testManagerRouteNonUniqueID)
 	})
 
 	t.Run("Disconnect", testManagerDisconnect)

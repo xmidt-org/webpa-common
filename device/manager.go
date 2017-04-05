@@ -97,7 +97,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		listeners: o.Listeners,
+		listeners: o.listeners(),
 	}
 
 	return m

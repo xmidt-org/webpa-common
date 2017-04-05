@@ -208,3 +208,11 @@ func (o *Options) logger() logging.Logger {
 
 	return logging.DefaultLogger()
 }
+
+func (o *Options) listeners() []Listener {
+	if o != nil {
+		return o.Listeners
+	}
+
+	return nil
+}
