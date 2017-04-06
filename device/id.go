@@ -1,7 +1,6 @@
 package device
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -45,7 +44,7 @@ func IntToMAC(value uint64) ID {
 func ParseID(deviceName string) (ID, error) {
 	match := idPattern.FindStringSubmatch(deviceName)
 	if match == nil {
-		return invalidID, errors.New(fmt.Sprintf("Invalid device name: %s", deviceName))
+		return invalidID, ErrorInvalidDeviceName
 	}
 
 	var (
@@ -71,10 +70,8 @@ func ParseID(deviceName string) (ID, error) {
 			idPart,
 		)
 
-		if invalidCharacter != -1 {
-			return invalidID, errors.New(fmt.Sprintf("Invalid character in mac: %c", invalidCharacter))
-		} else if len(idPart) != macLength {
-			return invalidID, errors.New(fmt.Sprintf("Invalid length of mac: %s", idPart))
+		if invalidCharacter != -1 || len(idPart) != macLength {
+			return invalidID, ErrorInvalidDeviceName
 		}
 	}
 

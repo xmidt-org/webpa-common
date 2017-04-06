@@ -20,6 +20,10 @@ type mockDevice struct {
 	mock.Mock
 }
 
+func (m *mockDevice) String() string {
+	return m.Called().String(0)
+}
+
 func (m *mockDevice) ID() ID {
 	return m.Called().Get(0).(ID)
 }

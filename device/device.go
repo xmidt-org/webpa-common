@@ -41,7 +41,12 @@ type envelope struct {
 // a read and write, referred to as pumps.  The write pump services the queue
 // of messages used by Send, while the read pump rarely needs to interact
 // with devices directly.
+//
+// The String() method will always return a valid JSON object representation
+// of this device.
 type Interface interface {
+	fmt.Stringer
+
 	// ID returns the canonicalized identifer for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
 	// with the same ID to be connected.  This typically occurs due to fraud,
