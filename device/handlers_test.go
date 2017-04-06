@@ -206,6 +206,146 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 	router.AssertExpectations(t)
 }
 
+func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, requestFormat wrp.Format) {
+	const transactionKey = "transaction-key"
+
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		requestMessage = &wrp.Message{
+			Type:            wrp.SimpleRequestResponseMessageType,
+			Source:          "test.com",
+			Destination:     "mac:123412341234",
+			TransactionUUID: transactionKey,
+			ContentType:     "text/plain",
+			Payload:         []byte("some lovely data here"),
+			Headers:         []string{"Header-1", "Header-2"},
+			Metadata:        map[string]string{"foo": "bar"},
+		}
+
+		responseMessage = &wrp.Message{
+			Type:            wrp.SimpleRequestResponseMessageType,
+			Destination:     "test.com",
+			Source:          "mac:123412341234",
+			TransactionUUID: transactionKey,
+		}
+
+		setupRequestEncoders   = wrp.NewEncoderPool(1, requestFormat)
+		setupResponseEncoders  = wrp.NewEncoderPool(1, wrp.Msgpack)
+		verifyResponseDecoders = wrp.NewDecoderPool(1, responseFormat)
+		requestContents        []byte
+		responseContents       []byte
+	)
+
+	require.NoError(setupRequestEncoders.EncodeBytes(&requestContents, requestMessage))
+	require.NoError(setupResponseEncoders.EncodeBytes(&responseContents, responseMessage))
+
+	var (
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
+
+		router  = new(mockRouter)
+		handler = MessageHandler{
+			Router:   router,
+			Decoders: wrp.NewDecoderPool(1, requestFormat),
+			Encoders: wrp.NewEncoderPool(1, responseFormat),
+		}
+
+		actualDeviceRequest    *Request
+		expectedDeviceResponse = &Response{
+			Message:  responseMessage,
+			Format:   wrp.Msgpack,
+			Contents: responseContents,
+		}
+	)
+
+	router.On(
+		"Route",
+		mock.MatchedBy(func(candidate *Request) bool {
+			actualDeviceRequest = candidate
+			return candidate.Message != nil &&
+				len(candidate.Contents) > 0 &&
+				candidate.Format == requestFormat
+		}),
+	).Once().Return(expectedDeviceResponse, nil)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusOK, response.Code)
+	assert.Equal(responseFormat.ContentType(), response.HeaderMap.Get("Content-Type"))
+	require.NotNil(actualDeviceRequest)
+	assert.NoError(verifyResponseDecoders.Decode(new(wrp.Message), response.Body))
+
+	router.AssertExpectations(t)
+}
+
+func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
+	const transactionKey = "transaction-key"
+
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		requestMessage = &wrp.Message{
+			Type:            wrp.SimpleRequestResponseMessageType,
+			Source:          "test.com",
+			Destination:     "mac:123412341234",
+			TransactionUUID: transactionKey,
+			ContentType:     "text/plain",
+			Payload:         []byte("some lovely data here"),
+			Headers:         []string{"Header-1", "Header-2"},
+			Metadata:        map[string]string{"foo": "bar"},
+		}
+
+		responseMessage = &wrp.Message{
+			Type:            wrp.SimpleRequestResponseMessageType,
+			Destination:     "test.com",
+			Source:          "mac:123412341234",
+			TransactionUUID: transactionKey,
+		}
+
+		setupRequestEncoders = wrp.NewEncoderPool(1, wrp.Msgpack)
+		requestContents      []byte
+	)
+
+	require.NoError(setupRequestEncoders.EncodeBytes(&requestContents, requestMessage))
+
+	var (
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
+
+		router  = new(mockRouter)
+		handler = MessageHandler{
+			Router:   router,
+			Decoders: wrp.NewDecoderPool(1, wrp.Msgpack),
+		}
+
+		actualResponseBody     map[string]interface{}
+		expectedDeviceResponse = &Response{
+			Message: responseMessage,
+			Format:  wrp.Msgpack,
+		}
+	)
+
+	router.On(
+		"Route",
+		mock.MatchedBy(func(candidate *Request) bool {
+			return candidate.Message != nil &&
+				len(candidate.Contents) > 0 &&
+				candidate.Format == wrp.Msgpack
+		}),
+	).Once().Return(expectedDeviceResponse, nil)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	responseContents, err := ioutil.ReadAll(response.Body)
+	require.NoError(err)
+	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
+
+	router.AssertExpectations(t)
+}
+
 func TestMessageHandler(t *testing.T) {
 	t.Run("Logger", testMessageHandlerLogger)
 	t.Run("CreateContext", func(t *testing.T) {
@@ -215,6 +355,7 @@ func TestMessageHandler(t *testing.T) {
 
 	t.Run("ServeHTTP", func(t *testing.T) {
 		t.Run("DecodeError", testMessageHandlerServeHTTPDecodeError)
+		t.Run("EncodeError", testMessageHandlerServeHTTPEncodeError)
 
 		t.Run("RouteError", func(t *testing.T) {
 			testData := []struct {
@@ -237,6 +378,14 @@ func TestMessageHandler(t *testing.T) {
 		t.Run("Event", func(t *testing.T) {
 			for _, requestFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 				testMessageHandlerServeHTTPEvent(t, requestFormat)
+			}
+		})
+
+		t.Run("RequestResponse", func(t *testing.T) {
+			for _, responseFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
+				for _, requestFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
+					testMessageHandlerServeHTTPRequestResponse(t, responseFormat, requestFormat)
+				}
 			}
 		})
 	})
