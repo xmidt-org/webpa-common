@@ -61,15 +61,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler) {
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
 
-	// To load the initial hooks from the json file temporarily
-	initialList := LoadHooksList()
-
-	monitor.list.Update(initialList)
 	go monitor.listen()
-
-	// To update until field temporarily
-	go updateHooksTicker(monitor)
-
 	return monitor.list, monitor
 }
 
