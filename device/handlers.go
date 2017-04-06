@@ -191,6 +191,11 @@ func (lh *ListHandler) updateCache() (json []byte, err error) {
 	lh.lock.Lock()
 	defer lh.lock.Unlock()
 
+	if lh.cacheExpiry.Before(time.Now()) {
+		json = lh.cachedJSON
+		return
+	}
+
 	var output bytes.Buffer
 	err = lh.generateList(&output)
 	if err != nil {
