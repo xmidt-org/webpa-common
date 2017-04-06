@@ -3,7 +3,6 @@ package device
 import (
 	"errors"
 	"fmt"
-	"net/http"
 )
 
 var (
@@ -16,14 +15,6 @@ var (
 	ErrorTransactionCancelled         = errors.New("The transaction has been cancelled")
 	ErrorResponseNoContents           = errors.New("The response has no contents")
 )
-
-// ResponseCode provides a standard translation of errors into HTTP status codes for responses
-func ResponseCode(err error) int {
-	switch err {
-	default:
-		return http.StatusInternalServerError
-	}
-}
 
 // DeviceError is the common interface implemented by all error objects
 // which carry device-related metadata

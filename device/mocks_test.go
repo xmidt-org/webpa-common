@@ -129,3 +129,13 @@ func expectsDevices(devices ...*device) deviceSet {
 
 	return result
 }
+
+type mockRouter struct {
+	mock.Mock
+}
+
+func (m *mockRouter) Route(request *Request) (*Response, error) {
+	arguments := m.Called(request)
+	first, _ := arguments.Get(0).(*Response)
+	return first, arguments.Error(1)
+}

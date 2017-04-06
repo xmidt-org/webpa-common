@@ -25,8 +25,9 @@ type MessageHandler struct {
 	// sent to this handler.  This field is required.
 	Decoders *wrp.DecoderPool
 
-	// Encoders is the pool of wrp.Encoder objects used to encode wrp messages sent
-	// as HTTP responses.  This field is required.
+	// Encoders is the optional pool of wrp.Encoder objects used to encode wrp messages sent
+	// as HTTP responses.  If not supplied, this handler assumes the format returned by the Router
+	// is the format to be sent back in the HTTP response.
 	Encoders *wrp.EncoderPool
 
 	// Router is the device message Router to use.  This field is required.
@@ -92,6 +93,10 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 		case ErrorDeviceNotFound:
 			code = http.StatusNotFound
 		case ErrorNonUniqueID:
+			code = http.StatusBadRequest
+		case ErrorInvalidTransactionKey:
+			code = http.StatusBadRequest
+		case ErrorTransactionAlreadyRegistered:
 			code = http.StatusBadRequest
 		}
 
