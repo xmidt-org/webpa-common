@@ -2,7 +2,6 @@ package webhook
 
 import (
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -17,6 +16,7 @@ const (
 // This could also go in the server package, in which case I'd change the name to Webhook, since
 // service.Webhook works better.  See https://blog.golang.org/package-names)
 type W struct {
+
 	// Configuration for message delivery
 	Config struct {
 		// The URL to deliver messages to.
