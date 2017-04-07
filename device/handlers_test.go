@@ -437,3 +437,65 @@ func TestConnectHandler(t *testing.T) {
 		testConnectHandlerServeHTTP(t, errors.New("expected error"), http.Header{"Header-1": []string{"Value-1"}})
 	})
 }
+
+func testListHandlerRefreshInterval(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		handler = ListHandler{}
+	)
+
+	assert.Equal(DefaultRefreshInterval, handler.refreshInterval())
+
+	handler.RefreshInterval = 72 * time.Minute
+	assert.Equal(handler.RefreshInterval, handler.refreshInterval())
+}
+
+func testListHandlerBacklog(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		handler = ListHandler{}
+	)
+
+	assert.Equal(DefaultListBacklog, handler.backlog())
+
+	handler.Backlog = 56792
+	assert.Equal(handler.Backlog, handler.backlog())
+}
+
+func testListHandlerNewTick(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		handler = ListHandler{}
+	)
+
+	tickerC, stop := handler.newTick()
+	assert.NotNil(tickerC)
+	assert.NotNil(stop)
+	stop()
+
+	var (
+		tickTime         = time.Now()
+		customC          = make(chan time.Time, 1)
+		customStopCalled bool
+		customStop       = func() { customStopCalled = true }
+	)
+
+	handler.Tick = func(time.Duration) (<-chan time.Time, func()) {
+		return customC, customStop
+	}
+
+	tickerC, stop = handler.newTick()
+	assert.NotNil(tickerC)
+	customC <- tickTime
+	assert.Equal(tickTime, <-tickerC)
+
+	assert.NotNil(stop)
+	stop()
+	assert.True(customStopCalled)
+}
+
+func TestListHandler(t *testing.T) {
+	t.Run("RefreshInterval", testListHandlerRefreshInterval)
+	t.Run("Backlog", testListHandlerBacklog)
+	t.Run("NewTick", testListHandlerNewTick)
+}

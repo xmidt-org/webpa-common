@@ -3,17 +3,21 @@ package device
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"io"
 	"net/http"
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
-const DefaultMessageTimeout time.Duration = time.Minute * 2
+const (
+	DefaultMessageTimeout  time.Duration = 2 * time.Minute
+	DefaultRefreshInterval time.Duration = 10 * time.Second
+	DefaultListBacklog     uint32        = 150
+)
 
 // MessageHandler is a configurable http.Handler which handles inbound WRP traffic
 // to be sent to devices.
@@ -139,110 +143,175 @@ func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	}
 }
 
-// ListHandler is an http.Handler that responds with lists of devices associated with a Registry.
+// ListHandler is a handler which serves a JSON document containing connected devices.  This
+// handler listens for connection and disconnection events and concurrently updates a cached
+// JSON document.  This cached document is updated on the RefreshInterval.
 type ListHandler struct {
-	Logger logging.Logger
+	// RefreshInterval is the time interval at which the cached JSON device list is updated.
+	// If this field is nonpositive, DefaultRefreshInterval is used.
+	RefreshInterval time.Duration
 
-	// Registry is the required instance containing registered devices
-	Registry Registry
+	// Backlog is the number of connections and disconnections (each) allowed to queue up
+	// internally.  If this field is not positive, DefaultListBacklog is used.
+	Backlog uint32
 
-	// CachePeriod is the length of time that the internally cached JSON is considered valid.
-	// If nonpositive, this handler does no caching.
-	CachePeriod time.Duration
+	// Tick is a factory function that produces a ticker channel and a stop function.
+	// If not set, time.Ticker is used and the stop function is ticker.Stop.
+	Tick func(time.Duration) (<-chan time.Time, func())
 
-	lock        sync.RWMutex
-	cacheExpiry time.Time
-	cachedJSON  []byte
+	initializeOnce sync.Once
+
+	lock sync.Mutex
+
+	// cachedJSON holds the []byte of JSON holding information about connected devices
+	cachedJSON atomic.Value
+
+	// connections is the channel on which new devices are sent.  this
+	// channel is never closed
+	connections chan Interface
+
+	// disconnections is the channel on which disconnected devices are sent.
+	// this channel is never closed.
+	disconnections chan Interface
+
+	// shutdown is the signal channel indicating that this handler should stop listening.
+	// it is closed and recreated as needed.
+	shutdown chan struct{}
 }
 
-func (lh *ListHandler) logger() logging.Logger {
-	if lh.Logger != nil {
-		return lh.Logger
+func (lh *ListHandler) refreshInterval() time.Duration {
+	if lh.RefreshInterval > 0 {
+		return lh.RefreshInterval
 	}
 
-	return logging.DefaultLogger()
+	return DefaultRefreshInterval
 }
 
-func (lh *ListHandler) generateList(output io.Writer) (err error) {
-	_, err = fmt.Fprint(output, `{"devices":[`)
-	if err != nil {
-		return
+func (lh *ListHandler) backlog() uint32 {
+	if lh.Backlog > 0 {
+		return lh.Backlog
 	}
 
-	comma := ""
-	lh.Registry.VisitAll(func(device Interface) {
-		if err == nil {
-			_, err = fmt.Fprint(output, comma, device.String())
-			comma = ","
-		}
-	})
+	return DefaultListBacklog
+}
 
-	if err == nil {
-		_, err = fmt.Fprint(output, `]}`)
+// newTick returns a ticker channel and a stop function for cleanup.  If tick is set,
+// that function is used.  Otherwise, a time.Ticker is created and (ticker.C, ticker.Stop) is returned.
+func (lh *ListHandler) newTick() (<-chan time.Time, func()) {
+	refreshInterval := lh.refreshInterval()
+	if lh.Tick != nil {
+		return lh.Tick(refreshInterval)
 	}
 
-	return
+	ticker := time.NewTicker(refreshInterval)
+	return ticker.C, ticker.Stop
 }
 
-func (lh *ListHandler) tryCache() (json []byte, expired bool) {
-	lh.lock.RLock()
-	defer lh.lock.RUnlock()
-
-	expired = lh.cacheExpiry.Before(time.Now())
-	json = lh.cachedJSON
-
-	return
-}
-
-func (lh *ListHandler) updateCache() (json []byte, err error) {
+// Stop stops listening for device connections and disconnections.  Be aware that
+// OnDeviceEvent may block while this handler is not listening.
+// Use this method with great care.
+func (lh *ListHandler) Stop() {
 	lh.lock.Lock()
 	defer lh.lock.Unlock()
 
-	if lh.cacheExpiry.Before(time.Now()) {
-		json = lh.cachedJSON
+	if lh.shutdown == nil {
 		return
 	}
 
-	var output bytes.Buffer
-	err = lh.generateList(&output)
-	if err != nil {
+	close(lh.shutdown)
+	lh.shutdown = nil
+}
+
+// Listen starts listening for device connections and disconnections.  This method
+// is idempotent and should be called before content is served.
+//
+// Devices that are connected prior to Listen being called will not appear in the
+// cached JSON.  For this reason, Listen must be called once, before the manager
+// is created.
+func (lh *ListHandler) Listen() {
+	lh.lock.Lock()
+	defer lh.lock.Unlock()
+
+	if lh.shutdown != nil {
 		return
 	}
 
-	lh.cacheExpiry = time.Now().Add(lh.CachePeriod)
-	lh.cachedJSON = output.Bytes()
-	json = lh.cachedJSON
-	return
+	lh.initializeOnce.Do(func() {
+		lh.cachedJSON.Store([]byte(`{"devices":[]}`))
+		lh.connections = make(chan Interface, lh.backlog())
+		lh.disconnections = make(chan Interface, lh.backlog())
+	})
+
+	lh.shutdown = make(chan struct{})
+	go lh.monitor(lh.shutdown)
+}
+
+// OnDeviceEvent receives events from a Manager.  This function must be
+// inserted into Options.Listeners prior to creating a Manager.
+func (lh *ListHandler) OnDeviceEvent(e *Event) {
+	switch e.Type {
+	case Connect:
+		lh.connections <- e.Device
+	case Disconnect:
+		lh.disconnections <- e.Device
+	}
+}
+
+// refresh takes a map of devices and builds a new cached JSON byte array
+func (lh *ListHandler) refresh(devices map[Key][]byte) {
+	var (
+		output     = bytes.NewBufferString(`{"devices":[`)
+		needsComma bool
+	)
+
+	for _, deviceJSON := range devices {
+		if needsComma {
+			output.WriteString(`,`)
+		}
+
+		output.Write(deviceJSON)
+		needsComma = true
+	}
+
+	output.WriteString(`]}`)
+	lh.cachedJSON.Store(output.Bytes())
+}
+
+// monitor is the goroutine that monitors the channels and collects changes.
+// periodically, this function will invoke refresh.
+func (lh *ListHandler) monitor(shutdown <-chan struct{}) {
+	var (
+		changeCount   uint32
+		devices       = make(map[Key][]byte, 1000)
+		refresh, stop = lh.newTick()
+	)
+
+	defer stop()
+
+	for {
+		select {
+		case <-shutdown:
+			return
+		case newDevice := <-lh.connections:
+			devices[newDevice.Key()] = []byte(newDevice.String())
+			changeCount++
+		case disconnectedDevice := <-lh.disconnections:
+			delete(devices, disconnectedDevice.Key())
+			changeCount++
+		case <-refresh:
+			if changeCount > 0 {
+				lh.refresh(devices)
+			}
+
+			changeCount = 0
+		}
+	}
 }
 
 func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	if lh.CachePeriod < 1 {
-		// uncached
-		response.Header().Set("Content-Type", "application/json")
-		if err := lh.generateList(response); err != nil {
-			lh.logger().Error("Unable to output device list: %s", err)
-		}
-
-		return
-	}
-
-	json, expired := lh.tryCache()
-	if expired {
-		var err error
-		if json, err = lh.updateCache(); err != nil {
-			httperror.Formatf(
-				response,
-				http.StatusInternalServerError,
-				"Could not update cached device list: %s",
-				err,
-			)
-
-			return
-		}
-	}
+	jsonResponse := lh.cachedJSON.Load().([]byte)
 
 	response.Header().Set("Content-Type", "application/json")
-	if _, err := response.Write(json); err != nil {
-		lh.logger().Error("Unable to output device list: %s", err)
-	}
+	response.Header().Set("Content-Length", strconv.Itoa(len(jsonResponse)))
+	response.Write(jsonResponse)
 }
