@@ -358,21 +358,12 @@ func TestMessageHandler(t *testing.T) {
 		t.Run("EncodeError", testMessageHandlerServeHTTPEncodeError)
 
 		t.Run("RouteError", func(t *testing.T) {
-			testData := []struct {
-				routeError   error
-				expectedCode int
-			}{
-				{ErrorInvalidDeviceName, http.StatusBadRequest},
-				{ErrorDeviceNotFound, http.StatusNotFound},
-				{ErrorNonUniqueID, http.StatusBadRequest},
-				{ErrorInvalidTransactionKey, http.StatusBadRequest},
-				{ErrorTransactionAlreadyRegistered, http.StatusBadRequest},
-				{errors.New("random error"), http.StatusInternalServerError},
-			}
-
-			for _, record := range testData {
-				testMessageHandlerServeHTTPRouteError(t, record.routeError, record.expectedCode)
-			}
+			testMessageHandlerServeHTTPRouteError(t, ErrorInvalidDeviceName, http.StatusBadRequest)
+			testMessageHandlerServeHTTPRouteError(t, ErrorDeviceNotFound, http.StatusNotFound)
+			testMessageHandlerServeHTTPRouteError(t, ErrorNonUniqueID, http.StatusBadRequest)
+			testMessageHandlerServeHTTPRouteError(t, ErrorInvalidTransactionKey, http.StatusBadRequest)
+			testMessageHandlerServeHTTPRouteError(t, ErrorTransactionAlreadyRegistered, http.StatusBadRequest)
+			testMessageHandlerServeHTTPRouteError(t, errors.New("random error"), http.StatusInternalServerError)
 		})
 
 		t.Run("Event", func(t *testing.T) {
@@ -388,5 +379,61 @@ func TestMessageHandler(t *testing.T) {
 				}
 			}
 		})
+	})
+}
+
+func testConnectHandlerLogger(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		logger = logging.TestLogger(t)
+
+		handler = ConnectHandler{}
+	)
+
+	assert.NotNil(handler.logger())
+
+	handler.Logger = logger
+	assert.Equal(logger, handler.logger())
+}
+
+func testConnectHandlerServeHTTP(t *testing.T, connectError error, responseHeader http.Header) {
+	var (
+		assert = assert.New(t)
+
+		device    = new(mockDevice)
+		connector = new(mockConnector)
+		handler   = ConnectHandler{
+			Connector:      connector,
+			ResponseHeader: responseHeader,
+		}
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+	)
+
+	if connectError != nil {
+		connector.On("Connect", response, request, responseHeader).Once().Return(nil, connectError)
+	} else {
+		device.On("ID").Once().Return(ID("mac:112233445566"))
+		connector.On("Connect", response, request, responseHeader).Once().Return(device, connectError)
+	}
+
+	handler.ServeHTTP(response, request)
+
+	// the handler itself shouldn't do anything to the response.
+	// the Connector does that
+	assert.Equal(http.StatusOK, response.Code)
+
+	device.AssertExpectations(t)
+	connector.AssertExpectations(t)
+}
+
+func TestConnectHandler(t *testing.T) {
+	t.Run("Logger", testConnectHandlerLogger)
+	t.Run("ServeHTTP", func(t *testing.T) {
+		testConnectHandlerServeHTTP(t, nil, nil)
+		testConnectHandlerServeHTTP(t, nil, http.Header{"Header-1": []string{"Value-1"}})
+		testConnectHandlerServeHTTP(t, errors.New("expected error"), nil)
+		testConnectHandlerServeHTTP(t, errors.New("expected error"), http.Header{"Header-1": []string{"Value-1"}})
 	})
 }

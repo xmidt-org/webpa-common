@@ -139,3 +139,25 @@ func (m *mockRouter) Route(request *Request) (*Response, error) {
 	first, _ := arguments.Get(0).(*Response)
 	return first, arguments.Error(1)
 }
+
+type mockConnector struct {
+	mock.Mock
+}
+
+func (m *mockConnector) Connect(response http.ResponseWriter, request *http.Request, header http.Header) (Interface, error) {
+	arguments := m.Called(response, request, header)
+	first, _ := arguments.Get(0).(Interface)
+	return first, arguments.Error(1)
+}
+
+func (m *mockConnector) Disconnect(id ID) int {
+	return m.Called().Int(0)
+}
+
+func (m *mockConnector) DisconnectOne(key Key) int {
+	return m.Called().Int(0)
+}
+
+func (m *mockConnector) DisconnectIf(predicate func(ID) bool) int {
+	return m.Called(predicate).Int(0)
+}

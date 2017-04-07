@@ -123,17 +123,19 @@ type ConnectHandler struct {
 	ResponseHeader http.Header
 }
 
-func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	logger := ch.Logger
-	if logger == nil {
-		logger = logging.DefaultLogger()
+func (ch *ConnectHandler) logger() logging.Logger {
+	if ch.Logger != nil {
+		return ch.Logger
 	}
 
-	device, err := ch.Connector.Connect(response, request, ch.ResponseHeader)
-	if err != nil {
-		logger.Error("Failed to connect device: %s", err)
+	return logging.DefaultLogger()
+}
+
+func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	if device, err := ch.Connector.Connect(response, request, ch.ResponseHeader); err != nil {
+		ch.logger().Error("Failed to connect device: %s", err)
 	} else {
-		logger.Debug("Connected device: %s", device.ID())
+		ch.logger().Debug("Connected device: %s", device.ID())
 	}
 }
 
