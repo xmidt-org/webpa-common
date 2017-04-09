@@ -23,7 +23,7 @@ func ExampleManagerTransaction() {
 					case Connect:
 						fmt.Printf("%s connected\n", e.Device.ID())
 						messageReceived.Add(1)
-					case MessageReceived:
+					case TransactionComplete:
 						fmt.Println("response received")
 						messageReceived.Done()
 					}

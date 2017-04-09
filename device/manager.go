@@ -244,7 +244,10 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 	event := new(Event)
 
 	return func(data string) {
-		event.setPong(d, data)
+		event.Clear()
+		event.Type = Pong
+		event.Device = d
+		event.Data = data
 		m.dispatch(event)
 	}
 }
@@ -288,6 +291,12 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
+		event.Clear()
+		event.Device = d
+		event.Message = message
+		event.Format = wrp.Msgpack
+		event.Contents = rawFrame
+
 		// update any waiting transaction
 		if transactionKey := message.TransactionKey(); len(transactionKey) > 0 {
 			err := d.transactions.Complete(
@@ -302,10 +311,15 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 
 			if err != nil {
 				m.logger.Error("Error while completing transaction: %s", err)
+				event.Type = TransactionBroken
+				event.Error = err
+			} else {
+				event.Type = TransactionComplete
 			}
+		} else {
+			event.Type = MessageReceived
 		}
 
-		event.setMessageReceived(d, message, wrp.Msgpack, rawFrame)
 		m.dispatch(&event)
 	}
 }
@@ -349,7 +363,12 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
 		if envelope != nil {
-			event.setRequestFailed(d, envelope.request, writeError)
+			event.Clear()
+			event.Type = MessageFailed
+			event.Device = d
+			event.Message = envelope.request.Message
+			event.Format = envelope.request.Format
+			event.Error = writeError
 			m.dispatch(&event)
 		}
 
@@ -361,7 +380,11 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				event.setRequestFailed(d, undeliverable.request, nil)
+				event.Clear()
+				event.Type = MessageFailed
+				event.Device = d
+				event.Message = undeliverable.request.Message
+				event.Format = undeliverable.request.Format
 				m.dispatch(&event)
 			default:
 				break

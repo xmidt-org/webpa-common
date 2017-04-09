@@ -14,8 +14,11 @@ func testEventString(t *testing.T) {
 		eventTypes = []EventType{
 			Connect,
 			Disconnect,
+			MessageSent,
 			MessageReceived,
 			MessageFailed,
+			TransactionComplete,
+			TransactionBroken,
 			Pong,
 		}
 	)
@@ -30,84 +33,17 @@ func testEventString(t *testing.T) {
 	assert.Equal(InvalidEventString, EventType(255).String())
 }
 
-func testEventSetMessageFailedWithError(t *testing.T, event Event) {
-	var (
-		assert   = assert.New(t)
-		device   = new(mockDevice)
-		message  = new(wrp.Message)
-		format   = wrp.JSON
-		contents = []byte("testEventSetMessageFailed")
-		err      = errors.New("testEventSetMessageFailed")
-	)
+func testEventClear(t *testing.T, event Event) {
+	assert := assert.New(t)
 
-	event.setMessageFailed(device, message, format, contents, err)
-	assert.Equal(MessageFailed, event.Type)
-	assert.Equal(device, event.Device)
-	assert.True(message == event.Message)
-	assert.Equal(format, event.Format)
-	assert.Equal(contents, event.Contents)
-	assert.True(err == event.Error)
-	assert.Empty(event.Data)
-
-	device.AssertExpectations(t)
-}
-
-func testEventSetMessageFailedWithoutError(t *testing.T, event Event) {
-	var (
-		assert   = assert.New(t)
-		device   = new(mockDevice)
-		message  = new(wrp.Message)
-		format   = wrp.JSON
-		contents = []byte("testEventSetMessageFailed")
-	)
-
-	event.setMessageFailed(device, message, format, contents, nil)
-	assert.Equal(MessageFailed, event.Type)
-	assert.Equal(device, event.Device)
-	assert.True(message == event.Message)
-	assert.Equal(format, event.Format)
-	assert.Equal(contents, event.Contents)
-	assert.NoError(event.Error)
-	assert.Empty(event.Data)
-
-	device.AssertExpectations(t)
-}
-
-func testEventSetMessageReceived(t *testing.T, event Event) {
-	var (
-		assert   = assert.New(t)
-		device   = new(mockDevice)
-		message  = new(wrp.Message)
-		format   = wrp.JSON
-		contents = []byte("testEventSetMessageReceived")
-	)
-
-	event.setMessageReceived(device, message, format, contents)
-	assert.Equal(MessageReceived, event.Type)
-	assert.Equal(device, event.Device)
-	assert.True(message == event.Message)
-	assert.Equal(format, event.Format)
-	assert.Equal(contents, event.Contents)
-	assert.NoError(event.Error)
-	assert.Empty(event.Data)
-	device.AssertExpectations(t)
-}
-
-func testEventSetPong(t *testing.T, event Event) {
-	var (
-		assert = assert.New(t)
-		device = new(mockDevice)
-		data   = "testSetPong"
-	)
-
-	event.setPong(device, data)
-	assert.Equal(Pong, event.Type)
-	assert.Equal(device, event.Device)
+	event.Clear()
+	assert.Equal(EventType(255), event.Type)
+	assert.Nil(event.Device)
 	assert.Nil(event.Message)
-	assert.Empty(event.Contents)
-	assert.NoError(event.Error)
-	assert.Equal(data, event.Data)
-	device.AssertExpectations(t)
+	assert.Equal(wrp.Msgpack, event.Format)
+	assert.Nil(event.Contents)
+	assert.Nil(event.Error)
+	assert.Empty(event.Data)
 }
 
 func TestEvent(t *testing.T) {
@@ -154,22 +90,9 @@ func TestEvent(t *testing.T) {
 		}
 	)
 
-	t.Run("setMessageFailed", func(t *testing.T) {
+	t.Run("Clear", func(t *testing.T) {
 		for _, original := range events {
-			testEventSetMessageFailedWithError(t, original)
-			testEventSetMessageFailedWithoutError(t, original)
-		}
-	})
-
-	t.Run("setMessageReceived", func(t *testing.T) {
-		for _, original := range events {
-			testEventSetMessageReceived(t, original)
-		}
-	})
-
-	t.Run("setPong", func(t *testing.T) {
-		for _, original := range events {
-			testEventSetPong(t, original)
+			testEventClear(t, original)
 		}
 	})
 
