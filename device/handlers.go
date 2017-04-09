@@ -159,24 +159,39 @@ type ListHandler struct {
 	// If not set, time.Ticker is used and the stop function is ticker.Stop.
 	Tick func(time.Duration) (<-chan time.Time, func())
 
+	lock           sync.Mutex
 	initializeOnce sync.Once
+	devices        map[Key][]byte
+	changeCount    uint32
+	cachedJSON     atomic.Value
+	shutdown       chan struct{}
+}
 
-	lock sync.Mutex
+func (lh *ListHandler) refresh() {
+	lh.lock.Lock()
+	defer lh.lock.Unlock()
 
-	// cachedJSON holds the []byte of JSON holding information about connected devices
-	cachedJSON atomic.Value
+	if lh.changeCount > 0 {
+		lh.changeCount = 0
 
-	// connections is the channel on which new devices are sent.  this
-	// channel is never closed
-	connections chan Interface
+		var (
+			output     = bytes.NewBufferString(`{"devices":[`)
+			needsComma bool
+			comma      = []byte(`,`)
+		)
 
-	// disconnections is the channel on which disconnected devices are sent.
-	// this channel is never closed.
-	disconnections chan Interface
+		for _, deviceJSON := range lh.devices {
+			if needsComma {
+				output.Write(comma)
+			}
 
-	// shutdown is the signal channel indicating that this handler should stop listening.
-	// it is closed and recreated as needed.
-	shutdown chan struct{}
+			output.Write(deviceJSON)
+			needsComma = true
+		}
+
+		output.WriteString(`]}`)
+		lh.cachedJSON.Store(output.Bytes())
+	}
 }
 
 func (lh *ListHandler) refreshInterval() time.Duration {
@@ -207,111 +222,74 @@ func (lh *ListHandler) newTick() (<-chan time.Time, func()) {
 	return ticker.C, ticker.Stop
 }
 
-// Stop stops listening for device connections and disconnections.  Be aware that
-// OnDeviceEvent may block while this handler is not listening.
-// Use this method with great care.
+func (lh *ListHandler) onDeviceEvent(e *Event) {
+	switch e.Type {
+	case Connect:
+		lh.lock.Lock()
+		defer lh.lock.Unlock()
+		lh.changeCount++
+		lh.devices[e.Device.Key()] = []byte(e.Device.String())
+	case Disconnect:
+		lh.lock.Lock()
+		defer lh.lock.Unlock()
+		lh.changeCount++
+		delete(lh.devices, e.Device.Key())
+	}
+}
+
+// Stop stops updates to this handler.  This method is idempotent.
 func (lh *ListHandler) Stop() {
 	lh.lock.Lock()
 	defer lh.lock.Unlock()
 
-	if lh.shutdown == nil {
-		return
+	if lh.shutdown != nil {
+		close(lh.shutdown)
+		lh.shutdown = nil
 	}
-
-	close(lh.shutdown)
-	lh.shutdown = nil
 }
 
-// Listen starts listening for device connections and disconnections.  This method
-// is idempotent and should be called before content is served.
-//
-// Devices that are connected prior to Listen being called will not appear in the
-// cached JSON.  For this reason, Listen must be called once, before the manager
-// is created.
-func (lh *ListHandler) Listen() {
+// Listen starts listening for changes to the set of connected devices.  The returned Listener may
+// be placed into an Options.  This method is idempotent, and may be called to restart this handler
+// after Stop is called.
+func (lh *ListHandler) Listen() Listener {
 	lh.lock.Lock()
 	defer lh.lock.Unlock()
 
-	if lh.shutdown != nil {
-		return
-	}
-
 	lh.initializeOnce.Do(func() {
 		lh.cachedJSON.Store([]byte(`{"devices":[]}`))
-		lh.connections = make(chan Interface, lh.backlog())
-		lh.disconnections = make(chan Interface, lh.backlog())
+		lh.devices = make(map[Key][]byte, 1000)
 	})
 
-	lh.shutdown = make(chan struct{})
-	go lh.monitor(lh.shutdown)
-}
+	if lh.shutdown == nil {
+		lh.shutdown = make(chan struct{})
 
-// OnDeviceEvent receives events from a Manager.  This function must be
-// inserted into Options.Listeners prior to creating a Manager.
-func (lh *ListHandler) OnDeviceEvent(e *Event) {
-	switch e.Type {
-	case Connect:
-		lh.connections <- e.Device
-	case Disconnect:
-		lh.disconnections <- e.Device
-	}
-}
+		// spawn the monitor goroutine
+		go func(shutdown <-chan struct{}) {
+			refreshC, refreshStop := lh.newTick()
+			defer refreshStop()
 
-// refresh takes a map of devices and builds a new cached JSON byte array
-func (lh *ListHandler) refresh(devices map[Key][]byte) {
-	var (
-		output     = bytes.NewBufferString(`{"devices":[`)
-		needsComma bool
-	)
-
-	for _, deviceJSON := range devices {
-		if needsComma {
-			output.WriteString(`,`)
-		}
-
-		output.Write(deviceJSON)
-		needsComma = true
-	}
-
-	output.WriteString(`]}`)
-	lh.cachedJSON.Store(output.Bytes())
-}
-
-// monitor is the goroutine that monitors the channels and collects changes.
-// periodically, this function will invoke refresh.
-func (lh *ListHandler) monitor(shutdown <-chan struct{}) {
-	var (
-		changeCount   uint32
-		devices       = make(map[Key][]byte, 1000)
-		refresh, stop = lh.newTick()
-	)
-
-	defer stop()
-
-	for {
-		select {
-		case <-shutdown:
-			return
-		case newDevice := <-lh.connections:
-			devices[newDevice.Key()] = []byte(newDevice.String())
-			changeCount++
-		case disconnectedDevice := <-lh.disconnections:
-			delete(devices, disconnectedDevice.Key())
-			changeCount++
-		case <-refresh:
-			if changeCount > 0 {
-				lh.refresh(devices)
+			for {
+				select {
+				case <-shutdown:
+					return
+				case <-refreshC:
+					lh.refresh()
+				}
 			}
-
-			changeCount = 0
-		}
+		}(lh.shutdown)
 	}
+
+	return lh.onDeviceEvent
 }
 
+// ServeHTTP emits the cached JSON into the response.  If Listen has not been called yet,
+// or if for any reason there is no cached JSON, this handler returns http.StatusServiceUnavailable.
 func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	jsonResponse := lh.cachedJSON.Load().([]byte)
-
-	response.Header().Set("Content-Type", "application/json")
-	response.Header().Set("Content-Length", strconv.Itoa(len(jsonResponse)))
-	response.Write(jsonResponse)
+	if jsonResponse, _ := lh.cachedJSON.Load().([]byte); len(jsonResponse) > 0 {
+		response.Header().Set("Content-Type", "application/json")
+		response.Header().Set("Content-Length", strconv.Itoa(len(jsonResponse)))
+		response.Write(jsonResponse)
+	} else {
+		response.WriteHeader(http.StatusServiceUnavailable)
+	}
 }
