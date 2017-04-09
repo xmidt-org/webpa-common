@@ -438,37 +438,25 @@ func TestConnectHandler(t *testing.T) {
 	})
 }
 
-func testListHandlerRefreshInterval(t *testing.T) {
+func testConnectedDeviceListenerRefreshInterval(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		handler = ListHandler{}
+		assert   = assert.New(t)
+		listener = new(ConnectedDeviceListener)
 	)
 
-	assert.Equal(DefaultRefreshInterval, handler.refreshInterval())
+	assert.Equal(DefaultRefreshInterval, listener.refreshInterval())
 
-	handler.RefreshInterval = 72 * time.Minute
-	assert.Equal(handler.RefreshInterval, handler.refreshInterval())
+	listener.RefreshInterval = 72 * time.Minute
+	assert.Equal(listener.RefreshInterval, listener.refreshInterval())
 }
 
-func testListHandlerBacklog(t *testing.T) {
+func testConnectedDeviceListenerNewTick(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		handler = ListHandler{}
+		assert   = assert.New(t)
+		listener = new(ConnectedDeviceListener)
 	)
 
-	assert.Equal(DefaultListBacklog, handler.backlog())
-
-	handler.Backlog = 56792
-	assert.Equal(handler.Backlog, handler.backlog())
-}
-
-func testListHandlerNewTick(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		handler = ListHandler{}
-	)
-
-	tickerC, stop := handler.newTick()
+	tickerC, stop := listener.newTick()
 	assert.NotNil(tickerC)
 	assert.NotNil(stop)
 	stop()
@@ -480,11 +468,11 @@ func testListHandlerNewTick(t *testing.T) {
 		customStop       = func() { customStopCalled = true }
 	)
 
-	handler.Tick = func(time.Duration) (<-chan time.Time, func()) {
+	listener.Tick = func(time.Duration) (<-chan time.Time, func()) {
 		return customC, customStop
 	}
 
-	tickerC, stop = handler.newTick()
+	tickerC, stop = listener.newTick()
 	assert.NotNil(tickerC)
 	customC <- tickTime
 	assert.Equal(tickTime, <-tickerC)
@@ -494,52 +482,55 @@ func testListHandlerNewTick(t *testing.T) {
 	assert.True(customStopCalled)
 }
 
-// assertDeviceList asserts that the handler produces one of the supplied JSON documents.
-// Because iteration over map keys is not consistent, this function allows several JSON alternatives
-// for the expected JSON.
-func assertDeviceList(assert *assert.Assertions, handler http.Handler, expectedJSON ...string) {
+func expectNoDeviceListUpdate(assert *assert.Assertions, updates <-chan []byte) {
+	timer := time.NewTimer(100 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case update := <-updates:
+		// this allwos the channel to have been closed
+		assert.True(update == nil, "No updates should have happened")
+	case <-timer.C:
+		// passing
+	}
+}
+
+func expectDeviceListUpdate(assert *assert.Assertions, updates <-chan []byte, expectedKeys ...string) {
 	var (
-		request  = httptest.NewRequest("GET", "/", nil)
-		response = httptest.NewRecorder()
+		timer   = time.NewTimer(100 * time.Millisecond)
+		rawJSON []byte
+		update  map[string]interface{}
 	)
 
-	handler.ServeHTTP(response, request)
-	assert.Equal(http.StatusOK, response.Code)
-	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
-
-	actualJSON, err := ioutil.ReadAll(response.Body)
-	if !assert.NoError(err) {
+	defer timer.Stop()
+	select {
+	case rawJSON = <-updates:
+	case <-timer.C:
+		assert.Fail("An update should have occurred")
 		return
 	}
 
-	if len(expectedJSON) == 1 {
-		assert.JSONEq(expectedJSON[0], string(actualJSON))
-	} else if len(expectedJSON) > 1 {
-		for _, candidate := range expectedJSON {
-			// the best we can do here is an exact match
-			if bytes.Equal(actualJSON, []byte(candidate)) {
-				return
-			}
+	if !assert.NoError(json.Unmarshal(rawJSON, &update)) {
+		return
+	}
+
+	actualDevices := update["devices"].([]interface{})
+	if !assert.Equal(len(actualDevices), len(expectedKeys)) {
+		return
+	}
+
+	for _, rawDevice := range actualDevices {
+		actualDevice := rawDevice.(map[string]interface{})
+		actualKey := actualDevice["key"].(string)
+		found := false
+		for i := 0; i < len(expectedKeys) && !found; i++ {
+			found = (actualKey == expectedKeys[i])
 		}
 
-		assert.Fail("Invalid response body", "%s does not match any of %v", actualJSON, expectedJSON)
+		assert.True(found, "%s was not an expected device key in %v", actualKey, expectedKeys)
 	}
 }
 
-func testListHandlerServeHTTPUninitialized(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		handler = &ListHandler{}
-
-		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("GET", "/", nil)
-	)
-
-	handler.ServeHTTP(response, request)
-	assert.Equal(response.Code, http.StatusServiceUnavailable)
-}
-
-func testListHandlerServeHTTPWithEvents(t *testing.T) {
+func testConnectedDeviceListenerListen(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -549,66 +540,136 @@ func testListHandlerServeHTTPWithEvents(t *testing.T) {
 
 		refreshC    = make(chan time.Time, 1)
 		refreshStop = func() { close(refreshC) }
-		handler     = &ListHandler{
-			Tick: func(time.Duration) (<-chan time.Time, func()) {
-				return refreshC, refreshStop
-			},
+		listener    = ConnectedDeviceListener{
+			Tick: func(time.Duration) (<-chan time.Time, func()) { return refreshC, refreshStop },
 		}
 
-		listener = handler.Listen()
+		deviceListener, updates = listener.Listen()
 	)
 
-	require.NotNil(listener)
+	require.NotNil(deviceListener)
+	require.NotNil(updates)
+
 	deviceA.On("Key").Return(Key("A"))
-	deviceA.On("String").Return(`{"id": "A"}`)
+	deviceA.On("String").Return(`{"id": "A", "key": "A"}`)
 	deviceB.On("Key").Return(Key("B"))
-	deviceB.On("String").Return(`{"id": "B"}`)
-	assertDeviceList(assert, handler, `{"devices":[]}`)
+	deviceB.On("String").Return(`{"id": "B", "key": "B"}`)
 
-	listener(&Event{Type: Connect, Device: deviceA})
+	refreshC <- time.Now()
+	expectNoDeviceListUpdate(assert, updates)
 
-	// refresh hasn't run yet ...
-	assertDeviceList(assert, handler, `{"devices":[]}`)
+	deviceListener(&Event{Type: Connect, Device: deviceA})
+	deviceListener(&Event{Type: Pong, Device: deviceB})
+	refreshC <- time.Now()
+	expectDeviceListUpdate(assert, updates, "A")
+
+	deviceListener(&Event{Type: Disconnect, Device: deviceA})
+	deviceListener(&Event{Type: Connect, Device: deviceA})
+	refreshC <- time.Now()
+	expectDeviceListUpdate(assert, updates, "A")
+
+	deviceListener(&Event{Type: Connect, Device: deviceB})
+	refreshC <- time.Now()
+	expectDeviceListUpdate(assert, updates, "A", "B")
+
+	deviceListener(&Event{Type: TransactionComplete})
+	deviceListener(&Event{Type: MessageFailed})
+	refreshC <- time.Now()
+	expectNoDeviceListUpdate(assert, updates)
+
+	deviceListener(&Event{Type: Disconnect, Device: deviceA})
+	refreshC <- time.Now()
+	expectDeviceListUpdate(assert, updates, "B")
+
+	deviceListener(&Event{Type: Disconnect, Device: deviceB})
+	refreshC <- time.Now()
+	expectDeviceListUpdate(assert, updates)
+
+	listener.Stop()
+	deviceListener(&Event{Type: Connect, Device: deviceB})
+	expectNoDeviceListUpdate(assert, updates)
+}
+
+func TestConnectedDeviceListener(t *testing.T) {
+	t.Run("RefreshInterval", testConnectedDeviceListenerRefreshInterval)
+	t.Run("NewTick", testConnectedDeviceListenerNewTick)
+	t.Run("Listen", testConnectedDeviceListenerListen)
+}
+
+func testListHandlerServeHTTPUninitialized(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		handler  = new(ListHandler)
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusServiceUnavailable, response.Code)
+}
+
+func expectDeviceListResponse(assert *assert.Assertions, handler http.Handler, expectedJSON string) {
+	var (
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusOK, response.Code)
+	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+
+	rawJSON, err := ioutil.ReadAll(response.Body)
+	if !assert.NoError(err) {
+		return
+	}
+
+	assert.JSONEq(expectedJSON, string(rawJSON))
+}
+
+func testListHandlerServeHTTPWhileConsuming(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		updates = make(chan []byte, 1)
+		handler = new(ListHandler)
+	)
+
+	handler.Consume(updates)
+	expectDeviceListResponse(assert, handler, `{"devices":[]}`)
 
 	old := handler.cachedJSON.Load().([]byte)
-	refreshC <- time.Now()
-	for repeat := 0; repeat < 3 && bytes.Equal(old, handler.cachedJSON.Load().([]byte)); repeat++ {
-		// spin trying to detect a change
-		time.Sleep(250 * time.Millisecond)
+	updates <- []byte(`{"devices":[{"id": "A"},{"id": "B"}]}`)
+	for bytes.Equal(old, handler.cachedJSON.Load().([]byte)) {
+		// spin until we get a change
+		time.Sleep(100 * time.Millisecond)
 	}
-	assertDeviceList(assert, handler, `{"devices":[{"id": "A"}]}`)
+	expectDeviceListResponse(assert, handler, `{"devices":[{"id": "A"},{"id": "B"}]}`)
 
-	listener(&Event{Type: Connect, Device: deviceB})
+	close(updates)
+	time.Sleep(100 * time.Millisecond)
+	expectDeviceListResponse(assert, handler, `{"devices":[{"id": "A"},{"id": "B"}]}`)
+
+	// start consuming again ...
+	updates = make(chan []byte, 1)
+	handler.Consume(updates)
+	time.Sleep(100 * time.Millisecond)
+	expectDeviceListResponse(assert, handler, `{"devices":[{"id": "A"},{"id": "B"}]}`)
+
 	old = handler.cachedJSON.Load().([]byte)
-	refreshC <- time.Now()
-	for repeat := 0; repeat < 3 && bytes.Equal(old, handler.cachedJSON.Load().([]byte)); repeat++ {
-		// spin trying to detect a change
-		time.Sleep(250 * time.Millisecond)
+	updates <- []byte(`{"devices":[{"id": "C"},{"id": "D"},{"id": "E"}]}`)
+	for bytes.Equal(old, handler.cachedJSON.Load().([]byte)) {
+		// spin until we get a change
+		time.Sleep(100 * time.Millisecond)
 	}
-	assertDeviceList(assert, handler, `{"devices":[{"id": "B"},{"id": "A"}]}`, `{"devices":[{"id": "A"},{"id": "B"}]}`)
+	expectDeviceListResponse(assert, handler, `{"devices":[{"id": "C"},{"id": "D"},{"id": "E"}]}`)
 
-	listener(&Event{Type: Disconnect, Device: deviceA})
-	old = handler.cachedJSON.Load().([]byte)
-	refreshC <- time.Now()
-	for repeat := 0; repeat < 3 && bytes.Equal(old, handler.cachedJSON.Load().([]byte)); repeat++ {
-		// spin trying to detect a change
-		time.Sleep(250 * time.Millisecond)
-	}
-	assertDeviceList(assert, handler, `{"devices":[{"id": "B"}]}`)
-
-	handler.Stop()
-
-	handler.lock.Lock()
-	assert.Nil(handler.shutdown)
-	handler.lock.Unlock()
+	close(updates)
+	time.Sleep(100 * time.Millisecond)
+	expectDeviceListResponse(assert, handler, `{"devices":[{"id": "C"},{"id": "D"},{"id": "E"}]}`)
 }
 
 func TestListHandler(t *testing.T) {
-	t.Run("RefreshInterval", testListHandlerRefreshInterval)
-	t.Run("Backlog", testListHandlerBacklog)
-	t.Run("NewTick", testListHandlerNewTick)
 	t.Run("ServeHTTP", func(t *testing.T) {
 		t.Run("Uninitialized", testListHandlerServeHTTPUninitialized)
-		t.Run("WithEvents", testListHandlerServeHTTPWithEvents)
+		t.Run("WhileConsuming", testListHandlerServeHTTPWhileConsuming)
 	})
 }

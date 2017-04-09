@@ -143,17 +143,13 @@ func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	}
 }
 
-// ListHandler is a handler which serves a JSON document containing connected devices.  This
-// handler listens for connection and disconnection events and concurrently updates a cached
-// JSON document.  This cached document is updated on the RefreshInterval.
-type ListHandler struct {
+// ConnectedDeviceListener listens for connection and disconnection events and produces
+// a JSON document containing information about connected devices.  It produces this document
+// on a certain interval.
+type ConnectedDeviceListener struct {
 	// RefreshInterval is the time interval at which the cached JSON device list is updated.
 	// If this field is nonpositive, DefaultRefreshInterval is used.
 	RefreshInterval time.Duration
-
-	// Backlog is the number of connections and disconnections (each) allowed to queue up
-	// internally.  If this field is not positive, DefaultListBacklog is used.
-	Backlog uint32
 
 	// Tick is a factory function that produces a ticker channel and a stop function.
 	// If not set, time.Ticker is used and the stop function is ticker.Stop.
@@ -163,59 +159,51 @@ type ListHandler struct {
 	initializeOnce sync.Once
 	devices        map[Key][]byte
 	changeCount    uint32
-	cachedJSON     atomic.Value
+	updates        chan []byte
 	shutdown       chan struct{}
 }
 
-func (lh *ListHandler) refreshInterval() time.Duration {
-	if lh.RefreshInterval > 0 {
-		return lh.RefreshInterval
+func (l *ConnectedDeviceListener) refreshInterval() time.Duration {
+	if l.RefreshInterval > 0 {
+		return l.RefreshInterval
 	}
 
 	return DefaultRefreshInterval
 }
 
-func (lh *ListHandler) backlog() uint32 {
-	if lh.Backlog > 0 {
-		return lh.Backlog
-	}
-
-	return DefaultListBacklog
-}
-
 // newTick returns a ticker channel and a stop function for cleanup.  If tick is set,
 // that function is used.  Otherwise, a time.Ticker is created and (ticker.C, ticker.Stop) is returned.
-func (lh *ListHandler) newTick() (<-chan time.Time, func()) {
-	refreshInterval := lh.refreshInterval()
-	if lh.Tick != nil {
-		return lh.Tick(refreshInterval)
+func (l *ConnectedDeviceListener) newTick() (<-chan time.Time, func()) {
+	refreshInterval := l.refreshInterval()
+	if l.Tick != nil {
+		return l.Tick(refreshInterval)
 	}
 
 	ticker := time.NewTicker(refreshInterval)
 	return ticker.C, ticker.Stop
 }
 
-func (lh *ListHandler) onDeviceEvent(e *Event) {
+func (l *ConnectedDeviceListener) onDeviceEvent(e *Event) {
 	switch e.Type {
 	case Connect:
-		lh.lock.Lock()
-		defer lh.lock.Unlock()
-		lh.changeCount++
-		lh.devices[e.Device.Key()] = []byte(e.Device.String())
+		l.lock.Lock()
+		defer l.lock.Unlock()
+		l.changeCount++
+		l.devices[e.Device.Key()] = []byte(e.Device.String())
 	case Disconnect:
-		lh.lock.Lock()
-		defer lh.lock.Unlock()
-		lh.changeCount++
-		delete(lh.devices, e.Device.Key())
+		l.lock.Lock()
+		defer l.lock.Unlock()
+		l.changeCount++
+		delete(l.devices, e.Device.Key())
 	}
 }
 
-func (lh *ListHandler) refresh() {
-	lh.lock.Lock()
-	defer lh.lock.Unlock()
+func (l *ConnectedDeviceListener) refresh() {
+	l.lock.Lock()
+	defer l.lock.Unlock()
 
-	if lh.changeCount > 0 {
-		lh.changeCount = 0
+	if l.changeCount > 0 {
+		l.changeCount = 0
 
 		var (
 			output     = bytes.NewBufferString(`{"devices":[`)
@@ -223,7 +211,7 @@ func (lh *ListHandler) refresh() {
 			comma      = []byte(`,`)
 		)
 
-		for _, deviceJSON := range lh.devices {
+		for _, deviceJSON := range l.devices {
 			if needsComma {
 				output.Write(comma)
 			}
@@ -233,39 +221,46 @@ func (lh *ListHandler) refresh() {
 		}
 
 		output.WriteString(`]}`)
-		lh.cachedJSON.Store(output.Bytes())
+		l.updates <- output.Bytes()
 	}
 }
 
-// Stop stops updates to this handler.  This method is idempotent.
-func (lh *ListHandler) Stop() {
-	lh.lock.Lock()
-	defer lh.lock.Unlock()
+// Stop stops updates coming from this listener.
+func (l *ConnectedDeviceListener) Stop() {
+	l.lock.Lock()
+	defer l.lock.Unlock()
 
-	if lh.shutdown != nil {
-		close(lh.shutdown)
-		lh.shutdown = nil
+	if l.shutdown != nil {
+		close(l.shutdown)
+		close(l.updates)
+
+		l.shutdown = nil
+		l.updates = nil
 	}
 }
 
 // Listen starts listening for changes to the set of connected devices.  The returned Listener may
 // be placed into an Options.  This method is idempotent, and may be called to restart this handler
-// after Stop is called.
-func (lh *ListHandler) Listen() Listener {
-	lh.lock.Lock()
-	defer lh.lock.Unlock()
+// after Stop is called.  If this method is called multiple times without calling Stop, it simply
+// returns the same Listener and output channel.
+//
+// The returned channel will received updated JSON device list documents.  This channel can be
+// used with ListHandler.Consume.
+func (l *ConnectedDeviceListener) Listen() (Listener, <-chan []byte) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
 
-	lh.initializeOnce.Do(func() {
-		lh.cachedJSON.Store([]byte(`{"devices":[]}`))
-		lh.devices = make(map[Key][]byte, 1000)
+	l.initializeOnce.Do(func() {
+		l.devices = make(map[Key][]byte, 1000)
 	})
 
-	if lh.shutdown == nil {
-		lh.shutdown = make(chan struct{})
+	if l.shutdown == nil {
+		l.shutdown = make(chan struct{})
+		l.updates = make(chan []byte, 1)
 
 		// spawn the monitor goroutine
 		go func(shutdown <-chan struct{}) {
-			refreshC, refreshStop := lh.newTick()
+			refreshC, refreshStop := l.newTick()
 			defer refreshStop()
 
 			for {
@@ -273,13 +268,34 @@ func (lh *ListHandler) Listen() Listener {
 				case <-shutdown:
 					return
 				case <-refreshC:
-					lh.refresh()
+					l.refresh()
 				}
 			}
-		}(lh.shutdown)
+		}(l.shutdown)
 	}
 
-	return lh.onDeviceEvent
+	return l.onDeviceEvent, l.updates
+}
+
+// ListHandler is an HTTP handler which can take updated JSON device lists.
+type ListHandler struct {
+	initializeOnce sync.Once
+	cachedJSON     atomic.Value
+}
+
+// Consume spawns a goroutine that processes updated JSON from the given channel.
+// This method can be called multiple times with different update sources.  Typically,
+// this method is called once to consume updates from a ConnectedDeviceListener.
+func (lh *ListHandler) Consume(updates <-chan []byte) {
+	lh.initializeOnce.Do(func() {
+		lh.cachedJSON.Store([]byte(`{"devices":[]}`))
+	})
+
+	go func() {
+		for updatedJson := range updates {
+			lh.cachedJSON.Store(updatedJson)
+		}
+	}()
 }
 
 // ServeHTTP emits the cached JSON into the response.  If Listen has not been called yet,
