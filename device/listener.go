@@ -28,6 +28,14 @@ const (
 	// at the time of a device's disconnection, there will be (1) MessageFailed event.
 	MessageFailed
 
+	// TransactionComplete indicates that a response to a transaction has been received, and the
+	// transaction completed successfully (at least as far as the routing infrastructure can tell).
+	TransactionComplete
+
+	// TransactionBroken indicates receipt of a message that had a transaction key for which there
+	// was no waiting transaction
+	TransactionBroken
+
 	// Pong occurs when a device has responded to a ping
 	Pong
 
@@ -51,6 +59,10 @@ func (et EventType) String() string {
 		return "MessageReceived"
 	case MessageFailed:
 		return "MessageFailed"
+	case TransactionComplete:
+		return "TransactionComplete"
+	case TransactionBroken:
+		return "TransactionBroken"
 	case Pong:
 		return "Pong"
 	default:
@@ -98,48 +110,15 @@ type Event struct {
 	Data string
 }
 
-// setMessageFailed sets or resets this event's fields to represent a MessageFailed event.
-func (e *Event) setMessageFailed(device Interface, message wrp.Routable, format wrp.Format, contents []byte, err error) {
-	e.Type = MessageFailed
-	e.Device = device
-	e.Message = message
-	e.Format = format
-	e.Contents = contents
-	e.Error = err
-	e.Data = emptyString
-}
-
-// setRequestFailed sets or resets this event's field to represent a MessageFailed event for a device Request
-func (e *Event) setRequestFailed(device Interface, request *Request, err error) {
-	e.Type = MessageFailed
-	e.Device = device
-	e.Message = request.Message
-	e.Format = request.Format
-	e.Contents = request.Contents
-	e.Error = err
-	e.Data = emptyString
-}
-
-// setMessageReceived sets or resets this event's fields to represent a MessageReceived event.
-func (e *Event) setMessageReceived(device Interface, message wrp.Routable, format wrp.Format, contents []byte) {
-	e.Type = MessageReceived
-	e.Device = device
-	e.Message = message
-	e.Format = format
-	e.Contents = contents
-	e.Error = nil
-	e.Data = emptyString
-}
-
-// setPong sets or resets this event's fields to represent a Pong event.
-func (e *Event) setPong(device Interface, data string) {
-	e.Type = Pong
-	e.Device = device
+// Clear resets all fields in this Event.  This is most often in preparation to reuse the Event instance.
+func (e *Event) Clear() {
+	e.Type = EventType(255)
+	e.Device = nil
 	e.Message = nil
-	e.Format = wrp.Format(-1)
+	e.Format = wrp.Msgpack
 	e.Contents = nil
 	e.Error = nil
-	e.Data = data
+	e.Data = emptyString
 }
 
 // Listener is an event sink.  Listeners should never modify events and should never
