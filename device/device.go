@@ -3,7 +3,6 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/wrp"
 	"sync/atomic"
 	"time"
 )
@@ -17,11 +16,12 @@ var (
 	nullConvey = []byte("null")
 )
 
-// envelope is a tuple of an original WRP message together with that message's
-// (optional) encoded representation.
+// envelope is a tuple of a device Request and a send-only channel for errors.
+// The write pump goroutine will use the complete channel to communicate the result
+// of the write operation.
 type envelope struct {
-	message wrp.Routable
-	encoded []byte
+	request  *Request
+	complete chan<- error
 }
 
 // Interface is the core type for this package.  It provides
@@ -36,7 +36,17 @@ type envelope struct {
 // The only piece of metadata that is mutable is the Key.  A device Manager
 // allows clients to change the routing Key of a device.  All other public
 // metadata is immutable.
+//
+// Each device will have a pair of goroutines within the enclosing manager:
+// a read and write, referred to as pumps.  The write pump services the queue
+// of messages used by Send, while the read pump rarely needs to interact
+// with devices directly.
+//
+// The String() method will always return a valid JSON object representation
+// of this device.
 type Interface interface {
+	fmt.Stringer
+
 	// ID returns the canonicalized identifer for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
 	// with the same ID to be connected.  This typically occurs due to fraud,
@@ -56,9 +66,7 @@ type Interface interface {
 	Pending() int
 
 	// RequestClose posts a request for this device to be disconnected.  This method
-	// is asynchronous and idempotent.  If this method is invoked when a shutdown
-	// request has already been queued or when this device is already shut down, this
-	// method returns an error.
+	// is asynchronous and idempotent.
 	RequestClose()
 
 	// Closed tests if this device is closed.  When this method returns true,
@@ -70,13 +78,13 @@ type Interface interface {
 	// Send dispatches a message to this device.  This method is useful outside
 	// a Manager if multiple messages should be sent to the device.
 	//
-	// Similar to Manager.Route, the byte slice, if supplied, must be valid msgpack-encoded
-	// WRP to send to the device.  If this byte slice is empty, the given message is encoded
-	// using msgpack.
+	// This method is synchronous.  If the request is of a type that should expect a response,
+	// that response is returned.  An error is returned if this device has been closed or
+	// if there were any I/O issues sending the request.
 	//
-	// This method will return an error if this device has been closed or
-	// if the device is busy and cannot accept more messages.
-	Send(wrp.Routable, []byte) error
+	// Internally, the requests passed to this method are serviced by the write pump in
+	// the enclosing Manager instance.  The read pump will handle sending the response.
+	Send(*Request) (*Response, error)
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -90,18 +98,20 @@ type device struct {
 
 	state int32
 
-	shutdown chan struct{}
-	messages chan *envelope
+	shutdown     chan struct{}
+	messages     chan *envelope
+	transactions *Transactions
 }
 
 func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
 	d := &device{
-		id:          id,
-		convey:      convey,
-		connectedAt: time.Now(),
-		state:       stateOpen,
-		shutdown:    make(chan struct{}),
-		messages:    make(chan *envelope, queueSize),
+		id:           id,
+		convey:       convey,
+		connectedAt:  time.Now(),
+		state:        stateOpen,
+		shutdown:     make(chan struct{}),
+		messages:     make(chan *envelope, queueSize),
+		transactions: NewTransactions(),
 	}
 
 	d.updateKey(initialKey)
@@ -123,10 +133,9 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	output := new(bytes.Buffer)
 	fmt.Fprintf(
 		output,
-		`{"id": "%s", "key": "%s", "pending": %d, "connectedAt": "%s", "closed": %t, "convey": %s}`,
+		`{"id": "%s", "key": "%s", "connectedAt": "%s", "closed": %t, "convey": %s}`,
 		d.id,
 		d.Key(),
-		d.Pending(),
 		d.connectedAt.Format(time.RFC3339),
 		d.Closed(),
 		conveyJSON,
@@ -175,15 +184,90 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
-func (d *device) Send(message wrp.Routable, encoded []byte) (err error) {
-	if d.Closed() {
-		return NewClosedError(d.id, d.Key())
+// sendRequest attempts to enqueue the given request for the write pump that is
+// servicing this device.  This method honors the request context's cancellation semantics.
+//
+// This function returns when either (1) the write pump has attempted to send the message to
+// the device, or (2) the request's context has been cancelled, which includes timing out.
+func (d *device) sendRequest(request *Request) error {
+	var (
+		done     = request.Context().Done()
+		complete = make(chan error, 1)
+		envelope = &envelope{
+			request,
+			complete,
+		}
+	)
+
+	// attempt to enqueue the message
+	select {
+	case <-done:
+		return request.Context().Err()
+	case <-d.shutdown:
+		return ErrorDeviceClosed
+	case d.messages <- envelope:
 	}
 
+	// once enqueued, wait until the context is cancelled
+	// or there's a result
 	select {
-	case d.messages <- &envelope{message, encoded}:
-		return nil
-	default:
-		return NewBusyError(d.id, d.Key())
+	case <-done:
+		return request.Context().Err()
+	case <-d.shutdown:
+		return ErrorDeviceClosed
+	case err := <-complete:
+		return err
 	}
+}
+
+// awaitResponse waits for the read pump to acquire a response that corresponds to the
+// request's transaction key.  The result channel will receive the response from the
+// read pump.
+func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Response, error) {
+	select {
+	case <-request.Context().Done():
+		return nil, request.Context().Err()
+	case <-d.shutdown:
+		return nil, ErrorDeviceClosed
+	case response := <-result:
+		if response == nil {
+			return nil, ErrorTransactionCancelled
+		}
+
+		return response, nil
+	}
+}
+
+func (d *device) Send(request *Request) (*Response, error) {
+	if d.Closed() {
+		return nil, ErrorDeviceClosed
+	}
+
+	var (
+		transactionKey = request.Message.TransactionKey()
+		result         <-chan *Response
+	)
+
+	if len(transactionKey) > 0 {
+		var err error
+		if result, err = d.transactions.Register(transactionKey); err != nil {
+			// if a transaction key cannot be registered, we don't want to proceed.
+			// this indicates some larger problem, most often a duplicate transaction key.
+			return nil, err
+		}
+
+		// ensure that the transaction is cleared
+		defer d.transactions.Cancel(transactionKey)
+	}
+
+	if err := d.sendRequest(request); err != nil {
+		return nil, err
+	}
+
+	if result == nil {
+		// if there is no pending transaction, we're done
+		return nil, nil
+	}
+
+	return d.awaitResponse(request, result)
 }

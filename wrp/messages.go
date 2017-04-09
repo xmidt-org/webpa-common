@@ -53,7 +53,8 @@ type EncoderTo interface {
 }
 
 // Routable describes an object which can be routed.  Implementations will most
-// often also be WRP messages, and can be passed to decoders and encoders.
+// often also be WRP Message instances.  All Routable objects may be passed to
+// Encoders and Decoders.
 //
 // Not all WRP messages are Routable.  Only messages that can be sent through
 // routing software (e.g. talaria) implement this interface.
@@ -69,9 +70,18 @@ type Routable interface {
 	// in WRP messages defined in this package.
 	From() string
 
+	// TransactionKey corresponds to the transaction_uuid field.  If present, this field is used
+	// to match up responses from devices.
+	//
+	// Not all Routables support transactions, e.g. SimpleEvent.  For those Routable messages that do
+	// not possess a transaction_uuid field, this method returns an empty string.
+	TransactionKey() string
+
 	// Response produces a new Routable instance which is a response to this one.  The new Routable's
 	// destination (From) is set to the original source (To), with the supplied newSource used as the response's source.
-	// The requestDeliveryResponse parameter indicates the success or failure of this response.
+	// The requestDeliveryResponse parameter indicates the success or failure of this response.  The underlying
+	// type of the returned Routable will be the same as this type, i.e. if this instance is a Message,
+	// the returned Routable will also be a Message.
 	//
 	// If applicable, the response's payload is set to nil.  All other fields are copied as is into the response.
 	Response(newSource string, requestDeliveryResponse int64) Routable
@@ -121,9 +131,12 @@ func (msg *Message) From() string {
 	return msg.Source
 }
 
-func (msg *Message) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response Message = *msg
+func (msg *Message) TransactionKey() string {
+	return msg.TransactionUUID
+}
 
+func (msg *Message) Response(newSource string, requestDeliveryResponse int64) Routable {
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.RequestDeliveryResponse = &requestDeliveryResponse
@@ -221,9 +234,12 @@ func (msg *SimpleRequestResponse) From() string {
 	return msg.Source
 }
 
-func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response SimpleRequestResponse = *msg
+func (msg *SimpleRequestResponse) TransactionKey() string {
+	return msg.TransactionUUID
+}
 
+func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResponse int64) Routable {
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.RequestDeliveryResponse = &requestDeliveryResponse
@@ -268,9 +284,12 @@ func (msg *SimpleEvent) From() string {
 	return msg.Source
 }
 
-func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response SimpleEvent = *msg
+func (msg *SimpleEvent) TransactionKey() string {
+	return ""
+}
 
+func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64) Routable {
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.Payload = nil
@@ -327,9 +346,12 @@ func (msg *CRUD) From() string {
 	return msg.Source
 }
 
-func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routable {
-	var response CRUD = *msg
+func (msg *CRUD) TransactionKey() string {
+	return msg.TransactionUUID
+}
 
+func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routable {
+	response := *msg
 	response.Destination = msg.Source
 	response.Source = newSource
 	response.RequestDeliveryResponse = &requestDeliveryResponse

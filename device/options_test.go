@@ -18,6 +18,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(DefaultConveyHeader, o.conveyHeader())
 		assert.Equal(DefaultDeviceMessageQueueSize, o.deviceMessageQueueSize())
 		assert.Equal(DefaultHandshakeTimeout, o.handshakeTimeout())
+		assert.Equal(DefaultDecoderPoolSize, o.decoderPoolSize())
 		assert.Equal(DefaultEncoderPoolSize, o.encoderPoolSize())
 		assert.Equal(DefaultInitialCapacity, o.initialCapacity())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
@@ -28,6 +29,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Empty(o.subprotocols())
 		assert.NotNil(o.keyFunc())
 		assert.NotNil(o.logger())
+		assert.Empty(o.listeners())
 	}
 }
 
@@ -45,6 +47,8 @@ func TestOptions(t *testing.T) {
 			DeviceNameHeader:       "X-TestOptions-Device-Name",
 			ConveyHeader:           "X-TestOptions-Convey",
 			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
+			DecoderPoolSize:        672393,
+			EncoderPoolSize:        1034571,
 			InitialCapacity:        DefaultInitialCapacity + 4719,
 			ReadBufferSize:         DefaultReadBufferSize + 48729,
 			WriteBufferSize:        DefaultWriteBufferSize + 926,
@@ -55,6 +59,7 @@ func TestOptions(t *testing.T) {
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
 			KeyFunc:                expectedKeyFunc,
 			Logger:                 expectedLogger,
+			Listeners:              []Listener{func(*Event) {}},
 		}
 	)
 
@@ -62,6 +67,8 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.ConveyHeader, o.conveyHeader())
 	assert.Equal(o.DeviceMessageQueueSize, o.deviceMessageQueueSize())
 	assert.Equal(o.HandshakeTimeout, o.handshakeTimeout())
+	assert.Equal(o.DecoderPoolSize, o.decoderPoolSize())
+	assert.Equal(o.EncoderPoolSize, o.encoderPoolSize())
 	assert.Equal(o.InitialCapacity, o.initialCapacity())
 	assert.Equal(o.IdlePeriod, o.idlePeriod())
 	assert.Equal(o.PingPeriod, o.pingPeriod())
@@ -70,6 +77,7 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.WriteBufferSize, o.writeBufferSize())
 	assert.Equal(o.Subprotocols, o.subprotocols())
 	assert.Equal(expectedLogger, o.logger())
+	assert.Equal(o.Listeners, o.listeners())
 
 	actualKeyFunc := o.keyFunc()
 	if assert.NotNil(actualKeyFunc) {

@@ -147,12 +147,7 @@ func TestRegistryAddDuplicateKey(t *testing.T) {
 	assert := assert.New(t)
 	registry := testRegistry(t, assert)
 	duplicate := newDevice(singleID, singleKey, nil, 1)
-	if addError := registry.add(duplicate); assert.NotNil(addError) {
-		if duplicateKeyError, ok := addError.(DeviceError); assert.True(ok) {
-			assert.Equal(invalidID, duplicateKeyError.ID())
-			assert.Equal(singleKey, duplicateKeyError.Key())
-		}
-	}
+	assert.Equal(ErrorDuplicateKey, registry.add(duplicate))
 }
 
 func TestRegistryRemoveOne(t *testing.T) {

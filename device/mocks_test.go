@@ -1,25 +1,27 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"net/http"
 	"time"
 )
 
-// mockRandom provides an io.Reader mock for a source of random bytes
-type mockRandom struct {
+type mockReader struct {
 	mock.Mock
 }
 
-func (m *mockRandom) Read(b []byte) (int, error) {
+func (m *mockReader) Read(b []byte) (int, error) {
 	arguments := m.Called(b)
 	return arguments.Int(0), arguments.Error(1)
 }
 
-// mockDevice mocks the Interface type
 type mockDevice struct {
 	mock.Mock
+}
+
+func (m *mockDevice) String() string {
+	return m.Called().String(0)
 }
 
 func (m *mockDevice) ID() ID {
@@ -51,14 +53,20 @@ func (m *mockDevice) Closed() bool {
 	return arguments.Bool(0)
 }
 
-func (m *mockDevice) Send(message wrp.Routable, encoded []byte) error {
-	arguments := m.Called(message, encoded)
-	return arguments.Error(0)
+func (m *mockDevice) Send(request *Request) (*Response, error) {
+	arguments := m.Called(request)
+	first, _ := arguments.Get(0).(*Response)
+	return first, arguments.Error(1)
 }
 
-func (m *mockDevice) SendBytes(message []byte) error {
-	arguments := m.Called(message)
-	return arguments.Error(0)
+type mockConnectionFactory struct {
+	mock.Mock
+}
+
+func (m *mockConnectionFactory) NewConnection(response http.ResponseWriter, request *http.Request, header http.Header) (Connection, error) {
+	arguments := m.Called(response, request, header)
+	first, _ := arguments.Get(0).(Connection)
+	return first, arguments.Error(1)
 }
 
 // deviceSet is a convenient map type for capturing visited devices
@@ -120,4 +128,36 @@ func expectsDevices(devices ...*device) deviceSet {
 	}
 
 	return result
+}
+
+type mockRouter struct {
+	mock.Mock
+}
+
+func (m *mockRouter) Route(request *Request) (*Response, error) {
+	arguments := m.Called(request)
+	first, _ := arguments.Get(0).(*Response)
+	return first, arguments.Error(1)
+}
+
+type mockConnector struct {
+	mock.Mock
+}
+
+func (m *mockConnector) Connect(response http.ResponseWriter, request *http.Request, header http.Header) (Interface, error) {
+	arguments := m.Called(response, request, header)
+	first, _ := arguments.Get(0).(Interface)
+	return first, arguments.Error(1)
+}
+
+func (m *mockConnector) Disconnect(id ID) int {
+	return m.Called().Int(0)
+}
+
+func (m *mockConnector) DisconnectOne(key Key) int {
+	return m.Called().Int(0)
+}
+
+func (m *mockConnector) DisconnectIf(predicate func(ID) bool) int {
+	return m.Called(predicate).Int(0)
 }

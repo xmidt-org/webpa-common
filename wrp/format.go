@@ -6,12 +6,14 @@ import (
 	"io"
 )
 
-// Format indicates which format is desired
+// Format indicates which format is desired.
+// The zero value indicates Msgpack, which means by default other
+// infrastructure can assume msgpack-formatted data.
 type Format int
 
 const (
-	JSON Format = iota
-	Msgpack
+	Msgpack Format = iota
+	JSON
 
 	InvalidFormatString = "!!INVALID!!"
 )
@@ -31,25 +33,37 @@ var (
 	}
 )
 
+// ContentType returns the MIME type associated with this format
+func (f Format) ContentType() string {
+	switch f {
+	case Msgpack:
+		return "application/msgpack"
+	case JSON:
+		return "application/json"
+	default:
+		return "application/octet-stream"
+	}
+}
+
 func (f Format) String() string {
 	switch f {
-	case JSON:
-		return "JSON"
 	case Msgpack:
 		return "Msgpack"
+	case JSON:
+		return "JSON"
+	default:
+		return InvalidFormatString
 	}
-
-	return InvalidFormatString
 }
 
 // handle looks up the appropriate codec.Handle for this format constant.
 // This method panics if the format is not a valid value.
 func (f Format) handle() codec.Handle {
 	switch f {
-	case JSON:
-		return &jsonHandle
 	case Msgpack:
 		return &msgpackHandle
+	case JSON:
+		return &jsonHandle
 	}
 
 	panic(fmt.Errorf("Invalid format constant: %d", f))

@@ -2,205 +2,294 @@ package device
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
+	"context"
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"io"
-	"io/ioutil"
 	"net/http"
+	"strconv"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
-// Failures is a map type which records device routing failures
-type Failures map[Interface]error
+const (
+	DefaultMessageTimeout  time.Duration = 2 * time.Minute
+	DefaultRefreshInterval time.Duration = 10 * time.Second
+	DefaultListBacklog     uint32        = 150
+)
 
-func (df Failures) Add(d Interface, deviceError error) {
-	df[d] = deviceError
+// MessageHandler is a configurable http.Handler which handles inbound WRP traffic
+// to be sent to devices.
+type MessageHandler struct {
+	// Logger is the sink for logging output.  If not set, logging will be sent to logging.DefaultLogger().
+	Logger logging.Logger
+
+	// Decoders is the pool of wrp.Decoder objects used to decode http.Request bodies
+	// sent to this handler.  This field is required.
+	Decoders *wrp.DecoderPool
+
+	// Encoders is the optional pool of wrp.Encoder objects used to encode wrp messages sent
+	// as HTTP responses.  If not supplied, this handler assumes the format returned by the Router
+	// is the format to be sent back in the HTTP response.
+	Encoders *wrp.EncoderPool
+
+	// Router is the device message Router to use.  This field is required.
+	Router Router
+
+	// Timeout is the optional timeout for all operations through this handler.
+	// If this field is unset or is nonpositive, DefaultMessageTimeout is used instead.
+	Timeout time.Duration
 }
 
-func (df Failures) WriteJSON(output io.Writer) (count int, err error) {
-	_, err = fmt.Fprintf(output, `{"errors": [`)
+func (mh *MessageHandler) logger() logging.Logger {
+	if mh.Logger != nil {
+		return mh.Logger
+	}
+
+	return logging.DefaultLogger()
+}
+
+// createContext creates the Context object for routing operations.
+// This method will never return nils.  There will always be a timeout on the
+// returned context, which means there will always be a cancel function too.
+func (mh *MessageHandler) createContext(httpRequest *http.Request) (context.Context, context.CancelFunc) {
+	timeout := mh.Timeout
+	if timeout < 1 {
+		timeout = DefaultMessageTimeout
+	}
+
+	return context.WithTimeout(httpRequest.Context(), mh.Timeout)
+}
+
+// decodeRequest transforms an HTTP request into a device request.
+func (mh *MessageHandler) decodeRequest(ctx context.Context, httpRequest *http.Request) (deviceRequest *Request, err error) {
+	deviceRequest, err = DecodeRequest(httpRequest.Body, mh.Decoders)
+	if err == nil {
+		deviceRequest = deviceRequest.WithContext(ctx)
+	}
+
+	return
+}
+
+func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpRequest *http.Request) {
+	ctx, cancel := mh.createContext(httpRequest)
+	defer cancel()
+
+	deviceRequest, err := mh.decodeRequest(ctx, httpRequest)
 	if err != nil {
+		httperror.Formatf(
+			httpResponse,
+			http.StatusBadRequest,
+			"Could not decode WRP message: %s",
+			err,
+		)
+
 		return
 	}
 
-	separator := ""
-	for d, deviceError := range df {
-		if deviceError != nil {
-			count++
-			fmt.Fprintf(output, `{"id": "%s", "key": "%s", error: "%s"}%s`, d.ID(), d.Key(), deviceError, separator)
-			separator = ","
+	// deviceRequest carries the context through the routing infrastructure
+	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
+		code := http.StatusInternalServerError
+		switch err {
+		case ErrorInvalidDeviceName:
+			code = http.StatusBadRequest
+		case ErrorDeviceNotFound:
+			code = http.StatusNotFound
+		case ErrorNonUniqueID:
+			code = http.StatusBadRequest
+		case ErrorInvalidTransactionKey:
+			code = http.StatusBadRequest
+		case ErrorTransactionAlreadyRegistered:
+			code = http.StatusBadRequest
+		}
+
+		httperror.Formatf(
+			httpResponse,
+			code,
+			"Could not process device request: %s",
+			err,
+		)
+	} else if deviceResponse != nil {
+		if err := EncodeResponse(httpResponse, deviceResponse, mh.Encoders); err != nil {
+			mh.logger().Error("Error while writing transaction response: %s", err)
 		}
 	}
 
-	_, err = fmt.Fprintf(output, `]}`)
-	return
+	// if deviceReponse == nil, that just means the request was not something that represented
+	// the start of a transaction.  For example, events do not carry a transaction key because
+	// they do not expect responses.
 }
 
-func (df Failures) MarshalJSON() (data []byte, err error) {
-	var buffer bytes.Buffer
-	_, err = df.WriteJSON(&buffer)
-	data = buffer.Bytes()
-	return
+type ConnectHandler struct {
+	Logger         logging.Logger
+	Connector      Connector
+	ResponseHeader http.Header
 }
 
-func (df Failures) WriteResponse(response http.ResponseWriter) error {
-	if len(df) > 0 {
-		var buffer bytes.Buffer
-		if count, err := df.WriteJSON(&buffer); err != nil {
-			return err
-		} else if count > 0 {
-			// only write the JSON out if any devices actually had errors, as opposed
-			// to devices mapped to nil errors
-			response.Header().Set("Content-Type", "application/json")
-			response.WriteHeader(http.StatusInternalServerError)
-			_, err := buffer.WriteTo(response)
-			return err
-		}
+func (ch *ConnectHandler) logger() logging.Logger {
+	if ch.Logger != nil {
+		return ch.Logger
 	}
 
-	return nil
+	return logging.DefaultLogger()
 }
 
-// NewTranscodingHandler produces an http.Handler that decodes the body of a request as a something other than
-// Msgpack, e.g. JSON.  The exact format is determined by the supplied decoder.
-func NewTranscodingHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		message := new(wrp.Message)
-		if err := decoderPool.Decode(message, request.Body); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not decode WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-
-			return
-		}
-
-		failures := make(Failures)
-		if _, count, err := router.Route(message, nil, failures.Add); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not route WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-		} else if count == 0 {
-			response.WriteHeader(http.StatusNotFound)
-		} else {
-			failures.WriteResponse(response)
-		}
-	})
+func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	if device, err := ch.Connector.Connect(response, request, ch.ResponseHeader); err != nil {
+		ch.logger().Error("Failed to connect device: %s", err)
+	} else {
+		ch.logger().Debug("Connected device: %s", device.ID())
+	}
 }
 
-// NewMsgpackHandler produces an http.Handler that decodes the body of a request as a Msgpack WRP message
-// and dispatches that message via the supplied Router.
-func NewMsgpackHandler(decoderPool *wrp.DecoderPool, router Router) http.Handler {
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		body, err := ioutil.ReadAll(request.Body)
-		if err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Unable to read request body: %s", err),
-				http.StatusBadRequest,
-			)
+// ListHandler is a handler which serves a JSON document containing connected devices.  This
+// handler listens for connection and disconnection events and concurrently updates a cached
+// JSON document.  This cached document is updated on the RefreshInterval.
+type ListHandler struct {
+	// RefreshInterval is the time interval at which the cached JSON device list is updated.
+	// If this field is nonpositive, DefaultRefreshInterval is used.
+	RefreshInterval time.Duration
 
-			return
-		}
+	// Backlog is the number of connections and disconnections (each) allowed to queue up
+	// internally.  If this field is not positive, DefaultListBacklog is used.
+	Backlog uint32
 
-		message := new(wrp.Message)
-		if err := decoderPool.DecodeBytes(message, body); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not decode WRP message: %s", err),
-				http.StatusBadRequest,
-			)
+	// Tick is a factory function that produces a ticker channel and a stop function.
+	// If not set, time.Ticker is used and the stop function is ticker.Stop.
+	Tick func(time.Duration) (<-chan time.Time, func())
 
-			return
-		}
-
-		failures := make(Failures)
-		if _, count, err := router.Route(message, body, failures.Add); err != nil {
-			http.Error(
-				response,
-				fmt.Sprintf("Could not route WRP message: %s", err),
-				http.StatusBadRequest,
-			)
-		} else if count == 0 {
-			response.WriteHeader(http.StatusNotFound)
-		} else {
-			failures.WriteResponse(response)
-		}
-	})
+	lock           sync.Mutex
+	initializeOnce sync.Once
+	devices        map[Key][]byte
+	changeCount    uint32
+	cachedJSON     atomic.Value
+	shutdown       chan struct{}
 }
 
-// NewConnectHandler produces an http.Handler that allows devices to connect
-// to a specific Manager.
-func NewConnectHandler(connector Connector, responseHeader http.Header, logger logging.Logger) http.Handler {
-	if logger == nil {
-		logger = logging.DefaultLogger()
+func (lh *ListHandler) refreshInterval() time.Duration {
+	if lh.RefreshInterval > 0 {
+		return lh.RefreshInterval
 	}
 
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		device, err := connector.Connect(response, request, responseHeader)
-		if err != nil {
-			logger.Error("Failed to connect device: %s", err)
-		} else {
-			logger.Debug("Connected device: %s", device.ID())
-		}
-	})
+	return DefaultRefreshInterval
 }
 
-// NewDeviceListHandler returns an http.Handler that renders a JSON listing
-// of the devices within a manager.
-func NewDeviceListHandler(manager Manager, logger logging.Logger) http.Handler {
-	if logger == nil {
-		logger = logging.DefaultLogger()
+func (lh *ListHandler) backlog() uint32 {
+	if lh.Backlog > 0 {
+		return lh.Backlog
 	}
 
-	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		flusher := response.(http.Flusher)
-		response.Header().Set("Content-Type", "application/json")
-		if _, err := io.WriteString(response, `{"device": [`); err != nil {
-			logger.Error("Unable to write content: %s", err)
-			return
-		}
+	return DefaultListBacklog
+}
 
-		devices := make(chan Interface, 100)
-		finish := new(sync.WaitGroup)
-		finish.Add(1)
+// newTick returns a ticker channel and a stop function for cleanup.  If tick is set,
+// that function is used.  Otherwise, a time.Ticker is created and (ticker.C, ticker.Stop) is returned.
+func (lh *ListHandler) newTick() (<-chan time.Time, func()) {
+	refreshInterval := lh.refreshInterval()
+	if lh.Tick != nil {
+		return lh.Tick(refreshInterval)
+	}
 
-		// to minimize the time we hold the read lock on the Manager, spawn a goroutine
-		// that collects devices and inserts them into an output buffer
-		go func() {
-			defer finish.Done()
+	ticker := time.NewTicker(refreshInterval)
+	return ticker.C, ticker.Stop
+}
 
-			needsDelimiter := false
-			for d := range devices {
-				if needsDelimiter {
-					io.WriteString(response, ",")
-				}
+func (lh *ListHandler) onDeviceEvent(e *Event) {
+	switch e.Type {
+	case Connect:
+		lh.lock.Lock()
+		defer lh.lock.Unlock()
+		lh.changeCount++
+		lh.devices[e.Device.Key()] = []byte(e.Device.String())
+	case Disconnect:
+		lh.lock.Lock()
+		defer lh.lock.Unlock()
+		lh.changeCount++
+		delete(lh.devices, e.Device.Key())
+	}
+}
 
-				needsDelimiter = true
-				if data, err := json.Marshal(d); err != nil {
-					message := fmt.Sprintf("Unable to marshal device [%s] as JSON: %s", d.ID(), err)
-					logger.Error(message)
-					fmt.Fprintf(response, `"%s"`, message)
-				} else {
-					response.Write(data)
-				}
+func (lh *ListHandler) refresh() {
+	lh.lock.Lock()
+	defer lh.lock.Unlock()
 
-				flusher.Flush()
+	if lh.changeCount > 0 {
+		lh.changeCount = 0
+
+		var (
+			output     = bytes.NewBufferString(`{"devices":[`)
+			needsComma bool
+			comma      = []byte(`,`)
+		)
+
+		for _, deviceJSON := range lh.devices {
+			if needsComma {
+				output.Write(comma)
 			}
-		}()
 
-		manager.VisitAll(func(d Interface) {
-			devices <- d
-		})
+			output.Write(deviceJSON)
+			needsComma = true
+		}
 
-		close(devices)
-		finish.Wait()
-		io.WriteString(response, `]}`)
-		flusher.Flush()
+		output.WriteString(`]}`)
+		lh.cachedJSON.Store(output.Bytes())
+	}
+}
+
+// Stop stops updates to this handler.  This method is idempotent.
+func (lh *ListHandler) Stop() {
+	lh.lock.Lock()
+	defer lh.lock.Unlock()
+
+	if lh.shutdown != nil {
+		close(lh.shutdown)
+		lh.shutdown = nil
+	}
+}
+
+// Listen starts listening for changes to the set of connected devices.  The returned Listener may
+// be placed into an Options.  This method is idempotent, and may be called to restart this handler
+// after Stop is called.
+func (lh *ListHandler) Listen() Listener {
+	lh.lock.Lock()
+	defer lh.lock.Unlock()
+
+	lh.initializeOnce.Do(func() {
+		lh.cachedJSON.Store([]byte(`{"devices":[]}`))
+		lh.devices = make(map[Key][]byte, 1000)
 	})
+
+	if lh.shutdown == nil {
+		lh.shutdown = make(chan struct{})
+
+		// spawn the monitor goroutine
+		go func(shutdown <-chan struct{}) {
+			refreshC, refreshStop := lh.newTick()
+			defer refreshStop()
+
+			for {
+				select {
+				case <-shutdown:
+					return
+				case <-refreshC:
+					lh.refresh()
+				}
+			}
+		}(lh.shutdown)
+	}
+
+	return lh.onDeviceEvent
+}
+
+// ServeHTTP emits the cached JSON into the response.  If Listen has not been called yet,
+// or if for any reason there is no cached JSON, this handler returns http.StatusServiceUnavailable.
+func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	if jsonResponse, _ := lh.cachedJSON.Load().([]byte); len(jsonResponse) > 0 {
+		response.Header().Set("Content-Type", "application/json")
+		response.Header().Set("Content-Length", strconv.Itoa(len(jsonResponse)))
+		response.Write(jsonResponse)
+	} else {
+		response.WriteHeader(http.StatusServiceUnavailable)
+	}
 }

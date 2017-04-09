@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool, output *[]byte) {
+func testEncoderPool(assert *assert.Assertions, expectedFormat Format, encoderPool *EncoderPool, output *[]byte) {
 	var (
 		initialSize = len(encoderPool.pool)
 
@@ -20,6 +20,7 @@ func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool, output
 		buffer bytes.Buffer
 	)
 
+	assert.Equal(expectedFormat, encoderPool.Format())
 	assert.True(initialSize > 0)
 
 	assert.NoError(encoderPool.Encode(&buffer, &testMessage))
@@ -40,11 +41,11 @@ func testEncoderPool(assert *assert.Assertions, encoderPool *EncoderPool, output
 	assert.NotNil(encoderPool.Get())
 
 	for len(encoderPool.pool) < initialSize {
-		encoderPool.Put(encoderPool.factory())
+		encoderPool.Put(encoderPool.New())
 	}
 
 	// a full pool should silently reject Puts
-	encoderPool.Put(encoderPool.factory())
+	encoderPool.Put(encoderPool.New())
 	assert.Equal(initialSize, len(encoderPool.pool))
 }
 
@@ -70,7 +71,7 @@ func TestEncoderPool(t *testing.T) {
 			fmt.Sprintf("%s/poolSize=%d/initialBufferSize=%d", record.format, record.poolSize, record.initialBufferSize),
 			func(t *testing.T) {
 				output := make([]byte, record.initialBufferSize)
-				testEncoderPool(assert, NewEncoderPool(record.poolSize, record.format), &output)
+				testEncoderPool(assert, record.format, NewEncoderPool(record.poolSize, record.format), &output)
 			},
 		)
 	}
@@ -94,6 +95,7 @@ func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *Deco
 		return
 	}
 
+	assert.Equal(format, decoderPool.Format())
 	assert.True(initialSize > 0)
 
 	testMessage = new(SimpleEvent)
@@ -113,11 +115,11 @@ func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *Deco
 	assert.NotNil(decoderPool.Get())
 
 	for len(decoderPool.pool) < initialSize {
-		decoderPool.Put(decoderPool.factory())
+		decoderPool.Put(decoderPool.New())
 	}
 
 	// a full pool should silently reject Puts
-	decoderPool.Put(decoderPool.factory())
+	decoderPool.Put(decoderPool.New())
 	assert.Equal(initialSize, len(decoderPool.pool))
 }
 

@@ -5,93 +5,110 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"io/ioutil"
+	"io"
 	"os"
+	"sync"
 )
 
-func ExampleManagerSimple() {
-	options := &Options{
-		Logger: &logging.LoggerWriter{ioutil.Discard},
-		Listeners: []Listener{
-			func(event *Event) {
-				if event.Type == MessageReceived {
-					message := event.Message.(*wrp.Message)
-					fmt.Printf("%s -> %s\n", message.Destination, message.Payload)
-					err := event.Device.Send(
-						&wrp.SimpleRequestResponse{
-							Source:      message.Destination,
-							Destination: message.Source,
-							Payload:     []byte("Homer Simpson, smiling politely"),
-						},
-						nil,
-					)
+func ExampleManagerTransaction() {
+	var (
+		// we use a WaitGroup so that we can predictably order output
+		messageReceived = new(sync.WaitGroup)
 
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "Unable to send response: %s", err)
+		options = &Options{
+			Logger: logging.DefaultLogger(),
+			Listeners: []Listener{
+				func(e *Event) {
+					switch e.Type {
+					case Connect:
+						fmt.Printf("%s connected\n", e.Device.ID())
+						messageReceived.Add(1)
+					case MessageReceived:
+						fmt.Println("response received")
+						messageReceived.Done()
 					}
-				}
+				},
 			},
-		},
-	}
+		}
 
-	_, server, websocketURL := startWebsocketServer(options)
-	defer server.Close()
+		manager, server, websocketURL = startWebsocketServer(options)
 
-	dialer := NewDialer(options, nil)
-	connection, _, err := dialer.Dial(
-		websocketURL,
-		"mac:111122223333",
-		nil,
-		nil,
+		dialer                   = NewDialer(options, nil)
+		connection, _, dialError = dialer.Dial(
+			websocketURL,
+			"mac:111122223333",
+			nil,
+			nil,
+		)
 	)
 
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to server: %s\n", err)
+	defer server.Close()
+	if dialError != nil {
+		fmt.Fprintf(os.Stderr, "Dial error: %s\n", dialError)
 		return
 	}
 
 	defer connection.Close()
-	var (
-		requestMessage = &wrp.SimpleRequestResponse{
-			Source:      "somewhere.com",
-			Destination: "destination.com",
-			Payload:     []byte("Billy Corgan, Smashing Pumpkins"),
+
+	// spawn a goroutine that simply waits for a request/response and responds
+	go func() {
+		readFrame := new(bytes.Buffer)
+		if frameRead, err := connection.Read(readFrame); !frameRead || err != nil {
+			fmt.Fprintf(os.Stderr, "Read failed: frameRead=%b, err=%s\n", frameRead, err)
+			return
 		}
 
-		requestBuffer bytes.Buffer
-		encoder       = wrp.NewEncoder(&requestBuffer, wrp.Msgpack)
+		var (
+			message = new(wrp.Message)
+			decoder = wrp.NewDecoder(readFrame, wrp.Msgpack)
+
+			writeFrame io.WriteCloser
+			writeError error
+		)
+
+		if err := decoder.Decode(message); err != nil {
+			fmt.Fprintf(os.Stderr, "Could not decode message: %s\n", err)
+			return
+		}
+
+		if writeFrame, writeError = connection.NextWriter(); writeError == nil {
+			defer writeFrame.Close()
+			var (
+				// casting is fine here since we know what type message is
+				response = message.Response("mac:111122223333", 1).(*wrp.Message)
+				encoder  = wrp.NewEncoder(writeFrame, wrp.Msgpack)
+			)
+
+			response.Payload = []byte("Homer Simpson, Smiling Politely")
+			writeError = encoder.Encode(response)
+		}
+
+		if writeError != nil {
+			fmt.Fprintf(os.Stderr, "Could not write response: %s\n", writeError)
+		}
+	}()
+
+	// Route will block until the corresponding message returns from the device
+	response, err := manager.Route(
+		&Request{
+			Message: &wrp.SimpleRequestResponse{
+				Source:          "Example",
+				Destination:     "mac:111122223333",
+				Payload:         []byte("Billy Corgan, Smashing Pumpkins"),
+				TransactionUUID: "MyTransactionUUID",
+			},
+		},
 	)
 
-	if err := encoder.Encode(requestMessage); err != nil {
-		fmt.Printf("Unable to encode request: %s\n", err)
-		return
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Route error: %s\n", err)
+	} else if response != nil {
+		messageReceived.Wait()
+		fmt.Printf("(%s): %s to %s -> %s\n", response.Message.TransactionUUID, response.Message.Source, response.Message.Destination, response.Message.Payload)
 	}
-
-	if _, err := connection.Write(requestBuffer.Bytes()); err != nil {
-		fmt.Printf("Unable to send request: %s\n", err)
-		return
-	}
-
-	var (
-		responseMessage wrp.Message
-		responseBuffer  bytes.Buffer
-		decoder         = wrp.NewDecoder(&responseBuffer, wrp.Msgpack)
-	)
-
-	if frameRead, err := connection.Read(&responseBuffer); err != nil {
-		fmt.Printf("Unable to read response: %s\n", err)
-		return
-	} else if !frameRead {
-		fmt.Println("Response frame skipped")
-		return
-	} else if err := decoder.Decode(&responseMessage); err != nil {
-		fmt.Printf("Unable to decode response: %s\n", err)
-		return
-	}
-
-	fmt.Printf("%s\n", responseMessage.Payload)
 
 	// Output:
-	// destination.com -> Billy Corgan, Smashing Pumpkins
-	// Homer Simpson, smiling politely
+	// mac:111122223333 connected
+	// response received
+	// (MyTransactionUUID): mac:111122223333 to Example -> Homer Simpson, Smiling Politely
 }

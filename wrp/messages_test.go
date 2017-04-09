@@ -98,6 +98,7 @@ func testMessageRoutable(t *testing.T, original Message) {
 	assert.Equal(original.Type, original.MessageType())
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
+	assert.Equal(original.TransactionUUID, original.TransactionKey())
 
 	routable := original.Response("testMessageRoutable", 1234)
 	require.NotNil(routable)
@@ -278,6 +279,7 @@ func testSimpleRequestResponseRoutable(t *testing.T, original SimpleRequestRespo
 	assert.Equal(original.Type, original.MessageType())
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
+	assert.Equal(original.TransactionUUID, original.TransactionKey())
 
 	routable := original.Response("testSimpleRequestResponseRoutable", 34734)
 	require.NotNil(routable)
@@ -371,6 +373,7 @@ func testSimpleEventRoutable(t *testing.T, original SimpleEvent) {
 	assert.Equal(original.Type, original.MessageType())
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
+	assert.Empty(original.TransactionKey())
 
 	routable := original.Response("testSimpleEventRoutable", 82)
 	require.NotNil(routable)
@@ -488,6 +491,7 @@ func testCRUDRoutable(t *testing.T, original CRUD) {
 	assert.Equal(original.Type, original.MessageType())
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
+	assert.Equal(original.TransactionUUID, original.TransactionKey())
 
 	routable := original.Response("testCRUDRoutable", 369)
 	require.NotNil(routable)

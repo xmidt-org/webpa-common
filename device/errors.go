@@ -1,60 +1,19 @@
 package device
 
 import (
-	"fmt"
+	"errors"
 )
 
-// DeviceError is the common interface implemented by all error objects
-// which carry device-related metadata
-type DeviceError interface {
-	error
-	ID() ID
-	Key() Key
-}
-
-// deviceError is the internal DeviceError implementation
-type deviceError struct {
-	id   ID
-	key  Key
-	text string
-}
-
-func (e *deviceError) ID() ID {
-	return e.id
-}
-
-func (e *deviceError) Key() Key {
-	return e.key
-}
-
-func (e *deviceError) Error() string {
-	return e.text
-}
-
-func newDeviceError(id ID, key Key, message string) DeviceError {
-	return &deviceError{
-		id:   id,
-		key:  key,
-		text: fmt.Sprintf("Device [id=%s, key=%s]: %s", id, key, message),
-	}
-}
-
-func NewClosedError(id ID, key Key) DeviceError {
-	return newDeviceError(id, key, "closed")
-}
-
-func NewBusyError(id ID, key Key) DeviceError {
-	return newDeviceError(id, key, "busy")
-}
-
-func NewMissingIDError(id ID) DeviceError {
-	return newDeviceError(id, invalidKey, "ID does not exist")
-}
-
-func NewMissingKeyError(key Key) DeviceError {
-	return newDeviceError(invalidID, key, "Key does not exist")
-}
-
-func NewDuplicateKeyError(key Key) DeviceError {
-	return newDeviceError(invalidID, key, "duplicate key")
-}
+var (
+	ErrorInvalidDeviceName            = errors.New("Invalid device name")
+	ErrorDeviceNotFound               = errors.New("The device does not exist")
+	ErrorNonUniqueID                  = errors.New("More than once device with that identifier is connected")
+	ErrorDuplicateKey                 = errors.New("That key is a duplicate")
+	ErrorInvalidTransactionKey        = errors.New("Transaction keys must be non-empty strings")
+	ErrorNoSuchTransactionKey         = errors.New("That transaction key is not registered")
+	ErrorTransactionAlreadyRegistered = errors.New("That transaction is already registered")
+	ErrorTransactionCancelled         = errors.New("The transaction has been cancelled")
+	ErrorResponseNoContents           = errors.New("The response has no contents")
+	ErrorDeviceBusy                   = errors.New("That device is busy")
+	ErrorDeviceClosed                 = errors.New("That device has been closed")
+)

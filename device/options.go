@@ -14,6 +14,7 @@ const (
 	DefaultWriteTimeout     time.Duration = 60 * time.Second
 	DefaultPingPeriod       time.Duration = 45 * time.Second
 
+	DefaultDecoderPoolSize        = 1000
 	DefaultEncoderPoolSize        = 1000
 	DefaultInitialCapacity        = 100000
 	DefaultReadBufferSize         = 4096
@@ -36,6 +37,10 @@ type Options struct {
 	// HandshakeTimeout is the optional websocket handshake timeout.  If not supplied,
 	// the internal gorilla default is used.
 	HandshakeTimeout time.Duration
+
+	// DecoderPoolSize is the size of the pool of wrp.Decoder objects used internally
+	// to decode messages from external sources, such as HTTP requests
+	DecoderPoolSize int
 
 	// EncoderPoolSize is the size of the pool of wrp.Encoder objects used internally
 	// to encode messages that have no encoded byte representation.
@@ -113,6 +118,14 @@ func (o *Options) handshakeTimeout() time.Duration {
 	}
 
 	return DefaultHandshakeTimeout
+}
+
+func (o *Options) decoderPoolSize() int {
+	if o != nil && o.DecoderPoolSize > 0 {
+		return o.DecoderPoolSize
+	}
+
+	return DefaultDecoderPoolSize
 }
 
 func (o *Options) encoderPoolSize() int {
@@ -194,4 +207,12 @@ func (o *Options) logger() logging.Logger {
 	}
 
 	return logging.DefaultLogger()
+}
+
+func (o *Options) listeners() []Listener {
+	if o != nil {
+		return o.Listeners
+	}
+
+	return nil
 }

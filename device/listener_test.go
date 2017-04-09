@@ -32,19 +32,21 @@ func testEventString(t *testing.T) {
 
 func testEventSetMessageFailedWithError(t *testing.T, event Event) {
 	var (
-		assert  = assert.New(t)
-		device  = new(mockDevice)
-		message = new(wrp.Message)
-		encoded = []byte("testEventSetMessageFailed")
-		err     = errors.New("testEventSetMessageFailed")
+		assert   = assert.New(t)
+		device   = new(mockDevice)
+		message  = new(wrp.Message)
+		format   = wrp.JSON
+		contents = []byte("testEventSetMessageFailed")
+		err      = errors.New("testEventSetMessageFailed")
 	)
 
-	event.setMessageFailed(device, message, encoded, err)
+	event.setMessageFailed(device, message, format, contents, err)
 	assert.Equal(MessageFailed, event.Type)
 	assert.Equal(device, event.Device)
 	assert.True(message == event.Message)
-	assert.Equal(encoded, event.Encoded)
-	assert.True(err == event.Err)
+	assert.Equal(format, event.Format)
+	assert.Equal(contents, event.Contents)
+	assert.True(err == event.Error)
 	assert.Empty(event.Data)
 
 	device.AssertExpectations(t)
@@ -52,18 +54,20 @@ func testEventSetMessageFailedWithError(t *testing.T, event Event) {
 
 func testEventSetMessageFailedWithoutError(t *testing.T, event Event) {
 	var (
-		assert  = assert.New(t)
-		device  = new(mockDevice)
-		message = new(wrp.Message)
-		encoded = []byte("testEventSetMessageFailed")
+		assert   = assert.New(t)
+		device   = new(mockDevice)
+		message  = new(wrp.Message)
+		format   = wrp.JSON
+		contents = []byte("testEventSetMessageFailed")
 	)
 
-	event.setMessageFailed(device, message, encoded, nil)
+	event.setMessageFailed(device, message, format, contents, nil)
 	assert.Equal(MessageFailed, event.Type)
 	assert.Equal(device, event.Device)
 	assert.True(message == event.Message)
-	assert.Equal(encoded, event.Encoded)
-	assert.NoError(event.Err)
+	assert.Equal(format, event.Format)
+	assert.Equal(contents, event.Contents)
+	assert.NoError(event.Error)
 	assert.Empty(event.Data)
 
 	device.AssertExpectations(t)
@@ -71,18 +75,20 @@ func testEventSetMessageFailedWithoutError(t *testing.T, event Event) {
 
 func testEventSetMessageReceived(t *testing.T, event Event) {
 	var (
-		assert  = assert.New(t)
-		device  = new(mockDevice)
-		message = new(wrp.Message)
-		encoded = []byte("testEventSetMessageReceived")
+		assert   = assert.New(t)
+		device   = new(mockDevice)
+		message  = new(wrp.Message)
+		format   = wrp.JSON
+		contents = []byte("testEventSetMessageReceived")
 	)
 
-	event.setMessageReceived(device, message, encoded)
+	event.setMessageReceived(device, message, format, contents)
 	assert.Equal(MessageReceived, event.Type)
 	assert.Equal(device, event.Device)
 	assert.True(message == event.Message)
-	assert.Equal(encoded, event.Encoded)
-	assert.NoError(event.Err)
+	assert.Equal(format, event.Format)
+	assert.Equal(contents, event.Contents)
+	assert.NoError(event.Error)
 	assert.Empty(event.Data)
 	device.AssertExpectations(t)
 }
@@ -98,8 +104,8 @@ func testEventSetPong(t *testing.T, event Event) {
 	assert.Equal(Pong, event.Type)
 	assert.Equal(device, event.Device)
 	assert.Nil(event.Message)
-	assert.Empty(event.Encoded)
-	assert.NoError(event.Err)
+	assert.Empty(event.Contents)
+	assert.NoError(event.Error)
 	assert.Equal(data, event.Data)
 	device.AssertExpectations(t)
 }
@@ -122,23 +128,23 @@ func TestEvent(t *testing.T) {
 				Device: device,
 			},
 			Event{
-				Type:    MessageFailed,
-				Device:  device,
-				Message: new(wrp.Message),
-				Encoded: []byte("encoded"),
+				Type:     MessageFailed,
+				Device:   device,
+				Message:  new(wrp.Message),
+				Contents: []byte("contents"),
 			},
 			Event{
-				Type:    MessageFailed,
-				Device:  device,
-				Message: new(wrp.Message),
-				Encoded: []byte("encoded"),
-				Err:     errors.New("some random I/O problem"),
+				Type:     MessageFailed,
+				Device:   device,
+				Message:  new(wrp.Message),
+				Contents: []byte("contents"),
+				Error:    errors.New("some random I/O problem"),
 			},
 			Event{
-				Type:    MessageReceived,
-				Device:  device,
-				Message: new(wrp.Message),
-				Encoded: []byte("encoded"),
+				Type:     MessageReceived,
+				Device:   device,
+				Message:  new(wrp.Message),
+				Contents: []byte("contents"),
 			},
 			Event{
 				Type:   Pong,

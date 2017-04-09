@@ -6,7 +6,6 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -34,16 +33,18 @@ var (
 
 // startWebsocketServer sets up a server-side environment for testing device-related websocket code
 func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
-	manager := NewManager(o, nil)
-	server := httptest.NewServer(
-		NewConnectHandler(
-			manager,
-			nil,
-			o.logger(),
-		),
+	var (
+		manager = NewManager(o, nil)
+		server  = httptest.NewServer(
+			&ConnectHandler{
+				Logger:    o.logger(),
+				Connector: manager,
+			},
+		)
+
+		websocketURL, err = url.Parse(server.URL)
 	)
 
-	websocketURL, err := url.Parse(server.URL)
 	if err != nil {
 		server.Close()
 		panic(fmt.Errorf("Unable to parse test server URL: %s", err))
@@ -81,7 +82,7 @@ func closeTestDevices(assert *assert.Assertions, devices map[ID][]Connection) {
 	}
 }
 
-func TestManagerConnectMissingDeviceNameHeader(t *testing.T) {
+func testManagerConnectMissingDeviceNameHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -97,7 +98,7 @@ func TestManagerConnectMissingDeviceNameHeader(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerBadDeviceNameHeader(t *testing.T) {
+func testManagerConnectBadDeviceNameHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -114,7 +115,7 @@ func TestManagerBadDeviceNameHeader(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerBadConveyHeader(t *testing.T) {
+func testManagerConnectBadConveyHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -132,20 +133,23 @@ func TestManagerBadConveyHeader(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerKeyError(t *testing.T) {
-	assert := assert.New(t)
-	badKeyFunc := func(ID, Convey, *http.Request) (Key, error) {
-		return invalidKey, errors.New("expected")
-	}
+func testManagerConnectKeyError(t *testing.T) {
+	var (
+		assert     = assert.New(t)
+		badKeyFunc = func(ID, Convey, *http.Request) (Key, error) {
+			return invalidKey, errors.New("expected")
+		}
 
-	options := &Options{
-		Logger:  logging.TestLogger(t),
-		KeyFunc: badKeyFunc,
-	}
+		options = &Options{
+			Logger:  logging.TestLogger(t),
+			KeyFunc: badKeyFunc,
+		}
 
-	manager := NewManager(options, nil)
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest("POST", "http://localhost.com", nil)
+		manager  = NewManager(options, nil)
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "http://localhost.com", nil)
+	)
+
 	request.Header.Set(DefaultDeviceNameHeader, "mac:112233445566")
 
 	device, err := manager.Connect(response, request, nil)
@@ -154,55 +158,69 @@ func TestManagerKeyError(t *testing.T) {
 	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
-func TestManagerPongCallbackFor(t *testing.T) {
-	assert := assert.New(t)
-	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, 1)
-	expectedData := "expected pong data"
-	listenerCalled := false
-
-	manager := &manager{
-		logger: logging.TestLogger(t),
-		listeners: []Listener{
-			func(event *Event) {
-				listenerCalled = true
-				assert.True(expectedDevice == event.Device)
-				assert.Equal(expectedData, event.Data)
+func testManagerConnectConnectionFactoryError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		options = &Options{
+			Logger: logging.TestLogger(t),
+			Listeners: []Listener{
+				func(e *Event) {
+					assert.Fail("The listener should not have been called")
+				},
 			},
-		},
-	}
+		}
 
-	pongCallback := manager.pongCallbackFor(expectedDevice)
-	pongCallback(expectedData)
-	assert.True(listenerCalled)
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(options, connectionFactory)
+		response          = httptest.NewRecorder()
+		request           = httptest.NewRequest("POST", "http://localhost.com", nil)
+		responseHeader    http.Header
+		expectedError     = errors.New("expected error")
+	)
+
+	connectionFactory.On("NewConnection", response, request, responseHeader).Once().Return(nil, expectedError)
+
+	request.Header.Set(DefaultDeviceNameHeader, "mac:123412341234")
+	device, actualError := manager.Connect(response, request, responseHeader)
+	assert.Nil(device)
+	assert.Equal(expectedError, actualError)
+
+	connectionFactory.AssertExpectations(t)
 }
 
-func TestManagerConnectAndVisit(t *testing.T) {
-	assert := assert.New(t)
-	connectWait := new(sync.WaitGroup)
-	connectWait.Add(testConnectionCount)
-	connections := make(chan Interface, testConnectionCount)
+func testManagerConnectVisit(t *testing.T) {
+	var (
+		assert      = assert.New(t)
+		connectWait = new(sync.WaitGroup)
+		connections = make(chan Interface, testConnectionCount)
 
-	options := &Options{
-		Logger: logging.TestLogger(t),
-		Listeners: []Listener{
-			func(event *Event) {
-				if event.Type == Connect {
-					defer connectWait.Done()
-					select {
-					case connections <- event.Device:
-					default:
-						assert.Fail("The connect listener should not block")
+		options = &Options{
+			Logger: logging.TestLogger(t),
+			Listeners: []Listener{
+				func(event *Event) {
+					if event.Type == Connect {
+						defer connectWait.Done()
+						select {
+						case connections <- event.Device:
+						default:
+							assert.Fail("The connect listener should not block")
+						}
 					}
-				}
+				},
 			},
-		},
-	}
+		}
 
-	manager, server, connectURL := startWebsocketServer(options)
+		manager, server, connectURL = startWebsocketServer(options)
+	)
+
 	defer server.Close()
+	connectWait.Add(testConnectionCount)
 
-	dialer := NewDialer(options, nil)
-	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	var (
+		dialer      = NewDialer(options, nil)
+		testDevices = connectTestDevices(t, assert, dialer, connectURL)
+	)
+
 	defer closeTestDevices(assert, testDevices)
 
 	connectWait.Wait()
@@ -243,7 +261,29 @@ func TestManagerConnectAndVisit(t *testing.T) {
 	deviceSet.assertDistributionOfIDs(assert, testDeviceIDs)
 }
 
-func TestManagerDisconnect(t *testing.T) {
+func testManagerPongCallbackFor(t *testing.T) {
+	assert := assert.New(t)
+	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, 1)
+	expectedData := "expected pong data"
+	listenerCalled := false
+
+	manager := &manager{
+		logger: logging.TestLogger(t),
+		listeners: []Listener{
+			func(event *Event) {
+				listenerCalled = true
+				assert.True(expectedDevice == event.Device)
+				assert.Equal(expectedData, event.Data)
+			},
+		},
+	}
+
+	pongCallback := manager.pongCallbackFor(expectedDevice)
+	pongCallback(expectedData)
+	assert.True(listenerCalled)
+}
+
+func testManagerDisconnect(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -290,7 +330,7 @@ func TestManagerDisconnect(t *testing.T) {
 	assert.Equal(testConnectionCount, deviceSet.len())
 }
 
-func TestManagerDisconnectOne(t *testing.T) {
+func testManagerDisconnectOne(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -344,7 +384,7 @@ func TestManagerDisconnectOne(t *testing.T) {
 	}
 }
 
-func TestManagerDisconnectIf(t *testing.T) {
+func testManagerDisconnectIf(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
 	connectWait.Add(testConnectionCount)
@@ -399,100 +439,73 @@ func TestManagerDisconnectIf(t *testing.T) {
 	}
 }
 
-func TestManagerRoute(t *testing.T) {
+func testManagerRouteBadDestination(t *testing.T) {
 	var (
-		assert      = assert.New(t)
-		require     = require.New(t)
-		connectWait = new(sync.WaitGroup)
-		receiveWait = new(sync.WaitGroup)
-
-		options = &Options{
-			Logger: logging.TestLogger(t),
-			Listeners: []Listener{
-				func(event *Event) {
-					switch event.Type {
-					case Connect:
-						connectWait.Done()
-					case Disconnect:
-						assert.True(event.Device.Closed())
-						assert.Error(event.Device.Send(new(wrp.Message), nil))
-					}
-				},
+		assert  = assert.New(t)
+		request = &Request{
+			Message: &wrp.Message{
+				Destination: "this is a bad destination",
 			},
 		}
+
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(nil, connectionFactory)
 	)
 
-	connectWait.Add(testConnectionCount)
-	receiveWait.Add(testConnectionCount)
-
-	var (
-		manager, server, connectURL = startWebsocketServer(options)
-		dialer                      = NewDialer(options, nil)
-		testDevices                 = connectTestDevices(t, assert, dialer, connectURL)
-	)
-
-	defer server.Close()
-	defer closeTestDevices(assert, testDevices)
-
-	for id, connections := range testDevices {
-		for _, c := range connections {
-			go func(id ID, c Connection) {
-				defer receiveWait.Done()
-				var (
-					frame, err = c.NextReader()
-					decoder    = wrp.NewDecoder(frame, wrp.Msgpack)
-					message    wrp.Message
-				)
-
-				require.NotNil(frame)
-				require.NoError(err)
-				require.NoError(decoder.Decode(&message))
-				assert.Equal(fmt.Sprintf("message for %s", id), string(message.Payload))
-			}(id, c)
-		}
-	}
-
-	connectWait.Wait()
-	for id, expectedCount := range testDeviceIDs {
-		// spawn a goroutine for each send to better detect any race conditions
-		// or other concurrency issues
-		go func(id ID, expectedCount int) {
-			actualID, actualCount, err := manager.Route(
-				&wrp.SimpleEvent{
-					Destination: string(id),
-					Payload:     []byte(fmt.Sprintf("message for %s", id)),
-				},
-				nil,
-				func(d Interface, err error) {
-					assert.Fail("The callback should not have been called")
-				},
-			)
-
-			assert.Equal(id, actualID)
-			assert.NoError(err)
-			assert.Equal(expectedCount, actualCount)
-		}(id, expectedCount)
-	}
-
-	receiveWait.Wait()
-
-	id, count, err := manager.Route(
-		&wrp.SimpleEvent{
-			Destination: "nosuch device",
-			Payload:     []byte("this shouldn't go anywhere"),
-		},
-		nil,
-		func(Interface, error) {
-			assert.Fail("The callback should not have been called")
-		},
-	)
-
-	assert.Equal(ID(""), id)
-	assert.Zero(count)
+	response, err := manager.Route(request)
+	assert.Nil(response)
 	assert.Error(err)
+
+	connectionFactory.AssertExpectations(t)
 }
 
-func TestManagerPingPong(t *testing.T) {
+func testManagerRouteDeviceNotFound(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		request = &Request{
+			Message: &wrp.Message{
+				Destination: "mac:112233445566",
+			},
+		}
+
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(nil, connectionFactory)
+	)
+
+	response, err := manager.Route(request)
+	assert.Nil(response)
+	assert.Equal(ErrorDeviceNotFound, err)
+
+	connectionFactory.AssertExpectations(t)
+}
+
+func testManagerRouteNonUniqueID(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		request = &Request{
+			Message: &wrp.Message{
+				Destination: "mac:112233445566",
+			},
+		}
+
+		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, 1)
+		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, 1)
+
+		connectionFactory = new(mockConnectionFactory)
+		manager           = NewManager(nil, connectionFactory).(*manager)
+	)
+
+	manager.registry.add(device1)
+	manager.registry.add(device2)
+
+	response, err := manager.Route(request)
+	assert.Nil(response)
+	assert.Equal(ErrorNonUniqueID, err)
+
+	connectionFactory.AssertExpectations(t)
+}
+
+func testManagerPingPong(t *testing.T) {
 	var (
 		assert      = assert.New(t)
 		connectWait = new(sync.WaitGroup)
@@ -555,4 +568,28 @@ func TestManagerPingPong(t *testing.T) {
 	}()
 
 	pongWait.Wait()
+}
+
+func TestManager(t *testing.T) {
+	t.Run("Connect", func(t *testing.T) {
+		t.Run("MissingDeviceNameHeader", testManagerConnectMissingDeviceNameHeader)
+		t.Run("BadDeviceNameHeader", testManagerConnectBadDeviceNameHeader)
+		t.Run("BadConveyHeader", testManagerConnectBadConveyHeader)
+		t.Run("KeyError", testManagerConnectKeyError)
+		t.Run("ConnectionFactoryError", testManagerConnectConnectionFactoryError)
+		t.Run("Visit", testManagerConnectVisit)
+	})
+
+	t.Run("Route", func(t *testing.T) {
+		t.Run("BadDestination", testManagerRouteBadDestination)
+		t.Run("DeviceNotFound", testManagerRouteDeviceNotFound)
+		t.Run("NonUniqueID", testManagerRouteNonUniqueID)
+	})
+
+	t.Run("Disconnect", testManagerDisconnect)
+	t.Run("DisconnectOne", testManagerDisconnectOne)
+	t.Run("DisconnectIf", testManagerDisconnectIf)
+
+	t.Run("PongCallbackFor", testManagerPongCallbackFor)
+	t.Run("PingPong", testManagerPingPong)
 }
