@@ -40,7 +40,7 @@ type keyMap map[Key]*device
 
 func (m keyMap) add(k Key, d *device) error {
 	if _, ok := m[k]; ok {
-		return NewDuplicateKeyError(k)
+		return ErrorDuplicateKey
 	}
 
 	m[k] = d

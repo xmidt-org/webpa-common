@@ -167,33 +167,6 @@ type ListHandler struct {
 	shutdown       chan struct{}
 }
 
-func (lh *ListHandler) refresh() {
-	lh.lock.Lock()
-	defer lh.lock.Unlock()
-
-	if lh.changeCount > 0 {
-		lh.changeCount = 0
-
-		var (
-			output     = bytes.NewBufferString(`{"devices":[`)
-			needsComma bool
-			comma      = []byte(`,`)
-		)
-
-		for _, deviceJSON := range lh.devices {
-			if needsComma {
-				output.Write(comma)
-			}
-
-			output.Write(deviceJSON)
-			needsComma = true
-		}
-
-		output.WriteString(`]}`)
-		lh.cachedJSON.Store(output.Bytes())
-	}
-}
-
 func (lh *ListHandler) refreshInterval() time.Duration {
 	if lh.RefreshInterval > 0 {
 		return lh.RefreshInterval
@@ -234,6 +207,33 @@ func (lh *ListHandler) onDeviceEvent(e *Event) {
 		defer lh.lock.Unlock()
 		lh.changeCount++
 		delete(lh.devices, e.Device.Key())
+	}
+}
+
+func (lh *ListHandler) refresh() {
+	lh.lock.Lock()
+	defer lh.lock.Unlock()
+
+	if lh.changeCount > 0 {
+		lh.changeCount = 0
+
+		var (
+			output     = bytes.NewBufferString(`{"devices":[`)
+			needsComma bool
+			comma      = []byte(`,`)
+		)
+
+		for _, deviceJSON := range lh.devices {
+			if needsComma {
+				output.Write(comma)
+			}
+
+			output.Write(deviceJSON)
+			needsComma = true
+		}
+
+		output.WriteString(`]}`)
+		lh.cachedJSON.Store(output.Bytes())
 	}
 }
 

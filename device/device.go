@@ -204,7 +204,7 @@ func (d *device) sendRequest(request *Request) error {
 	case <-done:
 		return request.Context().Err()
 	case <-d.shutdown:
-		return NewClosedError(d.id, d.Key())
+		return ErrorDeviceClosed
 	case d.messages <- envelope:
 	}
 
@@ -214,7 +214,7 @@ func (d *device) sendRequest(request *Request) error {
 	case <-done:
 		return request.Context().Err()
 	case <-d.shutdown:
-		return NewClosedError(d.id, d.Key())
+		return ErrorDeviceClosed
 	case err := <-complete:
 		return err
 	}
@@ -228,7 +228,7 @@ func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Resp
 	case <-request.Context().Done():
 		return nil, request.Context().Err()
 	case <-d.shutdown:
-		return nil, NewClosedError(d.id, d.Key())
+		return nil, ErrorDeviceClosed
 	case response := <-result:
 		if response == nil {
 			return nil, ErrorTransactionCancelled
@@ -240,7 +240,7 @@ func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Resp
 
 func (d *device) Send(request *Request) (*Response, error) {
 	if d.Closed() {
-		return nil, NewClosedError(d.id, d.Key())
+		return nil, ErrorDeviceClosed
 	}
 
 	var (

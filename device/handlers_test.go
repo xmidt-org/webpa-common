@@ -572,24 +572,27 @@ func testListHandlerServeHTTPWithEvents(t *testing.T) {
 
 	old := handler.cachedJSON.Load().([]byte)
 	refreshC <- time.Now()
-	for bytes.Equal(old, handler.cachedJSON.Load().([]byte)) {
-		// spin until we get a change
+	for repeat := 0; repeat < 3 && bytes.Equal(old, handler.cachedJSON.Load().([]byte)); repeat++ {
+		// spin trying to detect a change
+		time.Sleep(250 * time.Millisecond)
 	}
 	assertDeviceList(assert, handler, `{"devices":[{"id": "A"}]}`)
 
 	listener(&Event{Type: Connect, Device: deviceB})
 	old = handler.cachedJSON.Load().([]byte)
 	refreshC <- time.Now()
-	for bytes.Equal(old, handler.cachedJSON.Load().([]byte)) {
-		// spin until we get a change
+	for repeat := 0; repeat < 3 && bytes.Equal(old, handler.cachedJSON.Load().([]byte)); repeat++ {
+		// spin trying to detect a change
+		time.Sleep(250 * time.Millisecond)
 	}
 	assertDeviceList(assert, handler, `{"devices":[{"id": "B"},{"id": "A"}]}`, `{"devices":[{"id": "A"},{"id": "B"}]}`)
 
 	listener(&Event{Type: Disconnect, Device: deviceA})
 	old = handler.cachedJSON.Load().([]byte)
 	refreshC <- time.Now()
-	for bytes.Equal(old, handler.cachedJSON.Load().([]byte)) {
-		// spin until we get a change
+	for repeat := 0; repeat < 3 && bytes.Equal(old, handler.cachedJSON.Load().([]byte)); repeat++ {
+		// spin trying to detect a change
+		time.Sleep(250 * time.Millisecond)
 	}
 	assertDeviceList(assert, handler, `{"devices":[{"id": "B"}]}`)
 
