@@ -217,9 +217,7 @@ func TestRegisterAll(t *testing.T) {
 		mockRegistrar := new(mockRegistrar)
 		for index, expectedHost := range record.expectedHosts {
 			expectedEndpoint := new(serversets.Endpoint)
-			assert.NoError(
-				expectedRegisteredEndpoints.AddHostPort(expectedHost, record.expectedPorts[index], expectedEndpoint),
-			)
+			expectedRegisteredEndpoints.AddHostPort(expectedHost, record.expectedPorts[index], expectedEndpoint)
 
 			mockRegistrar.On(
 				"RegisterEndpoint", expectedHost, record.expectedPorts[index], mock.AnythingOfType("func() error"),

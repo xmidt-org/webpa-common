@@ -13,14 +13,9 @@ type RegisteredEndpoints map[string]*serversets.Endpoint
 
 // AddHostPort handles producing the same endpoint string as produced by Watches
 // and maps that string to the given endpoint object.
-func (r RegisteredEndpoints) AddHostPort(host string, port int, endpoint *serversets.Endpoint) error {
-	hashedEndpoint, err := ParseHostPort(net.JoinHostPort(host, strconv.Itoa(port)))
-	if err != nil {
-		return err
-	}
-
+func (r RegisteredEndpoints) AddHostPort(host string, port int, endpoint *serversets.Endpoint) {
+	hashedEndpoint, _ := ParseHostPort(net.JoinHostPort(host, strconv.Itoa(port)))
 	r[hashedEndpoint] = endpoint
-	return nil
 }
 
 // Has simply tests if the given watched endpoint occurs in this mapping.
