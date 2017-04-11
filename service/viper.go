@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/spf13/viper"
+	"github.com/strava/go.serversets"
 )
 
 const (
@@ -31,13 +32,13 @@ func NewOptions(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o
 // Initialize is the top-level function for bootstrapping the service discovery infrastructure
 // using a Viper instance.  No watches are set by this function, but all registrations are made
 // and monitored via the returned RegistrarWatcher.
-func Initialize(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o *Options, r Registrar, err error) {
+func Initialize(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o *Options, r Registrar, e map[string]*serversets.Endpoint, err error) {
 	o, err = NewOptions(logger, pingFunc, v)
 	if err != nil {
 		return
 	}
 
 	r = NewRegistrar(o)
-	_, err = RegisterAll(r, o)
+	e, err = RegisterAll(r, o)
 	return
 }

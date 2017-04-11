@@ -97,7 +97,7 @@ func ParseRegistration(value string) (string, uint16, error) {
 }
 
 // RegisterAll registers all host:port strings found in o.Registrations.
-func RegisterAll(registrar Registrar, o *Options) ([]*serversets.Endpoint, error) {
+func RegisterAll(registrar Registrar, o *Options) (RegisteredEndpoints, error) {
 	registrations := o.registrations()
 	if len(registrations) > 0 {
 		var (
@@ -120,18 +120,19 @@ func RegisterAll(registrar Registrar, o *Options) ([]*serversets.Endpoint, error
 		var (
 			logger    = o.logger()
 			pingFunc  = o.pingFunc()
-			endpoints = make([]*serversets.Endpoint, 0, len(registrations))
+			endpoints = make(RegisteredEndpoints, len(registrations))
 		)
 
 		for index, host := range hosts {
 			port := ports[index]
 			logger.Info("Registering endpoint: %s:%d", host, port)
-			endpoint, err := registrar.RegisterEndpoint(host, port, pingFunc)
+
+			registeredEndpoint, err := registrar.RegisterEndpoint(host, port, pingFunc)
 			if err != nil {
 				return endpoints, err
 			}
 
-			endpoints = append(endpoints, endpoint)
+			endpoints.AddHostPort(host, port, registeredEndpoint)
 		}
 
 		return endpoints, nil
