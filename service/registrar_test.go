@@ -156,71 +156,86 @@ func TestRegisterAllNoRegistrations(t *testing.T) {
 func TestRegisterAll(t *testing.T) {
 	assert := assert.New(t)
 	testData := []struct {
-		options           *Options
-		expectedHosts     []string
-		expectedPorts     []int
-		expectedEndpoints []*serversets.Endpoint
-		expectsError      bool
+		options                 *Options
+		expectedHosts           []string
+		expectedPorts           []int
+		expectedHashedEndpoints []string
+		expectsError            bool
 	}{
 		{
 			options: &Options{
 				Registrations: []string{"https://node1.comcast.net:1467"},
 			},
-			expectedHosts:     []string{"https://node1.comcast.net"},
-			expectedPorts:     []int{1467},
-			expectedEndpoints: []*serversets.Endpoint{new(serversets.Endpoint)},
-			expectsError:      false,
+			expectedHosts:           []string{"https://node1.comcast.net"},
+			expectedPorts:           []int{1467},
+			expectedHashedEndpoints: []string{"https://node1.comcast.net:1467"},
+			expectsError:            false,
 		},
 		{
 			options: &Options{
 				Registrations: []string{"https://port.is.too.large:23987928374312"},
 			},
-			expectedHosts:     []string{},
-			expectedPorts:     []int{},
-			expectedEndpoints: nil,
-			expectsError:      true,
+			expectedHosts:           []string{},
+			expectedPorts:           []int{},
+			expectedHashedEndpoints: nil,
+			expectsError:            true,
 		},
 		{
 			options: &Options{
 				Registrations: []string{"node17.foobar.com", "https://node1.comcast.net:1467"},
 			},
-			expectedHosts:     []string{"http://node17.foobar.com", "https://node1.comcast.net"},
-			expectedPorts:     []int{80, 1467},
-			expectedEndpoints: []*serversets.Endpoint{new(serversets.Endpoint), new(serversets.Endpoint)},
-			expectsError:      false,
+			expectedHosts:           []string{"http://node17.foobar.com", "https://node1.comcast.net"},
+			expectedPorts:           []int{80, 1467},
+			expectedHashedEndpoints: []string{"http://node17.foobar.com", "https://node1.comcast.net:1467"},
+			expectsError:            false,
 		},
 		{
 			options: &Options{
 				Registrations: []string{"node17.foobar.com", "https://port.is.too.large:23987928374312"},
 			},
-			expectedHosts:     []string{},
-			expectedPorts:     []int{},
-			expectedEndpoints: nil,
-			expectsError:      true,
+			expectedHosts:           []string{},
+			expectedPorts:           []int{},
+			expectedHashedEndpoints: nil,
+			expectsError:            true,
 		},
 		{
 			options: &Options{
 				Registrations: []string{"https://port.is.too.large:23987928374312", "http://valid.com:1111"},
 			},
-			expectedHosts:     []string{},
-			expectedPorts:     []int{},
-			expectedEndpoints: nil,
-			expectsError:      true,
+			expectedHosts:           []string{},
+			expectedPorts:           []int{},
+			expectedHashedEndpoints: nil,
+			expectsError:            true,
 		},
 	}
 
 	for _, record := range testData {
 		t.Logf("%v", record)
 
+		expectedRegisteredEndpoints := make(RegisteredEndpoints)
+
 		mockRegistrar := new(mockRegistrar)
 		for index, expectedHost := range record.expectedHosts {
+			expectedEndpoint := new(serversets.Endpoint)
+			assert.NoError(
+				expectedRegisteredEndpoints.AddHostPort(expectedHost, record.expectedPorts[index], expectedEndpoint),
+			)
+
 			mockRegistrar.On(
 				"RegisterEndpoint", expectedHost, record.expectedPorts[index], mock.AnythingOfType("func() error"),
-			).Return(record.expectedEndpoints[index], nil).Once()
+			).Return(expectedEndpoint, nil).Once()
 		}
 
-		actualEndpoints, err := RegisterAll(mockRegistrar, record.options)
-		assert.Equal(record.expectedEndpoints, actualEndpoints)
+		actualRegisteredEndpoints, err := RegisterAll(mockRegistrar, record.options)
+		if assert.Equal(len(expectedRegisteredEndpoints), len(actualRegisteredEndpoints)) {
+			// RegisterAll can return a nil map on error
+			if err != nil {
+				assert.Nil(actualRegisteredEndpoints)
+			} else {
+				assert.Equal(expectedRegisteredEndpoints, actualRegisteredEndpoints)
+			}
+		}
+
 		assert.Equal(record.expectsError, err != nil)
 
 		mockRegistrar.AssertExpectations(t)
