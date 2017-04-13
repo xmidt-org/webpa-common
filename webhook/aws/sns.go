@@ -100,7 +100,8 @@ func (ss *SNSServer) logger() logging.Logger {
 }
 
 // Prepare the SNSServer to receive Notifications 
-// This should be called only after the endpoint http server is started and ready to receive AWS SNS POST messages
+// This should be called only after the endpoint http server is started 
+// and ready to receive AWS SNS POST messages
 // subscribe to the SNS topic, wait for snsReady
 // validate the confirmation SubscriptionArn
 func (ss *SNSServer) Prepare() bool {

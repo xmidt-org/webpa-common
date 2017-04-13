@@ -2,8 +2,14 @@ package webhook
 
 import (
 	"github.com/spf13/viper"
+	AWS "github.com/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/gorilla/mux"
+	"net/url"
 	"net/http"
 	"time"
+	"bytes"
+	"encoding/json"
 )
 
 const (
@@ -13,6 +19,7 @@ const (
 // Factory is a classic Factory Object for various webhook things.
 type Factory struct {
 	// Other configuration stuff can go here
+	cfg *AWS.AWSConfig
 
 	// Tick is an optional function that produces a channel for time ticks.
 	// Test code can set this field to something that returns a channel under the control of the test.
@@ -43,12 +50,20 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		err = v.Unmarshal(f)
 	}
 
+	f.cfg, err = AWS.NewAWSConfig(v)
+
 	return
 }
 
+// monitor pointer instance shared between functions
+var m *monitor
+
+// log instance shared between functions
+var log logging.Logger
+
 // NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler) {
+func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -60,9 +75,26 @@ func (f *Factory) NewListAndHandler() (List, http.Handler) {
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
-
+	m = monitor
+	
 	go monitor.listen()
 	return monitor.list, monitor
+}
+
+// Initialize i.e. prepare/set up required for processing webhooks
+func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
+	selfUrl url.URL) (err error) {
+	
+	if logger != nil {
+		log = logger
+	} else {
+		log = logging.DefaultLogger()
+	}	
+	m.server, err = AWS.NewSNSServer(f.cfg, logger, rtr, selfUrl, m)
+
+	go m.server.Prepare()
+	
+	return
 }
 
 // monitor is an internal type that listens for webhook updates, invokes
@@ -72,6 +104,7 @@ type monitor struct {
 	undertaker       func([]W) []W
 	changes          chan []W
 	undertakerTicker <-chan time.Time
+	server           *AWS.SNSServer
 }
 
 func (m *monitor) listen() {
@@ -85,9 +118,26 @@ func (m *monitor) listen() {
 	}
 }
 
+// ServeHTTP is used as POST handler for AWS SNS
+// It transforms the message containing webhook to []W and updates the webhook list  
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	// TODO: transform a request into a []W
+	message := m.server.NotificationHandle(response, request)
+
+	// transform message to W
+	bufStr := bytes.NewBufferString(message)
+	msg := bufStr.Bytes()
+
+	newHook := new(W)
+	err := json.Unmarshal(msg, newHook)
+	if err != nil {
+		log.Error("JSON unmarshall of Notification Message to webhook failed - %v", err)
+		return
+	}
+
 	var update []W
+	update = make([]W,1)
+	update[0] = *newHook
 
 	select {
 	case m.changes <- update:
