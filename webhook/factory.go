@@ -1,15 +1,15 @@
 package webhook
 
 import (
-	"github.com/spf13/viper"
-	AWS "github.com/webpa-common/webhook/aws"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/gorilla/mux"
-	"net/url"
-	"net/http"
-	"time"
 	"bytes"
 	"encoding/json"
+	"github.com/Comcast/webpa-common/logging"
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/gorilla/mux"
+	"github.com/spf13/viper"
+	"net/http"
+	"net/url"
+	"time"
 )
 
 const (
@@ -63,7 +63,7 @@ var log logging.Logger
 
 // NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler ) {
+func (f *Factory) NewListAndHandler() (List, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -76,7 +76,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
 	m = monitor
-	
+
 	go monitor.listen()
 	return monitor.list, monitor
 }
@@ -84,16 +84,16 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 // Initialize i.e. prepare/set up required for processing webhooks
 func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
 	selfUrl url.URL) (err error) {
-	
+
 	if logger != nil {
 		log = logger
 	} else {
 		log = logging.DefaultLogger()
-	}	
+	}
 	m.server, err = AWS.NewSNSServer(f.cfg, logger, rtr, selfUrl, m)
 
 	go m.server.Prepare()
-	
+
 	return
 }
 
@@ -119,7 +119,7 @@ func (m *monitor) listen() {
 }
 
 // ServeHTTP is used as POST handler for AWS SNS
-// It transforms the message containing webhook to []W and updates the webhook list  
+// It transforms the message containing webhook to []W and updates the webhook list
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	// TODO: transform a request into a []W
 	message := m.server.NotificationHandle(response, request)
@@ -136,7 +136,7 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 
 	var update []W
-	update = make([]W,1)
+	update = make([]W, 1)
 	update[0] = *newHook
 
 	select {
