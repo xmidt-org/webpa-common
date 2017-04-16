@@ -1,15 +1,14 @@
 package webhook
 
 import (
-	"bytes"
-	"encoding/json"
-	"github.com/Comcast/webpa-common/logging"
-	AWS "github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
-	"net/http"
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/gorilla/mux"
 	"net/url"
+	"net/http"
 	"time"
+	"encoding/json"
 )
 
 const (
@@ -19,7 +18,7 @@ const (
 // Factory is a classic Factory Object for various webhook things.
 type Factory struct {
 	// Other configuration stuff can go here
-	cfg *AWS.AWSConfig
+	cfg *AWS.AWSConfig		`json:"aws"`
 
 	// Tick is an optional function that produces a channel for time ticks.
 	// Test code can set this field to something that returns a channel under the control of the test.
@@ -31,6 +30,9 @@ type Factory struct {
 	// Undertaker is set by clients after reading in a Factory from some external source.
 	// The associated Undertaker is immutable after construction.
 	Undertaker func([]W) []W `json:"-"`
+	
+	// internal handler for webhook
+	m *monitor
 }
 
 // NewFactory creates a Factory from a Viper environment.  This function always returns
@@ -55,15 +57,9 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	return
 }
 
-// monitor pointer instance shared between functions
-var m *monitor
-
-// log instance shared between functions
-var log logging.Logger
-
 // NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler) {
+func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -75,27 +71,28 @@ func (f *Factory) NewListAndHandler() (List, http.Handler) {
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
-	m = monitor
-
+	f.m = monitor
+	
 	go monitor.listen()
 	return monitor.list, monitor
 }
 
-// Initialize i.e. prepare/set up required for processing webhooks
+// Initialize for processing webhooks
 func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
 	selfUrl url.URL) (err error) {
-
-	if logger != nil {
-		log = logger
-	} else {
-		log = logging.DefaultLogger()
-	}
-	m.server, err = AWS.NewSNSServer(f.cfg, logger, rtr, selfUrl, m)
-
-	go m.server.Prepare()
-
+	
+	f.m.log = logger	
+	
+	f.m.server, err = AWS.NewSNSServer(f.cfg, logger, rtr, selfUrl, f.m)
+	
 	return
 }
+
+// To be called after http server endpoint is running so that 
+// requests from AWS can be handled	
+func (f *Factory) Start() {
+	f.m.server.PrepareAndStart()
+}	
 
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
@@ -105,6 +102,14 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	server           *AWS.SNSServer
+	log				logging.Logger
+}
+
+func (m *monitor) logger() logging.Logger {
+	if m != nil && m.log != nil {
+		return m.log
+	}
+	return logging.DefaultLogger()
 }
 
 func (m *monitor) listen() {
@@ -119,28 +124,24 @@ func (m *monitor) listen() {
 }
 
 // ServeHTTP is used as POST handler for AWS SNS
-// It transforms the message containing webhook to []W and updates the webhook list
+// It transforms the message containing webhook to []W and updates the webhook list  
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	// TODO: transform a request into a []W
+	// transform a request into a []byte
 	message := m.server.NotificationHandle(response, request)
-
-	// transform message to W
-	bufStr := bytes.NewBufferString(message)
-	msg := bufStr.Bytes()
-
-	newHook := new(W)
-	err := json.Unmarshal(msg, newHook)
-	if err != nil {
-		log.Error("JSON unmarshall of Notification Message to webhook failed - %v", err)
+	if message == nil {
 		return
 	}
 
-	var update []W
-	update = make([]W, 1)
-	update[0] = *newHook
+	// transform message to W
+	var newHook W
+	if err := json.Unmarshal(message, &newHook); err != nil {
+		m.logger().Error("JSON unmarshall of Notification Message to webhook failed - %v", err)
+		AWS.ResponseJsonErr(response, "Notification Message JSON unmarshall failed", http.StatusBadRequest)
+		return
+	}
 
 	select {
-	case m.changes <- update:
-	default:
+		case m.changes <- []W{newHook}:
+		default:
 	}
 }

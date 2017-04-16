@@ -49,7 +49,6 @@ func ResponseJson(v interface{}, rw http.ResponseWriter) {
 }
 
 func ResponseJsonErr(rw http.ResponseWriter, errmsg string, code int) {
-	log.Error("Response error code %v msg [%v]", code, errmsg)
 	rw.Header().Set("Content-Type", MEDIATYPE_JSON)
 	jsonStr := fmt.Sprintf(`{"message":"%s"}`, errmsg)
 	rw.WriteHeader(code)

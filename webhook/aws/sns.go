@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"fmt"
+	"sync"
 	
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -34,10 +35,9 @@ type SNSServer struct {
 	SVC             *sns.SNS
 	SelfUrl         url.URL
 	Logger			logging.Logger
-	SnsReady		chan bool
+	// mutex used to protect SubscriptionArn read & write
+	sync.RWMutex
 }
-
-var log logging.Logger
 
 // NewSNSServer initializes the SNSServer
 // selfURL represents the webhook server URL &url.URL{Scheme:secure,Host:fqdn+port,Path:urlPath}
@@ -78,13 +78,10 @@ func NewSNSServer(cfg *AWSConfig, logger logging.Logger, rtr *mux.Router,
 		SelfUrl:  selfUrl,
 	}
 	
-	ss.SnsReady = make(chan bool)
-	
 	// set up logger
 	ss.Logger = logger
-	log = ss.logger()
 	
-	log.Debug("SNS self url endpoint: [%s], protocol [%s]", ss.SelfUrl.String(), ss.SelfUrl.Scheme)
+	ss.logger().Debug("SNS self url endpoint: [%s], protocol [%s]", ss.SelfUrl.String(), ss.SelfUrl.Scheme)
 
 	// Set various SNS POST routes
 	ss.SetSNSRoutes(cfg.Sns.UrlPath, rtr, handler)
@@ -100,22 +97,44 @@ func (ss *SNSServer) logger() logging.Logger {
 }
 
 // Prepare the SNSServer to receive Notifications 
-// This should be called only after the endpoint http server is started 
+// This better be called after the endpoint http server is started 
 // and ready to receive AWS SNS POST messages
 // subscribe to the SNS topic, wait for snsReady
 // validate the confirmation SubscriptionArn
-func (ss *SNSServer) Prepare() bool {
-	
+func (ss *SNSServer) PrepareAndStart() {
 	ss.Subscribe()
-	
-	ready := <- ss.SnsReady
-	
-	if ready == true {
-		if strings.EqualFold("pending confirmation", ss.SubscriptionArn) {
-			log.Error("SNS is ready but SubscriptionArn is %s", ss.SubscriptionArn)
-			return false 
-		}
-	}
-	return true
 }
 
+// Returns true if the SNS is ready to accept notifications
+// Synchronized using read lock
+func (ss *SNSServer) IsReady() bool {
+	ss.RLock()
+	if !strings.EqualFold("pending confirmation", "") && !strings.EqualFold("pending confirmation", ss.SubscriptionArn) {	
+		return true
+	}
+	ss.logger().Error("SNS is not yet ready, subscription arn in cfg %v", ss.SubscriptionArn)
+	ss.RUnlock()
+	return false
+}
+
+// Validate that SubscriptionArn received in AWS request matches the cached config data
+func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
+	ss.RLock()
+	if strings.EqualFold(reqSubscriptionArn, ss.SubscriptionArn) {	
+		return true
+	}
+	ss.logger().Error(
+		"SNS Invalid subscription arn in notification header req %s, cfg %s", 
+		reqSubscriptionArn, ss.SubscriptionArn)
+	ss.RUnlock()
+	return false
+}
+
+
+// Synchronized block of code to update SubscriptionArn
+// Write Thread synchronization using lock
+func (ss *SNSServer) UpdateSubscriptionArn(respSubscriptionArn *string) {
+	ss.Lock()
+	ss.SubscriptionArn = *respSubscriptionArn
+	ss.Unlock()
+}

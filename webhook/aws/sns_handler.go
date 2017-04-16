@@ -3,12 +3,10 @@ package aws
 import (
 	"github.com/gorilla/mux"
 	"net/http"
-	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 )
-
 
 const MSG_ATTR  = "scytale.env"
 
@@ -90,6 +88,7 @@ func (ss *SNSServer) SetSNSRoutes(urlPath string, r *mux.Router, handler http.Ha
 
 // Subscribe to AWS SNS Topic to receive notifications
 func (ss *SNSServer) Subscribe() bool {
+	log := ss.logger()
 	log.Debug("SNS Subscribe called.")
 
 	params := &sns.SubscribeInput{
@@ -99,20 +98,22 @@ func (ss *SNSServer) Subscribe() bool {
 	}
 	log.Debug("SNS subscribe params: %#v", params)
 	resp, err := ss.SVC.Subscribe(params)
-
 	if err != nil {
 		log.Error("SNS subscribe error: %v", err)
 		return false
 	}
 
 	log.Debug("SNS subscribe resp: %v", resp)
-	ss.SubscriptionArn = *resp.SubscriptionArn
+	
+	// Thread synchronization acquire lock and update
+	ss.UpdateSubscriptionArn(resp.SubscriptionArn)
 	
 	return true
 }
 
 // POST handler to receive SNS Confirmation Message
 func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Request) {
+	log := ss.logger()
 	log.Debug("SNS SubscribeConfirmHandle called.")
 	defer func() {
 		if r := recover(); r != nil {
@@ -130,33 +131,34 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	log.Debug("SNS confirmation payload raw [%v]", string(raw))
 	log.Debug("SNS confirmation payload msg [%#v]", msg)
+	
+	// TODO: Verify SNS Message authenticity by verifying signature
 
 	params := &sns.ConfirmSubscriptionInput{
 		Token:    aws.String(msg.Token),    // Required
 		TopicArn: aws.String(msg.TopicArn), // Required
 	}
 	resp, err := ss.SVC.ConfirmSubscription(params)
-
 	if err != nil {
 		log.Error("SNS confirm error %v", err)
+		// TODO return error response
 		return
 	}
 
 	log.Debug("SNS confirm response: %v", resp)
-	if strings.EqualFold("pending confirmation", *resp.SubscriptionArn) {
-		log.Error("SNS pending confirmation")
-		ss.SnsReady <- false
-		return
-	}
-	ss.SubscriptionArn = *resp.SubscriptionArn
+	
+	// Thread synchronization acquire lock and update
+	ss.UpdateSubscriptionArn(resp.SubscriptionArn)
 
 	ResponseJson(`{"message":"ok"}`, rw)
 
 	log.Trace("SNS SubscribeConfirmHandle req close %v ", req.Close)
 }
 
-// Decodes SNS Notification message and returns the actual message which is json webhook content
-func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Request) (message string) {
+// Decodes SNS Notification message and returns 
+// the actual message which is json webhook content
+func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Request) []byte {
+	log := ss.logger()
 	log.Debug("SNS NotificationHandle called.")
 	defer func() {
 		if r := recover(); r != nil {
@@ -164,11 +166,9 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 		}
 	}()
 	subArn := req.Header.Get("X-Amz-Sns-Subscription-Arn")
-	if subArn != ss.SubscriptionArn {
-		log.Error("SNS Invalid subscription arn in notification header req %v", subArn)
-		log.Error("SNS Invalid subscription arn in notification header cfg %v", ss.SubscriptionArn)
+	if ss.ValidateSubscriptionArn(subArn) {
 		ResponseJsonErr(rw, "SubscriptionARN not match", http.StatusBadRequest)
-		return
+		return nil
 	}
 	msg := new(SNSMessage)
 
@@ -176,37 +176,51 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	if err != nil {
 		log.Error("SNS read req body error %v", err)
 		ResponseJsonErr(rw, "request body error", http.StatusBadRequest)
-		return
+		return nil
 	}
 	//health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
 	
 	log.Debug("SNS notification payload raw [%v]", string(raw))
 	log.Debug("SNS notification payload msg [%#v]", msg)
+	
+	// TODO: Verify SNS Message authenticity by verifying signature
 
 	EnvAttr := msg.MessageAttributes[MSG_ATTR]
 	log.Trace("SQS notification EnvAttr %v", EnvAttr)
 
 	msgEnv := EnvAttr.Value
-	log.Trace("SQS notification msgEnv %v",  msgEnv)
+	log.Trace("SNS notification msgEnv %v",  msgEnv)
 	if msgEnv != ss.Config.Env {
-		log.Warn("SQS msg env %v does not match config env %v", msgEnv, ss.Config.Env)
+		log.Warn("SNS msg env %v does not match config env %v", msgEnv, ss.Config.Env)
 		ResponseJsonErr(rw, "request body error", http.StatusNotAcceptable)
-		return
+		return nil
 	}
 	
 	ResponseJson(`{"message":"ok"}`, rw)
 	log.Trace("SNS NotificationHandle req close %v", req.Close)
 	
-	return msg.Message
+	return []byte(msg.Message)
 }
 
-func (ss *SNSServer) PublishMessage(message string) {
+// Publish Notification message to AWS SNS topic 
+// @return status 
+// 1. If SNS Server is not yet ready then return status as false 
+// to indicate that Publish was not successful
+// 2. If Publish to AWS SNS fails then return false
+// Retry after some time when the status returned from this function is false
+func (ss *SNSServer) PublishMessage(message string) bool {
+	log := ss.logger()
 	log.Debug("SNS PublishMessage called %v ", message)
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error( "SNS PublishMessage recover error %v", r )
 		}
 	}()
+
+	// check if ready to accept messages before publishing message.
+	if !ss.IsReady() {
+		return false
+	}
 
 	params := &sns.PublishInput{
 		Message: aws.String(message), // Required
@@ -224,15 +238,16 @@ func (ss *SNSServer) PublishMessage(message string) {
 
 	if err != nil {
 		log.Error("SNS send message error %v", err)
-
-		return
+		return false
 	}
 	log.Debug("SNS send message resp: %v", resp)
 	//health.SendEvent(HTH.Set("TotalDataPayloadSent", int(len([]byte(resp.GoString()))) ))
-
+	
+	return true
 }
 
 func (ss *SNSServer) UnsubscribeConfirmHandle(rw http.ResponseWriter, req *http.Request) {
+	log := ss.logger()
 	log.Debug("SNS UnubscribeConfirmHandle called.")
 	
 	// TODO
