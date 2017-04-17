@@ -7,7 +7,7 @@ import (
 
 type shard struct {
 	lock sync.RWMutex
-	data map[ID]*device
+	data map[ID][]*device
 }
 
 type shardedRegistry struct {
@@ -22,7 +22,7 @@ func newShardedRegistry(shards, initialCapacityPerShard int) *shardedRegistry {
 	}
 
 	for i := 0; i < shards; i++ {
-		sr.byID[i].data = make(map[ID]*device, initialCapacityPerShard)
+		sr.byID[i].data = make(map[ID][]*device, initialCapacityPerShard)
 	}
 
 	return sr
@@ -37,13 +37,19 @@ func (sr *shardedRegistry) shardFor(id ID) *shard {
 func (sr *shardedRegistry) add(d *device) {
 	s := sr.shardFor(d.id)
 	s.lock.Lock()
-	s.data[d.id] = d
+	s.data[d.id] = append(s.data[d.id], d)
 	s.lock.Unlock()
 }
 
-func (sr *shardedRegistry) get(id ID) *device {
+func (sr *shardedRegistry) visitID(id ID, visitor func(*device)) int {
 	s := sr.shardFor(id)
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	return s.data[id]
+
+	duplicates := s.data[id]
+	for _, duplicate := range duplicates {
+		visitor(duplicate)
+	}
+
+	return len(duplicates)
 }

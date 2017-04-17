@@ -59,8 +59,8 @@ func benchmarkShardedRegistry(b *testing.B, shards, initialCapacity int) {
 			)
 
 			registry.add(newDevice(id, key, nil, 1))
-			registry.get(id)
-			registry.get(id)
+			registry.visitID(id, func(*device) {})
+			registry.visitID(id, func(*device) {})
 		}
 	})
 }
