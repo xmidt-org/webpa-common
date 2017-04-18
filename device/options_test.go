@@ -20,6 +20,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(DefaultHandshakeTimeout, o.handshakeTimeout())
 		assert.Equal(DefaultDecoderPoolSize, o.decoderPoolSize())
 		assert.Equal(DefaultEncoderPoolSize, o.encoderPoolSize())
+		assert.Equal(DefaultShards, o.shards())
 		assert.Equal(DefaultInitialCapacity, o.initialCapacity())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
 		assert.Equal(DefaultPingPeriod, o.pingPeriod())
@@ -49,6 +50,7 @@ func TestOptions(t *testing.T) {
 			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
 			DecoderPoolSize:        672393,
 			EncoderPoolSize:        1034571,
+			Shards:                 DefaultShards + 672,
 			InitialCapacity:        DefaultInitialCapacity + 4719,
 			ReadBufferSize:         DefaultReadBufferSize + 48729,
 			WriteBufferSize:        DefaultWriteBufferSize + 926,
@@ -69,6 +71,7 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.HandshakeTimeout, o.handshakeTimeout())
 	assert.Equal(o.DecoderPoolSize, o.decoderPoolSize())
 	assert.Equal(o.EncoderPoolSize, o.encoderPoolSize())
+	assert.Equal(o.Shards, o.shards())
 	assert.Equal(o.InitialCapacity, o.initialCapacity())
 	assert.Equal(o.IdlePeriod, o.idlePeriod())
 	assert.Equal(o.PingPeriod, o.pingPeriod())
