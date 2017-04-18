@@ -315,9 +315,9 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 // this goroutine exits when either an explicit shutdown is requested or any
 // error occurs on the connection.
 func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
-	m.logger.Debug("writePump(%s)", d.id)
+	m.logger.Debug("writePump(%s, %s)", d.id, d.Key())
 
-	// this makes this device addressable via the enclosing Manager:
+	// make this device addressable via the enclosing Manager
 	m.registry.add(d)
 
 	var (
@@ -339,8 +339,8 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	// the configured listener
 	defer func() {
 		pingTicker.Stop()
-		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 		m.registry.removeOne(d)
+		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
@@ -429,17 +429,17 @@ func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
 }
 
 func (m *manager) Disconnect(id ID) int {
-	m.logger.Debug("Disconnect(%s)", id)
+	// writePump removes the device from the registry
 	return m.registry.visitID(id, m.requestClose)
 }
 
 func (m *manager) DisconnectOne(key Key) int {
-	m.logger.Debug("DisconnectOne(%s)", key)
+	// writePump removes the device from the registry
 	return m.registry.visitKey(key, m.requestClose)
 }
 
 func (m *manager) DisconnectIf(filter func(ID) bool) int {
-	m.logger.Debug("DisconnectIf()")
+	// writePump removes the device from the registry
 	return m.registry.visitIf(filter, m.requestClose)
 }
 

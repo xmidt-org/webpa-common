@@ -29,34 +29,38 @@ func (is *idShard) add(id ID, d *device) {
 	is.data[id] = append(duplicates, d)
 }
 
-func (is *idShard) removeOne(id ID, d *device) {
+func (is *idShard) removeOne(id ID, d *device) bool {
 	is.Lock()
 	defer is.Unlock()
 
 	duplicates := is.data[id]
-	if len(duplicates) > 0 {
-		for i, candidate := range duplicates {
-			if d == candidate {
-				last := len(duplicates) - 1
-				duplicates[i] = duplicates[last]
-				duplicates[last] = nil
-				duplicates = duplicates[:last]
-				break
-			}
-		}
+	for i, candidate := range duplicates {
+		if d == candidate {
+			last := len(duplicates) - 1
 
-		if len(duplicates) > 0 {
-			is.data[id] = duplicates
-		} else {
-			delete(is.data, id)
+			duplicates[i] = duplicates[last]
+			duplicates[last] = nil
+			duplicates = duplicates[:last]
+
+			if len(duplicates) > 0 {
+				is.data[id] = duplicates
+			} else {
+				delete(is.data, id)
+			}
+
+			return true
 		}
 	}
+
+	return false
 }
 
-func (is *idShard) removeAll(id ID) {
+func (is *idShard) removeAll(id ID) []*device {
 	is.Lock()
 	defer is.Unlock()
+	duplicates := is.data[id]
 	delete(is.data, id)
+	return duplicates
 }
 
 func (is *idShard) visitID(id ID, visitor func(*device)) int {
@@ -104,10 +108,12 @@ func (ks *keyShard) add(key Key, d *device) error {
 	return nil
 }
 
-func (ks *keyShard) remove(key Key) {
+func (ks *keyShard) remove(key Key) *device {
 	ks.Lock()
 	defer ks.Unlock()
+	d := ks.data[key]
 	delete(ks.data, key)
+	return d
 }
 
 func (ks *keyShard) visitKey(key Key, visitor func(*device)) int {
@@ -147,12 +153,9 @@ func newRegistry(shards, initialCapacity uint32) *registry {
 		byKey: make([]keyShard, shards),
 	}
 
-	for _, s := range r.byID {
-		s.data = make(map[ID][]*device, initialCapacity)
-	}
-
-	for _, s := range r.byKey {
-		s.data = make(map[Key]*device, initialCapacity)
+	for i := uint32(0); i < shards; i++ {
+		r.byID[i].data = make(map[ID][]*device, initialCapacity)
+		r.byKey[i].data = make(map[Key]*device, initialCapacity)
 	}
 
 	return r
@@ -180,10 +183,21 @@ func (r *registry) add(d *device) error {
 	return nil
 }
 
-func (r *registry) removeOne(d *device) {
-	key := d.Key()
-	r.keyShardFor(key).remove(key)
-	r.idShardFor(d.id).removeOne(d.id, d)
+func (r *registry) removeKey(key Key) *device {
+	return r.keyShardFor(key).remove(key)
+}
+
+func (r *registry) removeOne(d *device) (removed bool) {
+	if removed = r.idShardFor(d.id).removeOne(d.id, d); removed {
+		key := d.Key()
+		r.keyShardFor(key).remove(key)
+	}
+
+	return
+}
+
+func (r *registry) removeAll(id ID) []*device {
+	return r.idShardFor(id).removeAll(id)
 }
 
 func (r *registry) visitID(id ID, visitor func(*device)) int {
