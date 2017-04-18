@@ -98,11 +98,11 @@ func TestDevice(t *testing.T) {
 
 		cancel()
 
-		t.Log("RequestClose should be idempotent")
+		t.Log("requestClose should be idempotent")
 		assert.False(device.Closed())
-		device.RequestClose()
+		device.requestClose()
 		assert.True(device.Closed())
-		device.RequestClose()
+		device.requestClose()
 		assert.True(device.Closed())
 
 		t.Log("closed state")

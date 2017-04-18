@@ -184,6 +184,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
+	m.registry.add(d)
 
 	return d, nil
 }
@@ -206,7 +207,7 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
-	d.RequestClose()
+	d.requestClose()
 
 	if pumpError != nil {
 		m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
@@ -317,9 +318,6 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("writePump(%s, %s)", d.id, d.Key())
 
-	// make this device addressable via the enclosing Manager
-	m.registry.add(d)
-
 	var (
 		// we'll reuse this event instance
 		event = Event{Type: Connect, Device: d}
@@ -339,7 +337,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	// the configured listener
 	defer func() {
 		pingTicker.Stop()
-		m.registry.removeOne(d)
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 
 		// notify listener of any message that just now failed
@@ -414,12 +411,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	}
 }
 
-// requestClose is a convenient, internal visitor
-// that the various Disconnect methods use.
-func (m *manager) requestClose(d *device) {
-	d.RequestClose()
-}
-
 // wrapVisitor produces an internal visitor that wraps a delegate
 // and preserves encapsulation
 func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
@@ -429,18 +420,28 @@ func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
 }
 
 func (m *manager) Disconnect(id ID) int {
-	// writePump removes the device from the registry
-	return m.registry.visitID(id, m.requestClose)
+	removedDevices := m.registry.removeAll(id)
+	for _, d := range removedDevices {
+		d.requestClose()
+	}
+
+	return len(removedDevices)
 }
 
 func (m *manager) DisconnectOne(key Key) int {
-	// writePump removes the device from the registry
-	return m.registry.visitKey(key, m.requestClose)
+	removedDevice := m.registry.removeKey(key)
+	if removedDevice != nil {
+		removedDevice.requestClose()
+		return 1
+	}
+
+	return 0
 }
 
 func (m *manager) DisconnectIf(filter func(ID) bool) int {
-	// writePump removes the device from the registry
-	return m.registry.visitIf(filter, m.requestClose)
+	return m.registry.removeIf(filter, func(d *device) {
+		d.requestClose()
+	})
 }
 
 func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {

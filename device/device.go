@@ -65,10 +65,6 @@ type Interface interface {
 	// Pending returns the count of pending messages for this device
 	Pending() int
 
-	// RequestClose posts a request for this device to be disconnected.  This method
-	// is asynchronous and idempotent.
-	RequestClose()
-
 	// Closed tests if this device is closed.  When this method returns true,
 	// any attempt to send messages to this device will result in an error.
 	//
@@ -150,7 +146,7 @@ func (d *device) String() string {
 	return string(data)
 }
 
-func (d *device) RequestClose() {
+func (d *device) requestClose() {
 	if atomic.CompareAndSwapInt32(&d.state, stateOpen, stateClosed) {
 		close(d.shutdown)
 	}

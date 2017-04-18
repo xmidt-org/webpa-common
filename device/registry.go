@@ -91,6 +91,24 @@ func (is *idShard) visitIf(filter func(ID) bool, visitor func(*device)) (count i
 	return
 }
 
+func (is *idShard) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	is.RLock()
+	defer is.RUnlock()
+
+	for id, duplicates := range is.data {
+		if filter(id) {
+			delete(is.data, id)
+			count += len(duplicates)
+
+			for _, d := range duplicates {
+				visitor(d)
+			}
+		}
+	}
+
+	return
+}
+
 // keyShard represents a single shard of mappings for devices keyed by their unique Keys.
 type keyShard struct {
 	sync.RWMutex
@@ -196,8 +214,33 @@ func (r *registry) removeOne(d *device) (removed bool) {
 	return
 }
 
-func (r *registry) removeAll(id ID) []*device {
-	return r.idShardFor(id).removeAll(id)
+func (r *registry) removeAll(id ID) (removedDevices []*device) {
+	removedDevices = r.idShardFor(id).removeAll(id)
+	for _, d := range removedDevices {
+		key := d.Key()
+		r.keyShardFor(key).remove(key)
+	}
+
+	return
+}
+
+func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	removed := make([]*device, 0, 1)
+	for i := 0; i < len(r.byID); i++ {
+		count += r.byID[i].removeIf(filter, func(d *device) {
+			// don't update the key shards here, as we're under the id shard lock ...
+			removed = append(removed, d)
+		})
+	}
+
+	// handle deletion of the keys outside the id shard lock
+	for _, d := range removed {
+		key := d.Key()
+		r.keyShardFor(key).remove(key)
+		visitor(d)
+	}
+
+	return
 }
 
 func (r *registry) visitID(id ID, visitor func(*device)) int {
@@ -209,16 +252,16 @@ func (r *registry) visitKey(key Key, visitor func(*device)) int {
 }
 
 func (r *registry) visitAll(visitor func(*device)) (count int) {
-	for _, ks := range r.byKey {
-		count += ks.visitAll(visitor)
+	for i := 0; i < len(r.byKey); i++ {
+		count += r.byKey[i].visitAll(visitor)
 	}
 
 	return
 }
 
 func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	for _, is := range r.byID {
-		count += is.visitIf(filter, visitor)
+	for i := 0; i < len(r.byID); i++ {
+		count += r.byID[i].visitIf(filter, visitor)
 	}
 
 	return
