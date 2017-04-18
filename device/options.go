@@ -16,6 +16,7 @@ const (
 
 	DefaultDecoderPoolSize        = 1000
 	DefaultEncoderPoolSize        = 1000
+	DefaultShards                 = 512
 	DefaultInitialCapacity        = 100000
 	DefaultReadBufferSize         = 4096
 	DefaultWriteBufferSize        = 4096
@@ -46,9 +47,12 @@ type Options struct {
 	// to encode messages that have no encoded byte representation.
 	EncoderPoolSize int
 
+	// Shards is the number of internal shards used for the device registry
+	Shards uint32
+
 	// InitialCapacity is used as the starting capacity of the internal map of
 	// registered devices.  If not supplied, DefaultInitialCapacity is used.
-	InitialCapacity int
+	InitialCapacity uint32
 
 	// ReadBufferSize is the optional size of websocket read buffers.  If not supplied,
 	// the internal gorilla default is used.
@@ -136,7 +140,15 @@ func (o *Options) encoderPoolSize() int {
 	return DefaultEncoderPoolSize
 }
 
-func (o *Options) initialCapacity() int {
+func (o *Options) shards() uint32 {
+	if o != nil && o.Shards > 0 {
+		return o.Shards
+	}
+
+	return DefaultShards
+}
+
+func (o *Options) initialCapacity() uint32 {
 	if o != nil && o.InitialCapacity > 0 {
 		return o.InitialCapacity
 	}

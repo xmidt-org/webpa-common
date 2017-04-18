@@ -93,7 +93,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 
 		connectionFactory:      cf,
 		keyFunc:                o.keyFunc(),
-		registry:               newRegistry(o.initialCapacity()),
+		registry:               newRegistry(o.shards(), o.initialCapacity()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
@@ -115,7 +115,6 @@ type manager struct {
 	connectionFactory ConnectionFactory
 	keyFunc           KeyFunc
 
-	lock     sync.RWMutex
 	registry *registry
 
 	deviceMessageQueueSize int
@@ -193,18 +192,6 @@ func (m *manager) dispatch(e *Event) {
 	for _, listener := range m.listeners {
 		listener(e)
 	}
-}
-
-func (m *manager) whenWriteLocked(when func()) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	when()
-}
-
-func (m *manager) whenReadLocked(when func()) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	when()
 }
 
 // pumpClose handles the proper shutdown and logging of a device's pumps.
@@ -331,9 +318,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	m.logger.Debug("writePump(%s)", d.id)
 
 	// this makes this device addressable via the enclosing Manager:
-	m.whenWriteLocked(func() {
-		m.registry.add(d)
-	})
+	m.registry.add(d)
 
 	var (
 		// we'll reuse this event instance
@@ -355,10 +340,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	defer func() {
 		pingTicker.Stop()
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
-
-		m.whenWriteLocked(func() {
-			m.registry.removeOne(d)
-		})
+		m.registry.removeOne(d)
 
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
@@ -446,59 +428,33 @@ func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
 	}
 }
 
-func (m *manager) Disconnect(id ID) (count int) {
+func (m *manager) Disconnect(id ID) int {
 	m.logger.Debug("Disconnect(%s)", id)
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitID(id, m.requestClose)
-	})
-
-	return
+	return m.registry.visitID(id, m.requestClose)
 }
 
-func (m *manager) DisconnectOne(key Key) (count int) {
+func (m *manager) DisconnectOne(key Key) int {
 	m.logger.Debug("DisconnectOne(%s)", key)
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitKey(key, m.requestClose)
-	})
-
-	return
+	return m.registry.visitKey(key, m.requestClose)
 }
 
-func (m *manager) DisconnectIf(filter func(ID) bool) (count int) {
+func (m *manager) DisconnectIf(filter func(ID) bool) int {
 	m.logger.Debug("DisconnectIf()")
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, m.requestClose)
-	})
-
-	return count
+	return m.registry.visitIf(filter, m.requestClose)
 }
 
-func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) (count int) {
+func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {
 	m.logger.Debug("VisitIf")
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, m.wrapVisitor(visitor))
-	})
-
-	return
+	return m.registry.visitIf(filter, m.wrapVisitor(visitor))
 }
 
-func (m *manager) VisitAll(visitor func(Interface)) (count int) {
+func (m *manager) VisitAll(visitor func(Interface)) int {
 	m.logger.Debug("VisitAll")
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitAll(m.wrapVisitor(visitor))
-	})
-
-	return
+	return m.registry.visitAll(m.wrapVisitor(visitor))
 }
 
 func (m *manager) Route(request *Request) (*Response, error) {
 	var (
-		count            int
 		d                *device
 		destination, err = request.ID()
 	)
@@ -507,11 +463,7 @@ func (m *manager) Route(request *Request) (*Response, error) {
 		return nil, err
 	}
 
-	m.whenReadLocked(func() {
-		count = m.registry.visitID(destination, func(e *device) { d = e })
-	})
-
-	switch count {
+	switch m.registry.visitID(destination, func(e *device) { d = e }) {
 	case 0:
 		return nil, ErrorDeviceNotFound
 	case 1:

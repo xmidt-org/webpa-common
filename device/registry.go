@@ -1,100 +1,120 @@
 package device
 
-// idMap stores devices keyed by their canonical ID.  Multiple devices are
-// allowed to have the same ID.
-type idMap map[ID]map[*device]bool
+import (
+	"hash/fnv"
+	"sync"
+)
 
-func (m idMap) add(id ID, d *device) {
-	if duplicates, ok := m[id]; ok {
-		duplicates[d] = true
-	} else {
-		m[id] = map[*device]bool{d: true}
-	}
+// idShard represents a single shard of mappings for devices keyed by ID.  Each idShard
+// permits duplicate devices mapped to the same ID.
+type idShard struct {
+	sync.RWMutex
+	data map[ID][]*device
 }
 
-func (m idMap) removeOne(d *device) {
-	if duplicates, ok := m[d.id]; ok {
-		delete(duplicates, d)
-		if len(duplicates) == 0 {
-			delete(m, d.id)
+func (is *idShard) add(id ID, d *device) {
+	is.Lock()
+	defer is.Unlock()
+	duplicates := is.data[id]
+
+	// just do a simple linear search, as the number of duplicate devices
+	// for a given ID is likely to be very small
+	for _, candidate := range duplicates {
+		if d == candidate {
+			// this device is already here
+			return
+		}
+	}
+
+	is.data[id] = append(duplicates, d)
+}
+
+func (is *idShard) removeOne(id ID, d *device) {
+	is.Lock()
+	defer is.Unlock()
+
+	duplicates := is.data[id]
+	if len(duplicates) > 0 {
+		for i, candidate := range duplicates {
+			if d == candidate {
+				last := len(duplicates) - 1
+				duplicates[i] = duplicates[last]
+				duplicates[last] = nil
+				duplicates = duplicates[:last]
+				break
+			}
+		}
+
+		if len(duplicates) > 0 {
+			is.data[id] = duplicates
+		} else {
+			delete(is.data, id)
 		}
 	}
 }
 
-func (m idMap) removeAll(id ID) (removed []*device) {
-	if duplicates, ok := m[id]; ok {
-		removed = make([]*device, 0, len(duplicates))
-		for d, _ := range duplicates {
-			removed = append(removed, d)
-		}
+func (is *idShard) removeAll(id ID) {
+	is.Lock()
+	defer is.Unlock()
+	delete(is.data, id)
+}
 
-		delete(m, id)
+func (is *idShard) visitID(id ID, visitor func(*device)) int {
+	is.RLock()
+	defer is.RUnlock()
+
+	duplicates := is.data[id]
+	for _, d := range duplicates {
+		visitor(d)
+	}
+
+	return len(duplicates)
+}
+
+func (is *idShard) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	is.RLock()
+	defer is.RUnlock()
+
+	for id, duplicates := range is.data {
+		if filter(id) {
+			count += len(duplicates)
+			for _, d := range duplicates {
+				visitor(d)
+			}
+		}
 	}
 
 	return
 }
 
-// keyMap stores devices keyed by their routing Key.  Routing keys are
-// unique across a given keyMap.
-type keyMap map[Key]*device
+// keyShard represents a single shard of mappings for devices keyed by their unique Keys.
+type keyShard struct {
+	sync.RWMutex
+	data map[Key]*device
+}
 
-func (m keyMap) add(k Key, d *device) error {
-	if _, ok := m[k]; ok {
+func (ks *keyShard) add(key Key, d *device) error {
+	ks.Lock()
+	defer ks.Unlock()
+	if _, ok := ks.data[key]; ok {
 		return ErrorDuplicateKey
 	}
 
-	m[k] = d
+	ks.data[key] = d
 	return nil
 }
 
-func (m keyMap) remove(k Key) bool {
-	if _, ok := m[k]; ok {
-		delete(m, k)
-		return true
-	}
-
-	return false
+func (ks *keyShard) remove(key Key) {
+	ks.Lock()
+	defer ks.Unlock()
+	delete(ks.data, key)
 }
 
-// registry is an internal type that stores mappings of devices
-// A registry instance is not safe for concurrent access.
-type registry struct {
-	ids  idMap
-	keys keyMap
-}
+func (ks *keyShard) visitKey(key Key, visitor func(*device)) int {
+	ks.RLock()
+	defer ks.RUnlock()
 
-func newRegistry(initialCapacity int) *registry {
-	return &registry{
-		ids:  make(idMap, initialCapacity),
-		keys: make(keyMap, initialCapacity),
-	}
-}
-
-func (r *registry) devices(id ID) (devices []*device) {
-	if original, ok := r.ids[id]; ok {
-		devices = make([]*device, 0, len(original))
-		for key, _ := range original {
-			devices = append(devices, key)
-		}
-	}
-
-	return
-}
-
-func (r *registry) visitID(id ID, visitor func(*device)) int {
-	if duplicates, ok := r.ids[id]; ok {
-		for d, _ := range duplicates {
-			visitor(d)
-		}
-
-		return len(duplicates)
-	}
-
-	return 0
-}
-
-func (r *registry) visitKey(k Key, visitor func(*device)) int {
-	if d, ok := r.keys[k]; ok {
+	if d, ok := ks.data[key]; ok {
 		visitor(d)
 		return 1
 	}
@@ -102,52 +122,89 @@ func (r *registry) visitKey(k Key, visitor func(*device)) int {
 	return 0
 }
 
-func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	for id, duplicates := range r.ids {
-		if filter(id) {
-			for d, _ := range duplicates {
-				visitor(d)
-			}
+func (ks *keyShard) visitAll(visitor func(*device)) int {
+	ks.RLock()
+	defer ks.RUnlock()
 
-			count += len(duplicates)
-		}
+	for _, d := range ks.data {
+		visitor(d)
+	}
+
+	return len(ks.data)
+}
+
+// registry is a fully sharded concurrent-safe mapping of connected devices.  Devices are mapped by both
+// ID and Key.  A registry allows duplicate devices for the same ID, but only (1) device may be mapped to
+// a given Key.
+type registry struct {
+	byID  []idShard
+	byKey []keyShard
+}
+
+func newRegistry(shards, initialCapacity uint32) *registry {
+	r := &registry{
+		byID:  make([]idShard, shards),
+		byKey: make([]keyShard, shards),
+	}
+
+	for _, s := range r.byID {
+		s.data = make(map[ID][]*device, initialCapacity)
+	}
+
+	for _, s := range r.byKey {
+		s.data = make(map[Key]*device, initialCapacity)
+	}
+
+	return r
+}
+
+func (r *registry) idShardFor(id ID) *idShard {
+	hasher := fnv.New32a()
+	hasher.Write(id.Bytes())
+	return &r.byID[hasher.Sum32()%uint32(len(r.byID))]
+}
+
+func (r *registry) keyShardFor(key Key) *keyShard {
+	hasher := fnv.New32a()
+	hasher.Write([]byte(key))
+	return &r.byKey[hasher.Sum32()%uint32(len(r.byID))]
+}
+
+func (r *registry) add(d *device) error {
+	key := d.Key()
+	if err := r.keyShardFor(key).add(key, d); err != nil {
+		return err
+	}
+
+	r.idShardFor(d.id).add(d.id, d)
+	return nil
+}
+
+func (r *registry) removeOne(d *device) {
+	key := d.Key()
+	r.keyShardFor(key).remove(key)
+	r.idShardFor(d.id).removeOne(d.id, d)
+}
+
+func (r *registry) visitID(id ID, visitor func(*device)) int {
+	return r.idShardFor(id).visitID(id, visitor)
+}
+
+func (r *registry) visitKey(key Key, visitor func(*device)) int {
+	return r.keyShardFor(key).visitKey(key, visitor)
+}
+
+func (r *registry) visitAll(visitor func(*device)) (count int) {
+	for _, ks := range r.byKey {
+		count += ks.visitAll(visitor)
 	}
 
 	return
 }
 
-func (r *registry) visitAll(visitor func(*device)) int {
-	for _, d := range r.keys {
-		visitor(d)
-	}
-
-	return len(r.keys)
-}
-
-func (r *registry) add(d *device) error {
-	k := d.Key()
-	if err := r.keys.add(k, d); err != nil {
-		return err
-	}
-
-	r.ids.add(d.id, d)
-	return nil
-}
-
-func (r *registry) removeOne(d *device) bool {
-	k := d.Key()
-	if !r.keys.remove(k) {
-		return false
-	}
-
-	r.ids.removeOne(d)
-	return true
-}
-
-func (r *registry) removeAll(id ID) (removed []*device) {
-	removed = r.ids.removeAll(id)
-	for _, d := range removed {
-		r.keys.remove(d.Key())
+func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	for _, is := range r.byID {
+		count += is.visitIf(filter, visitor)
 	}
 
 	return
