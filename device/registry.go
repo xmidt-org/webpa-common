@@ -225,19 +225,20 @@ func (r *registry) removeAll(id ID) (removedDevices []*device) {
 }
 
 func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	removed := make([]*device, 0, 1)
+	removed := make([]*device, 0, 10)
 	for i := 0; i < len(r.byID); i++ {
+		removed = removed[:0]
 		count += r.byID[i].removeIf(filter, func(d *device) {
 			// don't update the key shards here, as we're under the id shard lock ...
 			removed = append(removed, d)
 		})
-	}
 
-	// handle deletion of the keys outside the id shard lock
-	for _, d := range removed {
-		key := d.Key()
-		r.keyShardFor(key).remove(key)
-		visitor(d)
+		// handle deletion of the keys outside the id shard lock
+		for _, d := range removed {
+			key := d.Key()
+			r.keyShardFor(key).remove(key)
+			visitor(d)
+		}
 	}
 
 	return
