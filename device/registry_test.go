@@ -34,7 +34,7 @@ var (
 )
 
 func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
-	registry := newRegistry(1000)
+	registry := newRegistry(256, 1000)
 	if !assert.NotNil(registry) {
 		t.FailNow()
 	}
