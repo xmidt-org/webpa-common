@@ -16,7 +16,6 @@ const (
 
 	DefaultDecoderPoolSize        = 1000
 	DefaultEncoderPoolSize        = 1000
-	DefaultShards                 = 256
 	DefaultInitialCapacity        = 1000
 	DefaultReadBufferSize         = 4096
 	DefaultWriteBufferSize        = 4096
@@ -46,9 +45,6 @@ type Options struct {
 	// EncoderPoolSize is the size of the pool of wrp.Encoder objects used internally
 	// to encode messages that have no encoded byte representation.
 	EncoderPoolSize int
-
-	// Shards is the number of internal shards used for the device registry
-	Shards uint32
 
 	// InitialCapacity is used as the starting capacity of the internal map of
 	// registered devices.  If not supplied, DefaultInitialCapacity is used.
@@ -138,14 +134,6 @@ func (o *Options) encoderPoolSize() int {
 	}
 
 	return DefaultEncoderPoolSize
-}
-
-func (o *Options) shards() uint32 {
-	if o != nil && o.Shards > 0 {
-		return o.Shards
-	}
-
-	return DefaultShards
 }
 
 func (o *Options) initialCapacity() uint32 {
