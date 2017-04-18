@@ -34,7 +34,7 @@ var (
 )
 
 func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
-	registry := newRegistry(256, 1000)
+	registry := newRegistry(1000)
 	if !assert.NotNil(registry) {
 		t.FailNow()
 	}
@@ -49,6 +49,20 @@ func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
 	assert.Nil(registry.add(manyDevice5))
 
 	return registry
+}
+
+func TestRegistryDuplicateDevice(t *testing.T) {
+	assert := assert.New(t)
+	registry := testRegistry(t, assert)
+
+	duplicateDevice := newDevice(ID("duplicate device"), Key("key # 1"), nil, 1)
+	assert.Nil(registry.add(duplicateDevice))
+	duplicateDevice.updateKey(Key("key #2"))
+	assert.Equal(ErrorDuplicateDevice, registry.add(duplicateDevice))
+
+	// ensure no deadlock
+	registry.Lock()
+	registry.Unlock()
 }
 
 func TestRegistryVisitID(t *testing.T) {
@@ -187,7 +201,7 @@ func TestRegistryRemoveOne(t *testing.T) {
 	for _, record := range testData {
 		t.Logf("%v", record)
 		registry := testRegistry(t, assert)
-		assert.Equal(record.expectRemove, registry.removeOne(record.deviceToRemove))
+		assert.Equal(record.expectRemove, registry.removeKey(record.deviceToRemove.Key()) != nil)
 
 		actualVisitID := make(deviceSet)
 		registry.visitID(record.deviceToRemove.id, actualVisitID.registryCapture())

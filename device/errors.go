@@ -9,6 +9,7 @@ var (
 	ErrorDeviceNotFound               = errors.New("The device does not exist")
 	ErrorNonUniqueID                  = errors.New("More than once device with that identifier is connected")
 	ErrorDuplicateKey                 = errors.New("That key is a duplicate")
+	ErrorDuplicateDevice              = errors.New("That device is already in this registry")
 	ErrorInvalidTransactionKey        = errors.New("Transaction keys must be non-empty strings")
 	ErrorNoSuchTransactionKey         = errors.New("That transaction key is not registered")
 	ErrorTransactionAlreadyRegistered = errors.New("That transaction is already registered")

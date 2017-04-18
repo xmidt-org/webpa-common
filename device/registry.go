@@ -1,275 +1,165 @@
 package device
 
 import (
-	"hash/fnv"
 	"sync"
 )
 
-// idShard represents a single shard of mappings for devices keyed by ID.  Each idShard
-// permits duplicate devices mapped to the same ID.
-type idShard struct {
-	sync.RWMutex
-	data map[ID][]*device
-}
-
-func (is *idShard) add(id ID, d *device) {
-	is.Lock()
-	duplicates := is.data[id]
-
-	// just do a simple linear search, as the number of duplicate devices
-	// for a given ID is likely to be very small
-	for _, candidate := range duplicates {
-		if d == candidate {
-			// this device is already here
-			is.Unlock()
-			return
-		}
-	}
-
-	is.data[id] = append(duplicates, d)
-	is.Unlock()
-}
-
-func (is *idShard) removeOne(id ID, d *device) bool {
-	is.Lock()
-	duplicates := is.data[id]
-
-	for i, candidate := range duplicates {
-		if d == candidate {
-			last := len(duplicates) - 1
-
-			duplicates[i] = duplicates[last]
-			duplicates[last] = nil
-			duplicates = duplicates[:last]
-
-			if len(duplicates) > 0 {
-				is.data[id] = duplicates
-			} else {
-				delete(is.data, id)
-			}
-
-			is.Unlock()
-			return true
-		}
-	}
-
-	is.Unlock()
-	return false
-}
-
-func (is *idShard) removeAll(id ID) []*device {
-	is.Lock()
-	duplicates := is.data[id]
-	delete(is.data, id)
-	is.Unlock()
-
-	return duplicates
-}
-
-func (is *idShard) visitID(id ID, visitor func(*device)) int {
-	is.RLock()
-
-	duplicates := is.data[id]
-	for _, d := range duplicates {
-		visitor(d)
-	}
-
-	is.RUnlock()
-	return len(duplicates)
-}
-
-func (is *idShard) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	is.RLock()
-
-	for id, duplicates := range is.data {
-		if filter(id) {
-			count += len(duplicates)
-			for _, d := range duplicates {
-				visitor(d)
-			}
-		}
-	}
-
-	is.RUnlock()
-	return
-}
-
-func (is *idShard) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	is.RLock()
-
-	for id, duplicates := range is.data {
-		if filter(id) {
-			delete(is.data, id)
-			count += len(duplicates)
-
-			for _, d := range duplicates {
-				visitor(d)
-			}
-		}
-	}
-
-	is.RUnlock()
-	return
-}
-
-// keyShard represents a single shard of mappings for devices keyed by their unique Keys.
-type keyShard struct {
-	sync.RWMutex
-	data map[Key]*device
-}
-
-func (ks *keyShard) add(key Key, d *device) error {
-	ks.Lock()
-	if _, ok := ks.data[key]; ok {
-		ks.Unlock()
-		return ErrorDuplicateKey
-	}
-
-	ks.data[key] = d
-	ks.Unlock()
-	return nil
-}
-
-func (ks *keyShard) remove(key Key) *device {
-	ks.Lock()
-	d := ks.data[key]
-	delete(ks.data, key)
-	ks.Unlock()
-
-	return d
-}
-
-func (ks *keyShard) visitKey(key Key, visitor func(*device)) int {
-	ks.RLock()
-
-	if d, ok := ks.data[key]; ok {
-		visitor(d)
-		ks.RUnlock()
-		return 1
-	}
-
-	ks.RUnlock()
-	return 0
-}
-
-func (ks *keyShard) visitAll(visitor func(*device)) int {
-	ks.RLock()
-
-	for _, d := range ks.data {
-		visitor(d)
-	}
-
-	ks.RUnlock()
-	return len(ks.data)
-}
-
-// registry is a fully sharded concurrent-safe mapping of connected devices.  Devices are mapped by both
-// ID and Key.  A registry allows duplicate devices for the same ID, but only (1) device may be mapped to
-// a given Key.
 type registry struct {
-	byID  []idShard
-	byKey []keyShard
+	sync.RWMutex
+	byID  map[ID][]*device
+	byKey map[Key]*device
 }
 
-func newRegistry(shards, initialCapacity uint32) *registry {
-	r := &registry{
-		byID:  make([]idShard, shards),
-		byKey: make([]keyShard, shards),
+func newRegistry(initialCapacity uint32) *registry {
+	return &registry{
+		byID:  make(map[ID][]*device, initialCapacity),
+		byKey: make(map[Key]*device, initialCapacity),
 	}
-
-	for i := uint32(0); i < shards; i++ {
-		r.byID[i].data = make(map[ID][]*device, initialCapacity)
-		r.byKey[i].data = make(map[Key]*device, initialCapacity)
-	}
-
-	return r
-}
-
-func (r *registry) idShardFor(id ID) *idShard {
-	hasher := fnv.New32a()
-	hasher.Write(id.Bytes())
-	return &r.byID[hasher.Sum32()%uint32(len(r.byID))]
-}
-
-func (r *registry) keyShardFor(key Key) *keyShard {
-	hasher := fnv.New32a()
-	hasher.Write([]byte(key))
-	return &r.byKey[hasher.Sum32()%uint32(len(r.byID))]
 }
 
 func (r *registry) add(d *device) error {
 	key := d.Key()
-	if err := r.keyShardFor(key).add(key, d); err != nil {
-		return err
+	r.Lock()
+	if _, ok := r.byKey[key]; ok {
+		r.Unlock()
+		return ErrorDuplicateKey
 	}
 
-	r.idShardFor(d.id).add(d.id, d)
+	duplicates := r.byID[d.id]
+	for _, candidate := range duplicates {
+		if d == candidate {
+			r.Unlock()
+			return ErrorDuplicateDevice
+		}
+	}
+
+	r.byKey[key] = d
+	r.byID[d.id] = append(duplicates, d)
+	r.Unlock()
 	return nil
 }
 
-func (r *registry) removeKey(key Key) *device {
-	return r.keyShardFor(key).remove(key)
-}
+func (r *registry) removeKey(key Key) (d *device) {
+	r.Lock()
+	if d = r.byKey[key]; d != nil {
+		delete(r.byKey, key)
+		duplicates := r.byID[d.id]
+		for i, candidate := range duplicates {
+			if d == candidate {
+				duplicates[i] = duplicates[len(duplicates)-1]
+				duplicates[len(duplicates)-1] = nil
+				duplicates = duplicates[:len(duplicates)-1]
 
-func (r *registry) removeOne(d *device) (removed bool) {
-	if removed = r.idShardFor(d.id).removeOne(d.id, d); removed {
-		key := d.Key()
-		r.keyShardFor(key).remove(key)
+				if len(duplicates) > 0 {
+					r.byID[d.id] = duplicates
+				} else {
+					delete(r.byID, d.id)
+				}
+
+				break
+			}
+		}
 	}
 
+	r.Unlock()
 	return
 }
 
 func (r *registry) removeAll(id ID) (removedDevices []*device) {
-	removedDevices = r.idShardFor(id).removeAll(id)
+	r.Lock()
+
+	removedDevices = r.byID[id]
+	delete(r.byID, id)
 	for _, d := range removedDevices {
-		key := d.Key()
-		r.keyShardFor(key).remove(key)
+		delete(r.byKey, d.Key())
 	}
 
+	r.Unlock()
 	return
 }
 
 func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	removed := make([]*device, 0, 10)
-	for i := 0; i < len(r.byID); i++ {
-		removed = removed[:0]
-		count += r.byID[i].removeIf(filter, func(d *device) {
-			// don't update the key shards here, as we're under the id shard lock ...
-			removed = append(removed, d)
-		})
+	r.Lock()
 
-		// handle deletion of the keys outside the id shard lock
-		for _, d := range removed {
-			key := d.Key()
-			r.keyShardFor(key).remove(key)
+	for id, duplicates := range r.byID {
+		if filter(id) {
+			count += len(duplicates)
+			delete(r.byID, id)
+
+			for _, d := range duplicates {
+				delete(r.byKey, d.Key())
+				visitor(d)
+			}
+		}
+	}
+
+	r.Unlock()
+	return
+}
+
+func (r *registry) visitID(id ID, visitor func(*device)) (count int) {
+	r.RLock()
+	duplicates := r.byID[id]
+	count = len(duplicates)
+	for _, d := range duplicates {
+		visitor(d)
+	}
+
+	r.RUnlock()
+	return
+}
+
+func (r *registry) visitKey(key Key, visitor func(*device)) (count int) {
+	r.RLock()
+	if d := r.byKey[key]; d != nil {
+		count = 1
+		visitor(d)
+	}
+
+	r.RUnlock()
+	return
+}
+
+func (r *registry) visitAll(visitor func(*device)) (count int) {
+	r.RLock()
+	for _, duplicates := range r.byID {
+		count += len(duplicates)
+		for _, d := range duplicates {
 			visitor(d)
 		}
 	}
 
-	return
-}
-
-func (r *registry) visitID(id ID, visitor func(*device)) int {
-	return r.idShardFor(id).visitID(id, visitor)
-}
-
-func (r *registry) visitKey(key Key, visitor func(*device)) int {
-	return r.keyShardFor(key).visitKey(key, visitor)
-}
-
-func (r *registry) visitAll(visitor func(*device)) (count int) {
-	for i := 0; i < len(r.byKey); i++ {
-		count += r.byKey[i].visitAll(visitor)
-	}
-
+	r.RUnlock()
 	return
 }
 
 func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	for i := 0; i < len(r.byID); i++ {
-		count += r.byID[i].visitIf(filter, visitor)
+	r.RLock()
+	for id, duplicates := range r.byID {
+		if filter(id) {
+			count += len(duplicates)
+			for _, d := range duplicates {
+				visitor(d)
+			}
+		}
 	}
 
+	r.RUnlock()
+	return
+}
+
+func (r *registry) getOne(id ID) (d *device, err error) {
+	r.RLock()
+	duplicates := r.byID[id]
+	switch len(duplicates) {
+	case 0:
+		err = ErrorDeviceNotFound
+	case 1:
+		d = duplicates[0]
+	default:
+		err = ErrorNonUniqueID
+	}
+
+	r.RUnlock()
 	return
 }

@@ -93,7 +93,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 
 		connectionFactory:      cf,
 		keyFunc:                o.keyFunc(),
-		registry:               newRegistry(o.shards(), o.initialCapacity()),
+		registry:               newRegistry(o.initialCapacity()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
@@ -455,21 +455,11 @@ func (m *manager) VisitAll(visitor func(Interface)) int {
 }
 
 func (m *manager) Route(request *Request) (*Response, error) {
-	var (
-		d                *device
-		destination, err = request.ID()
-	)
-
-	if err != nil {
+	if destination, err := request.ID(); err != nil {
 		return nil, err
-	}
-
-	switch m.registry.visitID(destination, func(e *device) { d = e }) {
-	case 0:
-		return nil, ErrorDeviceNotFound
-	case 1:
+	} else if d, err := m.registry.getOne(destination); err != nil {
+		return nil, err
+	} else {
 		return d.Send(request)
-	default:
-		return nil, ErrorNonUniqueID
 	}
 }

@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func benchmarkRegistry(b *testing.B, shards, initialCapacity uint32) {
+func benchmarkRegistry(b *testing.B, initialCapacity uint32) {
 	var (
-		registry   = newRegistry(shards, initialCapacity)
+		registry   = newRegistry(initialCapacity)
 		lock       sync.RWMutex
 		macCounter uint64
 	)
@@ -39,13 +39,9 @@ func benchmarkRegistry(b *testing.B, shards, initialCapacity uint32) {
 }
 
 func BenchmarkRegistry(b *testing.B) {
-	for _, shards := range []uint32{2, 10, 256, 512} {
-		b.Run(fmt.Sprintf("Shards=%d", shards), func(b *testing.B) {
-			for _, initialCapacity := range []uint32{10, 100, 1000} {
-				b.Run(fmt.Sprintf("InitialCapacityPerShard=%d", initialCapacity), func(b *testing.B) {
-					benchmarkRegistry(b, shards, initialCapacity)
-				})
-			}
+	for _, initialCapacity := range []uint32{10, 100, 1000} {
+		b.Run(fmt.Sprintf("InitialCapacity=%d", initialCapacity), func(b *testing.B) {
+			benchmarkRegistry(b, initialCapacity)
 		})
 	}
 }
