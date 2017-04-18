@@ -14,7 +14,6 @@ type idShard struct {
 
 func (is *idShard) add(id ID, d *device) {
 	is.Lock()
-	defer is.Unlock()
 	duplicates := is.data[id]
 
 	// just do a simple linear search, as the number of duplicate devices
@@ -22,18 +21,19 @@ func (is *idShard) add(id ID, d *device) {
 	for _, candidate := range duplicates {
 		if d == candidate {
 			// this device is already here
+			is.Unlock()
 			return
 		}
 	}
 
 	is.data[id] = append(duplicates, d)
+	is.Unlock()
 }
 
 func (is *idShard) removeOne(id ID, d *device) bool {
 	is.Lock()
-	defer is.Unlock()
-
 	duplicates := is.data[id]
+
 	for i, candidate := range duplicates {
 		if d == candidate {
 			last := len(duplicates) - 1
@@ -48,36 +48,38 @@ func (is *idShard) removeOne(id ID, d *device) bool {
 				delete(is.data, id)
 			}
 
+			is.Unlock()
 			return true
 		}
 	}
 
+	is.Unlock()
 	return false
 }
 
 func (is *idShard) removeAll(id ID) []*device {
 	is.Lock()
-	defer is.Unlock()
 	duplicates := is.data[id]
 	delete(is.data, id)
+	is.Unlock()
+
 	return duplicates
 }
 
 func (is *idShard) visitID(id ID, visitor func(*device)) int {
 	is.RLock()
-	defer is.RUnlock()
 
 	duplicates := is.data[id]
 	for _, d := range duplicates {
 		visitor(d)
 	}
 
+	is.RUnlock()
 	return len(duplicates)
 }
 
 func (is *idShard) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
 	is.RLock()
-	defer is.RUnlock()
 
 	for id, duplicates := range is.data {
 		if filter(id) {
@@ -88,12 +90,12 @@ func (is *idShard) visitIf(filter func(ID) bool, visitor func(*device)) (count i
 		}
 	}
 
+	is.RUnlock()
 	return
 }
 
 func (is *idShard) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
 	is.RLock()
-	defer is.RUnlock()
 
 	for id, duplicates := range is.data {
 		if filter(id) {
@@ -106,6 +108,7 @@ func (is *idShard) removeIf(filter func(ID) bool, visitor func(*device)) (count 
 		}
 	}
 
+	is.RUnlock()
 	return
 }
 
@@ -117,43 +120,46 @@ type keyShard struct {
 
 func (ks *keyShard) add(key Key, d *device) error {
 	ks.Lock()
-	defer ks.Unlock()
 	if _, ok := ks.data[key]; ok {
+		ks.Unlock()
 		return ErrorDuplicateKey
 	}
 
 	ks.data[key] = d
+	ks.Unlock()
 	return nil
 }
 
 func (ks *keyShard) remove(key Key) *device {
 	ks.Lock()
-	defer ks.Unlock()
 	d := ks.data[key]
 	delete(ks.data, key)
+	ks.Unlock()
+
 	return d
 }
 
 func (ks *keyShard) visitKey(key Key, visitor func(*device)) int {
 	ks.RLock()
-	defer ks.RUnlock()
 
 	if d, ok := ks.data[key]; ok {
 		visitor(d)
+		ks.RUnlock()
 		return 1
 	}
 
+	ks.RUnlock()
 	return 0
 }
 
 func (ks *keyShard) visitAll(visitor func(*device)) int {
 	ks.RLock()
-	defer ks.RUnlock()
 
 	for _, d := range ks.data {
 		visitor(d)
 	}
 
+	ks.RUnlock()
 	return len(ks.data)
 }
 
