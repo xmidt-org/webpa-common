@@ -108,26 +108,33 @@ func (ss *SNSServer) PrepareAndStart() {
 // Returns true if the SNS is ready to accept notifications
 // Synchronized using read lock
 func (ss *SNSServer) IsReady() bool {
+	var ready bool
 	ss.RLock()
 	if !strings.EqualFold("pending confirmation", "") && !strings.EqualFold("pending confirmation", ss.SubscriptionArn) {	
-		return true
-	}
-	ss.logger().Error("SNS is not yet ready, subscription arn in cfg %v", ss.SubscriptionArn)
+		ready = true
+	} else {
+		ss.logger().Error("SNS is not yet ready, subscription arn in cfg %v", 
+			ss.SubscriptionArn)
+		ready = false
+	}	
 	ss.RUnlock()
-	return false
+	return ready
 }
 
 // Validate that SubscriptionArn received in AWS request matches the cached config data
 func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
+	var valid bool
 	ss.RLock()
 	if strings.EqualFold(reqSubscriptionArn, ss.SubscriptionArn) {	
-		return true
-	}
-	ss.logger().Error(
+		valid = true
+	} else {
+		ss.logger().Error(
 		"SNS Invalid subscription arn in notification header req %s, cfg %s", 
 		reqSubscriptionArn, ss.SubscriptionArn)
+		valid = false
+	}
 	ss.RUnlock()
-	return false
+	return valid
 }
 
 

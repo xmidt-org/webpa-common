@@ -51,7 +51,7 @@ import:
   subpackages:
   - linux
 - package: github.com/aws/aws-sdk-go
-  version: 7d9ac5f2079172b9725513796718eaad96218f3b
-  subpackgages:
+  version: 7be45195c3af1b54a609812f90c05a7e492e2491
+  subpackages: 
   - aws
   - service
