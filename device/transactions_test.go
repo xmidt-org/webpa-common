@@ -165,6 +165,7 @@ func testEncodeResponsePool(t *testing.T, message wrp.Message, responseFormat, p
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		device         = new(mockDevice)
 		setupEncoders  = wrp.NewEncoderPool(1, responseFormat)
 		pool           = wrp.NewEncoderPool(1, poolFormat)
 		verifyDecoders = wrp.NewDecoderPool(1, poolFormat)
@@ -174,10 +175,13 @@ func testEncodeResponsePool(t *testing.T, message wrp.Message, responseFormat, p
 
 	require.NoError(setupEncoders.EncodeBytes(&contents, &message))
 	deviceResponse := &Response{
+		Device:   device,
 		Message:  &message,
 		Format:   responseFormat,
 		Contents: contents,
 	}
+
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	assert.NoError(EncodeResponse(httpResponse, deviceResponse, pool))
 	assert.Equal(http.StatusOK, httpResponse.Code)
@@ -186,6 +190,8 @@ func testEncodeResponsePool(t *testing.T, message wrp.Message, responseFormat, p
 	actualMessage := new(wrp.Message)
 	assert.NoError(verifyDecoders.Decode(actualMessage, httpResponse.Body))
 	assert.Equal(message, *actualMessage)
+
+	device.AssertExpectations(t)
 }
 
 func testEncodeResponsePoolAndNoContents(t *testing.T, format wrp.Format) {
@@ -193,8 +199,10 @@ func testEncodeResponsePoolAndNoContents(t *testing.T, format wrp.Format) {
 		assert         = assert.New(t)
 		actualContents = make(map[string]interface{})
 		pool           = wrp.NewEncoderPool(1, format)
+		device         = new(mockDevice)
 
 		deviceResponse = &Response{
+			Device:  device,
 			Message: new(wrp.Message),
 			Format:  format,
 		}
@@ -202,12 +210,16 @@ func testEncodeResponsePoolAndNoContents(t *testing.T, format wrp.Format) {
 		httpResponse = httptest.NewRecorder()
 	)
 
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
+
 	assert.NoError(EncodeResponse(httpResponse, deviceResponse, pool))
 	assert.Equal(http.StatusInternalServerError, httpResponse.Code)
 	assert.Equal("application/json", httpResponse.HeaderMap.Get("Content-Type"))
 	assert.NoError(
 		json.Unmarshal(httpResponse.Body.Bytes(), &actualContents),
 	)
+
+	device.AssertExpectations(t)
 }
 
 func testEncodeResponseNoPool(t *testing.T, message wrp.Message, format wrp.Format) {
@@ -216,11 +228,15 @@ func testEncodeResponseNoPool(t *testing.T, message wrp.Message, format wrp.Form
 		require      = require.New(t)
 		encoders     = wrp.NewEncoderPool(1, format)
 		contents     []byte
+		device       = new(mockDevice)
 		httpResponse = httptest.NewRecorder()
 	)
 
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
+
 	require.NoError(encoders.EncodeBytes(&contents, &message))
 	deviceResponse := &Response{
+		Device:   device,
 		Message:  &message,
 		Format:   format,
 		Contents: contents,
@@ -230,19 +246,25 @@ func testEncodeResponseNoPool(t *testing.T, message wrp.Message, format wrp.Form
 	assert.Equal(http.StatusOK, httpResponse.Code)
 	assert.Equal(format.ContentType(), httpResponse.HeaderMap.Get("Content-Type"))
 	assert.Equal(contents, httpResponse.Body.Bytes())
+
+	device.AssertExpectations(t)
 }
 
 func testEncodeResponseNoPoolAndNoContents(t *testing.T) {
 	var (
 		assert         = assert.New(t)
 		actualContents = make(map[string]interface{})
+		device         = new(mockDevice)
 
 		deviceResponse = &Response{
+			Device:  device,
 			Message: new(wrp.Message),
 		}
 
 		httpResponse = httptest.NewRecorder()
 	)
+
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	assert.NoError(EncodeResponse(httpResponse, deviceResponse, nil))
 	assert.Equal(http.StatusInternalServerError, httpResponse.Code)
@@ -250,6 +272,8 @@ func testEncodeResponseNoPoolAndNoContents(t *testing.T) {
 	assert.NoError(
 		json.Unmarshal(httpResponse.Body.Bytes(), &actualContents),
 	)
+
+	device.AssertExpectations(t)
 }
 
 func TestEncodeResponse(t *testing.T) {

@@ -246,6 +246,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
+		device  = new(mockDevice)
 		handler = MessageHandler{
 			Router:   router,
 			Decoders: wrp.NewDecoderPool(1, requestFormat),
@@ -254,11 +255,14 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 
 		actualDeviceRequest    *Request
 		expectedDeviceResponse = &Response{
+			Device:   device,
 			Message:  responseMessage,
 			Format:   wrp.Msgpack,
 			Contents: responseContents,
 		}
 	)
+
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	router.On(
 		"Route",
@@ -277,6 +281,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 	assert.NoError(verifyResponseDecoders.Decode(new(wrp.Message), response.Body))
 
 	router.AssertExpectations(t)
+	device.AssertExpectations(t)
 }
 
 func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
@@ -315,6 +320,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
+		device  = new(mockDevice)
 		handler = MessageHandler{
 			Router:   router,
 			Decoders: wrp.NewDecoderPool(1, wrp.Msgpack),
@@ -322,10 +328,13 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 		actualResponseBody     map[string]interface{}
 		expectedDeviceResponse = &Response{
+			Device:  device,
 			Message: responseMessage,
 			Format:  wrp.Msgpack,
 		}
 	)
+
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	router.On(
 		"Route",
@@ -344,6 +353,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
 	router.AssertExpectations(t)
+	device.AssertExpectations(t)
 }
 
 func TestMessageHandler(t *testing.T) {

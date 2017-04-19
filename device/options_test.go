@@ -14,8 +14,6 @@ func TestOptionsDefault(t *testing.T) {
 	for _, o := range []*Options{nil, new(Options)} {
 		t.Log(o)
 
-		assert.Equal(DefaultDeviceNameHeader, o.deviceNameHeader())
-		assert.Equal(DefaultConveyHeader, o.conveyHeader())
 		assert.Equal(DefaultDeviceMessageQueueSize, o.deviceMessageQueueSize())
 		assert.Equal(DefaultHandshakeTimeout, o.handshakeTimeout())
 		assert.Equal(DefaultDecoderPoolSize, o.decoderPoolSize())
@@ -44,8 +42,6 @@ func TestOptions(t *testing.T) {
 		}
 
 		o = Options{
-			DeviceNameHeader:       "X-TestOptions-Device-Name",
-			ConveyHeader:           "X-TestOptions-Convey",
 			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
 			DecoderPoolSize:        672393,
 			EncoderPoolSize:        1034571,
@@ -63,8 +59,6 @@ func TestOptions(t *testing.T) {
 		}
 	)
 
-	assert.Equal(o.DeviceNameHeader, o.deviceNameHeader())
-	assert.Equal(o.ConveyHeader, o.conveyHeader())
 	assert.Equal(o.DeviceMessageQueueSize, o.deviceMessageQueueSize())
 	assert.Equal(o.HandshakeTimeout, o.handshakeTimeout())
 	assert.Equal(o.DecoderPoolSize, o.decoderPoolSize())

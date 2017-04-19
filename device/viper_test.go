@@ -18,8 +18,6 @@ func TestNewOptions(t *testing.T) {
 		configuration = `{
 			"device": {
 				"manager": {
-					"deviceNameHeader": "Some-Header",
-					"conveyHeader": "X-Another-Header",
 					"handshakeTimeout": "1m15s"
 				}
 			}
@@ -37,8 +35,6 @@ func TestNewOptions(t *testing.T) {
 
 	assert.Equal(
 		Options{
-			DeviceNameHeader: "Some-Header",
-			ConveyHeader:     "X-Another-Header",
 			HandshakeTimeout: time.Minute + 15*time.Second,
 			Logger:           logger,
 		},

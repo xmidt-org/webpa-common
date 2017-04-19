@@ -86,11 +86,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 	m := &manager{
 		logger: o.logger(),
 
-		deviceNameHeader:             o.deviceNameHeader(),
-		missingDeviceNameHeaderError: fmt.Errorf("Missing header: %s", o.deviceNameHeader()),
-
-		conveyHeader: o.conveyHeader(),
-
 		connectionFactory:      cf,
 		keyFunc:                o.keyFunc(),
 		registry:               newRegistry(o.initialCapacity()),
@@ -107,11 +102,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 type manager struct {
 	logger logging.Logger
 
-	deviceNameHeader             string
-	missingDeviceNameHeaderError error
-
-	conveyHeader string
-
 	connectionFactory ConnectionFactory
 	keyFunc           KeyFunc
 
@@ -125,15 +115,15 @@ type manager struct {
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	m.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
-	deviceName := request.Header.Get(m.deviceNameHeader)
+	deviceName := request.Header.Get(DeviceNameHeader)
 	if len(deviceName) == 0 {
 		httperror.Format(
 			response,
 			http.StatusBadRequest,
-			m.missingDeviceNameHeaderError,
+			ErrorMissingDeviceNameHeader,
 		)
 
-		return nil, m.missingDeviceNameHeaderError
+		return nil, ErrorMissingDeviceNameHeader
 	}
 
 	id, err := ParseID(deviceName)
@@ -148,11 +138,15 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, badDeviceNameError
 	}
 
-	var convey Convey
-	if rawConvey := request.Header.Get(m.conveyHeader); len(rawConvey) > 0 {
-		convey, err = ParseConvey(rawConvey, nil)
+	var (
+		encodedConvey = request.Header.Get(ConveyHeader)
+		convey        Convey
+	)
+
+	if len(encodedConvey) > 0 {
+		convey, err = ParseConvey(encodedConvey, nil)
 		if err != nil {
-			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", rawConvey, err)
+			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", encodedConvey, err)
 			httperror.Format(
 				response,
 				http.StatusBadRequest,
@@ -180,7 +174,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, err
 	}
 
-	d := newDevice(id, initialKey, convey, m.deviceMessageQueueSize)
+	d := newDevice(id, initialKey, convey, encodedConvey, m.deviceMessageQueueSize)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
