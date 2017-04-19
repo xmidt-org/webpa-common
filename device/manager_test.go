@@ -107,7 +107,7 @@ func testManagerConnectBadDeviceNameHeader(t *testing.T) {
 	manager := NewManager(options, nil)
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "http://localhost.com", nil)
-	request.Header.Set(DefaultDeviceNameHeader, "this is not valid")
+	request.Header.Set(DeviceNameHeader, "this is not valid")
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
@@ -124,8 +124,8 @@ func testManagerConnectBadConveyHeader(t *testing.T) {
 	manager := NewManager(options, nil)
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "http://localhost.com", nil)
-	request.Header.Set(DefaultDeviceNameHeader, "mac:112233445566")
-	request.Header.Set(DefaultConveyHeader, "this is not valid")
+	request.Header.Set(DeviceNameHeader, "mac:112233445566")
+	request.Header.Set(ConveyHeader, "this is not valid")
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
@@ -150,7 +150,7 @@ func testManagerConnectKeyError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "http://localhost.com", nil)
 	)
 
-	request.Header.Set(DefaultDeviceNameHeader, "mac:112233445566")
+	request.Header.Set(DeviceNameHeader, "mac:112233445566")
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
@@ -180,7 +180,7 @@ func testManagerConnectConnectionFactoryError(t *testing.T) {
 
 	connectionFactory.On("NewConnection", response, request, responseHeader).Once().Return(nil, expectedError)
 
-	request.Header.Set(DefaultDeviceNameHeader, "mac:123412341234")
+	request.Header.Set(DeviceNameHeader, "mac:123412341234")
 	device, actualError := manager.Connect(response, request, responseHeader)
 	assert.Nil(device)
 	assert.Equal(expectedError, actualError)
@@ -263,7 +263,7 @@ func testManagerConnectVisit(t *testing.T) {
 
 func testManagerPongCallbackFor(t *testing.T) {
 	assert := assert.New(t)
-	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, 1)
+	expectedDevice := newSimpleDevice(ID("ponged device"), Key("expected"), 1)
 	expectedData := "expected pong data"
 	listenerCalled := false
 
@@ -488,8 +488,8 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 			},
 		}
 
-		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, 1)
-		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, 1)
+		device1 = newSimpleDevice(ID("mac:112233445566"), Key("123"), 1)
+		device2 = newSimpleDevice(ID("mac:112233445566"), Key("234"), 1)
 
 		connectionFactory = new(mockConnectionFactory)
 		manager           = NewManager(nil, connectionFactory).(*manager)

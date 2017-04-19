@@ -87,22 +87,16 @@ func ParseID(deviceName string) (ID, error) {
 // given request header and invokes ParseID on the value.
 //
 // If deviceNameHeader is the empty string, DefaultDeviceNameHeader is used.
-func IDHashParser(deviceNameHeader string) func(*http.Request) ([]byte, error) {
-	if len(deviceNameHeader) == 0 {
-		deviceNameHeader = DefaultDeviceNameHeader
+func IDHashParser(request *http.Request) ([]byte, error) {
+	deviceName := request.Header.Get(DeviceNameHeader)
+	if len(deviceName) == 0 {
+		return nil, ErrorMissingDeviceNameHeader
 	}
 
-	return func(request *http.Request) ([]byte, error) {
-		deviceName := request.Header.Get(deviceNameHeader)
-		if len(deviceName) == 0 {
-			return nil, fmt.Errorf("Missing header: %s", deviceNameHeader)
-		}
-
-		id, err := ParseID(deviceName)
-		if err != nil {
-			return nil, err
-		}
-
-		return id.Bytes(), nil
+	id, err := ParseID(deviceName)
+	if err != nil {
+		return nil, err
 	}
+
+	return id.Bytes(), nil
 }

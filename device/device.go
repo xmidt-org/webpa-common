@@ -59,6 +59,10 @@ type Interface interface {
 	// Convey returns the payload to convey with each web-bound request
 	Convey() Convey
 
+	// EncodedConvey returns the exact value of the convey header sent at the time
+	// this device connected to the manager
+	EncodedConvey() string
+
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
 
@@ -89,7 +93,9 @@ type device struct {
 	id  ID
 	key atomic.Value
 
-	convey      Convey
+	convey        Convey
+	encodedConvey string
+
 	connectedAt time.Time
 
 	state int32
@@ -99,19 +105,27 @@ type device struct {
 	transactions *Transactions
 }
 
-func newDevice(id ID, initialKey Key, convey Convey, queueSize int) *device {
+// newDevice is an internal factory function for devices
+func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queueSize int) *device {
 	d := &device{
-		id:           id,
-		convey:       convey,
-		connectedAt:  time.Now(),
-		state:        stateOpen,
-		shutdown:     make(chan struct{}),
-		messages:     make(chan *envelope, queueSize),
-		transactions: NewTransactions(),
+		id:            id,
+		convey:        convey,
+		encodedConvey: encodedConvey,
+		connectedAt:   time.Now(),
+		state:         stateOpen,
+		shutdown:      make(chan struct{}),
+		messages:      make(chan *envelope, queueSize),
+		transactions:  NewTransactions(),
 	}
 
 	d.updateKey(initialKey)
 	return d
+}
+
+// newSimpleDevice is an internal factory function that produces a device without an associated Convey.
+// This factory function is used mainly in tests.
+func newSimpleDevice(id ID, initialKey Key, queueSize int) *device {
+	return newDevice(id, initialKey, nil, "", queueSize)
 }
 
 // MarshalJSON exposes public metadata about this device as JSON.  This
@@ -166,6 +180,10 @@ func (d *device) updateKey(newKey Key) {
 
 func (d *device) Convey() Convey {
 	return d.convey
+}
+
+func (d *device) EncodedConvey() string {
+	return d.encodedConvey
 }
 
 func (d *device) ConnectedAt() time.Time {

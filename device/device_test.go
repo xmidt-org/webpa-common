@@ -57,10 +57,17 @@ func TestDevice(t *testing.T) {
 		t.Logf("%v", record)
 
 		var (
-			ctx, cancel        = context.WithCancel(context.Background())
-			testMessage        = new(wrp.Message)
-			minimumConnectedAt = time.Now()
-			device             = newDevice(record.expectedID, record.initialKey, record.expectedConvey, record.expectedQueueSize)
+			ctx, cancel           = context.WithCancel(context.Background())
+			testMessage           = new(wrp.Message)
+			minimumConnectedAt    = time.Now()
+			expectedEncodedConvey = MustEncodeConvey(record.expectedConvey, nil)
+			device                = newDevice(
+				record.expectedID,
+				record.initialKey,
+				record.expectedConvey,
+				expectedEncodedConvey,
+				record.expectedQueueSize,
+			)
 		)
 
 		require.NotNil(device)
@@ -73,6 +80,7 @@ func TestDevice(t *testing.T) {
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(record.initialKey, device.Key())
 		assert.Equal(record.expectedConvey, device.Convey())
+		assert.Equal(expectedEncodedConvey, device.EncodedConvey())
 		assert.False(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())

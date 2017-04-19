@@ -6,8 +6,12 @@ import (
 )
 
 const (
-	DefaultDeviceNameHeader = "X-Webpa-Device-Name"
-	DefaultConveyHeader     = "X-Webpa-Convey"
+	// DeviceNameHeader is the name of the HTTP header which contains the device service name.
+	// This header is primarily required at connect time to identify the device.
+	DeviceNameHeader = "X-Webpa-Device-Name"
+
+	// ConveyHeader is the name of the optional HTTP header which contains the encoded convey JSON.
+	ConveyHeader = "X-Webpa-Convey"
 
 	DefaultHandshakeTimeout time.Duration = 10 * time.Second
 	DefaultIdlePeriod       time.Duration = 135 * time.Second
@@ -25,15 +29,6 @@ const (
 // Options represent the available configuration options for components
 // within this package
 type Options struct {
-	// DeviceNameHeader is the name of the HTTP request header which contains the
-	// device name.  If not specified, DefaultDeviceNameHeader is used.
-	DeviceNameHeader string
-
-	// ConveyHeader is the name of the HTTP request header which contains the
-	// base64-encoded JSON payload to forward with each outbound device request.
-	// If not specified, DefaultConveyHeader is used.
-	ConveyHeader string
-
 	// HandshakeTimeout is the optional websocket handshake timeout.  If not supplied,
 	// the internal gorilla default is used.
 	HandshakeTimeout time.Duration
@@ -86,22 +81,6 @@ type Options struct {
 	// Logger is the output sink for log messages.  If not supplied, log output
 	// is sent to logging.DefaultLogger().
 	Logger logging.Logger
-}
-
-func (o *Options) deviceNameHeader() string {
-	if o != nil && len(o.DeviceNameHeader) > 0 {
-		return o.DeviceNameHeader
-	}
-
-	return DefaultDeviceNameHeader
-}
-
-func (o *Options) conveyHeader() string {
-	if o != nil && len(o.ConveyHeader) > 0 {
-		return o.ConveyHeader
-	}
-
-	return DefaultConveyHeader
 }
 
 func (o *Options) deviceMessageQueueSize() int {

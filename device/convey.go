@@ -61,3 +61,13 @@ func EncodeConvey(convey Convey, encoding *base64.Encoding) (string, error) {
 	base64.Close()
 	return output.String(), nil
 }
+
+// MustEncodeConvey works as EncodeConvey, except that this function panics if
+// there is any error.
+func MustEncodeConvey(convey Convey, encoding *base64.Encoding) string {
+	if encodedConvey, err := EncodeConvey(convey, encoding); err != nil {
+		panic(err)
+	} else {
+		return encodedConvey
+	}
+}

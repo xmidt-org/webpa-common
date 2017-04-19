@@ -207,7 +207,10 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 }
 
 func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, requestFormat wrp.Format) {
-	const transactionKey = "transaction-key"
+	const (
+		transactionKey = "transaction-key"
+		encodedConvey  = "expected encoded convey"
+	)
 
 	var (
 		assert  = assert.New(t)
@@ -246,6 +249,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
+		device  = new(mockDevice)
 		handler = MessageHandler{
 			Router:   router,
 			Decoders: wrp.NewDecoderPool(1, requestFormat),
@@ -254,11 +258,14 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 
 		actualDeviceRequest    *Request
 		expectedDeviceResponse = &Response{
+			Device:   device,
 			Message:  responseMessage,
 			Format:   wrp.Msgpack,
 			Contents: responseContents,
 		}
 	)
+
+	device.On("EncodedConvey").Once().Return(encodedConvey)
 
 	router.On(
 		"Route",
@@ -273,14 +280,19 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal(responseFormat.ContentType(), response.HeaderMap.Get("Content-Type"))
+	assert.Equal(encodedConvey, response.HeaderMap.Get(ConveyHeader))
 	require.NotNil(actualDeviceRequest)
 	assert.NoError(verifyResponseDecoders.Decode(new(wrp.Message), response.Body))
 
 	router.AssertExpectations(t)
+	device.AssertExpectations(t)
 }
 
 func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
-	const transactionKey = "transaction-key"
+	const (
+		transactionKey = "transaction-key"
+		encodedConvey  = "expected encoded convey"
+	)
 
 	var (
 		assert  = assert.New(t)
@@ -315,6 +327,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
+		device  = new(mockDevice)
 		handler = MessageHandler{
 			Router:   router,
 			Decoders: wrp.NewDecoderPool(1, wrp.Msgpack),
@@ -322,10 +335,13 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 		actualResponseBody     map[string]interface{}
 		expectedDeviceResponse = &Response{
+			Device:  device,
 			Message: responseMessage,
 			Format:  wrp.Msgpack,
 		}
 	)
+
+	device.On("EncodedConvey").Once().Return(encodedConvey)
 
 	router.On(
 		"Route",
@@ -338,12 +354,14 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
+	assert.Equal(encodedConvey, response.HeaderMap.Get(ConveyHeader))
 	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
 	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
 	router.AssertExpectations(t)
+	device.AssertExpectations(t)
 }
 
 func TestMessageHandler(t *testing.T) {
