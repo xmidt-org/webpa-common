@@ -109,9 +109,7 @@ type Response struct {
 // If none of the above applies, the encoder pool is used to encode response.Routing to the HTTP
 // response.  The content type is set to pool.Format().
 func EncodeResponse(output http.ResponseWriter, response *Response, pool *wrp.EncoderPool) (err error) {
-	if encodedConvey := response.Device.EncodedConvey(); len(encodedConvey) > 0 {
-		output.Header().Set(ConveyHeader, encodedConvey)
-	}
+	response.Device.SetConveyHeader(output.Header())
 
 	if pool == nil || pool.Format() == response.Format {
 		if len(response.Contents) == 0 {

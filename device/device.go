@@ -3,6 +3,7 @@ package device
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"sync/atomic"
 	"time"
 )
@@ -62,6 +63,10 @@ type Interface interface {
 	// EncodedConvey returns the exact value of the convey header sent at the time
 	// this device connected to the manager
 	EncodedConvey() string
+
+	// SetConveyHeader sets the appropriate header if this device has any associated convey data.
+	// If this device has no convey data, this method does nothing.
+	SetConveyHeader(http.Header)
 
 	// ConnectedAt returns the time at which this device connected to the system
 	ConnectedAt() time.Time
@@ -184,6 +189,12 @@ func (d *device) Convey() Convey {
 
 func (d *device) EncodedConvey() string {
 	return d.encodedConvey
+}
+
+func (d *device) SetConveyHeader(header http.Header) {
+	if len(d.encodedConvey) > 0 {
+		header.Set(ConveyHeader, d.encodedConvey)
+	}
 }
 
 func (d *device) ConnectedAt() time.Time {

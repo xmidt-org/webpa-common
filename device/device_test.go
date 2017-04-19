@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -85,6 +86,11 @@ func TestDevice(t *testing.T) {
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())
 		}
+
+		t.Log("Convey header")
+		header := make(http.Header)
+		device.SetConveyHeader(header)
+		assert.Equal(expectedEncodedConvey, header.Get(ConveyHeader))
 
 		t.Log("updateKey should hold other state immutable")
 		device.updateKey(record.updatedKey)

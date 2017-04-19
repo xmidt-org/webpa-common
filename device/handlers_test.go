@@ -207,10 +207,7 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 }
 
 func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, requestFormat wrp.Format) {
-	const (
-		transactionKey = "transaction-key"
-		encodedConvey  = "expected encoded convey"
-	)
+	const transactionKey = "transaction-key"
 
 	var (
 		assert  = assert.New(t)
@@ -265,7 +262,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		}
 	)
 
-	device.On("EncodedConvey").Once().Return(encodedConvey)
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	router.On(
 		"Route",
@@ -280,7 +277,6 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal(responseFormat.ContentType(), response.HeaderMap.Get("Content-Type"))
-	assert.Equal(encodedConvey, response.HeaderMap.Get(ConveyHeader))
 	require.NotNil(actualDeviceRequest)
 	assert.NoError(verifyResponseDecoders.Decode(new(wrp.Message), response.Body))
 
@@ -289,10 +285,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 }
 
 func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
-	const (
-		transactionKey = "transaction-key"
-		encodedConvey  = "expected encoded convey"
-	)
+	const transactionKey = "transaction-key"
 
 	var (
 		assert  = assert.New(t)
@@ -341,7 +334,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		}
 	)
 
-	device.On("EncodedConvey").Once().Return(encodedConvey)
+	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	router.On(
 		"Route",
@@ -354,7 +347,6 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
-	assert.Equal(encodedConvey, response.HeaderMap.Get(ConveyHeader))
 	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
 	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
