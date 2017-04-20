@@ -250,18 +250,14 @@ func NewDialer(o *Options, d *websocket.Dialer) Dialer {
 		dialer.webSocketDialer.Subprotocols = o.subprotocols()
 	}
 
-	dialer.deviceNameHeader = o.deviceNameHeader()
-	dialer.conveyHeader = o.conveyHeader()
 	return dialer
 }
 
 // dialer is the internal implementation of Dialer.  This implemention wraps a gorilla Dialer
 type dialer struct {
-	webSocketDialer  websocket.Dialer
-	deviceNameHeader string
-	conveyHeader     string
-	idlePeriod       time.Duration
-	writeTimeout     time.Duration
+	webSocketDialer websocket.Dialer
+	idlePeriod      time.Duration
+	writeTimeout    time.Duration
 }
 
 func (d *dialer) Dial(URL string, id ID, convey Convey, extra http.Header) (Connection, *http.Response, error) {
@@ -270,14 +266,14 @@ func (d *dialer) Dial(URL string, id ID, convey Convey, extra http.Header) (Conn
 		requestHeader[key] = value
 	}
 
-	requestHeader.Set(d.deviceNameHeader, string(id))
+	requestHeader.Set(DeviceNameHeader, string(id))
 	if len(convey) > 0 {
 		encoded, err := EncodeConvey(convey, nil)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		requestHeader.Set(d.conveyHeader, encoded)
+		requestHeader.Set(ConveyHeader, encoded)
 	}
 
 	webSocket, response, err := d.webSocketDialer.Dial(URL, requestHeader)

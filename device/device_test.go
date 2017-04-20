@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -57,10 +58,17 @@ func TestDevice(t *testing.T) {
 		t.Logf("%v", record)
 
 		var (
-			ctx, cancel        = context.WithCancel(context.Background())
-			testMessage        = new(wrp.Message)
-			minimumConnectedAt = time.Now()
-			device             = newDevice(record.expectedID, record.initialKey, record.expectedConvey, record.expectedQueueSize)
+			ctx, cancel           = context.WithCancel(context.Background())
+			testMessage           = new(wrp.Message)
+			minimumConnectedAt    = time.Now()
+			expectedEncodedConvey = MustEncodeConvey(record.expectedConvey, nil)
+			device                = newDevice(
+				record.expectedID,
+				record.initialKey,
+				record.expectedConvey,
+				expectedEncodedConvey,
+				record.expectedQueueSize,
+			)
 		)
 
 		require.NotNil(device)
@@ -73,10 +81,16 @@ func TestDevice(t *testing.T) {
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(record.initialKey, device.Key())
 		assert.Equal(record.expectedConvey, device.Convey())
+		assert.Equal(expectedEncodedConvey, device.EncodedConvey())
 		assert.False(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())
 		}
+
+		t.Log("Convey header")
+		header := make(http.Header)
+		device.SetConveyHeader(header)
+		assert.Equal(expectedEncodedConvey, header.Get(ConveyHeader))
 
 		t.Log("updateKey should hold other state immutable")
 		device.updateKey(record.updatedKey)
@@ -98,11 +112,11 @@ func TestDevice(t *testing.T) {
 
 		cancel()
 
-		t.Log("RequestClose should be idempotent")
+		t.Log("requestClose should be idempotent")
 		assert.False(device.Closed())
-		device.RequestClose()
+		device.requestClose()
 		assert.True(device.Closed())
-		device.RequestClose()
+		device.requestClose()
 		assert.True(device.Closed())
 
 		t.Log("closed state")

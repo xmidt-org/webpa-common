@@ -36,6 +36,14 @@ func (m *mockDevice) Convey() Convey {
 	return m.Called().Get(0).(Convey)
 }
 
+func (m *mockDevice) EncodedConvey() string {
+	return m.Called().String(0)
+}
+
+func (m *mockDevice) SetConveyHeader(header http.Header) {
+	m.Called(header)
+}
+
 func (m *mockDevice) ConnectedAt() time.Time {
 	return m.Called().Get(0).(time.Time)
 }

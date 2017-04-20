@@ -1,154 +1,165 @@
 package device
 
-// idMap stores devices keyed by their canonical ID.  Multiple devices are
-// allowed to have the same ID.
-type idMap map[ID]map[*device]bool
+import (
+	"sync"
+)
 
-func (m idMap) add(id ID, d *device) {
-	if duplicates, ok := m[id]; ok {
-		duplicates[d] = true
-	} else {
-		m[id] = map[*device]bool{d: true}
-	}
-}
-
-func (m idMap) removeOne(d *device) {
-	if duplicates, ok := m[d.id]; ok {
-		delete(duplicates, d)
-		if len(duplicates) == 0 {
-			delete(m, d.id)
-		}
-	}
-}
-
-func (m idMap) removeAll(id ID) (removed []*device) {
-	if duplicates, ok := m[id]; ok {
-		removed = make([]*device, 0, len(duplicates))
-		for d, _ := range duplicates {
-			removed = append(removed, d)
-		}
-
-		delete(m, id)
-	}
-
-	return
-}
-
-// keyMap stores devices keyed by their routing Key.  Routing keys are
-// unique across a given keyMap.
-type keyMap map[Key]*device
-
-func (m keyMap) add(k Key, d *device) error {
-	if _, ok := m[k]; ok {
-		return ErrorDuplicateKey
-	}
-
-	m[k] = d
-	return nil
-}
-
-func (m keyMap) remove(k Key) bool {
-	if _, ok := m[k]; ok {
-		delete(m, k)
-		return true
-	}
-
-	return false
-}
-
-// registry is an internal type that stores mappings of devices
-// A registry instance is not safe for concurrent access.
 type registry struct {
-	ids  idMap
-	keys keyMap
+	sync.RWMutex
+	byID  map[ID][]*device
+	byKey map[Key]*device
 }
 
-func newRegistry(initialCapacity int) *registry {
+func newRegistry(initialCapacity uint32) *registry {
 	return &registry{
-		ids:  make(idMap, initialCapacity),
-		keys: make(keyMap, initialCapacity),
+		byID:  make(map[ID][]*device, initialCapacity),
+		byKey: make(map[Key]*device, initialCapacity),
 	}
-}
-
-func (r *registry) devices(id ID) (devices []*device) {
-	if original, ok := r.ids[id]; ok {
-		devices = make([]*device, 0, len(original))
-		for key, _ := range original {
-			devices = append(devices, key)
-		}
-	}
-
-	return
-}
-
-func (r *registry) visitID(id ID, visitor func(*device)) int {
-	if duplicates, ok := r.ids[id]; ok {
-		for d, _ := range duplicates {
-			visitor(d)
-		}
-
-		return len(duplicates)
-	}
-
-	return 0
-}
-
-func (r *registry) visitKey(k Key, visitor func(*device)) int {
-	if d, ok := r.keys[k]; ok {
-		visitor(d)
-		return 1
-	}
-
-	return 0
-}
-
-func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
-	for id, duplicates := range r.ids {
-		if filter(id) {
-			for d, _ := range duplicates {
-				visitor(d)
-			}
-
-			count += len(duplicates)
-		}
-	}
-
-	return
-}
-
-func (r *registry) visitAll(visitor func(*device)) int {
-	for _, d := range r.keys {
-		visitor(d)
-	}
-
-	return len(r.keys)
 }
 
 func (r *registry) add(d *device) error {
-	k := d.Key()
-	if err := r.keys.add(k, d); err != nil {
-		return err
+	key := d.Key()
+	r.Lock()
+	if _, ok := r.byKey[key]; ok {
+		r.Unlock()
+		return ErrorDuplicateKey
 	}
 
-	r.ids.add(d.id, d)
+	duplicates := r.byID[d.id]
+	for _, candidate := range duplicates {
+		if d == candidate {
+			r.Unlock()
+			return ErrorDuplicateDevice
+		}
+	}
+
+	r.byKey[key] = d
+	r.byID[d.id] = append(duplicates, d)
+	r.Unlock()
 	return nil
 }
 
-func (r *registry) removeOne(d *device) bool {
-	k := d.Key()
-	if !r.keys.remove(k) {
-		return false
+func (r *registry) removeKey(key Key) (d *device) {
+	r.Lock()
+	if d = r.byKey[key]; d != nil {
+		delete(r.byKey, key)
+		duplicates := r.byID[d.id]
+		for i, candidate := range duplicates {
+			if d == candidate {
+				duplicates[i] = duplicates[len(duplicates)-1]
+				duplicates[len(duplicates)-1] = nil
+				duplicates = duplicates[:len(duplicates)-1]
+
+				if len(duplicates) > 0 {
+					r.byID[d.id] = duplicates
+				} else {
+					delete(r.byID, d.id)
+				}
+
+				break
+			}
+		}
 	}
 
-	r.ids.removeOne(d)
-	return true
+	r.Unlock()
+	return
 }
 
-func (r *registry) removeAll(id ID) (removed []*device) {
-	removed = r.ids.removeAll(id)
-	for _, d := range removed {
-		r.keys.remove(d.Key())
+func (r *registry) removeAll(id ID) (removedDevices []*device) {
+	r.Lock()
+
+	removedDevices = r.byID[id]
+	delete(r.byID, id)
+	for _, d := range removedDevices {
+		delete(r.byKey, d.Key())
 	}
 
+	r.Unlock()
+	return
+}
+
+func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	r.Lock()
+
+	for id, duplicates := range r.byID {
+		if filter(id) {
+			count += len(duplicates)
+			delete(r.byID, id)
+
+			for _, d := range duplicates {
+				delete(r.byKey, d.Key())
+				visitor(d)
+			}
+		}
+	}
+
+	r.Unlock()
+	return
+}
+
+func (r *registry) visitID(id ID, visitor func(*device)) (count int) {
+	r.RLock()
+	duplicates := r.byID[id]
+	count = len(duplicates)
+	for _, d := range duplicates {
+		visitor(d)
+	}
+
+	r.RUnlock()
+	return
+}
+
+func (r *registry) visitKey(key Key, visitor func(*device)) (count int) {
+	r.RLock()
+	if d := r.byKey[key]; d != nil {
+		count = 1
+		visitor(d)
+	}
+
+	r.RUnlock()
+	return
+}
+
+func (r *registry) visitAll(visitor func(*device)) (count int) {
+	r.RLock()
+	for _, duplicates := range r.byID {
+		count += len(duplicates)
+		for _, d := range duplicates {
+			visitor(d)
+		}
+	}
+
+	r.RUnlock()
+	return
+}
+
+func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) (count int) {
+	r.RLock()
+	for id, duplicates := range r.byID {
+		if filter(id) {
+			count += len(duplicates)
+			for _, d := range duplicates {
+				visitor(d)
+			}
+		}
+	}
+
+	r.RUnlock()
+	return
+}
+
+func (r *registry) getOne(id ID) (d *device, err error) {
+	r.RLock()
+	duplicates := r.byID[id]
+	switch len(duplicates) {
+	case 0:
+		err = ErrorDeviceNotFound
+	case 1:
+		d = duplicates[0]
+	default:
+		err = ErrorNonUniqueID
+	}
+
+	r.RUnlock()
 	return
 }

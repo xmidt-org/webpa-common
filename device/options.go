@@ -6,8 +6,12 @@ import (
 )
 
 const (
-	DefaultDeviceNameHeader = "X-Webpa-Device-Name"
-	DefaultConveyHeader     = "X-Webpa-Convey"
+	// DeviceNameHeader is the name of the HTTP header which contains the device service name.
+	// This header is primarily required at connect time to identify the device.
+	DeviceNameHeader = "X-Webpa-Device-Name"
+
+	// ConveyHeader is the name of the optional HTTP header which contains the encoded convey JSON.
+	ConveyHeader = "X-Webpa-Convey"
 
 	DefaultHandshakeTimeout time.Duration = 10 * time.Second
 	DefaultIdlePeriod       time.Duration = 135 * time.Second
@@ -16,7 +20,7 @@ const (
 
 	DefaultDecoderPoolSize        = 1000
 	DefaultEncoderPoolSize        = 1000
-	DefaultInitialCapacity        = 100000
+	DefaultInitialCapacity        = 1000
 	DefaultReadBufferSize         = 4096
 	DefaultWriteBufferSize        = 4096
 	DefaultDeviceMessageQueueSize = 100
@@ -25,15 +29,6 @@ const (
 // Options represent the available configuration options for components
 // within this package
 type Options struct {
-	// DeviceNameHeader is the name of the HTTP request header which contains the
-	// device name.  If not specified, DefaultDeviceNameHeader is used.
-	DeviceNameHeader string
-
-	// ConveyHeader is the name of the HTTP request header which contains the
-	// base64-encoded JSON payload to forward with each outbound device request.
-	// If not specified, DefaultConveyHeader is used.
-	ConveyHeader string
-
 	// HandshakeTimeout is the optional websocket handshake timeout.  If not supplied,
 	// the internal gorilla default is used.
 	HandshakeTimeout time.Duration
@@ -48,7 +43,7 @@ type Options struct {
 
 	// InitialCapacity is used as the starting capacity of the internal map of
 	// registered devices.  If not supplied, DefaultInitialCapacity is used.
-	InitialCapacity int
+	InitialCapacity uint32
 
 	// ReadBufferSize is the optional size of websocket read buffers.  If not supplied,
 	// the internal gorilla default is used.
@@ -88,22 +83,6 @@ type Options struct {
 	Logger logging.Logger
 }
 
-func (o *Options) deviceNameHeader() string {
-	if o != nil && len(o.DeviceNameHeader) > 0 {
-		return o.DeviceNameHeader
-	}
-
-	return DefaultDeviceNameHeader
-}
-
-func (o *Options) conveyHeader() string {
-	if o != nil && len(o.ConveyHeader) > 0 {
-		return o.ConveyHeader
-	}
-
-	return DefaultConveyHeader
-}
-
 func (o *Options) deviceMessageQueueSize() int {
 	if o != nil && o.DeviceMessageQueueSize > 0 {
 		return o.DeviceMessageQueueSize
@@ -136,7 +115,7 @@ func (o *Options) encoderPoolSize() int {
 	return DefaultEncoderPoolSize
 }
 
-func (o *Options) initialCapacity() int {
+func (o *Options) initialCapacity() uint32 {
 	if o != nil && o.InitialCapacity > 0 {
 		return o.InitialCapacity
 	}

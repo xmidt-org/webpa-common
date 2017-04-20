@@ -64,61 +64,31 @@ func TestIDHashParser(t *testing.T) {
 		invalidDeviceName = "this is not valid"
 
 		testData = []struct {
-			actualDeviceNameHeader   string
-			expectedDeviceNameHeader string
-			deviceName               string
-			expectsError             bool
+			deviceName   string
+			expectsError bool
 		}{
 			{
-				actualDeviceNameHeader:   "",
-				expectedDeviceNameHeader: DefaultDeviceNameHeader,
-				deviceName:               validDeviceName,
-				expectsError:             false,
+				deviceName:   validDeviceName,
+				expectsError: false,
 			},
 			{
-				actualDeviceNameHeader:   "",
-				expectedDeviceNameHeader: DefaultDeviceNameHeader,
-				deviceName:               invalidDeviceName,
-				expectsError:             true,
+				deviceName:   invalidDeviceName,
+				expectsError: true,
 			},
 			{
-				actualDeviceNameHeader:   "",
-				expectedDeviceNameHeader: DefaultDeviceNameHeader,
-				deviceName:               "",
-				expectsError:             true,
-			},
-			{
-				actualDeviceNameHeader:   "X-Custom",
-				expectedDeviceNameHeader: "X-Custom",
-				deviceName:               validDeviceName,
-				expectsError:             false,
-			},
-			{
-				actualDeviceNameHeader:   "X-Custom",
-				expectedDeviceNameHeader: "X-Custom",
-				deviceName:               invalidDeviceName,
-				expectsError:             true,
-			},
-			{
-				actualDeviceNameHeader:   "X-Custom",
-				expectedDeviceNameHeader: "X-Custom",
-				deviceName:               "",
-				expectsError:             true,
+				deviceName:   "",
+				expectsError: true,
 			},
 		}
 	)
 
 	for _, record := range testData {
 		t.Logf("%v", record)
-		parser := IDHashParser(record.actualDeviceNameHeader)
-		if !assert.NotNil(parser) {
-			continue
-		}
 
 		request := httptest.NewRequest("GET", "http://burrito-sightings.net", nil)
-		request.Header.Set(record.expectedDeviceNameHeader, record.deviceName)
+		request.Header.Set(DeviceNameHeader, record.deviceName)
 
-		actualKey, err := parser(request)
+		actualKey, err := IDHashParser(request)
 		if record.expectsError {
 			assert.Empty(actualKey)
 			assert.Error(err)

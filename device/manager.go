@@ -86,11 +86,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 	m := &manager{
 		logger: o.logger(),
 
-		deviceNameHeader:             o.deviceNameHeader(),
-		missingDeviceNameHeaderError: fmt.Errorf("Missing header: %s", o.deviceNameHeader()),
-
-		conveyHeader: o.conveyHeader(),
-
 		connectionFactory:      cf,
 		keyFunc:                o.keyFunc(),
 		registry:               newRegistry(o.initialCapacity()),
@@ -107,15 +102,9 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 type manager struct {
 	logger logging.Logger
 
-	deviceNameHeader             string
-	missingDeviceNameHeaderError error
-
-	conveyHeader string
-
 	connectionFactory ConnectionFactory
 	keyFunc           KeyFunc
 
-	lock     sync.RWMutex
 	registry *registry
 
 	deviceMessageQueueSize int
@@ -126,15 +115,15 @@ type manager struct {
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	m.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
-	deviceName := request.Header.Get(m.deviceNameHeader)
+	deviceName := request.Header.Get(DeviceNameHeader)
 	if len(deviceName) == 0 {
 		httperror.Format(
 			response,
 			http.StatusBadRequest,
-			m.missingDeviceNameHeaderError,
+			ErrorMissingDeviceNameHeader,
 		)
 
-		return nil, m.missingDeviceNameHeaderError
+		return nil, ErrorMissingDeviceNameHeader
 	}
 
 	id, err := ParseID(deviceName)
@@ -149,11 +138,15 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, badDeviceNameError
 	}
 
-	var convey Convey
-	if rawConvey := request.Header.Get(m.conveyHeader); len(rawConvey) > 0 {
-		convey, err = ParseConvey(rawConvey, nil)
+	var (
+		encodedConvey = request.Header.Get(ConveyHeader)
+		convey        Convey
+	)
+
+	if len(encodedConvey) > 0 {
+		convey, err = ParseConvey(encodedConvey, nil)
 		if err != nil {
-			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", rawConvey, err)
+			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", encodedConvey, err)
 			httperror.Format(
 				response,
 				http.StatusBadRequest,
@@ -181,10 +174,11 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, err
 	}
 
-	d := newDevice(id, initialKey, convey, m.deviceMessageQueueSize)
+	d := newDevice(id, initialKey, convey, encodedConvey, m.deviceMessageQueueSize)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
+	m.registry.add(d)
 
 	return d, nil
 }
@@ -193,18 +187,6 @@ func (m *manager) dispatch(e *Event) {
 	for _, listener := range m.listeners {
 		listener(e)
 	}
-}
-
-func (m *manager) whenWriteLocked(when func()) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-	when()
-}
-
-func (m *manager) whenReadLocked(when func()) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-	when()
 }
 
 // pumpClose handles the proper shutdown and logging of a device's pumps.
@@ -219,7 +201,7 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
-	d.RequestClose()
+	d.requestClose()
 
 	if pumpError != nil {
 		m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
@@ -328,12 +310,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 // this goroutine exits when either an explicit shutdown is requested or any
 // error occurs on the connection.
 func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
-	m.logger.Debug("writePump(%s)", d.id)
-
-	// this makes this device addressable via the enclosing Manager:
-	m.whenWriteLocked(func() {
-		m.registry.add(d)
-	})
+	m.logger.Debug("writePump(%s, %s)", d.id, d.Key())
 
 	var (
 		// we'll reuse this event instance
@@ -355,10 +332,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	defer func() {
 		pingTicker.Stop()
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
-
-		m.whenWriteLocked(func() {
-			m.registry.removeOne(d)
-		})
 
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
@@ -432,12 +405,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	}
 }
 
-// requestClose is a convenient, internal visitor
-// that the various Disconnect methods use.
-func (m *manager) requestClose(d *device) {
-	d.RequestClose()
-}
-
 // wrapVisitor produces an internal visitor that wraps a delegate
 // and preserves encapsulation
 func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
@@ -446,77 +413,47 @@ func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
 	}
 }
 
-func (m *manager) Disconnect(id ID) (count int) {
-	m.logger.Debug("Disconnect(%s)", id)
+func (m *manager) Disconnect(id ID) int {
+	removedDevices := m.registry.removeAll(id)
+	for _, d := range removedDevices {
+		d.requestClose()
+	}
 
-	m.whenReadLocked(func() {
-		count = m.registry.visitID(id, m.requestClose)
-	})
-
-	return
+	return len(removedDevices)
 }
 
-func (m *manager) DisconnectOne(key Key) (count int) {
-	m.logger.Debug("DisconnectOne(%s)", key)
+func (m *manager) DisconnectOne(key Key) int {
+	removedDevice := m.registry.removeKey(key)
+	if removedDevice != nil {
+		removedDevice.requestClose()
+		return 1
+	}
 
-	m.whenReadLocked(func() {
-		count = m.registry.visitKey(key, m.requestClose)
-	})
-
-	return
+	return 0
 }
 
-func (m *manager) DisconnectIf(filter func(ID) bool) (count int) {
-	m.logger.Debug("DisconnectIf()")
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, m.requestClose)
+func (m *manager) DisconnectIf(filter func(ID) bool) int {
+	return m.registry.removeIf(filter, func(d *device) {
+		d.requestClose()
 	})
-
-	return count
 }
 
-func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) (count int) {
+func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {
 	m.logger.Debug("VisitIf")
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitIf(filter, m.wrapVisitor(visitor))
-	})
-
-	return
+	return m.registry.visitIf(filter, m.wrapVisitor(visitor))
 }
 
-func (m *manager) VisitAll(visitor func(Interface)) (count int) {
+func (m *manager) VisitAll(visitor func(Interface)) int {
 	m.logger.Debug("VisitAll")
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitAll(m.wrapVisitor(visitor))
-	})
-
-	return
+	return m.registry.visitAll(m.wrapVisitor(visitor))
 }
 
 func (m *manager) Route(request *Request) (*Response, error) {
-	var (
-		count            int
-		d                *device
-		destination, err = request.ID()
-	)
-
-	if err != nil {
+	if destination, err := request.ID(); err != nil {
 		return nil, err
-	}
-
-	m.whenReadLocked(func() {
-		count = m.registry.visitID(destination, func(e *device) { d = e })
-	})
-
-	switch count {
-	case 0:
-		return nil, ErrorDeviceNotFound
-	case 1:
+	} else if d, err := m.registry.getOne(destination); err != nil {
+		return nil, err
+	} else {
 		return d.Send(request)
-	default:
-		return nil, ErrorNonUniqueID
 	}
 }
