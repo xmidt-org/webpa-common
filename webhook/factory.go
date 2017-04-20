@@ -32,7 +32,7 @@ type Factory struct {
 	Undertaker func([]W) []W `json:"-"`
 	
 	// internal handler for webhook
-	m *monitor
+	m *monitor  `json:"-"`
 }
 
 // NewFactory creates a Factory from a Viper environment.  This function always returns
@@ -52,7 +52,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		err = v.Unmarshal(f)
 	}
 
-	f.cfg, err = AWS.NewAWSConfig(v)
+	f.cfg, err = AWS.NewAWSConfig(v.Sub(AWS.AWSKey))
 
 	return
 }
@@ -79,7 +79,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 
 // Initialize for processing webhooks
 func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
-	selfUrl url.URL) (err error) {
+	selfUrl *url.URL) (err error) {
 	
 	f.m.log = logger	
 	
@@ -92,6 +92,10 @@ func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
 // requests from AWS can be handled	
 func (f *Factory) Start() {
 	f.m.server.PrepareAndStart()
+}
+
+func (f *Factory) Publish(message string) bool {
+	return f.m.server.PublishMessage(message)
 }	
 
 // monitor is an internal type that listens for webhook updates, invokes

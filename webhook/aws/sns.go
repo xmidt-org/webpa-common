@@ -33,7 +33,7 @@ type SNSServer struct {
 	Config          *AWSConfig
 	SubscriptionArn string
 	SVC             *sns.SNS
-	SelfUrl         url.URL
+	SelfUrl         *url.URL
 	Logger			logging.Logger
 	// mutex used to protect SubscriptionArn read & write
 	sync.RWMutex
@@ -45,7 +45,7 @@ type SNSServer struct {
 // SNS POST Notification handler will directly update webhooks list
 
 func NewSNSServer(cfg *AWSConfig, logger logging.Logger, rtr *mux.Router, 
-	selfUrl url.URL, handler http.Handler) (ss *SNSServer, err error) {
+	selfUrl *url.URL, handler http.Handler) (ss *SNSServer, err error) {
 	
 	if cfg == nil {
 		return nil, fmt.Errorf("Invalid AWS Config")
@@ -113,7 +113,7 @@ func (ss *SNSServer) IsReady() bool {
 	if !strings.EqualFold("pending confirmation", "") && !strings.EqualFold("pending confirmation", ss.SubscriptionArn) {	
 		ready = true
 	} else {
-		ss.logger().Error("SNS is not yet ready, subscription arn in cfg %v", 
+		ss.logger().Error("SNS is not yet ready, subscription arn is cfg %v", 
 			ss.SubscriptionArn)
 		ready = false
 	}	
