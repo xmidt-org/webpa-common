@@ -202,7 +202,7 @@ func (f *JWTValidatorFactory) New(custom ...jwt.ValidateFunc) *jwt.Validator {
 	customCount := len(custom)
 	if customCount > 0 {
 		validateFunc = func(claims jwt.Claims) (err error) {
-			err = claims.Validate(time.Now(), expLeeway, nbfLeeway)
+			err = claims.Validate(float64(time.Now().Unix()), expLeeway.Seconds(), nbfLeeway.Seconds())
 			for index := 0; index < customCount && err == nil; index++ {
 				err = custom[index](claims)
 			}
@@ -212,14 +212,14 @@ func (f *JWTValidatorFactory) New(custom ...jwt.ValidateFunc) *jwt.Validator {
 	} else {
 		// if no custom validate functions were passed, use a simpler function
 		validateFunc = func(claims jwt.Claims) error {
-			return claims.Validate(time.Now(), expLeeway, nbfLeeway)
+			return claims.Validate(float64(time.Now().Unix()), expLeeway.Seconds(), nbfLeeway.Seconds())
 		}
 	}
 
 	return &jwt.Validator{
 		Expected: f.Expected,
-		EXP:      expLeeway,
-		NBF:      nbfLeeway,
+		EXP:      expLeeway.Seconds(),
+		NBF:      nbfLeeway.Seconds(),
 		Fn:       validateFunc,
 	}
 }
