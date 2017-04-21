@@ -94,6 +94,7 @@ func (f *Factory) Start() {
 	f.m.server.PrepareAndStart()
 }
 
+// To publish message and notify all about a change
 func (f *Factory) Publish(message string) bool {
 	return f.m.server.PublishMessage(message)
 }	

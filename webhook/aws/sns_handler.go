@@ -89,7 +89,6 @@ func (ss *SNSServer) SetSNSRoutes(urlPath string, r *mux.Router, handler http.Ha
 // Subscribe to AWS SNS Topic to receive notifications
 func (ss *SNSServer) Subscribe() bool {
 	log := ss.logger()
-	log.Debug("SNS Subscribe called.")
 
 	params := &sns.SubscribeInput{
 		Protocol: aws.String(ss.SelfUrl.Scheme), // Required
@@ -114,7 +113,6 @@ func (ss *SNSServer) Subscribe() bool {
 // POST handler to receive SNS Confirmation Message
 func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Request) {
 	log := ss.logger()
-	log.Debug("SNS SubscribeConfirmHandle called.")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error( "SNS SubscribeConfirmHandle recover error %v", r )
@@ -130,7 +128,6 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 	//health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
 
 	log.Debug("SNS confirmation payload raw [%v]", string(raw))
-	log.Debug("SNS confirmation payload msg [%#v]", msg)
 	
 	// TODO: Verify SNS Message authenticity by verifying signature
 
@@ -152,21 +149,19 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	ResponseJson(`{"message":"ok"}`, rw)
 
-	log.Trace("SNS SubscribeConfirmHandle req close %v ", req.Close)
 }
 
 // Decodes SNS Notification message and returns 
 // the actual message which is json webhook content
 func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Request) []byte {
 	log := ss.logger()
-	log.Debug("SNS NotificationHandle called.")
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error( "SNS NotificationHandle recover error %v", r )
 		}
 	}()
 	subArn := req.Header.Get("X-Amz-Sns-Subscription-Arn")
-	if ss.ValidateSubscriptionArn(subArn) {
+	if !ss.ValidateSubscriptionArn(subArn) {
 		ResponseJsonErr(rw, "SubscriptionARN not match", http.StatusBadRequest)
 		return nil
 	}
@@ -181,7 +176,6 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	//health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
 	
 	log.Debug("SNS notification payload raw [%v]", string(raw))
-	log.Debug("SNS notification payload msg [%#v]", msg)
 	
 	// TODO: Verify SNS Message authenticity by verifying signature
 
@@ -195,9 +189,6 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 		ResponseJsonErr(rw, "request body error", http.StatusNotAcceptable)
 		return nil
 	}
-	
-	ResponseJson(`{"message":"ok"}`, rw)
-	log.Trace("SNS NotificationHandle req close %v", req.Close)
 	
 	return []byte(msg.Message)
 }
@@ -247,8 +238,6 @@ func (ss *SNSServer) PublishMessage(message string) bool {
 }
 
 func (ss *SNSServer) UnsubscribeConfirmHandle(rw http.ResponseWriter, req *http.Request) {
-	log := ss.logger()
-	log.Debug("SNS UnubscribeConfirmHandle called.")
 	
 	// TODO
 }
