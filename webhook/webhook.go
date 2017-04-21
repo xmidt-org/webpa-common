@@ -64,7 +64,6 @@ type List interface {
 	Len() int
 	Get(int) *W
 	GetAll() []*W
-	GetAllCopy() []W
 }
 
 // UpdatableList is mutable list that can be updated en masse
@@ -105,14 +104,6 @@ func (ul *updatableList) Get(index int) *W {
 func (ul *updatableList) GetAll() (all []*W) {
 	for i:=0; i<ul.Len(); i++ {
 		all = append(all, ul.Get(i))
-	}
-	
-	return
-}
-
-func (ul *updatableList) GetAllCopy() (all []W) {
-	for i:=0; i<ul.Len(); i++ {
-		all = append(all, *ul.Get(i))
 	}
 	
 	return
