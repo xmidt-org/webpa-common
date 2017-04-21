@@ -22,7 +22,7 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 
 // get is an api call to return all the registered listeners
 func (r *Registry) get(rw http.ResponseWriter, req *http.Request) {
-	if msg, err := json.Marshal( r.GetAll() ); err != nil {
+	if msg, err := json.Marshal( r.GetAllCopy() ); err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 	} else {
 		rw.Header().Set("Content-Type", "application/json")
