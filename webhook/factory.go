@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/viper"
 	AWS "github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/gorilla/mux"
 	"net/url"
 	"net/http"
@@ -95,8 +96,8 @@ func (f *Factory) Start() {
 }
 
 // To publish message and notify all about a change
-func (f *Factory) Publish(message string) bool {
-	return f.m.server.PublishMessage(message)
+func (f *Factory) Publish(message string) {
+	f.m.server.PublishMessage(message)
 }	
 
 // monitor is an internal type that listens for webhook updates, invokes
@@ -141,7 +142,7 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	var newHook W
 	if err := json.Unmarshal(message, &newHook); err != nil {
 		m.logger().Error("JSON unmarshall of Notification Message to webhook failed - %v", err)
-		AWS.ResponseJsonErr(response, "Notification Message JSON unmarshall failed", http.StatusBadRequest)
+		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
 		return
 	}
 
