@@ -19,7 +19,7 @@ const (
 // Factory is a classic Factory Object for various webhook things.
 type Factory struct {
 	// Other configuration stuff can go here
-	cfg *AWS.AWSConfig		`json:"aws"`
+	//cfg *AWS.AWSConfig		`json:"aws"`
 
 	// Tick is an optional function that produces a channel for time ticks.
 	// Test code can set this field to something that returns a channel under the control of the test.
@@ -33,7 +33,10 @@ type Factory struct {
 	Undertaker func([]W) []W `json:"-"`
 	
 	// internal handler for webhook
-	m *monitor  `json:"-"`
+	m *monitor `json:"-"`
+	
+	// internal handler for AWS SNS Server
+	server *AWS.SNSServer  `json:"-"`
 }
 
 // NewFactory creates a Factory from a Viper environment.  This function always returns
@@ -53,7 +56,8 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		err = v.Unmarshal(f)
 	}
 
-	f.cfg, err = AWS.NewAWSConfig(v.Sub(AWS.AWSKey))
+	//f.cfg, err = AWS.NewAWSConfig(v.Sub(AWS.AWSKey))
+	f.server, err = AWS.NewSNSServer(v)
 
 	return
 }
@@ -82,9 +86,11 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
 	selfUrl *url.URL) (err error) {
 	
-	f.m.log = logger	
+	f.m.log = logger
 	
-	f.m.server, err = AWS.NewSNSServer(f.cfg, logger, rtr, selfUrl, f.m)
+	f.m.server = f.server	
+	
+	f.server.Initialize(rtr, selfUrl, f.m, logger)
 	
 	return
 }
@@ -92,13 +98,23 @@ func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
 // To be called after http server endpoint is running so that 
 // requests from AWS can be handled	
 func (f *Factory) Start() {
-	f.m.server.PrepareAndStart()
+	f.server.PrepareAndStart()
 }
 
 // To publish message and notify all about a change
 func (f *Factory) Publish(message string) {
-	f.m.server.PublishMessage(message)
-}	
+	f.server.PublishMessage(message)
+}
+
+// To unsubscribe
+func (f *Factory) Unsubscribe() {
+	f.server.Unsubscribe()
+}
+
+// To ListSubscriptions
+/*func (f *Factory) ListSubscriptions() {
+	f.server.ListSubscriptions()
+}*/	
 
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
