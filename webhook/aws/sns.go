@@ -36,10 +36,22 @@ type SNSServer struct {
 	subscriptionData 	chan string
 	SVC             	snsiface.SNSAPI
 	SelfUrl         	*url.URL
-	Logger				logging.Logger
+	logging.Logger
 	notificationData	chan string
 }
 
+// Notifier interface implements the various notification server functionalities 
+// like Subscribe, Unsubscribe, Publish, NotificationHandler
+type Notifier interface {
+	Initialize(*mux.Router, *url.URL, http.Handler, logging.Logger)
+	PrepareAndStart()
+	Subscribe()
+	PublishMessage(string)
+	Unsubscribe()
+	NotificationHandle(http.ResponseWriter, *http.Request) []byte 
+} 
+
+// NewSNSServer creates SNSServer instance using viper config
 func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 	
 	var cfg *AWSConfig
@@ -67,11 +79,15 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 	return ss, nil
 }
 
-// NewSNSServer initializes the SNSServer
+// NewNotifier creates Notifier instance using the viper config
+func NewNotifier(v *viper.Viper) (Notifier, error) {
+	return NewSNSServer(v)
+}
+
+// Initialize initializes the SNSServer fields
 // selfURL represents the webhook server URL &url.URL{Scheme:secure,Host:fqdn+port,Path:urlPath}
 // handler is the webhook handler to update webhooks @monitor 
 // SNS POST Notification handler will directly update webhooks list
-
 func (ss *SNSServer) Initialize (rtr *mux.Router, selfUrl *url.URL, handler http.Handler, 
 	logger logging.Logger) {
 	
@@ -91,21 +107,17 @@ func (ss *SNSServer) Initialize (rtr *mux.Router, selfUrl *url.URL, handler http
 	// set up logger
 	if logger != nil {
 		ss.Logger = logger
+	} else {
+		ss.Logger = logging.DefaultLogger()
 	}
 	
-	ss.logger().Debug("SNS self url endpoint: [%s], protocol [%s]", ss.SelfUrl.String(), ss.SelfUrl.Scheme)
+	ss.Debug("SNS self url endpoint: [%s], protocol [%s]", ss.SelfUrl.String(), ss.SelfUrl.Scheme)
 
 	// Set various SNS POST routes
 	ss.SetSNSRoutes(ss.Config.Sns.UrlPath, rtr, handler)
 	
 }
 
-func (ss *SNSServer) logger() logging.Logger {
-	if ss != nil && ss.Logger != nil {
-		return ss.Logger
-	}
-	return logging.DefaultLogger()
-}
 
 // Prepare the SNSServer to receive Notifications 
 // This better be called after the endpoint http server is started 
@@ -125,25 +137,25 @@ func (ss *SNSServer) PrepareAndStart() {
 // to receive notification messages and publish it
 // If SNS not ready => stops the listenAndPublishMessage go routine by closing channel
 func (ss *SNSServer) listenSubscriptionData() {
-	var quit chan int
+	var quit chan struct{}
 	
 	for {
 		select {
 			case data := <- ss.subscriptionData:
-			ss.logger().Debug("listenSubscriptionData ",data)
+			ss.Debug("listenSubscriptionData ",data)
 			ss.subscriptionArn.Store(data)
 			if !strings.EqualFold("", data) && !strings.EqualFold("pending confirmation", data) {
-				ss.logger().Debug("SNS is ready, subscription arn is cfg %v", data)
+				ss.Debug("SNS is ready, subscription arn is cfg %v", data)
 				
 				// start listenAndPublishMessage go routine
-				quit = make(chan int)
+				quit = make(chan struct{})
 				go ss.listenAndPublishMessage(quit)
 				
 			} else {
 				// stop the listenAndPublishMessage go routine 
 				// if already running by closing the quit channel
 				if nil != quit {
-					ss.logger().Error("SNS is not ready now as subscription arn is changed cfg %v", data)
+					ss.Error("SNS is not ready now as subscription arn is changed cfg %v", data)
 					close(quit)
 				}
 			}
@@ -157,7 +169,7 @@ func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 	if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {	
 		return true
 	} else {
-		ss.logger().Error(
+		ss.Error(
 		"SNS Invalid subscription arn in notification header req %s, cfg %s", 
 		reqSubscriptionArn, ss.subscriptionArn.Load().(string))
 		 return false

@@ -3,10 +3,7 @@ package webhook
 import (
 	"github.com/spf13/viper"
 	AWS "github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/httperror"
-	"github.com/gorilla/mux"
-	"net/url"
 	"net/http"
 	"time"
 	"encoding/json"
@@ -19,7 +16,6 @@ const (
 // Factory is a classic Factory Object for various webhook things.
 type Factory struct {
 	// Other configuration stuff can go here
-	//cfg *AWS.AWSConfig		`json:"aws"`
 
 	// Tick is an optional function that produces a channel for time ticks.
 	// Test code can set this field to something that returns a channel under the control of the test.
@@ -36,7 +32,7 @@ type Factory struct {
 	m *monitor `json:"-"`
 	
 	// internal handler for AWS SNS Server
-	server *AWS.SNSServer  `json:"-"`
+	AWS.Notifier  `json:"-"`
 }
 
 // NewFactory creates a Factory from a Viper environment.  This function always returns
@@ -56,8 +52,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		err = v.Unmarshal(f)
 	}
 
-	//f.cfg, err = AWS.NewAWSConfig(v.Sub(AWS.AWSKey))
-	f.server, err = AWS.NewSNSServer(v)
+	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
 }
@@ -78,43 +73,12 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 	}
 	f.m = monitor
 	
+	f.m.Notifier = f.Notifier
+	
 	go monitor.listen()
 	return monitor.list, monitor
 }
 
-// Initialize for processing webhooks
-func (f *Factory) Initialize(logger logging.Logger, rtr *mux.Router,
-	selfUrl *url.URL) (err error) {
-	
-	f.m.log = logger
-	
-	f.m.server = f.server	
-	
-	f.server.Initialize(rtr, selfUrl, f.m, logger)
-	
-	return
-}
-
-// To be called after http server endpoint is running so that 
-// requests from AWS can be handled	
-func (f *Factory) Start() {
-	f.server.PrepareAndStart()
-}
-
-// To publish message and notify all about a change
-func (f *Factory) Publish(message string) {
-	f.server.PublishMessage(message)
-}
-
-// To unsubscribe
-func (f *Factory) Unsubscribe() {
-	f.server.Unsubscribe()
-}
-
-// To ListSubscriptions
-/*func (f *Factory) ListSubscriptions() {
-	f.server.ListSubscriptions()
-}*/	
 
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
@@ -123,16 +87,9 @@ type monitor struct {
 	undertaker       func([]W) []W
 	changes          chan []W
 	undertakerTicker <-chan time.Time
-	server           *AWS.SNSServer
-	log				logging.Logger
+	AWS.Notifier
 }
 
-func (m *monitor) logger() logging.Logger {
-	if m != nil && m.log != nil {
-		return m.log
-	}
-	return logging.DefaultLogger()
-}
 
 func (m *monitor) listen() {
 	for {
@@ -149,7 +106,7 @@ func (m *monitor) listen() {
 // It transforms the message containing webhook to []W and updates the webhook list  
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	// transform a request into a []byte
-	message := m.server.NotificationHandle(response, request)
+	message := m.NotificationHandle(response, request)
 	if message == nil {
 		return
 	}
@@ -157,7 +114,6 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	// transform message to W
 	var newHook W
 	if err := json.Unmarshal(message, &newHook); err != nil {
-		m.logger().Error("JSON unmarshall of Notification Message to webhook failed - %v", err)
 		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
 		return
 	}

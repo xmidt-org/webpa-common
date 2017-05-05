@@ -44,16 +44,64 @@ const (
 
 func TestSNSReadyAndPublishSuccess(t *testing.T) {
 	
+	ss, m, _ := SetUpTestSNSServer()
+	
+	testSubscribe(t,m,ss)
+	testSubConf(t,m,ss)
+	testPublish(t,m,ss)
+	
+	m.AssertExpectations(t)
+}
+
+func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
 	assert  := assert.New(t)
 	expectedSubArn := "pending confirmation"
-	confSubArn := "testSubscriptionArn"
 	
 	ss, m, _ := SetUpTestSNSServer()
+	
+	testSubscribe(t,m,ss)
+	testSubConf(t,m,ss)
+	testPublish(t,m,ss)
+	
+	// mocking SNS subscribe response
+	m.On("Subscribe",mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
+													SubscriptionArn: &expectedSubArn},nil)
+	// Subscribe again to change SNS to not ready
+	ss.Subscribe()
+	
+	time.Sleep(1*time.Second)
+	
+	assert.Equal(ss.subscriptionArn.Load().(string), expectedSubArn)
+	
+	// listenAndPublishMessage is terminated hence no mock need for PublishInput
+	ss.PublishMessage(TEST_HOOK)
+	
+	// SNS Ready and Publish again
+	testSubConf(t,m,ss)
+	testPublish(t,m,ss)
+	
+	m.AssertExpectations(t)
+}
+
+func testSubscribe(t *testing.T, m *mockSVC, ss *SNSServer) {
+	assert  := assert.New(t)
+	expectedSubArn := "pending confirmation"
 	
 	// mocking SNS subscribe response
 	m.On("Subscribe",mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 													SubscriptionArn: &expectedSubArn},nil)
 	ss.PrepareAndStart()
+	
+	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
+	time.Sleep(1*time.Second)
+	
+	assert.Equal(ss.subscriptionArn.Load().(string), expectedSubArn)
+}
+
+func testSubConf(t *testing.T, m *mockSVC, ss *SNSServer) {
+	assert  := assert.New(t)
+	
+	confSubArn := "testSubscriptionArn"
 	
 	// mocking SNS ConfirmSubscription response
 	m.On("ConfirmSubscription",mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
@@ -73,7 +121,9 @@ func TestSNSReadyAndPublishSuccess(t *testing.T) {
 	time.Sleep(1*time.Second)
 
 	assert.Equal(ss.subscriptionArn.Load().(string), confSubArn)
-	
+}
+
+func testPublish(t *testing.T, m *mockSVC, ss *SNSServer) {
 	// mocking SNS Publish response
 	m.On("Publish",mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{},nil)
 	
@@ -81,8 +131,5 @@ func TestSNSReadyAndPublishSuccess(t *testing.T) {
 	
 	// wait such that listenAndPublishMessage go routine will publish message
 	time.Sleep(1*time.Second)
-	
-	m.AssertExpectations(t)
 }
-
 
