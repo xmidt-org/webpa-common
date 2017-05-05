@@ -26,14 +26,13 @@ func base64Decode(msg *SNSMessage) (b []byte, err error) {
 
 
 // getPemFile obtains a PEM file from the passed url string
-func getPemFile(address string) (body []byte, err error) {
+func (v *Validator) getPemFile(address string) (body []byte, err error) {
 	req, err := http.NewRequest("GET", address, nil)
 	if err != nil {
 		return
 	}
 	
-	var client http.Client	
-	resp, err := client.Do(req)
+	resp, err := v.client.Do(req)
 	if err != nil {
 		return
 	}
@@ -53,6 +52,7 @@ func getCerticate(b []byte) (cert *x509.Certificate, err error) {
 	if block == nil {
 		return
 	}
+	
 	cert, err = x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return
@@ -91,26 +91,42 @@ func generateSignature(msg *SNSMessage) hash.Hash {
 	return h
 }
 
+type Validator struct {
+	client *http.Client
+}
+
+func NewValidator(client *http.Client) *Validator {
+	if client == nil {
+		client = new(http.Client)
+	}
+	
+	v := new(Validator)
+	v.client = client
+	
+	return v
+}
+
 // Validator validates an Amazon SNS message signature
-func Validator(msg *SNSMessage) (ok bool, err error) {
+func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 	var decodedSignature []byte
 	if decodedSignature, err = base64Decode(msg); err != nil {
 		return
 	}
 	
-	var pem []byte
-	if pem, err = getPemFile(msg.SigningCertURL); err != nil {
+	var p []byte
+	if p, err = v.getPemFile(msg.SigningCertURL); err != nil {
 		return
 	}
 	
 	var cert *x509.Certificate
-	if cert, err = getCerticate(pem); err != nil {
+	if cert, err = getCerticate(p); err != nil {
 		return
 	}
 	
 	var pub *rsa.PublicKey
-	if pub, ok = cert.PublicKey.(*rsa.PublicKey); !ok {
-		return ok, errors.New("unknown type of public key")
+	var okay bool
+	if pub, okay = cert.PublicKey.(*rsa.PublicKey); !okay {
+		return okay, errors.New("unknown type of public key")
 	}
 	
 	h := generateSignature(msg)

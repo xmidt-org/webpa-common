@@ -70,7 +70,6 @@ type SNSMessage struct {
 	TopicArn         string
 	Subject          string
 	Message          string
-	Subject			 string
 	SubscribeURL     string
 	Timestamp        string
 	SignatureVersion string
