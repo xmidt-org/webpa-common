@@ -22,7 +22,6 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 
 // get is an api call to return all the registered listeners
 func (r *Registry) get(rw http.ResponseWriter, req *http.Request) {
-
 	var items []*W
 	for i:=0; i<r.Len(); i++ {
 		items = append(items, r.Get(i))
