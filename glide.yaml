@@ -52,3 +52,8 @@ import:
   - require
   - mock
   - linux
+- package: github.com/aws/aws-sdk-go
+  version: 7be45195c3af1b54a609812f90c05a7e492e2491
+  subpackages: 
+  - aws
+  - service
