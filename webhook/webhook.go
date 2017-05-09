@@ -63,7 +63,6 @@ func (w *W) ID() string {
 type List interface {
 	Len() int
 	Get(int) *W
-	GetAll() []*W
 }
 
 // UpdatableList is mutable list that can be updated en masse
@@ -100,19 +99,13 @@ func (ul *updatableList) Get(index int) *W {
 	return nil
 }
 
-// getAll builds a list of registered listeners
-func (ul *updatableList) GetAll() (all []*W) {
-	for i:=0; i<ul.Len(); i++ {
-		all = append(all, ul.Get(i))
-	}
-	
-	return
-}
-
 func (ul *updatableList) Update(newItems []W) {
 	for _, newItem := range newItems {
 		found := false
-		items := ul.GetAll()
+		var items []*W
+		for i:=0; i<ul.Len(); i++ {
+			items = append(items, ul.Get(i))
+		}
 		
 		// update item
 		for i:=0; i<len(items) && !found; i++  {

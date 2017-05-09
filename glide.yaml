@@ -38,10 +38,6 @@ import:
   version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
 - package: github.com/strava/go.serversets
   version: v1.0
-- package: github.com/stretchr/testify
-  version: v1.1.4
-  subpackages:
-  - mock
 - package: github.com/ugorji/go
   version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
@@ -49,4 +45,15 @@ import:
 - package: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
+- package: github.com/stretchr/testify
+  version: v1.1.4
+  subpackages:
+  - assert
+  - require
+  - mock
   - linux
+- package: github.com/aws/aws-sdk-go
+  version: 7be45195c3af1b54a609812f90c05a7e492e2491
+  subpackages: 
+  - aws
+  - service

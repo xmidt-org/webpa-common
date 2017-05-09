@@ -2,8 +2,11 @@ package webhook
 
 import (
 	"github.com/spf13/viper"
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/httperror"
 	"net/http"
 	"time"
+	"encoding/json"
 )
 
 const (
@@ -24,6 +27,12 @@ type Factory struct {
 	// Undertaker is set by clients after reading in a Factory from some external source.
 	// The associated Undertaker is immutable after construction.
 	Undertaker func([]W) []W `json:"-"`
+	
+	// internal handler for webhook
+	m *monitor `json:"-"`
+	
+	// internal handler for AWS SNS Server
+	AWS.Notifier  `json:"-"`
 }
 
 // NewFactory creates a Factory from a Viper environment.  This function always returns
@@ -43,12 +52,14 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		err = v.Unmarshal(f)
 	}
 
+	f.Notifier, err = AWS.NewNotifier(v)
+
 	return
 }
 
 // NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler) {
+func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -60,10 +71,14 @@ func (f *Factory) NewListAndHandler() (List, http.Handler) {
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
-
+	f.m = monitor
+	
+	f.m.Notifier = f.Notifier
+	
 	go monitor.listen()
 	return monitor.list, monitor
 }
+
 
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
@@ -72,7 +87,9 @@ type monitor struct {
 	undertaker       func([]W) []W
 	changes          chan []W
 	undertakerTicker <-chan time.Time
+	AWS.Notifier
 }
+
 
 func (m *monitor) listen() {
 	for {
@@ -85,12 +102,24 @@ func (m *monitor) listen() {
 	}
 }
 
+// ServeHTTP is used as POST handler for AWS SNS
+// It transforms the message containing webhook to []W and updates the webhook list  
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	// TODO: transform a request into a []W
-	var update []W
+	// transform a request into a []byte
+	message := m.NotificationHandle(response, request)
+	if message == nil {
+		return
+	}
+
+	// transform message to W
+	var newHook W
+	if err := json.Unmarshal(message, &newHook); err != nil {
+		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
+		return
+	}
 
 	select {
-	case m.changes <- update:
-	default:
+		case m.changes <- []W{newHook}:
+		default:
 	}
 }
