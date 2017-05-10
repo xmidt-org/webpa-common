@@ -1,0 +1,10 @@
+{
+	"duration": 1000000000,
+	"apiPath": "http://111.2.3.44:5555/api",
+	"sat": {
+		"path": "http://111.22.33.4.7777/sat",
+		"id": "myidisthisstring",
+		"secret": "donottellsecrets",
+		"capabilities": "capabilitiesgohere"
+	}
+}
