@@ -130,8 +130,13 @@ func (ul *updatableList) Update(newItems []W) {
 			items = append(items, &newItem)
 		}
 		
+		var itemsCopy []W
+		for _, i := range items {
+			itemsCopy = append(itemsCopy, *i)
+		}
+		
 		// store items
-		ul.value.Store(items)
+		ul.value.Store(itemsCopy)
 	}
 }
 
