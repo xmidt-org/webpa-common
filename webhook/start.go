@@ -55,10 +55,12 @@ type satReqResp struct {
 func NewStartFactory(v *viper.Viper) (sc *StartConfig) {
 	if v == nil {
 		v = viper.New()
-		v.SetConfigName("start_test")
-		v.SetConfigType("json")
-		v.AddConfigPath(".")
-		v.ReadInConfig()
+		v.SetDefault("duration", 1000000000)
+		v.SetDefault("apiPath", "http://111.2.3.44:5555/api")
+		v.SetDefault("sat.path", "http://111.22.33.4.7777/sat")
+		v.SetDefault("sat.id", "myidisthisstring")
+		v.SetDefault("sat.secret", "donottellsecrets")
+		v.SetDefault("sat.capabilities", "capabilitiesgohere")
 	}
 	v.Unmarshal(&sc)
 	
