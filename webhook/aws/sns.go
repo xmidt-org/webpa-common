@@ -49,6 +49,7 @@ type Notifier interface {
 	PublishMessage(string)
 	Unsubscribe()
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte 
+	ValidateSubscriptionArn(string) bool
 } 
 
 // NewSNSServer creates SNSServer instance using viper config
@@ -81,7 +82,10 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 
 // NewNotifier creates Notifier instance using the viper config
 func NewNotifier(v *viper.Viper) (Notifier, error) {
-	return NewSNSServer(v)
+	if v != nil {
+		return NewSNSServer(v)
+	}
+	return nil, nil	
 }
 
 // Initialize initializes the SNSServer fields

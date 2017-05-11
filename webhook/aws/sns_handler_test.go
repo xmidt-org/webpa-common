@@ -52,19 +52,17 @@ const (
   } }`
 )
 
-func SetUpTestSNSServer() (*SNSServer, *mockSVC, *mux.Router)  {
+func SetUpTestSNSServer() (*SNSServer, *MockSVC, *mux.Router)  {
 	
 	v := SetUpTestViperInstance(TEST_AWS_CONFIG)
 	
-	awsCfg, err := NewAWSConfig(v.Sub(AWSKey))
-	m := &mockSVC{}
+	awsCfg, _ := NewAWSConfig(v.Sub(AWSKey))
+	m := &MockSVC{}
 	
 	ss := &SNSServer{
 		Config: *awsCfg,
 		SVC: m,
 	}
-	fmt.Println(ss)
-	fmt.Println(err)
 	
 	selfURL := &url.URL{
 		Scheme:   "http",

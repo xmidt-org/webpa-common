@@ -6,27 +6,27 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type mockSVC struct {
+type MockSVC struct {
 	snsiface.SNSAPI
     mock.Mock
 }
 
-func (m *mockSVC) Subscribe( input *sns.SubscribeInput) (*sns.SubscribeOutput, error) {
+func (m *MockSVC) Subscribe( input *sns.SubscribeInput) (*sns.SubscribeOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.SubscribeOutput), args.Error(1)
 }
 
-func (m *mockSVC) ConfirmSubscription(input *sns.ConfirmSubscriptionInput) (*sns.ConfirmSubscriptionOutput, error) {
+func (m *MockSVC) ConfirmSubscription(input *sns.ConfirmSubscriptionInput) (*sns.ConfirmSubscriptionOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.ConfirmSubscriptionOutput), args.Error(1)
 }
 
-func (m *mockSVC) Publish(input *sns.PublishInput) (*sns.PublishOutput, error) {
+func (m *MockSVC) Publish(input *sns.PublishInput) (*sns.PublishOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.PublishOutput), args.Error(1)
 }
 
-func (m *mockSVC) Unsubscribe(input *sns.UnsubscribeInput) (*sns.UnsubscribeOutput, error) {
+func (m *MockSVC) Unsubscribe(input *sns.UnsubscribeInput) (*sns.UnsubscribeOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.UnsubscribeOutput), args.Error(1)
 }
