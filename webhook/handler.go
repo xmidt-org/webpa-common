@@ -11,6 +11,7 @@ import (
 
 type Registry struct {
 	UpdatableList
+	Publish func(string)
 }
 
 // jsonResponse is an internal convenience function to write a json response
@@ -101,6 +102,5 @@ func (r *Registry) update(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	
-	fmt.Printf("Publish message to aws.sns here: %+v\n", msg)
-	//PublishMessage( string(msg) )  // publish message to aws.sns // TODO: not implemented yet
+	r.Publish( string(msg) )
 }

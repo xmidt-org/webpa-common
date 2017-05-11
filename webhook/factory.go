@@ -33,6 +33,9 @@ type Factory struct {
 	
 	// internal handler for AWS SNS Server
 	AWS.Notifier  `json:"-"`
+	
+	// StartConfig is the contains the data need to obtain the current system's listeners
+	Start *StartConfig `json:"start"`
 }
 
 // NewFactory creates a Factory from a Viper environment.  This function always returns
@@ -51,7 +54,8 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	if v != nil {
 		err = v.Unmarshal(f)
 	}
-
+	
+	f.Start = NewStartFactory(v)
 	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
