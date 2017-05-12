@@ -16,11 +16,6 @@ import (
 	"encoding/json"
 )
 
-type ErrResp struct {
-	Code int
-	Message string
-}
-
 const (
 	NOTIF_MSG = `{
   "Type" : "Notification",
@@ -52,19 +47,19 @@ const (
   } }`
 )
 
-func SetUpTestSNSServer() (*SNSServer, *mockSVC, *mux.Router)  {
+func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router)  {
 	
 	v := SetUpTestViperInstance(TEST_AWS_CONFIG)
 	
-	awsCfg, err := NewAWSConfig(v.Sub(AWSKey))
-	m := &mockSVC{}
+	awsCfg, _ := NewAWSConfig(v.Sub(AWSKey))
+	m := &MockSVC{}
+	mv := &MockValidator{}
 	
 	ss := &SNSServer{
 		Config: *awsCfg,
 		SVC: m,
+		SNSValidator : mv,
 	}
-	fmt.Println(ss)
-	fmt.Println(err)
 	
 	selfURL := &url.URL{
 		Scheme:   "http",
@@ -74,7 +69,7 @@ func SetUpTestSNSServer() (*SNSServer, *mockSVC, *mux.Router)  {
 	r := mux.NewRouter()
 	ss.Initialize(r, selfURL, nil, nil)
 	
-	return ss, m, r
+	return ss, m, mv, r
 }
 
 func TestSubscribeSuccess(t *testing.T) {
@@ -82,7 +77,7 @@ func TestSubscribeSuccess(t *testing.T) {
 	assert  := assert.New(t)
 	expectedSubArn := "pending confirmation"
 	
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer()
 	m.On("Subscribe",mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 													SubscriptionArn: &expectedSubArn},nil)
 	ss.PrepareAndStart()
@@ -99,7 +94,7 @@ func TestSubscribeError(t *testing.T) {
 	
 	assert  := assert.New(t)
 	
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer()
 	m.On("Subscribe",mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{},
 		fmt.Errorf("%s", "InvalidClientTokenId"))
 	
@@ -116,7 +111,7 @@ func TestSubscribeError(t *testing.T) {
 
 func TestUnsubscribeSuccess (t *testing.T) {
 	
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer()
 	testSubscribe(t,m,ss)
 	
 	m.On("Unsubscribe",mock.AnythingOfType("*sns.UnsubscribeInput")).Return(&sns.UnsubscribeOutput{},nil)
@@ -134,7 +129,7 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 	assert  := assert.New(t)
 	expectedSubArn := "pending confirmation"
 	confSubArn := "testRoute"
-	ss, m, r := SetUpTestSNSServer()
+	ss, m, mv, r := SetUpTestSNSServer()
 	
 	ts := httptest.NewServer(r)
 	
@@ -148,12 +143,11 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 													SubscriptionArn: &expectedSubArn},nil)
 	ss.PrepareAndStart()
 	
-	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
-	//time.Sleep(1*time.Second)
-	
 	// mocking SNS ConfirmSubscription response
 	m.On("ConfirmSubscription",mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
 													SubscriptionArn: &confSubArn},nil)
+	
+	mv.On("Validate",mock.AnythingOfType("*aws.SNSMessage")).Return(true,nil)
 	
 	req.RequestURI = ""
 	res, err := http.DefaultClient.Do(req)
@@ -163,6 +157,8 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 	
 	m.AssertExpectations(t)
 	
+	mv.AssertExpectations(t)
+	
 	assert.Equal(res.StatusCode,http.StatusOK)
 	
 }
@@ -170,10 +166,10 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 func TestNotificationHandleSuccess(t *testing.T) {
 	assert  := assert.New(t)
 	pub_msg := "Hello world!"
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	
 	testSubscribe(t,m,ss)
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	
 	// mocking SNS Publish response
 	m.On("Publish",mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{},nil)
@@ -181,7 +177,8 @@ func TestNotificationHandleSuccess(t *testing.T) {
 	ss.PublishMessage(pub_msg)
 	
 	time.Sleep(1*time.Second)
-	m.AssertExpectations(t)
+	
+	mv.On("Validate",mock.AnythingOfType("*aws.SNSMessage")).Return(true,nil)
 	
 	// Mocking SNS Notification POST call
 	req := httptest.NewRequest("POST", ss.SelfUrl.String() + ss.Config.Sns.UrlPath, strings.NewReader(NOTIF_MSG))
@@ -194,18 +191,20 @@ func TestNotificationHandleSuccess(t *testing.T) {
     
     assert.Equal(http.StatusOK, resp.StatusCode)
     assert.Equal(message, []byte(pub_msg))
+    
+    m.AssertExpectations(t)
+    
+    mv.AssertExpectations(t)
 }
 
 
 func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
 	assert  := assert.New(t)
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	
 	testSubscribe(t,m,ss)
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	testPublish(t,m,ss)
-	
-	m.AssertExpectations(t)
 	
 	// Mocking SNS Notification POST call
 	req := httptest.NewRequest("POST", ss.SelfUrl.String() + ss.Config.Sns.UrlPath, strings.NewReader(NOTIF_MSG))
@@ -224,14 +223,16 @@ func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
     assert.Nil(message)
     assert.Equal(errMsg.Code,http.StatusBadRequest)
     assert.Equal(errMsg.Message,"SubscriptionARN does not match")
+    
+    m.AssertExpectations(t)
 }
 
 func TestNotificationHandleError_ReadErr(t *testing.T) {
 	assert  := assert.New(t)
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	
 	testSubscribe(t,m,ss)
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	testPublish(t,m,ss)
 	
 	m.AssertExpectations(t)
@@ -258,13 +259,13 @@ func TestNotificationHandleError_ReadErr(t *testing.T) {
 
 func TestNotificationHandleError_MsgEnvMismatch(t *testing.T) {
 	assert  := assert.New(t)
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	
 	testSubscribe(t,m,ss)
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	testPublish(t,m,ss)
 	
-	m.AssertExpectations(t)
+	mv.On("Validate",mock.AnythingOfType("*aws.SNSMessage")).Return(true,nil)
 	
 	// Mocking SNS Notification POST call
 	req := httptest.NewRequest("POST", ss.SelfUrl.String() + ss.Config.Sns.UrlPath, 
@@ -284,4 +285,7 @@ func TestNotificationHandleError_MsgEnvMismatch(t *testing.T) {
     assert.Nil(message)
     assert.Equal(errMsg.Code,http.StatusBadRequest)
     assert.Equal(errMsg.Message,"SNS Msg config env does not match")
+    
+    m.AssertExpectations(t)
+    mv.AssertExpectations(t)
 }

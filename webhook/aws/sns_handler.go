@@ -122,6 +122,13 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 		return
 	}
 	
+	// Verify SNS Message authenticity by verifying signature
+	valid, v_err := ss.Validate(msg)
+	if !valid || v_err != nil {
+		ss.Error("SNS signature validation error %v",v_err)
+		httperror.Format(rw, http.StatusBadRequest, "signature validation error")	
+	}
+	
 	// Validate that SubscriptionConfirmation is for the topic you desire to subscribe to
 	if !strings.EqualFold(msg.TopicArn,ss.Config.Sns.TopicArn) {
 		ss.Error("SNS subscription confirmation TopicArn mismatch, received '%s', expected '%s'",
@@ -134,8 +141,6 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	ss.Debug("SNS confirmation payload raw [%v]", string(raw))
 	ss.Debug("SNS confirmation payload msg [%#v]", msg)
-	
-	// TODO: Verify SNS Message authenticity by verifying signature
 
 	params := &sns.ConfirmSubscriptionInput{
 		Token:    aws.String(msg.Token),    // Required
@@ -178,13 +183,19 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	ss.Debug("SNS notification payload raw [%v]", string(raw))
 	ss.Debug("SNS notification payload msg [%#v]", msg)
 	
-	// TODO: Verify SNS Message authenticity by verifying signature
+	// Verify SNS Message authenticity by verifying signature
+	valid, v_err := ss.Validate(msg)
+	if !valid || v_err != nil {
+		ss.Error("SNS signature validation error %v",v_err)
+		httperror.Format(rw, http.StatusBadRequest, "signature validation error")	
+	}
 
 	// Validate that SubscriptionConfirmation is for the topic you desire to subscribe to
 	if !strings.EqualFold(msg.TopicArn,ss.Config.Sns.TopicArn) {
 		ss.Error("SNS notification TopicArn mismatch, received '%s', expected '%s'",
 					msg.TopicArn,ss.Config.Sns.TopicArn)
 		httperror.Format(rw, http.StatusBadRequest, "TopicArn does not match")
+		return nil
 	}
 	
 	EnvAttr := msg.MessageAttributes[MSG_ATTR]

@@ -36,6 +36,7 @@ type SNSServer struct {
 	subscriptionData 	chan string
 	SVC             	snsiface.SNSAPI
 	SelfUrl         	*url.URL
+	SNSValidator
 	logging.Logger
 	notificationData	chan string
 }
@@ -49,6 +50,7 @@ type Notifier interface {
 	PublishMessage(string)
 	Unsubscribe()
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte 
+	ValidateSubscriptionArn(string) bool
 } 
 
 // NewSNSServer creates SNSServer instance using viper config
@@ -76,12 +78,17 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 		SVC:      svc,
 	}
 	
+	ss.SNSValidator = NewSNSValidator()
+	
 	return ss, nil
 }
 
 // NewNotifier creates Notifier instance using the viper config
 func NewNotifier(v *viper.Viper) (Notifier, error) {
-	return NewSNSServer(v)
+	if v != nil {
+		return NewSNSServer(v)
+	}
+	return nil, nil	
 }
 
 // Initialize initializes the SNSServer fields

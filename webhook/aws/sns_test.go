@@ -2,24 +2,11 @@ package aws
 
 import (
 	"testing"
-	"bytes"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	TEST_AWS_CONFIG = `{
-	"aws": {
-        "accessKey": "test-accessKey",
-        "secretKey": "test-secretKey",
-        "env": "test",
-        "sns" : {
-	        "region" : "us-east-1",
-            "protocol" : "http",
-			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic", 
-			"urlPath" : "/api/v2/aws/sns"
-    } } }`
 	TEST_AWS_CFG_ERR = `{
                         "aws": {
                                 "accessKey": "accessKey",
@@ -33,15 +20,6 @@ const (
 		                }
 		          }`
 )
-
-func SetUpTestViperInstance(config string) *viper.Viper {
-	
-	cfg := bytes.NewBufferString(config)
-	v := viper.New()
-	v.SetConfigType("json")
-	v.ReadConfig(cfg)
-	return v
-}
 
 func TestNewSNSServerSuccess(t *testing.T) {
 	assert  := assert.New(t)
