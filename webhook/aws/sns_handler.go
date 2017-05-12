@@ -185,6 +185,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 		ss.Error("SNS notification TopicArn mismatch, received '%s', expected '%s'",
 					msg.TopicArn,ss.Config.Sns.TopicArn)
 		httperror.Format(rw, http.StatusBadRequest, "TopicArn does not match")
+		return nil
 	}
 	
 	EnvAttr := msg.MessageAttributes[MSG_ATTR]

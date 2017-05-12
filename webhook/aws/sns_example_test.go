@@ -11,25 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns"
 )
 
-const (
-	TEST_HOOK = `{
-		"config": {
-			"url": "http://127.0.0.1:8080/test",
-			"content_type": "json",
-			"secret": ""
-		},
-		"matcher": {
-			"device_id": [
-				".*"
-			]
-		},
-		"events": [
-			"transaction-status",
-			"SYNC_NOTIFICATION"
-		]
-	}`
-)
-
 func TestSNSReadyAndPublishSuccess(t *testing.T) {
 	
 	ss, m, _ := SetUpTestSNSServer()

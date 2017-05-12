@@ -16,11 +16,6 @@ import (
 	"encoding/json"
 )
 
-type ErrResp struct {
-	Code int
-	Message string
-}
-
 const (
 	NOTIF_MSG = `{
   "Type" : "Notification",
