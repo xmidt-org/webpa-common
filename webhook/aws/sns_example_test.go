@@ -5,18 +5,21 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"fmt"
 	"time"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/aws/aws-sdk-go/service/sns"
+	"io/ioutil"
+	"encoding/json"
 )
 
 func TestSNSReadyAndPublishSuccess(t *testing.T) {
 	
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	
 	testSubscribe(t,m,ss)
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	testPublish(t,m,ss)
 	
 	m.AssertExpectations(t)
@@ -26,10 +29,10 @@ func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
 	assert  := assert.New(t)
 	expectedSubArn := "pending confirmation"
 	
-	ss, m, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	
 	testSubscribe(t,m,ss)
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	testPublish(t,m,ss)
 	
 	// mocking SNS subscribe response
@@ -46,7 +49,7 @@ func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
 	ss.PublishMessage(TEST_HOOK)
 	
 	// SNS Ready and Publish again
-	testSubConf(t,m,ss)
+	testSubConf(t,m,mv,ss)
 	testPublish(t,m,ss)
 	
 	m.AssertExpectations(t)
@@ -67,7 +70,7 @@ func testSubscribe(t *testing.T, m *MockSVC, ss *SNSServer) {
 	assert.Equal(ss.subscriptionArn.Load().(string), expectedSubArn)
 }
 
-func testSubConf(t *testing.T, m *MockSVC, ss *SNSServer) {
+func testSubConf(t *testing.T, m *MockSVC, mv *MockValidator, ss *SNSServer) {
 	assert  := assert.New(t)
 	
 	confSubArn := "testSubscriptionArn"
@@ -75,6 +78,7 @@ func testSubConf(t *testing.T, m *MockSVC, ss *SNSServer) {
 	// mocking SNS ConfirmSubscription response
 	m.On("ConfirmSubscription",mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
 													SubscriptionArn: &confSubArn},nil)
+	mv.On("Validate",mock.AnythingOfType("*aws.SNSMessage")).Return(true,nil).Once()
 
 	// Mocking AWS SubscriptionConfirmation POST call using http client
 	req := httptest.NewRequest("POST", ss.SelfUrl.String() + ss.Config.Sns.UrlPath, strings.NewReader(TEST_SUB_MSG))
@@ -90,6 +94,7 @@ func testSubConf(t *testing.T, m *MockSVC, ss *SNSServer) {
 	time.Sleep(1*time.Second)
 
 	assert.Equal(ss.subscriptionArn.Load().(string), confSubArn)
+	
 }
 
 func testPublish(t *testing.T, m *MockSVC, ss *SNSServer) {
@@ -102,3 +107,35 @@ func testPublish(t *testing.T, m *MockSVC, ss *SNSServer) {
 	time.Sleep(1*time.Second)
 }
 
+func TestSNSSubConfValidateErr(t *testing.T) {
+	assert  := assert.New(t)
+	
+	ss, m, mv, _ := SetUpTestSNSServer()
+	
+	testSubscribe(t,m,ss)
+	
+	mv.On("Validate",mock.AnythingOfType("*aws.SNSMessage")).Return(false,
+	fmt.Errorf("%s", SNS_VALIDATION_ERR))
+
+	// Mocking AWS SubscriptionConfirmation POST call using http client
+	req := httptest.NewRequest("POST", ss.SelfUrl.String() + ss.Config.Sns.UrlPath, strings.NewReader(TEST_SUB_MSG))
+	req.Header.Add("x-amz-sns-message-type","SubscriptionConfirmation")
+	
+	w := httptest.NewRecorder()
+	ss.SubscribeConfirmHandle(w, req)
+	resp := w.Result()
+    
+    assert.Equal(http.StatusBadRequest, resp.StatusCode)
+    errMsg := new(ErrResp)
+	errResp, _ := ioutil.ReadAll(resp.Body)
+	json.Unmarshal([]byte(errResp), errMsg)
+	
+    assert.Equal(errMsg.Code,http.StatusBadRequest)
+    assert.Equal(errMsg.Message,SNS_VALIDATION_ERR)
+    
+    m.AssertExpectations(t)
+    mv.AssertExpectations(t)
+
+	assert.Equal(ss.subscriptionArn.Load().(string), "pending confirmation")
+
+}

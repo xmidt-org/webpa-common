@@ -95,6 +95,10 @@ type Validator struct {
 	client *http.Client
 }
 
+type SNSValidator interface {
+	Validate(*SNSMessage) (bool, error)
+}
+
 func NewValidator(client *http.Client) *Validator {
 	if client == nil {
 		client = new(http.Client)
@@ -104,6 +108,10 @@ func NewValidator(client *http.Client) *Validator {
 	v.client = client
 	
 	return v
+}
+
+func NewSNSValidator() SNSValidator {
+	return NewValidator(nil)
 }
 
 // Validator validates an Amazon SNS message signature

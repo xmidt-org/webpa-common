@@ -10,7 +10,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns"
 )
 
-const MSG_ATTR  = "scytale.env"
+const (
+	MSG_ATTR  = "scytale.env"
+	SNS_VALIDATION_ERR = "SNS signature validation error"
+)
 
 /* http://docs.aws.amazon.com/sns/latest/dg/SendMessageToHttp.html
 POST / HTTP/1.1
@@ -85,7 +88,13 @@ func (ss *SNSServer) SetSNSRoutes(urlPath string, r *mux.Router, handler http.Ha
 	
 	r.HandleFunc(urlPath, ss.SubscribeConfirmHandle).Methods("POST").Headers("x-amz-sns-message-type", "SubscriptionConfirmation")
 	if handler != nil {
+		// handler is supposed to be wrapper that inturn calls NotificationHandle
 		r.Handle(urlPath, handler).Methods("POST").Headers("x-amz-sns-message-type", "Notification")
+	} else {
+		// if no wrapper handler available then define anonymous handler and directly call NotificationHandle
+		r.HandleFunc(urlPath, func (rw http.ResponseWriter, req *http.Request) {
+			ss.NotificationHandle(rw, req)
+		}).Methods("POST").Headers("x-amz-sns-message-type", "Notification")
 	}
 }
 
@@ -122,6 +131,14 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 		return
 	}
 	
+	// Verify SNS Message authenticity by verifying signature
+	valid, v_err := ss.Validate(msg)
+	if !valid || v_err != nil {
+		ss.Error("SNS signature validation error %v",v_err)
+		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)	
+		return 
+	}
+	
 	// Validate that SubscriptionConfirmation is for the topic you desire to subscribe to
 	if !strings.EqualFold(msg.TopicArn,ss.Config.Sns.TopicArn) {
 		ss.Error("SNS subscription confirmation TopicArn mismatch, received '%s', expected '%s'",
@@ -134,8 +151,6 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	ss.Debug("SNS confirmation payload raw [%v]", string(raw))
 	ss.Debug("SNS confirmation payload msg [%#v]", msg)
-	
-	// TODO: Verify SNS Message authenticity by verifying signature
 
 	params := &sns.ConfirmSubscriptionInput{
 		Token:    aws.String(msg.Token),    // Required
@@ -173,12 +188,18 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 		httperror.Format(rw, http.StatusBadRequest, "request body error")
 		return nil
 	}
+	
+	// Verify SNS Message authenticity by verifying signature
+	valid, v_err := ss.Validate(msg)
+	if !valid || v_err != nil {
+		ss.Error("SNS signature validation error %v",v_err)
+		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)	
+		return nil
+	}
 	// TODO: health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
 	
 	ss.Debug("SNS notification payload raw [%v]", string(raw))
 	ss.Debug("SNS notification payload msg [%#v]", msg)
-	
-	// TODO: Verify SNS Message authenticity by verifying signature
 
 	// Validate that SubscriptionConfirmation is for the topic you desire to subscribe to
 	if !strings.EqualFold(msg.TopicArn,ss.Config.Sns.TopicArn) {

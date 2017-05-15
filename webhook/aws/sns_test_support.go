@@ -1,8 +1,7 @@
 package aws
 
 import (
-	"github.com/spf13/viper"
-	"bytes"
+	"github.com/gorilla/mux"
 )
 
 type ErrResp struct {
@@ -80,13 +79,19 @@ const (
 	} }`
 )
 
-func SetUpTestViperInstance(config string) *viper.Viper {
+func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router)  {
 	
-	cfg := bytes.NewBufferString(config)
-	v := viper.New()
-	v.SetConfigType("json")
-	v.ReadConfig(cfg)
-	return v
+	awsCfg, _ := NewAWSConfig(nil)
+	m := &MockSVC{}
+	mv := &MockValidator{}
+	
+	ss := &SNSServer{
+		Config: *awsCfg,
+		SVC: m,
+		SNSValidator : mv,
+	}
+	
+	r := mux.NewRouter()
+	
+	return ss, m, mv, r
 }
-
-

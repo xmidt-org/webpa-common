@@ -11,6 +11,10 @@ type MockSVC struct {
     mock.Mock
 }
 
+type MockValidator struct {
+	mock.Mock
+}
+
 func (m *MockSVC) Subscribe( input *sns.SubscribeInput) (*sns.SubscribeOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.SubscribeOutput), args.Error(1)
@@ -29,4 +33,9 @@ func (m *MockSVC) Publish(input *sns.PublishInput) (*sns.PublishOutput, error) {
 func (m *MockSVC) Unsubscribe(input *sns.UnsubscribeInput) (*sns.UnsubscribeOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.UnsubscribeOutput), args.Error(1)
+}
+
+func (m *MockValidator) Validate(msg *SNSMessage) (bool, error) {
+	args := m.Called(msg)
+	return args.Get(0).(bool), args.Error(1)
 }

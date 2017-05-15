@@ -37,7 +37,7 @@ func TestNewAWSConfig(t *testing.T) {
 	v.SetConfigType("json")
 	require.Nil(v.ReadConfig(cfg))
 
-	c, err := NewAWSConfig(v.Sub(AWSKey))
+	c, err := NewAWSConfig(v)
 	require.NotNil(c)
 	require.NotNil(c.Sns)
 	assert.Nil(err)
@@ -64,6 +64,7 @@ func TestNewAWSConfig_Invalid(t *testing.T) {
 	c, err := NewAWSConfig(v)
 	assert.NotNil(err)
 	assert.Nil(c)
+	assert.Equal(err, fmt.Errorf("missing 'aws' key"))
 }
 
 func TestNewAWSConfig_InvalidAccessKey(t *testing.T) {
@@ -81,7 +82,7 @@ func TestNewAWSConfig_InvalidAccessKey(t *testing.T) {
 	v.SetConfigType("json")
 	require.Nil(v.ReadConfig(cfg))
 
-	c, err := NewAWSConfig(v.Sub(AWSKey))
+	c, err := NewAWSConfig(v)
 	assert.NotNil(err)
 	assert.Equal(fmt.Errorf("invalid AWS accesskey or secretkey"), err)
 	assert.Nil(c)
@@ -110,7 +111,7 @@ func TestNewAWSConfig_ValidJsonConfig(t *testing.T) {
 	v.SetConfigType("json")
 	require.Nil(v.ReadConfig(cfg))
 
-	c, err := NewAWSConfig(v.Sub(AWSKey))
+	c, err := NewAWSConfig(v)
 
 	assert.Nil(err)
 	assert.NotNil(c)
@@ -138,8 +139,21 @@ func TestNewAWSConfig_InvalidSNSConfig(t *testing.T) {
 	v.SetConfigType("json")
 	require.Nil(v.ReadConfig(cfg))
 
-	c, err := NewAWSConfig(v.Sub(AWSKey))
+	c, err := NewAWSConfig(v)
 
 	assert.NotNil(err)
 	assert.Nil(c)
+}
+
+func TestNewAWSConfig_ViperNil(t *testing.T) {
+	assert  := assert.New(t)
+	require := require.New(t)
+		
+	c, err := NewAWSConfig(nil)
+
+	assert.Nil(err)
+	require.NotNil(c)
+	assert.Equal(c.AccessKey,"test-accessKey")
+	assert.Equal(c.Sns.UrlPath,"/api/v2/aws/sns")
+	
 }

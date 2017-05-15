@@ -36,6 +36,7 @@ type SNSServer struct {
 	subscriptionData 	chan string
 	SVC             	snsiface.SNSAPI
 	SelfUrl         	*url.URL
+	SNSValidator
 	logging.Logger
 	notificationData	chan string
 }
@@ -56,7 +57,7 @@ type Notifier interface {
 func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 	
 	var cfg *AWSConfig
-	if cfg, err = NewAWSConfig(v.Sub(AWSKey)); err != nil {
+	if cfg, err = NewAWSConfig(v); err != nil {
 		return nil, err
 	}
 	
@@ -77,15 +78,14 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 		SVC:      svc,
 	}
 	
+	ss.SNSValidator = NewSNSValidator()
+	
 	return ss, nil
 }
 
 // NewNotifier creates Notifier instance using the viper config
 func NewNotifier(v *viper.Viper) (Notifier, error) {
-	if v != nil {
-		return NewSNSServer(v)
-	}
-	return nil, nil	
+	return NewSNSServer(v)
 }
 
 // Initialize initializes the SNSServer fields
@@ -104,6 +104,13 @@ func (ss *SNSServer) Initialize (rtr *mux.Router, selfUrl *url.URL, handler http
 	if selfUrl != nil {
 		selfUrl.Path = ss.Config.Sns.UrlPath
 		ss.SelfUrl =  selfUrl
+	} else {
+		// Test selfurl http://host:port/path
+		ss.SelfUrl =  &url.URL{
+		Scheme:   "http",
+		Host:     "host:port",
+		Path:  	  ss.Config.Sns.UrlPath,
+	}
 	}
 	ss.subscriptionData =  make(chan string, 5)
 	ss.notificationData =  make(chan string, 10)
