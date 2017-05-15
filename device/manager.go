@@ -55,6 +55,11 @@ type Router interface {
 // Registry is the strategy interface for querying the set of connected devices.  Methods
 // in this interface follow the Visitor pattern and are typically executed under a read lock.
 type Registry interface {
+	// Statistics returns a copy of the device's current statistics.  The optional second parameter,
+	// if non-nil, will be used to hold the copy and it will be returned.  Otherwise, a new Statistics
+	// instance is returned.
+	Statistics(ID, *Statistics) (*Statistics, error)
+
 	// VisitIf applies a visitor to any device matching the ID predicate.
 	//
 	// No methods on this Manager should be called from within either the predicate
@@ -266,6 +271,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			rawFrame = frameBuffer.Bytes()
 		)
 
+		d.statistics.AddBytesReceived(uint32(len(rawFrame)))
 		decoder.ResetBytes(rawFrame)
 		if decodeError := decoder.Decode(message); decodeError != nil {
 			// malformed WRP messages are allowed: the read pump will keep on chugging
@@ -273,6 +279,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			continue
 		}
 
+		d.statistics.AddMessageReceived(1)
 		event.Clear()
 		event.Device = d
 		event.Message = message
@@ -375,18 +382,27 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		case envelope = <-d.messages:
 			if frame, writeError = c.NextWriter(); writeError == nil {
+				var bytesSent int
 				if envelope.request.Format != wrp.Msgpack || len(envelope.request.Contents) == 0 {
 					// if the request was in a format other than Msgpack, or if the caller did not pass
 					// Contents, then do the encoding here.
-					encoder.Reset(frame)
+					var frameBuffer []byte
+					encoder.ResetBytes(&frameBuffer)
 					writeError = encoder.Encode(envelope.request.Message)
+					bytesSent = len(frameBuffer)
 				} else {
 					// we have Msgpack-formatted Contents
-					_, writeError = frame.Write(envelope.request.Contents)
+					bytesSent, writeError = frame.Write(envelope.request.Contents)
 				}
 
 				if writeError == nil {
 					writeError = frame.Close()
+					if writeError == nil {
+						// only update statistics if the frame can be closed, which means it was
+						// sent to the underlying connection
+						d.statistics.AddBytesSent(uint32(bytesSent))
+						d.statistics.AddMessageSent(1)
+					}
 				} else {
 					// don't hide the original error, but ensure the frame is closed
 					frame.Close()
@@ -436,6 +452,20 @@ func (m *manager) DisconnectIf(filter func(ID) bool) int {
 	return m.registry.removeIf(filter, func(d *device) {
 		d.requestClose()
 	})
+}
+
+func (m *manager) Statistics(id ID, output *Statistics) (result *Statistics, err error) {
+	count := m.registry.visitID(id, func(d *device) {
+		result = d.Statistics(output)
+	})
+
+	if count > 1 {
+		err = ErrorNonUniqueID
+	} else if count < 1 {
+		err = ErrorDeviceNotFound
+	}
+
+	return
 }
 
 func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {
