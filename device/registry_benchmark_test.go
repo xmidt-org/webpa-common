@@ -24,7 +24,7 @@ func benchmarkRegistry(b *testing.B, initialCapacity uint32) {
 			)
 
 			lock.Lock()
-			registry.add(newSimpleDevice(id, key, 1))
+			registry.add(newDevice(id, key, nil, "", 1))
 			lock.Unlock()
 
 			lock.RLock()

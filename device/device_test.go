@@ -74,7 +74,7 @@ func TestDevice(t *testing.T) {
 		require.NotNil(device)
 
 		t.Log("connection timestamp")
-		actualConnectedAt := device.ConnectedAt()
+		actualConnectedAt := device.Statistics().ConnectedAt()
 		assert.True(minimumConnectedAt.Equal(actualConnectedAt) || minimumConnectedAt.Before(actualConnectedAt))
 
 		t.Log("initial state")
@@ -97,7 +97,7 @@ func TestDevice(t *testing.T) {
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(record.updatedKey, device.Key())
 		assert.Equal(record.expectedConvey, device.Convey())
-		assert.Equal(actualConnectedAt, device.ConnectedAt())
+		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
 		assert.False(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())
@@ -123,7 +123,7 @@ func TestDevice(t *testing.T) {
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(record.updatedKey, device.Key())
 		assert.Equal(record.expectedConvey, device.Convey())
-		assert.Equal(actualConnectedAt, device.ConnectedAt())
+		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())
 		}

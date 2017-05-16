@@ -88,10 +88,8 @@ type Interface interface {
 	// the enclosing Manager instance.  The read pump will handle sending the response.
 	Send(*Request) (*Response, error)
 
-	// Statistics retrieves the current device statistics, storing them in a supplied struct
-	// if the pointer parameter is non-nil.  A non-nil pointer is always returned, which is always
-	// a copy of the internal struct.
-	Statistics(*Statistics) *Statistics
+	// Statistics returns the current, tracked Statistics instance for this device
+	Statistics() Statistics
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -118,13 +116,11 @@ func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queue
 		id:            id,
 		convey:        convey,
 		encodedConvey: encodedConvey,
-		statistics: Statistics{
-			ConnectedAt: time.Now(),
-		},
-		state:        stateOpen,
-		shutdown:     make(chan struct{}),
-		messages:     make(chan *envelope, queueSize),
-		transactions: NewTransactions(),
+		statistics:    NewStatistics(time.Now().UTC()),
+		state:         stateOpen,
+		shutdown:      make(chan struct{}),
+		messages:      make(chan *envelope, queueSize),
+		transactions:  NewTransactions(),
 	}
 
 	d.updateKey(initialKey)
@@ -290,11 +286,6 @@ func (d *device) Send(request *Request) (*Response, error) {
 	return d.awaitResponse(request, result)
 }
 
-func (d *device) Statistics(output *Statistics) *Statistics {
-	if output == nil {
-		output = new(Statistics)
-	}
-
-	*output = d.statistics
-	return output
+func (d *device) Statistics() Statistics {
+	return d.statistics
 }
