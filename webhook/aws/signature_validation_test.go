@@ -21,8 +21,8 @@ import (
 	"testing"
 )
 
-func testSNSMessage(scURL string) *SNSMessage {
-	return &SNSMessage{
+func testSNSMessage(scURL string) (*SNSMessage, *SNSMessage) {
+	notification := &SNSMessage{
 		Type:             "Notification",
 		MessageId:        "thisismy-test-mess-agei-dentifier123",
 		TopicArn:         "arn:aws:sns:us-east-1:000000000000:tester",
@@ -34,6 +34,23 @@ func testSNSMessage(scURL string) *SNSMessage {
 		SigningCertURL:   scURL,
 		UnsubscribeURL:   "",
 	}
+	
+	token := "abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123ab"
+	arn   := "arn:aws:sns:us-east-1:000000000000:tester"
+	confirmation := &SNSMessage{
+		Type:             "SubscriptionConfirmation",
+		MessageId:        "thisismy-test-mess-agei-dentifier567",
+		Token:            token,
+		TopicArn:         arn,
+		Message:          "You have chosen to subscribe to the topic arn:aws:sns:us-west-2:123456789012:MyTopic.\nTo confirm the subscription, visit the SubscribeURL included in this message.",
+		SubscribeURL:     fmt.Sprintf("https://amazonawsaddress/?Action=ConfirmSubscription&TopicArn=%s&Token=%s", arn, token),
+		Timestamp:        time.Now().Format(time.RFC3339),
+		SignatureVersion: "1",
+		Signature:        "",
+		SigningCertURL:   scURL,
+	}
+	
+	return notification, confirmation
 }
 
 func testCreateCerficate() (privkey *rsa.PrivateKey, pemkey []byte, err error) {
@@ -74,16 +91,7 @@ func testCreateCerficate() (privkey *rsa.PrivateKey, pemkey []byte, err error) {
 }
 
 func testCreateSignature(privkey *rsa.PrivateKey, snsMsg *SNSMessage) (string, error) {
-	formated := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", 
-		"Message", snsMsg.Message, 
-		"MessageId", snsMsg.MessageId, 
-		"Subject", snsMsg.Subject, 
-		"Timestamp", snsMsg.Timestamp, 
-		"TopicArn", snsMsg.TopicArn,
-		"Type", snsMsg.Type,
-	)
-	
-	h := sha1.Sum([]byte(formated))
+	h := sha1.Sum([]byte( formatSignature(snsMsg) ))
 	signature_b, err := rsa.SignPKCS1v15(rand.Reader, privkey, crypto.SHA1, h[:])
 	
 	return base64.StdEncoding.EncodeToString(signature_b), err
@@ -140,19 +148,29 @@ func testCreateEnv() (pemkey []byte, server *httptest.Server, msgs map[string]*S
 	
 	server = testServer()
 	
-	snsMsg := testSNSMessage(server.URL)
-	snsMsg.Signature, err = testCreateSignature(privkey, snsMsg)
+	snsMsg_noti, snsMsg_conf := testSNSMessage(server.URL)
+	snsMsg_noti.Signature, err = testCreateSignature(privkey, snsMsg_noti)
+	if err != nil {
+		return
+	}
+	snsMsg_conf.Signature, err = testCreateSignature(privkey, snsMsg_conf)
 	if err != nil {
 		return
 	}
 	
-	snsMsgGood := *snsMsg
-	snsMsgBad  := *snsMsg
-	snsMsgBad.Subject = "No more room for Jello"
+	snsMsgGood_noti := *snsMsg_noti
+	snsMsgBad_noti  := *snsMsg_noti
+	snsMsgBad_noti.Subject = "No more room for Jello"
+	
+	snsMsgGood_conf := *snsMsg_conf
+	snsMsgBad_conf  := *snsMsg_conf
+	snsMsgBad_conf.Message = "bad confirmation message"
 	
 	msgs = map[string]*SNSMessage{
-		"good": &snsMsgGood,
-		"bad": &snsMsgBad,
+		"noti-good": &snsMsgGood_noti,
+		"noti-bad": &snsMsgBad_noti,
+		"conf-good": &snsMsgGood_conf,
+		"conf-bad": &snsMsgBad_conf,
 	}
 	
 	return
@@ -167,8 +185,14 @@ func Test_base64Decode(t *testing.T) {
 	}
 	assert.Nil(err)
 	
-	_, errGood := base64Decode(snsMsg["good"])
-	_, errBad  := base64Decode(snsMsg["bad"])
+	_, errGood := base64Decode(snsMsg["noti-good"])
+	_, errBad  := base64Decode(snsMsg["noti-bad"])
+	
+	assert.Nil(errGood)
+	assert.Nil(errBad)
+	
+	_, errGood = base64Decode(snsMsg["conf-good"])
+	_, errBad  = base64Decode(snsMsg["conf-bad"])
 	
 	assert.Nil(errGood)
 	assert.Nil(errBad)
@@ -188,8 +212,14 @@ func Test_getPemFile(t *testing.T) {
 	
 	v := NewValidator(client)
 	
-	_, errGood := v.getPemFile(snsMsg["good"].SigningCertURL)
-	_, errBad  := v.getPemFile(snsMsg["bad"].SigningCertURL)
+	_, errGood := v.getPemFile(snsMsg["noti-good"].SigningCertURL)
+	_, errBad  := v.getPemFile(snsMsg["noti-bad"].SigningCertURL)
+	
+	assert.Nil(errGood)
+	assert.Nil(errBad)
+	
+	_, errGood = v.getPemFile(snsMsg["conf-good"].SigningCertURL)
+	_, errBad  = v.getPemFile(snsMsg["conf-bad"].SigningCertURL)
 	
 	assert.Nil(errGood)
 	assert.Nil(errBad)
@@ -209,13 +239,24 @@ func Test_getCerticate(t *testing.T) {
 	
 	v := NewValidator(client)
 	
-	pemFromGood, err := v.getPemFile(snsMsg["good"].SigningCertURL)
+	pemFromGood, err := v.getPemFile(snsMsg["noti-good"].SigningCertURL)
 	assert.Nil(err)
-	pemFromBad, err  := v.getPemFile(snsMsg["bad"].SigningCertURL)
+	pemFromBad, err  := v.getPemFile(snsMsg["noti-bad"].SigningCertURL)
 	assert.Nil(err)
 
 	_, errGood := getCerticate(pemFromGood)
 	_, errBad  := getCerticate(pemFromBad)
+	
+	assert.Nil(errGood)
+	assert.Nil(errBad)
+	
+	pemFromGood, err = v.getPemFile(snsMsg["conf-good"].SigningCertURL)
+	assert.Nil(err)
+	pemFromBad, err  = v.getPemFile(snsMsg["conf-bad"].SigningCertURL)
+	assert.Nil(err)
+
+	_, errGood = getCerticate(pemFromGood)
+	_, errBad  = getCerticate(pemFromBad)
 	
 	assert.Nil(errGood)
 	assert.Nil(errBad)
@@ -224,10 +265,12 @@ func Test_getCerticate(t *testing.T) {
 func Test_generateSignature(t *testing.T) {
 	assert := assert.New(t)
 	
-	snsMsg := testSNSMessage("127.0.0.1")
-	h := generateSignature(snsMsg)
+	snsMsg_noti, snsMsg_conf := testSNSMessage("127.0.0.1")
+	h1 := generateSignature(snsMsg_noti)
+	h2 := generateSignature(snsMsg_conf)
 	
-	assert.NotNil(h)
+	assert.NotNil(h1)
+	assert.NotNil(h2)
 }
 
 func Test_Validate(t *testing.T) {
@@ -244,8 +287,16 @@ func Test_Validate(t *testing.T) {
 	
 	v := NewValidator(client)
 	
-	okGood, errGood := v.Validate(snsMsg["good"])
-	okBad, errBad := v.Validate(snsMsg["bad"])
+	okGood, errGood := v.Validate(snsMsg["noti-good"])
+	okBad, errBad := v.Validate(snsMsg["noti-bad"])
+	
+	assert.True(okGood)
+	assert.Nil(errGood)
+	assert.False(okBad)
+	assert.NotNil(errBad)
+	
+	okGood, errGood = v.Validate(snsMsg["conf-good"])
+	okBad, errBad = v.Validate(snsMsg["conf-bad"])
 	
 	assert.True(okGood)
 	assert.Nil(errGood)

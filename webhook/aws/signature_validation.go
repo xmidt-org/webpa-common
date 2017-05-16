@@ -61,12 +61,10 @@ func getCerticate(b []byte) (cert *x509.Certificate, err error) {
 	return
 }
 
-// generateSignature uses message values to replicate signature
-// Values are delimited with newline characters
-// Name/value pairs are sorted by name in byte sort order.
-func generateSignature(msg *SNSMessage) hash.Hash {
+// formatSignature returns a string formated version of the supplied SNSMessage
+func formatSignature(msg *SNSMessage) string {
 	var formated string
-	if msg.Subject != "" {
+	if msg.Type == "Notification" && msg.Subject != "" {
 		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", 
 			"Message", msg.Message, 
 			"MessageId", msg.MessageId, 
@@ -75,7 +73,7 @@ func generateSignature(msg *SNSMessage) hash.Hash {
 			"TopicArn", msg.TopicArn,
 			"Type", msg.Type,
 		)
-	} else {
+	} else if msg.Type == "Notification" && msg.Subject == "" {
 		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", 
 			"Message", msg.Message, 
 			"MessageId", msg.MessageId,  
@@ -83,10 +81,27 @@ func generateSignature(msg *SNSMessage) hash.Hash {
 			"TopicArn", msg.TopicArn,
 			"Type", msg.Type,
 		)
+	} else if msg.Type == "SubscriptionConfirmation" || msg.Type == "UnsubscribeConfirmation" {
+		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+			"Message", msg.Message,
+			"MessageId", msg.MessageId,
+			"SubscribeURL", msg.SubscribeURL,
+			"Timestamp", msg.Timestamp,
+			"Token", msg.Token,
+			"TopicArn", msg.TopicArn,
+			"Type", msg.Type,
+		)
 	}
 	
+	return formated
+}
+
+// generateSignature uses message values to replicate signature
+// Values are delimited with newline characters
+// Name/value pairs are sorted by name in byte sort order.
+func generateSignature(msg *SNSMessage) hash.Hash {
 	h := sha1.New()
-	h.Write([]byte(formated))
+	h.Write([]byte( formatSignature(msg) ))
 	
 	return h
 }
