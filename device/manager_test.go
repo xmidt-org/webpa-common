@@ -263,7 +263,7 @@ func testManagerConnectVisit(t *testing.T) {
 
 func testManagerPongCallbackFor(t *testing.T) {
 	assert := assert.New(t)
-	expectedDevice := newSimpleDevice(ID("ponged device"), Key("expected"), 1)
+	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, "", 1)
 	expectedData := "expected pong data"
 	listenerCalled := false
 
@@ -488,8 +488,8 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 			},
 		}
 
-		device1 = newSimpleDevice(ID("mac:112233445566"), Key("123"), 1)
-		device2 = newSimpleDevice(ID("mac:112233445566"), Key("234"), 1)
+		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, "", 1)
+		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, "", 1)
 
 		connectionFactory = new(mockConnectionFactory)
 		manager           = NewManager(nil, connectionFactory).(*manager)

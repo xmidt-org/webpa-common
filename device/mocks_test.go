@@ -4,7 +4,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"net/http"
-	"time"
 )
 
 type mockReader struct {
@@ -44,10 +43,6 @@ func (m *mockDevice) SetConveyHeader(header http.Header) {
 	m.Called(header)
 }
 
-func (m *mockDevice) ConnectedAt() time.Time {
-	return m.Called().Get(0).(time.Time)
-}
-
 func (m *mockDevice) Pending() int {
 	return m.Called().Int(0)
 }
@@ -59,6 +54,12 @@ func (m *mockDevice) RequestClose() {
 func (m *mockDevice) Closed() bool {
 	arguments := m.Called()
 	return arguments.Bool(0)
+}
+
+func (m *mockDevice) Statistics() Statistics {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(Statistics)
+	return first
 }
 
 func (m *mockDevice) Send(request *Request) (*Response, error) {

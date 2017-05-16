@@ -8,29 +8,29 @@ import (
 var (
 	nosuchID     = ID("nosuch ID")
 	nosuchKey    = Key("nosuch key")
-	nosuchDevice = newSimpleDevice(nosuchID, nosuchKey, 1)
+	nosuchDevice = newDevice(nosuchID, nosuchKey, nil, "", 1)
 
 	singleID     = ID("single")
 	singleKey    = Key("single key")
-	singleDevice = newSimpleDevice(singleID, singleKey, 1)
+	singleDevice = newDevice(singleID, singleKey, nil, "", 1)
 
 	doubleID      = ID("double")
 	doubleKey1    = Key("double key 1")
-	doubleDevice1 = newSimpleDevice(doubleID, doubleKey1, 1)
+	doubleDevice1 = newDevice(doubleID, doubleKey1, nil, "", 1)
 	doubleKey2    = Key("double key 2")
-	doubleDevice2 = newSimpleDevice(doubleID, doubleKey2, 1)
+	doubleDevice2 = newDevice(doubleID, doubleKey2, nil, "", 1)
 
 	manyID      = ID("many")
 	manyKey1    = Key("many key 1")
-	manyDevice1 = newSimpleDevice(manyID, manyKey1, 1)
+	manyDevice1 = newDevice(manyID, manyKey1, nil, "", 1)
 	manyKey2    = Key("many key 2")
-	manyDevice2 = newSimpleDevice(manyID, manyKey2, 1)
+	manyDevice2 = newDevice(manyID, manyKey2, nil, "", 1)
 	manyKey3    = Key("many key 3")
-	manyDevice3 = newSimpleDevice(manyID, manyKey3, 1)
+	manyDevice3 = newDevice(manyID, manyKey3, nil, "", 1)
 	manyKey4    = Key("many key 4")
-	manyDevice4 = newSimpleDevice(manyID, manyKey4, 1)
+	manyDevice4 = newDevice(manyID, manyKey4, nil, "", 1)
 	manyKey5    = Key("many key 5")
-	manyDevice5 = newSimpleDevice(manyID, manyKey5, 1)
+	manyDevice5 = newDevice(manyID, manyKey5, nil, "", 1)
 )
 
 func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
@@ -55,7 +55,7 @@ func TestRegistryDuplicateDevice(t *testing.T) {
 	assert := assert.New(t)
 	registry := testRegistry(t, assert)
 
-	duplicateDevice := newSimpleDevice(ID("duplicate device"), Key("key # 1"), 1)
+	duplicateDevice := newDevice(ID("duplicate device"), Key("key # 1"), nil, "", 1)
 	assert.Nil(registry.add(duplicateDevice))
 	duplicateDevice.updateKey(Key("key #2"))
 	assert.Equal(ErrorDuplicateDevice, registry.add(duplicateDevice))
@@ -160,7 +160,7 @@ func TestRegistryVisitAll(t *testing.T) {
 func TestRegistryAddDuplicateKey(t *testing.T) {
 	assert := assert.New(t)
 	registry := testRegistry(t, assert)
-	duplicate := newSimpleDevice(singleID, singleKey, 1)
+	duplicate := newDevice(singleID, singleKey, nil, "", 1)
 	assert.Equal(ErrorDuplicateKey, registry.add(duplicate))
 }
 

@@ -68,9 +68,6 @@ type Interface interface {
 	// If this device has no convey data, this method does nothing.
 	SetConveyHeader(http.Header)
 
-	// ConnectedAt returns the time at which this device connected to the system
-	ConnectedAt() time.Time
-
 	// Pending returns the count of pending messages for this device
 	Pending() int
 
@@ -90,6 +87,9 @@ type Interface interface {
 	// Internally, the requests passed to this method are serviced by the write pump in
 	// the enclosing Manager instance.  The read pump will handle sending the response.
 	Send(*Request) (*Response, error)
+
+	// Statistics returns the current, tracked Statistics instance for this device
+	Statistics() Statistics
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -101,7 +101,7 @@ type device struct {
 	convey        Convey
 	encodedConvey string
 
-	connectedAt time.Time
+	statistics Statistics
 
 	state int32
 
@@ -116,7 +116,7 @@ func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queue
 		id:            id,
 		convey:        convey,
 		encodedConvey: encodedConvey,
-		connectedAt:   time.Now(),
+		statistics:    NewStatistics(time.Now().UTC()),
 		state:         stateOpen,
 		shutdown:      make(chan struct{}),
 		messages:      make(chan *envelope, queueSize),
@@ -125,12 +125,6 @@ func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queue
 
 	d.updateKey(initialKey)
 	return d
-}
-
-// newSimpleDevice is an internal factory function that produces a device without an associated Convey.
-// This factory function is used mainly in tests.
-func newSimpleDevice(id ID, initialKey Key, queueSize int) *device {
-	return newDevice(id, initialKey, nil, "", queueSize)
 }
 
 // MarshalJSON exposes public metadata about this device as JSON.  This
@@ -148,10 +142,9 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	output := new(bytes.Buffer)
 	fmt.Fprintf(
 		output,
-		`{"id": "%s", "key": "%s", "connectedAt": "%s", "closed": %t, "convey": %s}`,
+		`{"id": "%s", "key": "%s", "closed": %t, "convey": %s}`,
 		d.id,
 		d.Key(),
-		d.connectedAt.Format(time.RFC3339),
 		d.Closed(),
 		conveyJSON,
 	)
@@ -195,10 +188,6 @@ func (d *device) SetConveyHeader(header http.Header) {
 	if len(d.encodedConvey) > 0 {
 		header.Set(ConveyHeader, d.encodedConvey)
 	}
-}
-
-func (d *device) ConnectedAt() time.Time {
-	return d.connectedAt
 }
 
 func (d *device) Pending() int {
@@ -295,4 +284,8 @@ func (d *device) Send(request *Request) (*Response, error) {
 	}
 
 	return d.awaitResponse(request, result)
+}
+
+func (d *device) Statistics() Statistics {
+	return d.statistics
 }
