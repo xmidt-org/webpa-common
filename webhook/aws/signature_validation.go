@@ -3,7 +3,7 @@ package aws
 import (
 	"crypto"
 	"crypto/rsa"
-	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
@@ -57,6 +57,7 @@ func getCerticate(b []byte) (cert *x509.Certificate, err error) {
 	if err != nil {
 		return
 	}
+	fmt.Printf("get cert cert: %+v\n", cert)
 	
 	return
 }
@@ -82,7 +83,7 @@ func formatSignature(msg *SNSMessage) string {
 			"Type", msg.Type,
 		)
 	} else if msg.Type == "SubscriptionConfirmation" || msg.Type == "UnsubscribeConfirmation" {
-		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 			"Message", msg.Message,
 			"MessageId", msg.MessageId,
 			"SubscribeURL", msg.SubscribeURL,
@@ -100,7 +101,7 @@ func formatSignature(msg *SNSMessage) string {
 // Values are delimited with newline characters
 // Name/value pairs are sorted by name in byte sort order.
 func generateSignature(msg *SNSMessage) hash.Hash {
-	h := sha1.New()
+	h := sha256.New()
 	h.Write([]byte( formatSignature(msg) ))
 	
 	return h
@@ -153,9 +154,14 @@ func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 	}
 	
 	h := generateSignature(msg)
+//	h := []byte( formatSignature(msg) )
 	
-	if err = rsa.VerifyPKCS1v15(pub, crypto.SHA1, h.Sum(nil), decodedSignature); err != nil {
+//	if err = cert.CheckSignature(x509.SHA256WithRSA, decodedSignature, h); err != nil {
+//	if err = rsa.VerifyPKCS1v15(pub, crypto.SHA256, h.Sum(nil), decodedSignature); err != nil {
+	if err = verify(pub, crypto.SHA256, h.Sum(nil), decodedSignature); err != nil {
 		// signature verification failed
+		fmt.Printf("signature validation failed [%v]: %+v\n", ok, err)
+		fmt.Printf("snsMessage: %+v\n", msg)
 		return
 	}
 	
