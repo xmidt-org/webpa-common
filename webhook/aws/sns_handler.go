@@ -135,7 +135,6 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 	valid, v_err := ss.Validate(msg)
 	if !valid || v_err != nil {
 		ss.Error("SNS signature validation error %v",v_err)
-		ss.Debug("SNS signature validation error message %v", msg)
 		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)	
 		return 
 	}
@@ -194,7 +193,6 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	valid, v_err := ss.Validate(msg)
 	if !valid || v_err != nil {
 		ss.Error("SNS signature validation error %v",v_err)
-		ss.Debug("SNS signature validation error message %v", msg)
 		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)	
 		return nil
 	}
