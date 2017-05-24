@@ -1,15 +1,11 @@
 package aws
 
 import (
-	"crypto"
-	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"hash"
 	"io/ioutil"
 	"net/http"
 )
@@ -57,14 +53,15 @@ func getCerticate(b []byte) (cert *x509.Certificate, err error) {
 	if err != nil {
 		return
 	}
-	fmt.Printf("get cert cert: %+v\n", cert)
 	
 	return
 }
 
 // formatSignature returns a string formated version of the supplied SNSMessage
-func formatSignature(msg *SNSMessage) string {
-	var formated string
+//uses message values to replicate signature
+// Values are delimited with newline characters
+// Name/value pairs are sorted by name in byte sort order.
+func formatSignature(msg *SNSMessage) (formated string, err error) {
 	if msg.Type == "Notification" && msg.Subject != "" {
 		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", 
 			"Message", msg.Message, 
@@ -92,19 +89,11 @@ func formatSignature(msg *SNSMessage) string {
 			"TopicArn", msg.TopicArn,
 			"Type", msg.Type,
 		)
+	} else {
+		return formated, errors.New("Unable to determine SNSMessage type")
 	}
 	
-	return formated
-}
-
-// generateSignature uses message values to replicate signature
-// Values are delimited with newline characters
-// Name/value pairs are sorted by name in byte sort order.
-func generateSignature(msg *SNSMessage) hash.Hash {
-	h := sha256.New()
-	h.Write([]byte( formatSignature(msg) ))
-	
-	return h
+	return
 }
 
 type Validator struct {
@@ -147,21 +136,13 @@ func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 		return
 	}
 	
-	var pub *rsa.PublicKey
-	var okay bool
-	if pub, okay = cert.PublicKey.(*rsa.PublicKey); !okay {
-		return okay, errors.New("unknown type of public key")
+	var formatedSignature string
+	if formatedSignature, err = formatSignature(msg); err != nil {
+		return
 	}
-	
-	h := generateSignature(msg)
-//	h := []byte( formatSignature(msg) )
-	
-//	if err = cert.CheckSignature(x509.SHA256WithRSA, decodedSignature, h); err != nil {
-//	if err = rsa.VerifyPKCS1v15(pub, crypto.SHA256, h.Sum(nil), decodedSignature); err != nil {
-	if err = verify(pub, crypto.SHA256, h.Sum(nil), decodedSignature); err != nil {
+
+	if err = cert.CheckSignature(x509.SHA1WithRSA, []byte(formatedSignature), decodedSignature); err != nil {
 		// signature verification failed
-		fmt.Printf("signature validation failed [%v]: %+v\n", ok, err)
-		fmt.Printf("snsMessage: %+v\n", msg)
 		return
 	}
 	
