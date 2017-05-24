@@ -55,7 +55,6 @@ func testSNSMessage(scURL string) (*SNSMessage, *SNSMessage) {
 
 func testCreateCerficate() (privkey *rsa.PrivateKey, pemkey []byte, err error) {
 	template := &x509.Certificate {
-		SignatureAlgorithm: x509.SHA1WithRSA,
 		IsCA : true,
 		BasicConstraintsValid : true,
 		SubjectKeyId : []byte{11,22,33},
@@ -91,7 +90,8 @@ func testCreateCerficate() (privkey *rsa.PrivateKey, pemkey []byte, err error) {
 }
 
 func testCreateSignature(privkey *rsa.PrivateKey, snsMsg *SNSMessage) (string, error) {
-	h := sha1.Sum([]byte( formatSignature(snsMsg) ))
+	fs, _ := formatSignature(snsMsg)
+	h := sha1.Sum( []byte(fs) )
 	signature_b, err := rsa.SignPKCS1v15(rand.Reader, privkey, crypto.SHA1, h[:])
 	
 	return base64.StdEncoding.EncodeToString(signature_b), err
@@ -262,15 +262,15 @@ func Test_getCerticate(t *testing.T) {
 	assert.Nil(errBad)
 }
 
-func Test_generateSignature(t *testing.T) {
+func Test_formatSignature(t *testing.T) {
 	assert := assert.New(t)
 	
 	snsMsg_noti, snsMsg_conf := testSNSMessage("127.0.0.1")
-	h1 := generateSignature(snsMsg_noti)
-	h2 := generateSignature(snsMsg_conf)
+	fs1, _ := formatSignature(snsMsg_noti)
+	fs2, _ := formatSignature(snsMsg_conf)
 	
-	assert.NotNil(h1)
-	assert.NotNil(h2)
+	assert.NotNil(fs1)
+	assert.NotNil(fs2)
 }
 
 func Test_Validate(t *testing.T) {
