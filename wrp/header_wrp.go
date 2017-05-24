@@ -75,14 +75,18 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 	}
 	
 	if status := header.Get(StatusHeader); !strings.EqualFold(status,"") {
-		if statusInt, err := strconv.ParseInt(status, 10, 64); err != nil {
+		if statusInt, err := strconv.ParseInt(status, 10, 64); err == nil {
 			msg.SetStatus(statusInt)
+		} else {
+			return nil, err
 		}
 	}
 	
 	if rdr := header.Get(RDRHeader); !strings.EqualFold(rdr,"") {
-		if rdrInt, err := strconv.ParseInt(rdr, 10, 64); err != nil {
+		if rdrInt, err := strconv.ParseInt(rdr, 10, 64); err == nil {
 			msg.SetRequestDeliveryResponse(rdrInt)
+		} else {
+			return nil, err
 		}
 	}
 	
@@ -100,8 +104,32 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 		}
 	}
 	
-	// TODO: Headers and Spans
+	// Handle Headers and Spans which contain multiple values
+	for key, value := range header {
+		if strings.EqualFold(key, HeadersArrHeader) {
+			if msg.Headers == nil {
+				msg.Headers = []string{}
+			}
+			for item := range value {
+				msg.Headers = append(msg.Headers,value[item])
+			}
+		}
+		
+		// Each span element will look like this {"name" , "start_time" , "duration"}
+		if strings.EqualFold(key, SpansHeader) {
+			if msg.Spans == nil {
+				msg.Spans = [][]string{}
+			}
+			
+			j := 0
+			for i := 0; i < len(value); i++ {
+				msg.Spans[j] = append(msg.Spans[j],value[i])
+				if (i+1) % 3 == 0 {
+					j++
+				}
+			}
+		}
+	}
 	
 	return msg, nil
 }
-
