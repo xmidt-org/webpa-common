@@ -70,7 +70,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 	}
 
 	monitor := &monitor{
-		list:             NewList(nil),
+		list:             NewRegistry(nil, nil),
 		undertaker:       f.Undertaker,
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
@@ -94,6 +94,9 @@ type monitor struct {
 	AWS.Notifier
 }
 
+func (m *monitor) SetList(ul UpdatableList) {
+	m.list = ul
+}
 
 func (m *monitor) listen() {
 	for {
