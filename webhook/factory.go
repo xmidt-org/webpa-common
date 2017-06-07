@@ -94,8 +94,8 @@ type monitor struct {
 	AWS.Notifier
 }
 
-func (m *monitor) SetList(ul UpdatableList) {
-	m.list = ul
+func (f *Factory) SetList(ul UpdatableList) {
+	f.m.list = ul
 }
 
 func (m *monitor) listen() {
