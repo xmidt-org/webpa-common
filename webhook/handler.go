@@ -10,8 +10,30 @@ import (
 )
 
 type Registry struct {
-	UpdatableList
-	Publish func(string)
+	updatableList
+	publisher func(string)
+}
+
+func (r *Registry) SetPublisher(pub func(string)) {
+	r.publisher = pub
+}
+
+func (r *Registry) Publish(msg string) {
+	r.publisher(msg)
+}
+
+func NewRegistry(list []W, pub func(string)) *Registry {
+	if pub == nil {
+		pub = func(s string) {
+			fmt.Println(s)
+		}
+	}
+	
+	r := &Registry{}
+	r.SetPublisher(pub)
+	r.Update(list)
+	
+	return r
 }
 
 // jsonResponse is an internal convenience function to write a json response
@@ -22,7 +44,7 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 }
 
 // get is an api call to return all the registered listeners
-func (r *Registry) get(rw http.ResponseWriter, req *http.Request) {
+func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	var items []*W
 	for i:=0; i<r.Len(); i++ {
 		items = append(items, r.Get(i))
@@ -70,7 +92,7 @@ func (w *W) registrationValidation() (string, int) {
 }
 
 // update is an api call to processes a listenener registration for adding and updating
-func (r *Registry) update(rw http.ResponseWriter, req *http.Request) {
+func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	payload, err := ioutil.ReadAll(req.Body)
 	req.Body.Close()
 	
