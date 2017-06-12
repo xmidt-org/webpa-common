@@ -70,7 +70,7 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 	}
 
 	monitor := &monitor{
-		list:             NewRegistry(nil, nil),
+		list:             NewRegistry(nil, f.Notifier.PublishMessage),
 		undertaker:       f.Undertaker,
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
