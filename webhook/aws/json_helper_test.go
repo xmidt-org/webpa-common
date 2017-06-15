@@ -1,11 +1,11 @@
 package aws
 
 import (
-	"testing"
-	"net/http/httptest"
-	"strings"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/http/httptest"
+	"strings"
+	"testing"
 )
 
 const (
@@ -36,45 +36,45 @@ const (
 )
 
 func TestSuccessDecodeJSONMessage(t *testing.T) {
-	
+
 	req := httptest.NewRequest("POST", "/foo", strings.NewReader(TEST_SNS_MSG))
 	msg := new(SNSMessage)
-	assert  := assert.New(t)
+	assert := assert.New(t)
 	require := require.New(t)
-	
+
 	payload, err := DecodeJSONMessage(req, msg)
 	require.NotNil(payload)
 	assert.Nil(err)
 	assert.Equal([]byte(TEST_SNS_MSG), payload)
 	assert.Equal("Notification", msg.Type)
-	assert.Equal("Hello world!",msg.Message)
+	assert.Equal("Hello world!", msg.Message)
 	assert.Equal("My First Message", msg.Subject)
 	assert.Equal(
-		"https://sns.us-west-2.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:us-west-2:123456789012:MyTopic:c9135db0-26c4-47ec-8998-413945fb5a96", 
+		"https://sns.us-west-2.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:us-west-2:123456789012:MyTopic:c9135db0-26c4-47ec-8998-413945fb5a96",
 		msg.UnsubscribeURL)
 	assert.Len(payload, len([]byte(TEST_SNS_MSG)))
 }
 
 func TestErrDecodeJSONMessage(t *testing.T) {
-	
+
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(TEST_SNS_ERR_MSG))
 	msg := new(SNSMessage)
-	assert  := assert.New(t)
-	
+	assert := assert.New(t)
+
 	payload, err := DecodeJSONMessage(req, msg)
 	assert.Nil(payload)
 	assert.NotNil(err)
 }
 
 func TestEmptyDecodeJSONMessage(t *testing.T) {
-	
+
 	snsErrTypeMsg := ``
 	req := httptest.NewRequest("POST", "/test", strings.NewReader(snsErrTypeMsg))
 	msg := new(SNSMessage)
-	assert  := assert.New(t)
-	
+	assert := assert.New(t)
+
 	payload, err := DecodeJSONMessage(req, msg)
 	assert.Nil(payload)
 	assert.NotNil(err)
-	assert.Equal(ErrJsonEmpty,err)
+	assert.Equal(ErrJsonEmpty, err)
 }

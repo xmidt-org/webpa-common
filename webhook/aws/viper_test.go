@@ -146,14 +146,14 @@ func TestNewAWSConfig_InvalidSNSConfig(t *testing.T) {
 }
 
 func TestNewAWSConfig_ViperNil(t *testing.T) {
-	assert  := assert.New(t)
+	assert := assert.New(t)
 	require := require.New(t)
-		
+
 	c, err := NewAWSConfig(nil)
 
 	assert.Nil(err)
 	require.NotNil(c)
-	assert.Equal(c.AccessKey,"test-accessKey")
-	assert.Equal(c.Sns.UrlPath,"/api/v2/aws/sns")
-	
+	assert.Equal(c.AccessKey, "test-accessKey")
+	assert.Equal(c.Sns.UrlPath, "/api/v2/aws/sns")
+
 }
