@@ -5,7 +5,7 @@ import (
 )
 
 type ErrResp struct {
-	Code int
+	Code    int
 	Message string
 }
 
@@ -79,19 +79,19 @@ const (
 	} }`
 )
 
-func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router)  {
-	
+func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router) {
+
 	awsCfg, _ := NewAWSConfig(nil)
 	m := &MockSVC{}
 	mv := &MockValidator{}
-	
+
 	ss := &SNSServer{
-		Config: *awsCfg,
-		SVC: m,
-		SNSValidator : mv,
+		Config:       *awsCfg,
+		SVC:          m,
+		SNSValidator: mv,
 	}
-	
+
 	r := mux.NewRouter()
-	
+
 	return ss, m, mv, r
 }

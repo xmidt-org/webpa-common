@@ -8,14 +8,14 @@ import (
 
 type MockSVC struct {
 	snsiface.SNSAPI
-    mock.Mock
+	mock.Mock
 }
 
 type MockValidator struct {
 	mock.Mock
 }
 
-func (m *MockSVC) Subscribe( input *sns.SubscribeInput) (*sns.SubscribeOutput, error) {
+func (m *MockSVC) Subscribe(input *sns.SubscribeInput) (*sns.SubscribeOutput, error) {
 	args := m.Called(input)
 	return args.Get(0).(*sns.SubscribeOutput), args.Error(1)
 }

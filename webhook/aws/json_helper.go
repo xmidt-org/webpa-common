@@ -3,17 +3,16 @@ package aws
 import (
 	"encoding/json"
 	"errors"
-	"net/http"
 	"io/ioutil"
+	"net/http"
 )
 
-
 var (
-	ErrJsonEmpty   = errors.New("JSON payload is empty")
+	ErrJsonEmpty = errors.New("JSON payload is empty")
 )
 
 func DecodeJSONMessage(req *http.Request, v interface{}) ([]byte, error) {
-	
+
 	payload, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		return nil, err

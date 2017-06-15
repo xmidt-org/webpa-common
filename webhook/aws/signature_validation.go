@@ -16,10 +16,9 @@ func base64Decode(msg *SNSMessage) (b []byte, err error) {
 	if err != nil {
 		return b, err
 	}
-	
+
 	return b, err
 }
-
 
 // getPemFile obtains a PEM file from the passed url string
 func (v *Validator) getPemFile(address string) (body []byte, err error) {
@@ -27,18 +26,18 @@ func (v *Validator) getPemFile(address string) (body []byte, err error) {
 	if err != nil {
 		return
 	}
-	
+
 	resp, err := v.client.Do(req)
 	if err != nil {
 		return
 	}
-	
+
 	body, err = ioutil.ReadAll(resp.Body)
 	resp.Body.Close()
 	if err != nil {
 		return
 	}
-	
+
 	return
 }
 
@@ -48,12 +47,12 @@ func getCerticate(b []byte) (cert *x509.Certificate, err error) {
 	if block == nil {
 		return
 	}
-	
+
 	cert, err = x509.ParseCertificate(block.Bytes)
 	if err != nil {
 		return
 	}
-	
+
 	return
 }
 
@@ -63,19 +62,19 @@ func getCerticate(b []byte) (cert *x509.Certificate, err error) {
 // Name/value pairs are sorted by name in byte sort order.
 func formatSignature(msg *SNSMessage) (formated string, err error) {
 	if msg.Type == "Notification" && msg.Subject != "" {
-		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", 
-			"Message", msg.Message, 
-			"MessageId", msg.MessageId, 
-			"Subject", msg.Subject, 
-			"Timestamp", msg.Timestamp, 
+		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+			"Message", msg.Message,
+			"MessageId", msg.MessageId,
+			"Subject", msg.Subject,
+			"Timestamp", msg.Timestamp,
 			"TopicArn", msg.TopicArn,
 			"Type", msg.Type,
 		)
 	} else if msg.Type == "Notification" && msg.Subject == "" {
-		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n", 
-			"Message", msg.Message, 
-			"MessageId", msg.MessageId,  
-			"Timestamp", msg.Timestamp, 
+		formated = fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+			"Message", msg.Message,
+			"MessageId", msg.MessageId,
+			"Timestamp", msg.Timestamp,
 			"TopicArn", msg.TopicArn,
 			"Type", msg.Type,
 		)
@@ -92,7 +91,7 @@ func formatSignature(msg *SNSMessage) (formated string, err error) {
 	} else {
 		return formated, errors.New("Unable to determine SNSMessage type")
 	}
-	
+
 	return
 }
 
@@ -108,10 +107,10 @@ func NewValidator(client *http.Client) *Validator {
 	if client == nil {
 		client = new(http.Client)
 	}
-	
+
 	v := new(Validator)
 	v.client = client
-	
+
 	return v
 }
 
@@ -125,17 +124,17 @@ func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 	if decodedSignature, err = base64Decode(msg); err != nil {
 		return
 	}
-	
+
 	var p []byte
 	if p, err = v.getPemFile(msg.SigningCertURL); err != nil {
 		return
 	}
-	
+
 	var cert *x509.Certificate
 	if cert, err = getCerticate(p); err != nil {
 		return
 	}
-	
+
 	var formatedSignature string
 	if formatedSignature, err = formatSignature(msg); err != nil {
 		return
@@ -145,7 +144,7 @@ func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 		// signature verification failed
 		return
 	}
-	
+
 	// valid signature
 	ok = true
 

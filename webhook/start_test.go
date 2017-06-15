@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"testing"
-	"time"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"testing"
+	"time"
 )
 
 type testTransport struct {
@@ -17,7 +17,7 @@ type testTransport struct {
 	Body      string
 }
 
-func(tt testTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
+func (tt testTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
 	r.URL = tt.URL
 
 	resp = &http.Response{
@@ -27,7 +27,7 @@ func(tt testTransport) RoundTrip(r *http.Request) (resp *http.Response, err erro
 		Status:     "200 OK",
 		Body:       ioutil.NopCloser(bytes.NewBufferString(tt.Body)),
 	}
-	
+
 	return
 }
 
@@ -35,18 +35,18 @@ func testClient(t *testing.T, msg string) http.Client {
 	h := func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "get auth response: %s\n", r.URL.String())
 	}
-	
+
 	s := httptest.NewServer(http.HandlerFunc(h))
 	defer s.Close()
 	u, err := url.Parse(s.URL)
 	if err != nil {
 		t.Errorf("unable to parse server url: %v", err)
 	}
-	
+
 	tt := *new(testTransport)
 	tt.URL = u
 	tt.Body = msg
-	
+
 	return http.Client{
 		Transport: tt,
 	}
@@ -55,7 +55,7 @@ func testClient(t *testing.T, msg string) http.Client {
 func TestGetAuthorization(t *testing.T) {
 	sc := NewStartFactory(nil)
 	sc.client = testClient(t, "{\"expires_in\": 0, \"serviceAccessToken\": \"Test Token Value\"}")
-	
+
 	err := sc.getAuthorization()
 	if err != nil {
 		t.Errorf("error returned while obtaining authorization: %v", err)
@@ -69,7 +69,7 @@ func TestGetPayload(t *testing.T) {
 	sc := NewStartFactory(nil)
 	sc.client = testClient(t, "What's in the box!")
 	resp, err := sc.makeRequest()
-	
+
 	body, err := getPayload(resp)
 	if err != nil {
 		t.Errorf("error return while obtaining payload from response: %v", err)
@@ -82,9 +82,9 @@ func TestGetPayload(t *testing.T) {
 func TestMakeRequest(t *testing.T) {
 	sc := NewStartFactory(nil)
 	sc.client = testClient(t, "Making Requests")
-	
+
 	resp, err := sc.makeRequest()
-	
+
 	if err != nil {
 		t.Errorf("error return while performing request: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 	sc.client = testClient(t, "{\"expires_in\": 0, \"serviceAccessToken\": \"Test Token Value\"}")
 	sc.getAuthorization()
 
-	d := (time.Duration(5)*time.Second).Nanoseconds()
+	d := (time.Duration(5) * time.Second).Nanoseconds()
 	u := time.Now().Format(time.RFC3339)
 	h := fmt.Sprintf(`[
 		{
@@ -145,7 +145,7 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 
 	sc.client = testClient(t, h)
 	go sc.GetCurrentSystemsHooks(rc)
-	
+
 	r := <- rc
 	if r.Error != nil {
 		t.Errorf("error returned retrieving system hooks: %v", r.Error)
@@ -153,15 +153,16 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 	if r.Hooks == nil {
 		t.Error("hooks returned was nil")
 	}
-	
+
 	// test timeout
 	h = ``
 	sc.client = testClient(t, h)
 	go sc.GetCurrentSystemsHooks(rc)
-	
+
 	r = <- rc
 	if r.Error.Error() != "Unable to obtain hook list in allotted time." {
 		t.Errorf("test was expected to fail with error \"Unable to obtain hook list in allotted time.\".  got: %v", r.Error)
+
 	}
 	if r.Hooks != nil {
 		t.Errorf("expected hooks returned to be nil.  got %v", r.Hooks)
