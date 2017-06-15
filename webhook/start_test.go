@@ -147,10 +147,10 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 	go sc.GetCurrentSystemsHooks(rc)
 	
 	r := <- rc
-	if r.err != nil {
-		t.Errorf("error returned retrieving system hooks: %v", r.err)
+	if r.Error != nil {
+		t.Errorf("error returned retrieving system hooks: %v", r.Error)
 	}
-	if r.hooks == nil {
+	if r.Hooks == nil {
 		t.Error("hooks returned was nil")
 	}
 	
@@ -160,10 +160,10 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 	go sc.GetCurrentSystemsHooks(rc)
 	
 	r = <- rc
-	if r.err.Error() != "Unable to obtain hook list in allotted time." {
-		t.Errorf("test was expected to fail with error \"Unable to obtain hook list in allotted time.\".  got: %v", r.err)
+	if r.Error.Error() != "Unable to obtain hook list in allotted time." {
+		t.Errorf("test was expected to fail with error \"Unable to obtain hook list in allotted time.\".  got: %v", r.Error)
 	}
-	if r.hooks != nil {
-		t.Errorf("expected hooks returned to be nil.  got %v", r.hooks)
+	if r.Hooks != nil {
+		t.Errorf("expected hooks returned to be nil.  got %v", r.Hooks)
 	}
 }

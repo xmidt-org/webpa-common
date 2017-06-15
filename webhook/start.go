@@ -43,8 +43,8 @@ type StartConfig struct {
 }
 
 type Result struct {
-	hooks []W
-	err    error
+	Hooks []W
+	Error error
 }
 
 type satReqResp struct {
@@ -164,10 +164,10 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 		select {
 		case r := <- getHooksChan:
 		
-			if r.err != nil || len(r.hooks) <= 0 {
+			if r.Error != nil || len(r.Hooks) <= 0 {
 				fn(sc, getHooksChan)
 			} else {
-				rc <- Result{r.hooks, r.err}
+				rc <- Result{r.Hooks, r.Error}
 				return
 			}
 		
