@@ -28,11 +28,11 @@ func NewRegistry(list []W, pub func(string)) *Registry {
 			fmt.Println(s)
 		}
 	}
-	
+
 	r := &Registry{}
 	r.SetPublisher(pub)
 	r.Update(list)
-	
+
 	return r
 }
 
@@ -40,17 +40,17 @@ func NewRegistry(list []W, pub func(string)) *Registry {
 func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 	rw.Header().Set("Content-Type", "application/json")
 	rw.WriteHeader(code)
-	rw.Write( []byte(fmt.Sprintf(`{"message":"%s"}`, msg)) )
+	rw.Write([]byte(fmt.Sprintf(`{"message":"%s"}`, msg)))
 }
 
 // get is an api call to return all the registered listeners
 func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	var items []*W
-	for i:=0; i<r.Len(); i++ {
+	for i := 0; i < r.Len(); i++ {
 		items = append(items, r.Get(i))
 	}
 
-	if msg, err := json.Marshal( items ); err != nil {
+	if msg, err := json.Marshal(items); err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 	} else {
 		rw.Header().Set("Content-Type", "application/json")
@@ -82,8 +82,8 @@ func (w *W) registrationValidation() (string, int) {
 		return "invalid content_type", http.StatusBadRequest
 	}
 	if len(w.Matcher.DeviceId) == 0 {
-		w.Matcher.DeviceId = []string{".*"}  // match anything
-	}	
+		w.Matcher.DeviceId = []string{".*"} // match anything
+	}
 	if len(w.Events) == 0 {
 		return "invalid events", http.StatusBadRequest
 	}
@@ -95,20 +95,20 @@ func (w *W) registrationValidation() (string, int) {
 func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	payload, err := ioutil.ReadAll(req.Body)
 	req.Body.Close()
-	
+
 	w := new(W)
 	err = json.Unmarshal(payload, w)
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
-	
+
 	issue, code := w.registrationValidation()
 	if issue != "" || code != http.StatusOK {
 		jsonResponse(rw, code, issue)
 		return
 	}
-	
+
 	// update the requesters address
 	ip, err := parseIP(req.RemoteAddr)
 	if err != nil {
@@ -116,13 +116,13 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Address = ip
-	
+
 	// send W as a single item array
-	msg, err := json.Marshal( [1]W{*w} )
+	msg, err := json.Marshal([1]W{*w})
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
-	
-	r.Publish( string(msg) )
+
+	r.Publish(string(msg))
 }

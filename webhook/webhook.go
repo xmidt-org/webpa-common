@@ -103,15 +103,15 @@ func (ul *updatableList) Update(newItems []W) {
 	for _, newItem := range newItems {
 		found := false
 		var items []*W
-		for i:=0; i<ul.Len(); i++ {
+		for i := 0; i < ul.Len(); i++ {
 			items = append(items, ul.Get(i))
 		}
-		
+
 		// update item
-		for i:=0; i<len(items) && !found; i++  {
+		for i := 0; i < len(items) && !found; i++ {
 			if items[i].Config.URL == newItem.Config.URL {
 				found = true
-				
+
 				if newItem.Duration > 0 && newItem.Duration < DEFAULT_EXPIRATION_DURATION {
 					items[i].Until = time.Now().Add(newItem.Duration)
 				} else {
@@ -123,18 +123,18 @@ func (ul *updatableList) Update(newItems []W) {
 				items[i].Config.Secret = newItem.Config.Secret
 			}
 		}
-		
+
 		// add item
 		if !found {
 			newItem.Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
 			items = append(items, &newItem)
 		}
-		
+
 		var itemsCopy []W
 		for _, i := range items {
 			itemsCopy = append(itemsCopy, *i)
 		}
-		
+
 		// store items
 		ul.value.Store(itemsCopy)
 	}
