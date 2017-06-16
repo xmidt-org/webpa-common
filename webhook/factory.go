@@ -53,9 +53,11 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	// NewFactory(nil) to get a default Factory instance
 	if v != nil {
 		err = v.Unmarshal(f)
+		f.Start = NewStartFactory(v.Sub("start"))
+	} else {
+		f.Start = NewStartFactory(nil)
 	}
 
-	f.Start = NewStartFactory(v.Sub("start"))
 	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
