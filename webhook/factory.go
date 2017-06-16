@@ -55,7 +55,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		err = v.Unmarshal(f)
 	}
 
-	f.Start = NewStartFactory(v)
+	f.Start = NewStartFactory(v.Sub("start"))
 	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
