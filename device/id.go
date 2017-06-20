@@ -1,6 +1,7 @@
 package device
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -82,7 +83,27 @@ func ParseID(deviceName string) (ID, error) {
 	return ID(fmt.Sprintf("%s:%s", prefix, idPart)), nil
 }
 
-// IDHashParser creates a parsing function that examines an HTTP request to produce
+// ContextKey is the key type used by information stored in Contexts from this package
+type ContextKey uint
+
+const (
+	// IDKey is the Context key associated with the parsed device ID
+	IDKey ContextKey = iota
+)
+
+// GetID returns the device ID from a Context.  If no device ID is present, this
+// function returns false for the second parameter.
+func GetID(ctx context.Context) (id ID, ok bool) {
+	id, ok = ctx.Value(IDKey).(ID)
+	return
+}
+
+// WithID returns a new Context with the given device ID as a value.
+func WithID(id ID, parent context.Context) context.Context {
+	return context.WithValue(parent, IDKey, id)
+}
+
+// IDHashParser is a parsing function that examines an HTTP request to produce
 // a []byte key for consistent hashing.  The returned function examines the
 // given request header and invokes ParseID on the value.
 //

@@ -30,56 +30,6 @@ func testMessageHandlerLogger(t *testing.T) {
 	assert.Equal(logger, handler.logger())
 }
 
-func testMessageHandlerCreateContextNoTimeout(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = MessageHandler{}
-	)
-
-	ctx, cancel := handler.createContext(httptest.NewRequest("GET", "/", nil))
-	require.NotNil(ctx)
-	require.NotNil(cancel)
-
-	deadline, ok := ctx.Deadline()
-	assert.WithinDuration(time.Now(), deadline, DefaultMessageTimeout)
-	assert.True(ok)
-
-	cancel()
-	select {
-	case <-ctx.Done():
-		// passing
-	default:
-		assert.Fail("The cancel function should have cancelled the context")
-	}
-}
-
-func testMessageHandlerCreateContextWithTimeout(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = MessageHandler{
-			Timeout: 247 * time.Hour,
-		}
-	)
-
-	ctx, cancel := handler.createContext(httptest.NewRequest("GET", "/", nil))
-	require.NotNil(ctx)
-	require.NotNil(cancel)
-
-	deadline, ok := ctx.Deadline()
-	assert.WithinDuration(time.Now(), deadline, handler.Timeout)
-	assert.True(ok)
-
-	cancel()
-	select {
-	case <-ctx.Done():
-		// passing
-	default:
-		assert.Fail("The cancel function should have cancelled the context")
-	}
-}
-
 func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
 	var (
 		assert  = assert.New(t)
@@ -358,10 +308,6 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 func TestMessageHandler(t *testing.T) {
 	t.Run("Logger", testMessageHandlerLogger)
-	t.Run("CreateContext", func(t *testing.T) {
-		t.Run("NoTimeout", testMessageHandlerCreateContextNoTimeout)
-		t.Run("WithTimeout", testMessageHandlerCreateContextWithTimeout)
-	})
 
 	t.Run("ServeHTTP", func(t *testing.T) {
 		t.Run("DecodeError", testMessageHandlerServeHTTPDecodeError)
