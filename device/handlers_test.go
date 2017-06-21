@@ -2,10 +2,12 @@ package device
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -15,6 +17,53 @@ import (
 	"testing"
 	"time"
 )
+
+func testTimeout(o *Options, t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+		ctx      context.Context
+
+		handler = alice.New(Timeout(o)).Then(
+			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				ctx = request.Context()
+				assert.NotEqual(context.Background(), ctx)
+
+				deadline, ok := ctx.Deadline()
+				assert.False(deadline.IsZero())
+				assert.True(deadline.Sub(time.Now()) <= o.requestTimeout())
+				assert.True(ok)
+			}),
+		)
+	)
+
+	handler.ServeHTTP(response, request)
+
+	select {
+	case <-ctx.Done():
+		// pass
+	default:
+		assert.Fail("The context should have been cancelled after ServeHTTP exits")
+	}
+}
+
+func TestTimeout(t *testing.T) {
+	t.Run(
+		"NilOptions",
+		func(t *testing.T) { testTimeout(nil, t) },
+	)
+
+	t.Run(
+		"DefaultOptions",
+		func(t *testing.T) { testTimeout(new(Options), t) },
+	)
+
+	t.Run(
+		"CustomOptions",
+		func(t *testing.T) { testTimeout(&Options{RequestTimeout: 17 * time.Second}, t) },
+	)
+}
 
 func testMessageHandlerLogger(t *testing.T) {
 	var (
