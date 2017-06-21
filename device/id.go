@@ -103,6 +103,13 @@ func WithID(id ID, parent context.Context) context.Context {
 	return context.WithValue(parent, IDKey, id)
 }
 
+// WithIDRequest returns a new HTTP request with the given device ID in the associated Context.
+func WithIDRequest(id ID, original *http.Request) *http.Request {
+	return original.WithContext(
+		WithID(id, original.Context()),
+	)
+}
+
 // IDHashParser is a parsing function that examines an HTTP request to produce
 // a []byte key for consistent hashing.  The returned function examines the
 // given request header and invokes ParseID on the value.
