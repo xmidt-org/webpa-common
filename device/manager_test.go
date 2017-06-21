@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -36,10 +37,12 @@ func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
 	var (
 		manager = NewManager(o, nil)
 		server  = httptest.NewServer(
-			&ConnectHandler{
-				Logger:    o.logger(),
-				Connector: manager,
-			},
+			alice.New(Timeout(o), UseID.FromHeader).Then(
+				&ConnectHandler{
+					Logger:    o.logger(),
+					Connector: manager,
+				},
+			),
 		)
 
 		websocketURL, err = url.Parse(server.URL)
