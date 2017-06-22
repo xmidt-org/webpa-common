@@ -52,7 +52,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	// allowing the viper instance to be nil allows a client to do
 	// NewFactory(nil) to get a default Factory instance
 	if v != nil {
-		err = v.Unmarshal(f)
+		err = v.Unmarshal(f)	
 		if err != nil {
 			return
 		}
@@ -63,6 +63,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	} else {
 		f.Start = NewStartFactory(nil)
 	}
+	
 	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
