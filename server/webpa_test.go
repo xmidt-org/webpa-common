@@ -2,7 +2,7 @@ package server
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/health"
+//	"github.com/Comcast/webpa-common/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -244,7 +244,7 @@ func TestHealthNew(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		expectedHandlerType *health.Health = nil
+		expectedHandlerType *http.ServeMux = nil
 
 		testData = []struct {
 			address            string

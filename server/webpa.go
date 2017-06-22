@@ -127,9 +127,13 @@ func (h *Health) New(logger logging.Logger) (handler *health.Health, server *htt
 		options...,
 	)
 
+	mux := http.NewServeMux()
+	mux.Handle("/health", handler)
+
 	server = &http.Server{
 		Addr:     h.Address,
-		Handler:  handler,
+		Handler:  mux,
+//		Handler:  handler,
 		ErrorLog: NewErrorLog(h.Name, logger),
 	}
 
