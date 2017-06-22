@@ -20,13 +20,16 @@ import (
 
 func testTimeout(o *Options, t *testing.T) {
 	var (
-		assert   = assert.New(t)
-		request  = httptest.NewRequest("GET", "/", nil)
-		response = httptest.NewRecorder()
-		ctx      context.Context
+		assert         = assert.New(t)
+		require        = require.New(t)
+		request        = httptest.NewRequest("GET", "/", nil)
+		response       = httptest.NewRecorder()
+		ctx            context.Context
+		delegateCalled bool
 
 		handler = alice.New(Timeout(o)).Then(
 			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				delegateCalled = true
 				ctx = request.Context()
 				assert.NotEqual(context.Background(), ctx)
 
@@ -39,6 +42,7 @@ func testTimeout(o *Options, t *testing.T) {
 	)
 
 	handler.ServeHTTP(response, request)
+	require.True(delegateCalled)
 
 	select {
 	case <-ctx.Done():
@@ -63,6 +67,94 @@ func TestTimeout(t *testing.T) {
 		"CustomOptions",
 		func(t *testing.T) { testTimeout(&Options{RequestTimeout: 17 * time.Second}, t) },
 	)
+}
+
+func testUseIDFNilStrategy(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(useID(nil)).Then(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	assert.Panics(func() {
+		handler.ServeHTTP(response, request)
+	})
+}
+
+func testUseIDFError(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		request        = httptest.NewRequest("GET", "/", nil)
+		response       = httptest.NewRecorder()
+		expectedError  = errors.New("expected")
+		strategyCalled bool
+
+		strategy = func(*http.Request) (ID, error) {
+			strategyCalled = true
+			return invalidID, expectedError
+		}
+
+		handler = alice.New(useID(strategy)).Then(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.True(strategyCalled)
+}
+
+func testUseIDFromHeaderMissing(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(UseID.FromHeader).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	handler.ServeHTTP(response, request)
+}
+
+func testUseIDFromHeader(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		require        = require.New(t)
+		request        = httptest.NewRequest("GET", "/", nil)
+		response       = httptest.NewRecorder()
+		delegateCalled bool
+
+		handler = alice.New(UseID.FromHeader).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			delegateCalled = true
+			id, ok := GetID(request.Context())
+			assert.Equal(id, ID("mac:112233445566"))
+			assert.True(ok)
+		}))
+	)
+
+	request.Header.Set(DeviceNameHeader, "mac:112233445566")
+	handler.ServeHTTP(response, request)
+	require.True(delegateCalled)
+}
+
+func TestUseID(t *testing.T) {
+	t.Run("F", func(t *testing.T) {
+		t.Run("NilStrategy", testUseIDFNilStrategy)
+		t.Run("Error", testUseIDFError)
+	})
+
+	t.Run("FromHeader", func(t *testing.T) {
+		testUseIDFromHeader(t)
+		t.Run("Missing", testUseIDFromHeaderMissing)
+	})
+
+	t.Run("FromPath", func(t *testing.T) {
+	})
 }
 
 func testMessageHandlerLogger(t *testing.T) {
