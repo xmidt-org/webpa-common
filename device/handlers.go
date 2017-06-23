@@ -3,15 +3,16 @@ package device
 import (
 	"bytes"
 	"context"
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/gorilla/mux"
 )
 
 const (
