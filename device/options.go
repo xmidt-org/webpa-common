@@ -1,8 +1,9 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/logging"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
 )
 
 const (

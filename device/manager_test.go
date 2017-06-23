@@ -3,16 +3,17 @@ package device
 import (
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/justinas/alice"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/justinas/alice"
+	"github.com/stretchr/testify/assert"
 )
 
 var (

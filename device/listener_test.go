@@ -2,9 +2,10 @@ package device
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func testEventString(t *testing.T) {

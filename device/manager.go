@@ -3,13 +3,14 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 )
 
 // Connector is a strategy interface for managing device connections to a server.

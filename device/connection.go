@@ -1,10 +1,11 @@
 package device
 
 import (
-	"github.com/gorilla/websocket"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 const (
