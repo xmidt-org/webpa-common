@@ -72,7 +72,7 @@ var UseID = struct {
 					return invalidID, ErrorMissingPathVars
 				}
 
-				deviceName := request.Header.Get(DeviceNameHeader)
+				deviceName := vars[variableName]
 				if len(deviceName) == 0 {
 					return invalidID, ErrorMissingDeviceNameVar
 				}

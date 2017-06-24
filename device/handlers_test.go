@@ -13,6 +13,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -143,6 +144,62 @@ func testUseIDFromHeader(t *testing.T) {
 	require.True(delegateCalled)
 }
 
+func testUseIDFromPath(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		request        = httptest.NewRequest("GET", "/test/mac:112233445566", nil)
+		response       = httptest.NewRecorder()
+		delegateCalled bool
+
+		handler = alice.New(UseID.FromPath("did")).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			delegateCalled = true
+			id, ok := GetID(request.Context())
+			assert.Equal(id, ID("mac:112233445566"))
+			assert.True(ok)
+		}))
+
+		router = mux.NewRouter()
+	)
+
+	router.Handle("/test/{did}", handler)
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusOK, response.Code)
+	assert.True(delegateCalled)
+}
+
+func testUseIDFromPathMissingVars(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/foo", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(UseID.FromPath("did")).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+}
+
+func testUseIDFromPathMissingDeviceNameVar(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/foo", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(UseID.FromPath("did")).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+
+		router = mux.NewRouter()
+	)
+
+	router.Handle("/foo", handler)
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+}
+
 func TestUseID(t *testing.T) {
 	t.Run("F", func(t *testing.T) {
 		t.Run("NilStrategy", testUseIDFNilStrategy)
@@ -155,6 +212,9 @@ func TestUseID(t *testing.T) {
 	})
 
 	t.Run("FromPath", func(t *testing.T) {
+		testUseIDFromPath(t)
+		t.Run("MissingVars", testUseIDFromPathMissingVars)
+		t.Run("MissingDeviceNameVar", testUseIDFromPathMissingDeviceNameVar)
 	})
 }
 
