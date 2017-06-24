@@ -3,8 +3,9 @@ package device
 import (
 	"bytes"
 	"encoding/base64"
-	"github.com/ugorji/go/codec"
 	"reflect"
+
+	"github.com/ugorji/go/codec"
 )
 
 var (

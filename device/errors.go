@@ -2,12 +2,13 @@ package device
 
 import (
 	"errors"
-	"fmt"
 )
 
 var (
-	ErrorMissingDeviceNameHeader = fmt.Errorf("Missing %s header", DeviceNameHeader)
-
+	ErrorMissingDeviceNameContext     = errors.New("Missing device ID in request context")
+	ErrorMissingDeviceNameHeader      = errors.New("Missing device name header")
+	ErrorMissingDeviceNameVar         = errors.New("Missing device name path variable")
+	ErrorMissingPathVars              = errors.New("Missing URI path variables")
 	ErrorInvalidDeviceName            = errors.New("Invalid device name")
 	ErrorDeviceNotFound               = errors.New("The device does not exist")
 	ErrorNonUniqueID                  = errors.New("More than once device with that identifier is connected")

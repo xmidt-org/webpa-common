@@ -2,12 +2,13 @@ package device
 
 import (
 	"context"
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"sync"
+
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/wrp"
 )
 
 // Request represents a single device Request, carrying routing information and message contents.

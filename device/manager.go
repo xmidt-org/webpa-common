@@ -3,13 +3,14 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 )
 
 // Connector is a strategy interface for managing device connections to a server.
@@ -118,32 +119,21 @@ type manager struct {
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	m.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
-	deviceName := request.Header.Get(DeviceNameHeader)
-	if len(deviceName) == 0 {
+	id, ok := GetID(request.Context())
+	if !ok {
 		httperror.Format(
 			response,
-			http.StatusBadRequest,
-			ErrorMissingDeviceNameHeader,
+			http.StatusInternalServerError,
+			ErrorMissingDeviceNameContext,
 		)
 
-		return nil, ErrorMissingDeviceNameHeader
-	}
-
-	id, err := ParseID(deviceName)
-	if err != nil {
-		badDeviceNameError := fmt.Errorf("Bad device name: %s", err)
-		httperror.Format(
-			response,
-			http.StatusBadRequest,
-			badDeviceNameError,
-		)
-
-		return nil, badDeviceNameError
+		return nil, ErrorMissingDeviceNameContext
 	}
 
 	var (
 		encodedConvey = request.Header.Get(ConveyHeader)
 		convey        Convey
+		err           error
 	)
 
 	if len(encodedConvey) > 0 {

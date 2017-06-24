@@ -3,15 +3,17 @@ package device
 import (
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/justinas/alice"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -36,10 +38,12 @@ func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
 	var (
 		manager = NewManager(o, nil)
 		server  = httptest.NewServer(
-			&ConnectHandler{
-				Logger:    o.logger(),
-				Connector: manager,
-			},
+			alice.New(Timeout(o), UseID.FromHeader).Then(
+				&ConnectHandler{
+					Logger:    o.logger(),
+					Connector: manager,
+				},
+			),
 		)
 
 		websocketURL, err = url.Parse(server.URL)
@@ -82,7 +86,7 @@ func closeTestDevices(assert *assert.Assertions, devices map[ID][]Connection) {
 	}
 }
 
-func testManagerConnectMissingDeviceNameHeader(t *testing.T) {
+func testManagerConnectMissingDeviceContext(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
 		Logger: logging.TestLogger(t),
@@ -95,24 +99,7 @@ func testManagerConnectMissingDeviceNameHeader(t *testing.T) {
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
 	assert.Error(err)
-	assert.Equal(response.Code, http.StatusBadRequest)
-}
-
-func testManagerConnectBadDeviceNameHeader(t *testing.T) {
-	assert := assert.New(t)
-	options := &Options{
-		Logger: logging.TestLogger(t),
-	}
-
-	manager := NewManager(options, nil)
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest("POST", "http://localhost.com", nil)
-	request.Header.Set(DeviceNameHeader, "this is not valid")
-
-	device, err := manager.Connect(response, request, nil)
-	assert.Nil(device)
-	assert.Error(err)
-	assert.Equal(response.Code, http.StatusBadRequest)
+	assert.Equal(response.Code, http.StatusInternalServerError)
 }
 
 func testManagerConnectBadConveyHeader(t *testing.T) {
@@ -123,8 +110,7 @@ func testManagerConnectBadConveyHeader(t *testing.T) {
 
 	manager := NewManager(options, nil)
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest("POST", "http://localhost.com", nil)
-	request.Header.Set(DeviceNameHeader, "mac:112233445566")
+	request := WithIDRequest(ID("mac:112233445566"), httptest.NewRequest("POST", "http://localhost.com", nil))
 	request.Header.Set(ConveyHeader, "this is not valid")
 
 	device, err := manager.Connect(response, request, nil)
@@ -147,10 +133,8 @@ func testManagerConnectKeyError(t *testing.T) {
 
 		manager  = NewManager(options, nil)
 		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("POST", "http://localhost.com", nil)
+		request  = WithIDRequest(ID("mac:112233445566"), httptest.NewRequest("POST", "http://localhost.com", nil))
 	)
-
-	request.Header.Set(DeviceNameHeader, "mac:112233445566")
 
 	device, err := manager.Connect(response, request, nil)
 	assert.Nil(device)
@@ -173,14 +157,13 @@ func testManagerConnectConnectionFactoryError(t *testing.T) {
 		connectionFactory = new(mockConnectionFactory)
 		manager           = NewManager(options, connectionFactory)
 		response          = httptest.NewRecorder()
-		request           = httptest.NewRequest("POST", "http://localhost.com", nil)
+		request           = WithIDRequest(ID("mac:123412341234"), httptest.NewRequest("POST", "http://localhost.com", nil))
 		responseHeader    http.Header
 		expectedError     = errors.New("expected error")
 	)
 
 	connectionFactory.On("NewConnection", response, request, responseHeader).Once().Return(nil, expectedError)
 
-	request.Header.Set(DeviceNameHeader, "mac:123412341234")
 	device, actualError := manager.Connect(response, request, responseHeader)
 	assert.Nil(device)
 	assert.Equal(expectedError, actualError)
@@ -572,8 +555,7 @@ func testManagerPingPong(t *testing.T) {
 
 func TestManager(t *testing.T) {
 	t.Run("Connect", func(t *testing.T) {
-		t.Run("MissingDeviceNameHeader", testManagerConnectMissingDeviceNameHeader)
-		t.Run("BadDeviceNameHeader", testManagerConnectBadDeviceNameHeader)
+		t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
 		t.Run("BadConveyHeader", testManagerConnectBadConveyHeader)
 		t.Run("KeyError", testManagerConnectKeyError)
 		t.Run("ConnectionFactoryError", testManagerConnectConnectionFactoryError)
