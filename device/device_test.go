@@ -3,12 +3,13 @@ package device
 import (
 	"context"
 	"encoding/json"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDevice(t *testing.T) {

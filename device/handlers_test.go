@@ -2,19 +2,221 @@ package device
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/gorilla/mux"
+	"github.com/justinas/alice"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
+
+func testTimeout(o *Options, t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		require        = require.New(t)
+		request        = httptest.NewRequest("GET", "/", nil)
+		response       = httptest.NewRecorder()
+		ctx            context.Context
+		delegateCalled bool
+
+		handler = alice.New(Timeout(o)).Then(
+			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				delegateCalled = true
+				ctx = request.Context()
+				assert.NotEqual(context.Background(), ctx)
+
+				deadline, ok := ctx.Deadline()
+				assert.False(deadline.IsZero())
+				assert.True(deadline.Sub(time.Now()) <= o.requestTimeout())
+				assert.True(ok)
+			}),
+		)
+	)
+
+	handler.ServeHTTP(response, request)
+	require.True(delegateCalled)
+
+	select {
+	case <-ctx.Done():
+		// pass
+	default:
+		assert.Fail("The context should have been cancelled after ServeHTTP exits")
+	}
+}
+
+func TestTimeout(t *testing.T) {
+	t.Run(
+		"NilOptions",
+		func(t *testing.T) { testTimeout(nil, t) },
+	)
+
+	t.Run(
+		"DefaultOptions",
+		func(t *testing.T) { testTimeout(new(Options), t) },
+	)
+
+	t.Run(
+		"CustomOptions",
+		func(t *testing.T) { testTimeout(&Options{RequestTimeout: 17 * time.Second}, t) },
+	)
+}
+
+func testUseIDFNilStrategy(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(useID(nil)).Then(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	assert.Panics(func() {
+		handler.ServeHTTP(response, request)
+	})
+}
+
+func testUseIDFError(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		request        = httptest.NewRequest("GET", "/", nil)
+		response       = httptest.NewRecorder()
+		expectedError  = errors.New("expected")
+		strategyCalled bool
+
+		strategy = func(*http.Request) (ID, error) {
+			strategyCalled = true
+			return invalidID, expectedError
+		}
+
+		handler = alice.New(useID(strategy)).Then(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.True(strategyCalled)
+}
+
+func testUseIDFromHeaderMissing(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(UseID.FromHeader).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	handler.ServeHTTP(response, request)
+}
+
+func testUseIDFromHeader(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		require        = require.New(t)
+		request        = httptest.NewRequest("GET", "/", nil)
+		response       = httptest.NewRecorder()
+		delegateCalled bool
+
+		handler = alice.New(UseID.FromHeader).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			delegateCalled = true
+			id, ok := GetID(request.Context())
+			assert.Equal(id, ID("mac:112233445566"))
+			assert.True(ok)
+		}))
+	)
+
+	request.Header.Set(DeviceNameHeader, "mac:112233445566")
+	handler.ServeHTTP(response, request)
+	require.True(delegateCalled)
+}
+
+func testUseIDFromPath(t *testing.T) {
+	var (
+		assert         = assert.New(t)
+		request        = httptest.NewRequest("GET", "/test/mac:112233445566", nil)
+		response       = httptest.NewRecorder()
+		delegateCalled bool
+
+		handler = alice.New(UseID.FromPath("did")).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			delegateCalled = true
+			id, ok := GetID(request.Context())
+			assert.Equal(id, ID("mac:112233445566"))
+			assert.True(ok)
+		}))
+
+		router = mux.NewRouter()
+	)
+
+	router.Handle("/test/{did}", handler)
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusOK, response.Code)
+	assert.True(delegateCalled)
+}
+
+func testUseIDFromPathMissingVars(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/foo", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(UseID.FromPath("did")).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+}
+
+func testUseIDFromPathMissingDeviceNameVar(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		request  = httptest.NewRequest("GET", "/foo", nil)
+		response = httptest.NewRecorder()
+
+		handler = alice.New(UseID.FromPath("did")).Then(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			assert.Fail("The delegate should not have been called")
+		}))
+
+		router = mux.NewRouter()
+	)
+
+	router.Handle("/foo", handler)
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+}
+
+func TestUseID(t *testing.T) {
+	t.Run("F", func(t *testing.T) {
+		t.Run("NilStrategy", testUseIDFNilStrategy)
+		t.Run("Error", testUseIDFError)
+	})
+
+	t.Run("FromHeader", func(t *testing.T) {
+		testUseIDFromHeader(t)
+		t.Run("Missing", testUseIDFromHeaderMissing)
+	})
+
+	t.Run("FromPath", func(t *testing.T) {
+		testUseIDFromPath(t)
+		t.Run("MissingVars", testUseIDFromPathMissingVars)
+		t.Run("MissingDeviceNameVar", testUseIDFromPathMissingDeviceNameVar)
+	})
+}
 
 func testMessageHandlerLogger(t *testing.T) {
 	var (
@@ -28,56 +230,6 @@ func testMessageHandlerLogger(t *testing.T) {
 
 	handler.Logger = logger
 	assert.Equal(logger, handler.logger())
-}
-
-func testMessageHandlerCreateContextNoTimeout(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = MessageHandler{}
-	)
-
-	ctx, cancel := handler.createContext(httptest.NewRequest("GET", "/", nil))
-	require.NotNil(ctx)
-	require.NotNil(cancel)
-
-	deadline, ok := ctx.Deadline()
-	assert.WithinDuration(time.Now(), deadline, DefaultMessageTimeout)
-	assert.True(ok)
-
-	cancel()
-	select {
-	case <-ctx.Done():
-		// passing
-	default:
-		assert.Fail("The cancel function should have cancelled the context")
-	}
-}
-
-func testMessageHandlerCreateContextWithTimeout(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		handler = MessageHandler{
-			Timeout: 247 * time.Hour,
-		}
-	)
-
-	ctx, cancel := handler.createContext(httptest.NewRequest("GET", "/", nil))
-	require.NotNil(ctx)
-	require.NotNil(cancel)
-
-	deadline, ok := ctx.Deadline()
-	assert.WithinDuration(time.Now(), deadline, handler.Timeout)
-	assert.True(ok)
-
-	cancel()
-	select {
-	case <-ctx.Done():
-		// passing
-	default:
-		assert.Fail("The cancel function should have cancelled the context")
-	}
 }
 
 func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
@@ -358,10 +510,6 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 func TestMessageHandler(t *testing.T) {
 	t.Run("Logger", testMessageHandlerLogger)
-	t.Run("CreateContext", func(t *testing.T) {
-		t.Run("NoTimeout", testMessageHandlerCreateContextNoTimeout)
-		t.Run("WithTimeout", testMessageHandlerCreateContextWithTimeout)
-	})
 
 	t.Run("ServeHTTP", func(t *testing.T) {
 		t.Run("DecodeError", testMessageHandlerServeHTTPDecodeError)

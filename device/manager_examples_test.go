@@ -3,11 +3,12 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
 	"io"
 	"os"
 	"sync"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
 )
 
 func ExampleManagerTransaction() {
@@ -54,7 +55,7 @@ func ExampleManagerTransaction() {
 	go func() {
 		readFrame := new(bytes.Buffer)
 		if frameRead, err := connection.Read(readFrame); !frameRead || err != nil {
-			fmt.Fprintf(os.Stderr, "Read failed: frameRead=%b, err=%s\n", frameRead, err)
+			fmt.Fprintf(os.Stderr, "Read failed: frameRead=%T, err=%s\n", frameRead, err)
 			return
 		}
 

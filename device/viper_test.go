@@ -2,12 +2,13 @@ package device
 
 import (
 	"bytes"
+	"testing"
+	"time"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestNewOptions(t *testing.T) {

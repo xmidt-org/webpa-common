@@ -1,9 +1,10 @@
 package device
 
 import (
-	"github.com/stretchr/testify/assert"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIntToMAC(t *testing.T) {

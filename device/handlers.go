@@ -3,14 +3,16 @@ package device
 import (
 	"bytes"
 	"context"
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
 	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -18,6 +20,91 @@ const (
 	DefaultRefreshInterval time.Duration = 10 * time.Second
 	DefaultListBacklog     uint32        = 150
 )
+
+// Timeout returns an Alice-style constructor which enforces a timeout for all device request contexts.
+func Timeout(o *Options) func(http.Handler) http.Handler {
+	timeout := o.requestTimeout()
+	return func(delegate http.Handler) http.Handler {
+		return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			ctx, cancel := context.WithTimeout(request.Context(), timeout)
+			defer cancel()
+			delegate.ServeHTTP(response, request.WithContext(ctx))
+		})
+	}
+}
+
+// IDFromRequest is a strategy type for extracting the device identifier from an HTTP request
+type IDFromRequest func(*http.Request) (ID, error)
+
+// UseID is a collection of Alice-style constructors that all insert the device ID
+// into the delegate's request Context using various strategies.
+var UseID = struct {
+	// F is a configurable constructor that allows an arbitrary IDFromRequest strategy
+	F func(IDFromRequest) func(http.Handler) http.Handler
+
+	// FromHeader uses the device name header to extract the device identifier.
+	// This constructor isn't configurable, and is used as-is: device.UseID.FromHeader.
+	FromHeader func(http.Handler) http.Handler
+
+	// FromPath is a configurable constructor that extracts the device identifier
+	// from the URI path using the supplied variable name.  This constructor is
+	// configurable: device.UseID.FromPath("deviceId").
+	FromPath func(string) func(http.Handler) http.Handler
+}{
+	F: useID,
+
+	FromHeader: useID(
+		func(request *http.Request) (ID, error) {
+			deviceName := request.Header.Get(DeviceNameHeader)
+			if len(deviceName) == 0 {
+				return invalidID, ErrorMissingDeviceNameHeader
+			}
+
+			return ParseID(deviceName)
+		},
+	),
+
+	FromPath: func(variableName string) func(http.Handler) http.Handler {
+		return useID(
+			func(request *http.Request) (ID, error) {
+				vars := mux.Vars(request)
+				if vars == nil {
+					return invalidID, ErrorMissingPathVars
+				}
+
+				deviceName := vars[variableName]
+				if len(deviceName) == 0 {
+					return invalidID, ErrorMissingDeviceNameVar
+				}
+
+				return ParseID(deviceName)
+			},
+		)
+	},
+}
+
+// useID is the general purpose creator for an Alice-style constructor that passes the ID
+// to the delegate via the request Context.  This internal function is exported via UseID.F.
+func useID(f IDFromRequest) func(http.Handler) http.Handler {
+	return func(delegate http.Handler) http.Handler {
+		return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+			id, err := f(request)
+			if err != nil {
+				httperror.Formatf(
+					response,
+					http.StatusBadRequest,
+					"Could extract device id: %s",
+					err,
+				)
+
+				return
+			}
+
+			ctx := WithID(id, request.Context())
+			delegate.ServeHTTP(response, request.WithContext(ctx))
+		})
+	}
+}
 
 // MessageHandler is a configurable http.Handler which handles inbound WRP traffic
 // to be sent to devices.
@@ -36,10 +123,6 @@ type MessageHandler struct {
 
 	// Router is the device message Router to use.  This field is required.
 	Router Router
-
-	// Timeout is the optional timeout for all operations through this handler.
-	// If this field is unset or is nonpositive, DefaultMessageTimeout is used instead.
-	Timeout time.Duration
 }
 
 func (mh *MessageHandler) logger() logging.Logger {
@@ -50,33 +133,18 @@ func (mh *MessageHandler) logger() logging.Logger {
 	return logging.DefaultLogger()
 }
 
-// createContext creates the Context object for routing operations.
-// This method will never return nils.  There will always be a timeout on the
-// returned context, which means there will always be a cancel function too.
-func (mh *MessageHandler) createContext(httpRequest *http.Request) (context.Context, context.CancelFunc) {
-	timeout := mh.Timeout
-	if timeout < 1 {
-		timeout = DefaultMessageTimeout
-	}
-
-	return context.WithTimeout(httpRequest.Context(), mh.Timeout)
-}
-
 // decodeRequest transforms an HTTP request into a device request.
-func (mh *MessageHandler) decodeRequest(ctx context.Context, httpRequest *http.Request) (deviceRequest *Request, err error) {
+func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceRequest *Request, err error) {
 	deviceRequest, err = DecodeRequest(httpRequest.Body, mh.Decoders)
 	if err == nil {
-		deviceRequest = deviceRequest.WithContext(ctx)
+		deviceRequest = deviceRequest.WithContext(httpRequest.Context())
 	}
 
 	return
 }
 
 func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpRequest *http.Request) {
-	ctx, cancel := mh.createContext(httpRequest)
-	defer cancel()
-
-	deviceRequest, err := mh.decodeRequest(ctx, httpRequest)
+	deviceRequest, err := mh.decodeRequest(httpRequest)
 	if err != nil {
 		httperror.Formatf(
 			httpResponse,
