@@ -69,7 +69,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	return
 }
 
-// NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
+// NewRegistryAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
 func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	tick := f.Tick
