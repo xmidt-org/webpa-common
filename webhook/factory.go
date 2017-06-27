@@ -71,24 +71,25 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 
 // NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler) {
+func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
 	}
 
 	monitor := &monitor{
-		list:             NewRegistry(nil, f.Notifier.PublishMessage),
+		list:             NewList(nil),
 		undertaker:       f.Undertaker,
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
 	f.m = monitor
-
 	f.m.Notifier = f.Notifier
 
+	reg := NewRegistry(f.m)
+
 	go monitor.listen()
-	return monitor.list, monitor
+	return reg, monitor
 }
 
 // monitor is an internal type that listens for webhook updates, invokes
@@ -126,14 +127,14 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 
 	// transform message to W
-	var newHook W
-	if err := json.Unmarshal(message, &newHook); err != nil {
+	var newHooks []W
+	if err := json.Unmarshal(message, &newHooks); err != nil {
 		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
 		return
 	}
 
 	select {
-	case m.changes <- []W{newHook}:
+	case m.changes <- newHooks:
 	default:
 	}
 }
