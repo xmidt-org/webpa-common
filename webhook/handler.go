@@ -10,30 +10,13 @@ import (
 )
 
 type Registry struct {
-	updatableList
-	publisher func(string)
+	m *monitor
 }
 
-func (r *Registry) SetPublisher(pub func(string)) {
-	r.publisher = pub
-}
-
-func (r *Registry) Publish(msg string) {
-	r.publisher(msg)
-}
-
-func NewRegistry(list []W, pub func(string)) *Registry {
-	if pub == nil {
-		pub = func(s string) {
-			fmt.Println(s)
-		}
+func NewRegistry(mon *monitor) Registry {
+	return Registry{
+		m: mon,
 	}
-
-	r := &Registry{}
-	r.SetPublisher(pub)
-	r.Update(list)
-
-	return r
 }
 
 // jsonResponse is an internal convenience function to write a json response
@@ -46,8 +29,8 @@ func jsonResponse(rw http.ResponseWriter, code int, msg string) {
 // get is an api call to return all the registered listeners
 func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	var items []*W
-	for i := 0; i < r.Len(); i++ {
-		items = append(items, r.Get(i))
+	for i := 0; i < r.m.list.Len(); i++ {
+		items = append(items, r.m.list.Get(i))
 	}
 
 	if msg, err := json.Marshal(items); err != nil {
@@ -124,5 +107,5 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	r.Publish(string(msg))
+	r.m.Notifier.PublishMessage(string(msg))
 }

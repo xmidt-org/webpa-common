@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *mux.Router, f *Factory) (*httptest.Server, List) {
+func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *mux.Router, f *Factory) (*httptest.Server, Registry) {
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 	confSubArn := "testSubscriptionArn"
@@ -25,7 +25,7 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
-	list, handler := f.NewListAndHandler()
+	registry, handler := f.NewRegistryAndHandler()
 
 	f.Initialize(r, nil, handler, nil)
 
@@ -56,17 +56,17 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(res.StatusCode, http.StatusOK)
+	assert.Equal(http.StatusOK, res.StatusCode)
 
 	time.Sleep(1 * time.Second)
 	subConfValid := f.ValidateSubscriptionArn(confSubArn)
 
-	assert.Equal(subConfValid, true)
+	assert.Equal(true, subConfValid)
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
 
-	return ts, list
+	return ts, registry
 }
 
 func TestNotifierReadyFlow(t *testing.T) {
@@ -94,7 +94,7 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
-	_, handler := f.NewListAndHandler()
+	_, handler := f.NewRegistryAndHandler()
 
 	f.Initialize(r, nil, handler, nil)
 
@@ -115,23 +115,23 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 
 	subValid := f.ValidateSubscriptionArn(expectedSubArn)
 
-	assert.Equal(subValid, true)
+	assert.Equal(true, subValid)
 
 	req.RequestURI = ""
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(res.StatusCode, http.StatusBadRequest)
+	assert.Equal(http.StatusBadRequest, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
 	errResp, _ := ioutil.ReadAll(res.Body)
 	json.Unmarshal([]byte(errResp), errMsg)
 
-	assert.Equal(errMsg.Code, http.StatusBadRequest)
-	assert.Equal(errMsg.Message, AWS.SNS_VALIDATION_ERR)
+	assert.Equal(http.StatusBadRequest, errMsg.Code)
+	assert.Equal(AWS.SNS_VALIDATION_ERR, errMsg.Message)
 
 	subConfValid := f.ValidateSubscriptionArn(confSubArn)
-	assert.Equal(subConfValid, false)
+	assert.Equal(false, subConfValid)
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
@@ -145,7 +145,7 @@ func TestNotifierPublishFlow(t *testing.T) {
 	// setting to mocked Notifier instance
 	f.Notifier = n
 
-	ts, list := testNotifierReady(t, m, mv, r, f)
+	ts, registry := testNotifierReady(t, m, mv, r, f)
 
 	// mocking SNS Publish response
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
@@ -166,18 +166,18 @@ func TestNotifierPublishFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(res.StatusCode, http.StatusOK)
+	assert.Equal(http.StatusOK, res.StatusCode)
 
 	time.Sleep(1 * time.Second)
 
-	assert.Equal(list.Len(), 1)
+	assert.Equal(1, registry.m.list.Len())
 
 	// Assert the notification webhook W received matches the one that was sent in publish message
-	hook := *list.Get(0)
+	hook := registry.m.list.Get(0)
 
-	assert.Equal(hook.Events, []string{"transaction-status", "SYNC_NOTIFICATION"})
-	assert.Equal(hook.Config.URL, "http://127.0.0.1:8080/test")
-	assert.Equal(hook.Matcher.DeviceId, []string{".*"})
+	assert.Equal([]string{"transaction-status", "SYNC_NOTIFICATION"}, hook.Events)
+	assert.Equal("http://127.0.0.1:8080/test", hook.Config.URL)
+	assert.Equal([]string{".*"}, hook.Matcher.DeviceId)
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
@@ -192,7 +192,7 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	// setting to mocked Notifier instance
 	f.Notifier = n
 
-	ts, list := testNotifierReady(t, m, mv, r, f)
+	ts, registry := testNotifierReady(t, m, mv, r, f)
 
 	// mocking SNS Publish response
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
@@ -213,14 +213,14 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(res.StatusCode, http.StatusBadRequest)
+	assert.Equal(http.StatusBadRequest, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
 	errResp, _ := ioutil.ReadAll(res.Body)
 	json.Unmarshal([]byte(errResp), errMsg)
 
-	assert.Equal(errMsg.Code, http.StatusBadRequest)
-	assert.Equal(errMsg.Message, "TopicArn does not match")
-	assert.Equal(list.Len(), 0)
+	assert.Equal(http.StatusBadRequest, errMsg.Code)
+	assert.Equal("TopicArn does not match", errMsg.Message)
+	assert.Equal(0, registry.m.list.Len())
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
@@ -236,7 +236,7 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 	// setting to mocked Notifier instance
 	f.Notifier = n
 
-	ts, list := testNotifierReady(t, m, mv, r, f)
+	ts, registry := testNotifierReady(t, m, mv, r, f)
 
 	// mocking SNS Publish response
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
@@ -258,14 +258,14 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(res.StatusCode, http.StatusBadRequest)
+	assert.Equal(http.StatusBadRequest, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
 	errResp, _ := ioutil.ReadAll(res.Body)
 	json.Unmarshal([]byte(errResp), errMsg)
 
-	assert.Equal(errMsg.Code, http.StatusBadRequest)
-	assert.Equal(errMsg.Message, AWS.SNS_VALIDATION_ERR)
-	assert.Equal(list.Len(), 0)
+	assert.Equal(http.StatusBadRequest, errMsg.Code)
+	assert.Equal(AWS.SNS_VALIDATION_ERR, errMsg.Message)
+	assert.Equal(0, registry.m.list.Len())
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
