@@ -236,32 +236,33 @@ func (ss *SNSServer) PublishMessage(message string) {
 // NS publishes it to SNS
 // This go Routine is started when SNS Ready and stopped when SNS is not Ready
 func (ss *SNSServer) listenAndPublishMessage(quit <-chan struct{}) {
+	for {
+		select {
+		case message := <-ss.notificationData:
 
-	select {
-	case message := <-ss.notificationData:
-
-		params := &sns.PublishInput{
-			Message: aws.String(message), // Required
-			MessageAttributes: map[string]*sns.MessageAttributeValue{
-				MSG_ATTR: { // Required
-					DataType:    aws.String("String"), // Required
-					StringValue: aws.String(ss.Config.Env),
+			params := &sns.PublishInput{
+				Message: aws.String(message), // Required
+				MessageAttributes: map[string]*sns.MessageAttributeValue{
+					MSG_ATTR: { // Required
+						DataType:    aws.String("String"), // Required
+						StringValue: aws.String(ss.Config.Env),
+					},
 				},
-			},
-			Subject:  aws.String("new webhook"),
-			TopicArn: aws.String(ss.Config.Sns.TopicArn),
-		}
-		resp, err := ss.SVC.Publish(params)
+				Subject:  aws.String("new webhook"),
+				TopicArn: aws.String(ss.Config.Sns.TopicArn),
+			}
+			resp, err := ss.SVC.Publish(params)
 
-		if err != nil {
-			ss.Error("SNS send message error %v", err)
-		}
-		ss.Debug("SNS send message resp: %v", resp)
-	// TODO : health.SendEvent(HTH.Set("TotalDataPayloadSent", int(len([]byte(resp.GoString()))) ))
+			if err != nil {
+				ss.Error("SNS send message error %v", err)
+			}
+			ss.Debug("SNS send message resp: %v", resp)
+		// TODO : health.SendEvent(HTH.Set("TotalDataPayloadSent", int(len([]byte(resp.GoString()))) ))
 
-	// To terminate the go routine when SNS is not ready, so dont allow publish message
-	case <-quit:
-		return
+		// To terminate the go routine when SNS is not ready, so dont allow publish message
+		case <-quit:
+			return
+		}
 	}
 }
 
