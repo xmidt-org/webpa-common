@@ -1,8 +1,9 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/logging"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
 )
 
 const (
@@ -15,6 +16,7 @@ const (
 
 	DefaultHandshakeTimeout time.Duration = 10 * time.Second
 	DefaultIdlePeriod       time.Duration = 135 * time.Second
+	DefaultRequestTimeout   time.Duration = 30 * time.Second
 	DefaultWriteTimeout     time.Duration = 60 * time.Second
 	DefaultPingPeriod       time.Duration = 45 * time.Second
 
@@ -66,6 +68,9 @@ type Options struct {
 	// IdlePeriod is the length of time a device connection is allowed to be idle,
 	// with no traffic coming from the device.  If not supplied, DefaultIdlePeriod is used.
 	IdlePeriod time.Duration
+
+	// RequestTimeout is the timeout for all inbound HTTP requests
+	RequestTimeout time.Duration
 
 	// WriteTimeout is the write timeout for each device's websocket.  If not supplied,
 	// DefaultWriteTimeout is used.
@@ -137,6 +142,14 @@ func (o *Options) pingPeriod() time.Duration {
 	}
 
 	return DefaultPingPeriod
+}
+
+func (o *Options) requestTimeout() time.Duration {
+	if o != nil && o.RequestTimeout > 0 {
+		return o.RequestTimeout
+	}
+
+	return DefaultRequestTimeout
 }
 
 func (o *Options) writeTimeout() time.Duration {

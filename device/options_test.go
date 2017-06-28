@@ -1,11 +1,12 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOptionsDefault(t *testing.T) {

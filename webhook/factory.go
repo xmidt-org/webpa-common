@@ -1,12 +1,12 @@
 package webhook
 
 import (
-	"github.com/spf13/viper"
-	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"encoding/json"
 	"github.com/Comcast/webpa-common/httperror"
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/spf13/viper"
 	"net/http"
 	"time"
-	"encoding/json"
 )
 
 const (
@@ -27,13 +27,13 @@ type Factory struct {
 	// Undertaker is set by clients after reading in a Factory from some external source.
 	// The associated Undertaker is immutable after construction.
 	Undertaker func([]W) []W `json:"-"`
-	
+
 	// internal handler for webhook
 	m *monitor `json:"-"`
-	
+
 	// internal handler for AWS SNS Server
-	AWS.Notifier  `json:"-"`
-	
+	AWS.Notifier `json:"-"`
+
 	// StartConfig is the contains the data need to obtain the current system's listeners
 	Start *StartConfig `json:"start"`
 }
@@ -52,18 +52,26 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	// allowing the viper instance to be nil allows a client to do
 	// NewFactory(nil) to get a default Factory instance
 	if v != nil {
-		err = v.Unmarshal(f)
+		err = v.Unmarshal(f)	
+		if err != nil {
+			return
+		}
+	}
+
+	if v != nil {
+		f.Start = NewStartFactory(v.Sub("start"))
+	} else {
+		f.Start = NewStartFactory(nil)
 	}
 	
-	f.Start = NewStartFactory(v)
 	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
 }
 
-// NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
+// NewRegistryAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler ) {
+func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -76,13 +84,13 @@ func (f *Factory) NewListAndHandler() (List, http.Handler ) {
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
 	f.m = monitor
-	
 	f.m.Notifier = f.Notifier
-	
-	go monitor.listen()
-	return monitor.list, monitor
-}
 
+	reg := NewRegistry(f.m)
+
+	go monitor.listen()
+	return reg, monitor
+}
 
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
@@ -94,6 +102,9 @@ type monitor struct {
 	AWS.Notifier
 }
 
+func (f *Factory) SetList(ul UpdatableList) {
+	f.m.list = ul
+}
 
 func (m *monitor) listen() {
 	for {
@@ -107,7 +118,7 @@ func (m *monitor) listen() {
 }
 
 // ServeHTTP is used as POST handler for AWS SNS
-// It transforms the message containing webhook to []W and updates the webhook list  
+// It transforms the message containing webhook to []W and updates the webhook list
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	// transform a request into a []byte
 	message := m.NotificationHandle(response, request)
@@ -116,14 +127,14 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 
 	// transform message to W
-	var newHook W
-	if err := json.Unmarshal(message, &newHook); err != nil {
+	var newHooks []W
+	if err := json.Unmarshal(message, &newHooks); err != nil {
 		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
 		return
 	}
 
 	select {
-		case m.changes <- []W{newHook}:
-		default:
+	case m.changes <- newHooks:
+	default:
 	}
 }

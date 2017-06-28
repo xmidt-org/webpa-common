@@ -1,5 +1,7 @@
 package: github.com/Comcast/webpa-common
 import:
+- package: github.com/justinas/alice
+  version: "1.0.0"
 - package: github.com/SermoDigital/jose
   version: "1.1"
   subpackages:

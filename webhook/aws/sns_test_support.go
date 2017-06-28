@@ -5,7 +5,7 @@ import (
 )
 
 type ErrResp struct {
-	Code int
+	Code    int
 	Message string
 }
 
@@ -54,7 +54,7 @@ const (
 	"MessageId" : "22b80b92-fdea-4c2c-8f9d-bdfb0c7bf324",
 	"TopicArn" : "arn:aws:sns:us-east-1:1234:test-topic",
 	"Subject" : "My First Message",
-	"Message" : "{\"config\":{\"url\":\"http://127.0.0.1:8080/test\",\"content_type\":\"json\",\"secret\":\"\"},\"matcher\":{\"device_id\":[\".*\"]},\"events\":[\"transaction-status\",\"SYNC_NOTIFICATION\"]}",
+	"Message" : "[{\"config\":{\"url\":\"http://127.0.0.1:8080/test\",\"content_type\":\"json\",\"secret\":\"\"},\"matcher\":{\"device_id\":[\".*\"]},\"events\":[\"transaction-status\",\"SYNC_NOTIFICATION\"]}]",
 	"Timestamp" : "2012-05-02T00:54:06.655Z",
 	"SignatureVersion" : "1",
 	"Signature" : "EXAMPLEw6JRNwm1LFQL4ICB0bnXrdB8ClRMTQFGBqwLpGbM78tJ4etTwC5zU7O3tS6tGpey3ejedNdOJ+1fkIp9F2/LmNVKb5aFlYq+9rk9ZiPph5YlLmWsDcyC5T+Sy9/umic5S0UQc2PEtgdpVBahwNOdMW4JPwk0kAJJztnc=",
@@ -79,19 +79,19 @@ const (
 	} }`
 )
 
-func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router)  {
-	
+func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router) {
+
 	awsCfg, _ := NewAWSConfig(nil)
 	m := &MockSVC{}
 	mv := &MockValidator{}
-	
+
 	ss := &SNSServer{
-		Config: *awsCfg,
-		SVC: m,
-		SNSValidator : mv,
+		Config:       *awsCfg,
+		SVC:          m,
+		SNSValidator: mv,
 	}
-	
+
 	r := mux.NewRouter()
-	
+
 	return ss, m, mv, r
 }
