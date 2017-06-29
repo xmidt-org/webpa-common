@@ -64,7 +64,22 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		f.Start = NewStartFactory(nil)
 	}
 	
+	f.undertaker = f.Prune
 	f.Notifier, err = AWS.NewNotifier(v)
+
+	return
+}
+
+func (f *Factory) SetList(ul UpdatableList) {
+	f.m.list = ul
+}
+
+func (f *Factory) Prune(items []W) (list []W) {
+	for i:=0; i<len(items); i++ {
+		if !items[i].Until.After(time.Now()) {
+			list = append(list, items[i])
+		}
+	}
 
 	return
 }
@@ -100,10 +115,6 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
-}
-
-func (f *Factory) SetList(ul UpdatableList) {
-	f.m.list = ul
 }
 
 func (m *monitor) listen() {
