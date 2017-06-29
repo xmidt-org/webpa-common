@@ -21,12 +21,12 @@ type Factory struct {
 	// Test code can set this field to something that returns a channel under the control of the test.
 	Tick func(time.Duration) <-chan time.Time `json:"-"`
 
-	// UndertakerInterval is how often the Undertaker is invoked
+	// UndertakerInterval is how often the undertaker is invoked
 	UndertakerInterval time.Duration `json:"undertakerInterval"`
 
-	// Undertaker is set by clients after reading in a Factory from some external source.
-	// The associated Undertaker is immutable after construction.
-	Undertaker func([]W) []W `json:"-"`
+	// undertaker is set by clients after reading in a Factory from some external source.
+	// The associated undertaker is immutable after construction.
+	undertaker func([]W) []W `json:"-"`
 
 	// internal handler for webhook
 	m *monitor `json:"-"`
@@ -79,7 +79,7 @@ func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 
 	monitor := &monitor{
 		list:             NewList(nil),
-		undertaker:       f.Undertaker,
+		undertaker:       f.undertaker,
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
