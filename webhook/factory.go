@@ -21,12 +21,12 @@ type Factory struct {
 	// Test code can set this field to something that returns a channel under the control of the test.
 	Tick func(time.Duration) <-chan time.Time `json:"-"`
 
-	// UndertakerInterval is how often the Undertaker is invoked
+	// UndertakerInterval is how often the undertaker is invoked
 	UndertakerInterval time.Duration `json:"undertakerInterval"`
 
-	// Undertaker is set by clients after reading in a Factory from some external source.
-	// The associated Undertaker is immutable after construction.
-	Undertaker func([]W) []W `json:"-"`
+	// undertaker is set by clients after reading in a Factory from some external source.
+	// The associated undertaker is immutable after construction.
+	undertaker func([]W) []W `json:"-"`
 
 	// internal handler for webhook
 	m *monitor `json:"-"`
@@ -64,7 +64,22 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		f.Start = NewStartFactory(nil)
 	}
 	
+	f.undertaker = f.Prune
 	f.Notifier, err = AWS.NewNotifier(v)
+
+	return
+}
+
+func (f *Factory) SetList(ul UpdatableList) {
+	f.m.list = ul
+}
+
+func (f *Factory) Prune(items []W) (list []W) {
+	for i:=0; i<len(items); i++ {
+		if !items[i].Until.After(time.Now()) {
+			list = append(list, items[i])
+		}
+	}
 
 	return
 }
@@ -79,7 +94,7 @@ func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 
 	monitor := &monitor{
 		list:             NewList(nil),
-		undertaker:       f.Undertaker,
+		undertaker:       f.undertaker,
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
@@ -100,10 +115,6 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
-}
-
-func (f *Factory) SetList(ul UpdatableList) {
-	f.m.list = ul
 }
 
 func (m *monitor) listen() {
