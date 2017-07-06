@@ -117,6 +117,7 @@ func (ul *updatableList) Update(newItems []W) {
 				} else {
 					items[i].Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
 				}
+				items[i].Duration = newItem.Duration
 				items[i].Matcher = newItem.Matcher
 				items[i].Events = newItem.Events
 				items[i].Config.ContentType = newItem.Config.ContentType
@@ -126,7 +127,11 @@ func (ul *updatableList) Update(newItems []W) {
 
 		// add item
 		if !found {
-			newItem.Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
+			if newItem.Duration > 0 && newItem.Duration < DEFAULT_EXPIRATION_DURATION {
+				newItem.Until = time.Now().Add(newItem.Duration)
+			} else {
+				newItem.Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
+			}
 			items = append(items, &newItem)
 		}
 
@@ -147,7 +152,7 @@ func (ul *updatableList) Filter(filter func([]W) []W) {
 			copyOf[i] = w
 		}
 
-		ul.Update(filter(copyOf))
+		ul.value.Store(filter(copyOf))
 	}
 }
 
