@@ -58,6 +58,14 @@ func (w *W) ID() string {
 	return w.Config.URL
 }
 
+// durationValidator performs a check on a W.Duration value.
+// if found to be invalid it is set to the DEFAULT_EXPIRATION_DURATION
+func (w *W) durationValidator() {
+	if w.Duration < 0 || w.Duration > DEFAULT_EXPIRATION_DURATION {
+		w.Duration = DEFAULT_EXPIRATION_DURATION
+	}
+}
+
 // List is a read-only random access interface to a set of W's
 // We don't necessarily need an implementation of just this interface alone.
 type List interface {
@@ -78,6 +86,10 @@ type UpdatableList interface {
 
 type updatableList struct {
 	value atomic.Value
+}
+
+func (ul *updatableList) set(list []W) {
+	ul.value.Store(list)
 }
 
 func (ul *updatableList) Len() int {
@@ -107,17 +119,14 @@ func (ul *updatableList) Update(newItems []W) {
 			items = append(items, ul.Get(i))
 		}
 
+		newItem.durationValidator()
+		newItem.Until = time.Now().Add(newItem.Duration)
+		
 		// update item
 		for i := 0; i < len(items) && !found; i++ {
 			if items[i].Config.URL == newItem.Config.URL {
 				found = true
 
-				if newItem.Duration > 0 && newItem.Duration < DEFAULT_EXPIRATION_DURATION {
-					items[i].Until = time.Now().Add(newItem.Duration)
-				} else {
-					items[i].Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
-				}
-				items[i].Duration = newItem.Duration
 				items[i].Matcher = newItem.Matcher
 				items[i].Events = newItem.Events
 				items[i].Config.ContentType = newItem.Config.ContentType
@@ -127,11 +136,6 @@ func (ul *updatableList) Update(newItems []W) {
 
 		// add item
 		if !found {
-			if newItem.Duration > 0 && newItem.Duration < DEFAULT_EXPIRATION_DURATION {
-				newItem.Until = time.Now().Add(newItem.Duration)
-			} else {
-				newItem.Until = time.Now().Add(DEFAULT_EXPIRATION_DURATION)
-			}
 			items = append(items, &newItem)
 		}
 
@@ -141,7 +145,7 @@ func (ul *updatableList) Update(newItems []W) {
 		}
 
 		// store items
-		ul.value.Store(itemsCopy)
+		ul.set(itemsCopy)
 	}
 }
 
@@ -152,7 +156,7 @@ func (ul *updatableList) Filter(filter func([]W) []W) {
 			copyOf[i] = w
 		}
 
-		ul.value.Store(filter(copyOf))
+		ul.set(filter(copyOf))
 	}
 }
 
