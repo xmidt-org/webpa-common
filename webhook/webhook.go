@@ -60,7 +60,7 @@ func (w *W) ID() string {
 
 // durationValidator performs a check on a W.Duration value.
 // if found to be invalid it is set to the DEFAULT_EXPIRATION_DURATION
-func (w *W) durationValidator() {
+func (w *W) DurationValidator() {
 	if w.Duration < 0 || w.Duration > DEFAULT_EXPIRATION_DURATION {
 		w.Duration = DEFAULT_EXPIRATION_DURATION
 	}
@@ -119,12 +119,12 @@ func (ul *updatableList) Update(newItems []W) {
 			items = append(items, ul.Get(i))
 		}
 
-		newItem.durationValidator()
+		newItem.DurationValidator()
 		newItem.Until = time.Now().Add(newItem.Duration)
 		
 		// update item
 		for i := 0; i < len(items) && !found; i++ {
-			if items[i].Config.URL == newItem.Config.URL {
+			if items[i].ID() == newItem.ID() {
 				found = true
 
 				items[i].Matcher = newItem.Matcher
