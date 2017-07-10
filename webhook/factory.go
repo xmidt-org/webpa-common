@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultUndertakerInterval time.Duration = time.Minute
+	DEFAULT_UNDERTAKER_INTERVAL time.Duration = time.Minute
 )
 
 // Factory is a classic Factory Object for various webhook things.
@@ -46,7 +46,8 @@ type Factory struct {
 // of things easier on clients, like creating a test Factory for tests in client code.
 func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	f = &Factory{
-	/* put in any system defaults here.  they won't be overridden by Viper unless they are present in external configuration */
+		/* put in any system defaults here.  they won't be overridden by Viper unless they are present in external configuration */
+		UndertakerInterval: DEFAULT_UNDERTAKER_INTERVAL,
 	}
 
 	// allowing the viper instance to be nil allows a client to do
@@ -76,7 +77,7 @@ func (f *Factory) SetList(ul UpdatableList) {
 
 func (f *Factory) Prune(items []W) (list []W) {
 	for i:=0; i<len(items); i++ {
-		if !items[i].Until.After(time.Now()) {
+		if items[i].Until.After(time.Now()) {
 			list = append(list, items[i])
 		}
 	}
