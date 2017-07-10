@@ -93,6 +93,11 @@ func (s *statistics) ConnectedAt() time.Time {
 	return s.connectedAt
 }
 
+func (s *statistics) String() string {
+	data, _ := s.MarshalJSON()
+	return string(data)
+}
+
 func (s *statistics) MarshalJSON() ([]byte, error) {
 	output := bytes.NewBuffer(make([]byte, 0, 150))
 	fmt.Fprintf(
