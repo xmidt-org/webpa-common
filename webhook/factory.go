@@ -21,12 +21,12 @@ type Factory struct {
 	// Test code can set this field to something that returns a channel under the control of the test.
 	Tick func(time.Duration) <-chan time.Time `json:"-"`
 
-	// UndertakerInterval is how often the Undertaker is invoked
+	// UndertakerInterval is how often the undertaker is invoked
 	UndertakerInterval time.Duration `json:"undertakerInterval"`
 
-	// Undertaker is set by clients after reading in a Factory from some external source.
-	// The associated Undertaker is immutable after construction.
-	Undertaker func([]W) []W `json:"-"`
+	// undertaker is set by clients after reading in a Factory from some external source.
+	// The associated undertaker is immutable after construction.
+	undertaker func([]W) []W `json:"-"`
 
 	// internal handler for webhook
 	m *monitor `json:"-"`
@@ -64,31 +64,47 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 		f.Start = NewStartFactory(nil)
 	}
 	
+	f.undertaker = f.Prune
 	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
 }
 
-// NewListAndHandler returns a List instance for accessing webhooks and an HTTP handler
+func (f *Factory) SetList(ul UpdatableList) {
+	f.m.list = ul
+}
+
+func (f *Factory) Prune(items []W) (list []W) {
+	for i:=0; i<len(items); i++ {
+		if !items[i].Until.After(time.Now()) {
+			list = append(list, items[i])
+		}
+	}
+
+	return
+}
+
+// NewRegistryAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewListAndHandler() (List, http.Handler) {
+func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
 	}
 
 	monitor := &monitor{
-		list:             NewRegistry(nil, f.Notifier.PublishMessage),
-		undertaker:       f.Undertaker,
+		list:             NewList(nil),
+		undertaker:       f.undertaker,
 		changes:          make(chan []W, 10),
 		undertakerTicker: tick(f.UndertakerInterval),
 	}
 	f.m = monitor
-
 	f.m.Notifier = f.Notifier
 
+	reg := NewRegistry(f.m)
+
 	go monitor.listen()
-	return monitor.list, monitor
+	return reg, monitor
 }
 
 // monitor is an internal type that listens for webhook updates, invokes
@@ -99,10 +115,6 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
-}
-
-func (f *Factory) SetList(ul UpdatableList) {
-	f.m.list = ul
 }
 
 func (m *monitor) listen() {
@@ -126,14 +138,14 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 
 	// transform message to W
-	var newHook W
-	if err := json.Unmarshal(message, &newHook); err != nil {
+	var newHooks []W
+	if err := json.Unmarshal(message, &newHooks); err != nil {
 		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
 		return
 	}
 
 	select {
-	case m.changes <- []W{newHook}:
+	case m.changes <- newHooks:
 	default:
 	}
 }
