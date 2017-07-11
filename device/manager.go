@@ -57,7 +57,7 @@ type Router interface {
 // in this interface follow the Visitor pattern and are typically executed under a read lock.
 type Registry interface {
 	// Statistics returns the tracked statistics for a given device.
-	Statistics(ID) (Statistics, error)
+	Statistics(ID) (*Statistics, error)
 
 	// VisitIf applies a visitor to any device matching the ID predicate.
 	//
@@ -438,7 +438,7 @@ func (m *manager) DisconnectIf(filter func(ID) bool) int {
 	})
 }
 
-func (m *manager) Statistics(id ID) (result Statistics, err error) {
+func (m *manager) Statistics(id ID) (result *Statistics, err error) {
 	count := m.registry.visitID(id, func(d *device) {
 		result = d.Statistics()
 	})

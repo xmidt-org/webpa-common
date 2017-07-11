@@ -89,7 +89,7 @@ type Interface interface {
 	Send(*Request) (*Response, error)
 
 	// Statistics returns the current, tracked Statistics instance for this device
-	Statistics() Statistics
+	Statistics() *Statistics
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -101,7 +101,7 @@ type device struct {
 	convey        Convey
 	encodedConvey string
 
-	statistics Statistics
+	statistics *Statistics
 
 	state int32
 
@@ -286,6 +286,6 @@ func (d *device) Send(request *Request) (*Response, error) {
 	return d.awaitResponse(request, result)
 }
 
-func (d *device) Statistics() Statistics {
+func (d *device) Statistics() *Statistics {
 	return d.statistics
 }

@@ -57,9 +57,9 @@ func (m *mockDevice) Closed() bool {
 	return arguments.Bool(0)
 }
 
-func (m *mockDevice) Statistics() Statistics {
+func (m *mockDevice) Statistics() *Statistics {
 	arguments := m.Called()
-	first, _ := arguments.Get(0).(Statistics)
+	first, _ := arguments.Get(0).(*Statistics)
 	return first
 }
 
