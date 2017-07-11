@@ -106,6 +106,45 @@ func useID(f IDFromRequest) func(http.Handler) http.Handler {
 	}
 }
 
+// StatisticsHandler is a configurable http.Handler which returns device statistics encoded via WRP.
+// The device ID is expected to be in the request Context.  The UseID decorators can be used to extract the
+// id from the request and place it into the request Context.
+type StatisticsHandler struct {
+	// Registry is the component which can serve up device statistics
+	Registry Registry
+
+	// Encoders is the pool of WRP encoders used to encode device statistics
+	Encoders *wrp.EncoderPool
+}
+
+func (sh *StatisticsHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	id, ok := GetID(request.Context())
+	if !ok {
+		httperror.Format(
+			response,
+			http.StatusInternalServerError,
+			"No device ID in context",
+		)
+
+		return
+	}
+
+	statistics, err := sh.Registry.Statistics(id)
+	if err != nil {
+		httperror.Formatf(
+			response,
+			http.StatusNotFound,
+			"Unable to fetch device statistics: %s",
+			err,
+		)
+
+		return
+	}
+
+	response.Header().Set("Content-Type", sh.Encoders.Format().ContentType())
+	sh.Encoders.Encode(response, statistics)
+}
+
 // MessageHandler is a configurable http.Handler which handles inbound WRP traffic
 // to be sent to devices.
 type MessageHandler struct {
