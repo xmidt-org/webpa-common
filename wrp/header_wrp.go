@@ -9,17 +9,23 @@ import (
 
 // Constant HTTP header strings representing WRP fields
 const (
-	MsgTypeHeader        = "X-Midt-Msg-Type"
-	ContentTypeHeader    = "X-Midt-Content-Type"
-	AcceptHeader         = "X-Midt-Accept"
-	TrasactionUuidHeader = "X-Midt-Transaction-Uuid"
-	StatusHeader         = "X-Midt-Status"
-	RDRHeader            = "X-Midt-Request-Delivery-Reponse"
-	HeadersArrHeader     = "X-Midt-Headers"
-	IncludeSpansHeader   = "X-Midt-Include-Spans"
-	SpansHeader          = "X-Midt-Spans"
-	PathHeader           = "X-Midt-Path"
-	SourceHeader         = "X-Midt-Source"
+	MsgTypeHeader         = "X-Midt-Msg-Type"
+	ContentTypeHeader     = "X-Midt-Content-Type"
+	AcceptHeader          = "X-Midt-Accept"
+	TransactionUuidHeader = "X-Midt-Transaction-Uuid"
+	StatusHeader          = "X-Midt-Status"
+	RDRHeader             = "X-Midt-Request-Delivery-Reponse"
+	HeadersArrHeader      = "X-Midt-Headers"
+	IncludeSpansHeader    = "X-Midt-Include-Spans"
+	SpansHeader           = "X-Midt-Spans"
+	PathHeader            = "X-Midt-Path"
+	SourceHeader          = "X-Midt-Source"
+
+	ErrInvalidMsgType         = "Invalid Message Type"
+	ErrInvalidSource          = "Invalid Source"
+	ErrInvalidTransactionUuid = "Invalid TransactionUuid"
+	ErrInvalidStatus          = "Invalid Status"
+	ErrInvalidPath            = "Invalid Path"
 )
 
 // Map string to MessageType int
@@ -57,7 +63,7 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 	if !strings.EqualFold(msgType, "") && StringToMessageType(msgType) != MessageType(-1) {
 		msg.Type = StringToMessageType(msgType)
 	} else {
-		return nil, fmt.Errorf("%s", "Invalid Message Type header string")
+		return nil, fmt.Errorf("%s", ErrInvalidMsgType)
 	}
 
 	// Source is mandatory for SimpleRequestResponse, SimpleEvent and CRUD
@@ -66,16 +72,16 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 	} else if msg.Type == SimpleRequestResponseMessageType || msg.Type == SimpleEventMessageType ||
 		msg.Type == CreateMessageType || msg.Type == RetrieveMessageType || msg.Type == UpdateMessageType ||
 		msg.Type == DeleteMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Source header string")
+		return nil, fmt.Errorf("%s", ErrInvalidSource)
 	}
 
 	// TransactionUuid is mandatory for SimpleRequestResponse and CRUD
-	if transUuid := header.Get(TrasactionUuidHeader); !strings.EqualFold(transUuid, "") {
+	if transUuid := header.Get(TransactionUuidHeader); !strings.EqualFold(transUuid, "") {
 		msg.TransactionUUID = transUuid
 	} else if msg.Type == SimpleRequestResponseMessageType ||
 		msg.Type == CreateMessageType || msg.Type == RetrieveMessageType || msg.Type == UpdateMessageType ||
 		msg.Type == DeleteMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Transaction_Uuid header string")
+		return nil, fmt.Errorf("%s", ErrInvalidTransactionUuid)
 	}
 
 	// all other fields are optional
@@ -94,7 +100,7 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 			return nil, err
 		}
 	} else if msg.Type == AuthMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Status header string")
+		return nil, fmt.Errorf("%s", ErrInvalidStatus)
 	}
 
 	if rdr := header.Get(RDRHeader); !strings.EqualFold(rdr, "") {
@@ -110,7 +116,7 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 		msg.Path = path
 	} else if msg.Type == CreateMessageType || msg.Type == RetrieveMessageType ||
 		msg.Type == UpdateMessageType || msg.Type == DeleteMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Path header string")
+		return nil, fmt.Errorf("%s", ErrInvalidPath)
 	}
 
 	if includeSpans := header.Get(IncludeSpansHeader); !strings.EqualFold(includeSpans, "") {
@@ -147,4 +153,85 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 	}
 
 	return msg, nil
+}
+
+// Convert WRP generic Message to HTTP header
+func WRPToHeader(msg *Message) (header http.Header, err error) {
+
+	header = make(map[string][]string)
+
+	if strings.EqualFold(msg.Type.String(), InvalidMessageTypeString) {
+		return nil, fmt.Errorf("%s", ErrInvalidMsgType)
+	} else {
+		header.Add(MsgTypeHeader, msg.Type.String())
+	}
+
+	// Status is mandatory for AuthMessageType
+	if msg.Status != nil && *msg.Status > int64(0) {
+		header.Add(StatusHeader, strconv.FormatInt(*msg.Status, 10))
+	} else if msg.Type == AuthMessageType {
+		return nil, fmt.Errorf("%s", ErrInvalidStatus)
+	}
+
+	// Source is mandatory for SimpleRequestResponse, SimpleEvent and CRUD
+	if !strings.EqualFold(msg.Source, "") {
+		header.Add(SourceHeader, msg.Source)
+	} else if msg.Type == SimpleRequestResponseMessageType ||
+		msg.Type == SimpleEventMessageType || msg.Type == CreateMessageType ||
+		msg.Type == RetrieveMessageType || msg.Type == UpdateMessageType || msg.Type == DeleteMessageType {
+		return nil, fmt.Errorf("%s", ErrInvalidSource)
+	}
+
+	// TransactionUuid is mandatory for SimpleRequestResponse and CRUD
+	if !strings.EqualFold(msg.TransactionUUID, "") {
+		header.Add(TransactionUuidHeader, msg.TransactionUUID)
+	} else if msg.Type == SimpleRequestResponseMessageType || msg.Type == CreateMessageType ||
+		msg.Type == RetrieveMessageType || msg.Type == UpdateMessageType || msg.Type == DeleteMessageType {
+		return nil, fmt.Errorf("%s", ErrInvalidTransactionUuid)
+	}
+
+	if !strings.EqualFold(msg.ContentType, "") {
+		header.Add(ContentTypeHeader, msg.ContentType)
+	}
+
+	if !strings.EqualFold(msg.Accept, "") {
+		header.Add(AcceptHeader, msg.Accept)
+	}
+
+	// path is mandatory for CRUD
+	if !strings.EqualFold(msg.Path, "") {
+		header.Add(PathHeader, msg.Path)
+	} else if msg.Type == CreateMessageType || msg.Type == RetrieveMessageType ||
+		msg.Type == UpdateMessageType || msg.Type == DeleteMessageType {
+		return nil, fmt.Errorf("%s", "Invalid Path")
+	}
+
+	if msg.RequestDeliveryResponse != nil && *msg.RequestDeliveryResponse > int64(0) {
+		header.Add(RDRHeader, strconv.FormatInt(*msg.RequestDeliveryResponse, 10))
+	}
+
+	if msg.IncludeSpans != nil && *msg.IncludeSpans == true {
+
+		header.Add(IncludeSpansHeader, strconv.FormatBool(*msg.IncludeSpans))
+
+		if msg.Spans != nil {
+			for i := 0; i < len(msg.Spans); i++ {
+				for _, span := range msg.Spans[i] {
+					header.Add(SpansHeader, span)
+				}
+			}
+		}
+	} else if msg.IncludeSpans != nil && *msg.IncludeSpans == false {
+		header.Add(IncludeSpansHeader, strconv.FormatBool(*msg.IncludeSpans))
+	}
+
+	if msg.Headers != nil {
+		if msg.Headers != nil {
+			for _, hdr := range msg.Headers {
+				header.Add(HeadersArrHeader, hdr)
+			}
+		}
+	}
+
+	return
 }
