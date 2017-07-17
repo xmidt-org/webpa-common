@@ -60,19 +60,19 @@ func TestHeaderToWRP_Auth(t *testing.T) {
 	assert.Nil(msg)
 	assert.NotNil(err)
 
-	// Mandatory status header
+	// Missing status header => success
 	testHeader = http.Header{"X-Midt-Msg-Type": {"Auth"}}
 	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidStatus, err.Error())
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(msg.MessageType(), AuthMessageType)
 
 	// Invalid MsgType
 	testHeader = http.Header{"X-Midt-Msg-Type": {"Invalid"}, "X-Midt-Status": {"400"}}
 	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 }
 
 func TestHeaderToWRP_SimpleRequest(t *testing.T) {
@@ -82,8 +82,6 @@ func TestHeaderToWRP_SimpleRequest(t *testing.T) {
 	testHeader := http.Header{
 		"X-Midt-Msg-Type":                 {"SimpleRequestResponse"},
 		"X-Midt-Source":                   {"test"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":            {"true"},
@@ -105,8 +103,6 @@ func TestHeaderToWRP_SimpleRequest(t *testing.T) {
 	// Invalid MsgType
 	testHeader = http.Header{
 		"X-Midt-Source":           {"test"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":    {"true"},
@@ -116,38 +112,56 @@ func TestHeaderToWRP_SimpleRequest(t *testing.T) {
 	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 
-	// Invalid Transaction_uuid
+	// Missing Transaction_uuid
 	testHeader = http.Header{
 		"X-Midt-Msg-Type":      {"SimpleRequestResponse"},
 		"X-Midt-Source":        {"test"},
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
 		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans": {"true"},
 		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 		"X-Midt-Status":        {"400"},
 	}
 	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(SimpleRequestResponseMessageType, msg.MessageType())
+	assert.Equal("test", msg.Source)
+	assert.Equal([]string{"key1", "value1", "key2", "value2"}, msg.Headers)
+	assert.Equal(true, *msg.IncludeSpans)
+	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
+	assert.Equal([]string{"client2", "146564565673", "500"}, msg.Spans[1])
+	assert.Equal(int64(400), *msg.Status)
 
-	// Invalid Source
+	// Missing Source
 	testHeader = http.Header{
 		"X-Midt-Msg-Type":         {"SimpleRequestResponse"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":    {"true"},
 		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 	}
 	msg, err = HeaderToWRP(testHeader)
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(SimpleRequestResponseMessageType, msg.MessageType())
+	assert.Equal("test_transaction_id01", msg.TransactionUUID)
+	assert.Equal([]string{"key1", "value1", "key2", "value2"}, msg.Headers)
+	assert.Equal(true, *msg.IncludeSpans)
+	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
+	assert.Equal([]string{"client2", "146564565673", "500"}, msg.Spans[1])
+
+	// Invalid RDR
+	testHeader = http.Header{
+		"X-Midt-Msg-Type":                 {"SimpleRequestResponse"},
+		"X-Midt-Source":                   {"test"},
+		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
+		"X-Midt-Request-Delivery-Reponse": {"Invalid"},
+	}
+	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
 }
 
 func TestHeaderToWRP_SimpleEvent(t *testing.T) {
@@ -155,11 +169,9 @@ func TestHeaderToWRP_SimpleEvent(t *testing.T) {
 
 	// Success case
 	testHeader := http.Header{
-		"X-Midt-Msg-Type":     {"SimpleEvent"},
-		"X-Midt-Source":       {"test"},
-		"X-Midt-Content-Type": {"application/json"},
-		"X-Midt-Accept":       {"application/json"},
-		"X-Midt-Headers":      {"key1", "value1", "key2"},
+		"X-Midt-Msg-Type": {"SimpleEvent"},
+		"X-Midt-Source":   {"test"},
+		"X-Midt-Headers":  {"key1", "value1", "key2"},
 	}
 	msg, err := HeaderToWRP(testHeader)
 	assert.NotNil(msg)
@@ -167,9 +179,8 @@ func TestHeaderToWRP_SimpleEvent(t *testing.T) {
 	assert.Equal(SimpleEventMessageType, msg.MessageType())
 	assert.Equal("test", msg.Source)
 	assert.Equal([]string{"key1", "value1", "key2"}, msg.Headers)
-	assert.Equal("application/json", msg.ContentType)
 
-	// Invalid MsgType
+	// Missing MsgType
 	testHeader = http.Header{
 		"X-Midt-Source":  {"test"},
 		"X-Midt-Headers": {"key1", "value1", "key2"},
@@ -177,17 +188,18 @@ func TestHeaderToWRP_SimpleEvent(t *testing.T) {
 	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 
-	// Invalid Source
+	// Missing Source
 	testHeader = http.Header{
 		"X-Midt-Msg-Type": {"SimpleEvent"},
 		"X-Midt-Headers":  {"key1", "value1", "key2"},
 	}
 	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(SimpleEventMessageType, msg.MessageType())
+	assert.Equal([]string{"key1", "value1", "key2"}, msg.Headers)
 }
 
 func TestHeaderToWRP_Create(t *testing.T) {
@@ -198,8 +210,6 @@ func TestHeaderToWRP_Create(t *testing.T) {
 		"X-Midt-Msg-Type":                 {"Create"},
 		"X-Midt-Source":                   {"src"},
 		"X-Midt-Path":                     {"/webpa-uuid"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
 		"X-Midt-Request-Delivery-Reponse": {"534290"},
@@ -218,10 +228,8 @@ func TestHeaderToWRP_Create(t *testing.T) {
 	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
 	assert.Equal(int64(534290), *msg.RequestDeliveryResponse)
 
-	// Invalid MsgType and Source and Transaction uuid
+	// Missing MsgType and Source and Transaction uuid
 	testHeader = http.Header{
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
 		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans": {"true"},
 		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
@@ -230,54 +238,98 @@ func TestHeaderToWRP_Create(t *testing.T) {
 	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 
-	// Invalid Transaction_uuid
+	// Missing Transaction_uuid
 	testHeader = http.Header{
-		"X-Midt-Msg-Type":      {"Create"},
-		"X-Midt-Source":        {"test"},
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-		"X-Midt-Status":        {"400"},
+		"X-Midt-Msg-Type":                 {"Create"},
+		"X-Midt-Source":                   {"test"},
+		"X-Midt-Path":                     {"/webpa-uuid"},
+		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
+		"X-Midt-Include-Spans":            {"true"},
+		"X-Midt-Spans":                    {"client1", "14678987563", "200", "client2", "146564565673", "500"},
+		"X-Midt-Request-Delivery-Reponse": {"400"},
 	}
 	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(CreateMessageType, msg.MessageType())
+	assert.Equal("test", msg.Source)
+	assert.Equal("/webpa-uuid", msg.Path)
+	assert.Equal([]string{"key1", "value1", "key2", "value2"}, msg.Headers)
+	assert.Equal(true, *msg.IncludeSpans)
+	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
+	assert.Equal(int64(400), *msg.RequestDeliveryResponse)
 
-	// Invalid Source
+	// Missing Source
 	testHeader = http.Header{
-		"X-Midt-Msg-Type":         {"Create"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
-		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
-		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
-		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
+		"X-Midt-Msg-Type":                 {"Create"},
+		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
+		"X-Midt-Path":                     {"/webpa-uuid"},
+		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
+		"X-Midt-Include-Spans":            {"false"},
+		"X-Midt-Spans":                    {"client1", "14678987563", "200", "client2", "146564565673", "500"},
+		"X-Midt-Request-Delivery-Reponse": {"400"},
 	}
 	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(CreateMessageType, msg.MessageType())
+	assert.Equal("test_transaction_id01", msg.TransactionUUID)
+	assert.Equal("/webpa-uuid", msg.Path)
+	assert.Equal([]string{"key1", "value1", "key2", "value2"}, msg.Headers)
+	assert.Equal(false, *msg.IncludeSpans)
+	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
+	assert.Equal(int64(400), *msg.RequestDeliveryResponse)
 
-	// Invalid Path
+	// Missing Path
 	testHeader = http.Header{
 		"X-Midt-Msg-Type":         {"Create"},
 		"X-Midt-Source":           {"test"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":    {"true"},
 		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 	}
 	msg, err = HeaderToWRP(testHeader)
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(CreateMessageType, msg.MessageType())
+	assert.Equal("test", msg.Source)
+	assert.Equal("test_transaction_id01", msg.TransactionUUID)
+	assert.Equal([]string{"key1", "value1", "key2", "value2"}, msg.Headers)
+	assert.Equal(true, *msg.IncludeSpans)
+	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
+
+	// Invalid RDR
+	testHeader = http.Header{
+		"X-Midt-Msg-Type":                 {"Create"},
+		"X-Midt-Source":                   {"src"},
+		"X-Midt-Path":                     {"/webpa-uuid"},
+		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
+		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
+		"X-Midt-Request-Delivery-Reponse": {"Invalid"},
+		"X-Midt-Include-Spans":            {"true"},
+		"X-Midt-Spans":                    {"client1", "14678987563", "200"},
+	}
+	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
+
+	// Invalid bool
+	testHeader = http.Header{
+		"X-Midt-Msg-Type":                 {"Create"},
+		"X-Midt-Source":                   {"src"},
+		"X-Midt-Path":                     {"/webpa-uuid"},
+		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
+		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
+		"X-Midt-Request-Delivery-Reponse": {"1234"},
+		"X-Midt-Include-Spans":            {"Invalid"},
+		"X-Midt-Spans":                    {"client1", "14678987563", "200"},
+	}
+	msg, err = HeaderToWRP(testHeader)
+	assert.Nil(msg)
+	assert.NotNil(err)
 }
 
 func TestHeaderToWRP_Retrieve(t *testing.T) {
@@ -288,8 +340,6 @@ func TestHeaderToWRP_Retrieve(t *testing.T) {
 		"X-Midt-Msg-Type":         {"Retrieve"},
 		"X-Midt-Source":           {"src"},
 		"X-Midt-Path":             {"/webpa-uuid"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":    {"true"},
@@ -306,65 +356,20 @@ func TestHeaderToWRP_Retrieve(t *testing.T) {
 	assert.Equal(true, *msg.IncludeSpans)
 	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
 
-	// Invalid MsgType and Source and Transaction uuid
-	testHeader = http.Header{
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-		"X-Midt-Status":        {"400"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Transaction_uuid
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":      {"Retrieve"},
-		"X-Midt-Source":        {"test"},
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":         {"Retrieve"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
-		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
-		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
-		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
+	// Missing Path
 	testHeader = http.Header{
 		"X-Midt-Msg-Type":         {"Retrieve"},
 		"X-Midt-Source":           {"test"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
-		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
-		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
+		"X-Midt-Include-Spans":    {"false"},
 	}
 	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
+	assert.NotNil(msg)
+	assert.Nil(err)
+	assert.Equal(RetrieveMessageType, msg.MessageType())
+	assert.Equal("test", msg.Source)
+	assert.Equal("test_transaction_id01", msg.TransactionUUID)
+	assert.Equal(false, *msg.IncludeSpans)
 }
 
 func TestHeaderToWRP_Update(t *testing.T) {
@@ -375,8 +380,6 @@ func TestHeaderToWRP_Update(t *testing.T) {
 		"X-Midt-Msg-Type":         {"Update"},
 		"X-Midt-Source":           {"src"},
 		"X-Midt-Path":             {"/webpa-uuid"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":    {"true"},
@@ -393,65 +396,6 @@ func TestHeaderToWRP_Update(t *testing.T) {
 	assert.Equal(true, *msg.IncludeSpans)
 	assert.Equal([]string{"client1", "14678987563", "200"}, msg.Spans[0])
 
-	// Invalid MsgType and Source and Transaction uuid
-	testHeader = http.Header{
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-		"X-Midt-Status":        {"400"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Transaction_uuid
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":      {"Update"},
-		"X-Midt-Source":        {"test"},
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":         {"Update"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
-		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
-		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
-		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":         {"Update"},
-		"X-Midt-Source":           {"test"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
-		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
-		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
-		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
 }
 
 func TestHeaderToWRP_Delete(t *testing.T) {
@@ -462,8 +406,6 @@ func TestHeaderToWRP_Delete(t *testing.T) {
 		"X-Midt-Msg-Type":         {"Delete"},
 		"X-Midt-Source":           {"src"},
 		"X-Midt-Path":             {"/webpa-uuid"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":    {"true"},
@@ -480,65 +422,18 @@ func TestHeaderToWRP_Delete(t *testing.T) {
 	assert.Equal(true, *msg.IncludeSpans)
 	assert.Equal([]string{"client1"}, msg.Spans[0])
 
-	// Invalid MsgType and Source and Transaction uuid
-	testHeader = http.Header{
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-		"X-Midt-Status":        {"400"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Transaction_uuid
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":      {"Delete"},
-		"X-Midt-Source":        {"test"},
-		"X-Midt-Content-Type":  {"application/json"},
-		"X-Midt-Accept":        {"application/json"},
-		"X-Midt-Headers":       {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans": {"true"},
-		"X-Midt-Spans":         {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
+	// Invalid bool
 	testHeader = http.Header{
 		"X-Midt-Msg-Type":         {"Delete"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
+		"X-Midt-Source":           {"src"},
 		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
 		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
+		"X-Midt-Include-Spans":    {"abcd"},
 		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 	}
 	msg, err = HeaderToWRP(testHeader)
 	assert.Nil(msg)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
-	testHeader = http.Header{
-		"X-Midt-Msg-Type":         {"Delete"},
-		"X-Midt-Source":           {"test"},
-		"X-Midt-Content-Type":     {"application/json"},
-		"X-Midt-Accept":           {"application/json"},
-		"X-Midt-Transaction-Uuid": {"test_transaction_id01"},
-		"X-Midt-Headers":          {"key1", "value1", "key2", "value2"},
-		"X-Midt-Include-Spans":    {"true"},
-		"X-Midt-Spans":            {"client1", "14678987563", "200", "client2", "146564565673", "500"},
-	}
-	msg, err = HeaderToWRP(testHeader)
-	assert.Nil(msg)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
 }
 
 func TestWRPToHeader_Auth(t *testing.T) {
@@ -551,7 +446,6 @@ func TestWRPToHeader_Auth(t *testing.T) {
 
 	header, err := WRPToHeader(&msg)
 	assert.Nil(err)
-	assert.Equal(expectedHeader, header)
 	assert.Equal("Auth", header.Get(MsgTypeHeader))
 	assert.Equal("200", header.Get(StatusHeader))
 	assert.Equal(expectedHeader, header)
@@ -561,22 +455,24 @@ func TestWRPToHeader_Auth(t *testing.T) {
 	msg = Message{Type: MessageType(-1), Status: &status}
 	header, err = WRPToHeader(&msg)
 	assert.Nil(header)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 
-	// Mandatory status header
+	// Missing status header
+	expectedHeader = http.Header{"X-Midt-Msg-Type": {"Auth"}}
 	msg = Message{Type: AuthMessageType}
 	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidStatus, err.Error())
+	assert.NotNil(header)
+	assert.Nil(err)
+	assert.Equal(expectedHeader, header)
 
 	// Invalid status
 	status = int64(0)
 	msg = Message{Type: AuthMessageType, Status: &status}
 	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidStatus, err.Error())
+	assert.NotNil(header)
+	assert.Nil(err)
+	expectedHeader = http.Header{"X-Midt-Msg-Type": {"Auth"}, "X-Midt-Status": {"0"}}
+	assert.Equal(expectedHeader, header)
 }
 
 func TestWRPToHeader_SimpleRequest(t *testing.T) {
@@ -586,8 +482,6 @@ func TestWRPToHeader_SimpleRequest(t *testing.T) {
 	expectedHeader := http.Header{
 		"X-Midt-Msg-Type":                 {"SimpleRequestResponse"},
 		"X-Midt-Source":                   {"test"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2"},
 		"X-Midt-Include-Spans":            {"true"},
@@ -599,8 +493,6 @@ func TestWRPToHeader_SimpleRequest(t *testing.T) {
 	incSpan := true
 	msg := Message{Type: SimpleRequestResponseMessageType,
 		Source:          "test",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
@@ -617,8 +509,6 @@ func TestWRPToHeader_SimpleRequest(t *testing.T) {
 	// Invalid MsgType
 	msg = Message{
 		Source:          "test",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
@@ -627,35 +517,25 @@ func TestWRPToHeader_SimpleRequest(t *testing.T) {
 	header, err = WRPToHeader(&msg)
 	assert.Nil(header)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 
-	// Invalid Transaction_uuid
+	// Missing Transaction_uuid
 	msg = Message{Type: SimpleRequestResponseMessageType,
-		Source:      "test",
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2"},
+		Source:  "test",
+		Headers: []string{"key1", "value1", "key2", "value2"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
 			{"client2", "146564565673", "500"}},
 	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	msg = Message{Type: SimpleRequestResponseMessageType,
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
+	expectedHeader = http.Header{
+		"X-Midt-Msg-Type": {"SimpleRequestResponse"},
+		"X-Midt-Source":   {"test"},
+		"X-Midt-Headers":  {"key1", "value1", "key2", "value2"},
+		"X-Midt-Spans":    {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 	}
 	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
+	assert.NotNil(header)
+	assert.Nil(err)
+	assert.Equal(expectedHeader, header)
 }
 
 func TestWRPToHeader_SimpleEvent(t *testing.T) {
@@ -663,17 +543,13 @@ func TestWRPToHeader_SimpleEvent(t *testing.T) {
 
 	// Success case
 	expectedHeader := http.Header{
-		"X-Midt-Msg-Type":     {"SimpleEvent"},
-		"X-Midt-Source":       {"test"},
-		"X-Midt-Content-Type": {"application/json"},
-		"X-Midt-Accept":       {"application/json"},
-		"X-Midt-Headers":      {"key1", "value1", "key2"},
+		"X-Midt-Msg-Type": {"SimpleEvent"},
+		"X-Midt-Source":   {"test"},
+		"X-Midt-Headers":  {"key1", "value1", "key2"},
 	}
 	msg := Message{Type: SimpleEventMessageType,
-		Source:      "test",
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2"},
+		Source:  "test",
+		Headers: []string{"key1", "value1", "key2"},
 	}
 	header, err := WRPToHeader(&msg)
 	assert.NotNil(header)
@@ -681,29 +557,14 @@ func TestWRPToHeader_SimpleEvent(t *testing.T) {
 	assert.Equal(expectedHeader, header)
 
 	// Invalid MsgType
-	msg = Message{Type: MessageType(-1),
-		Source:          "test",
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2"},
+	msg = Message{Type: MessageType(-10),
+		Source:  "test",
+		Headers: []string{"key1", "value1", "key2", "value2"},
 	}
 	header, err = WRPToHeader(&msg)
 	assert.Nil(header)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Source
-	msg = Message{Type: SimpleEventMessageType,
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2"},
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 }
 
 func TestWRPToHeader_Create(t *testing.T) {
@@ -714,19 +575,16 @@ func TestWRPToHeader_Create(t *testing.T) {
 		"X-Midt-Msg-Type":                 {"Create"},
 		"X-Midt-Source":                   {"src"},
 		"X-Midt-Path":                     {"/webpa-uuid"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2", "key3", "value3"},
 		"X-Midt-Request-Delivery-Reponse": {"534290"},
 		"X-Midt-Include-Spans":            {"false"},
+		"X-Midt-Spans":                    {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 	}
 	rdr := int64(534290)
 	incSpan := false
 	msg := Message{Type: CreateMessageType,
 		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
@@ -741,11 +599,9 @@ func TestWRPToHeader_Create(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(expectedHeader, header)
 
-	// Invalid MsgType and Source and Transaction uuid
+	// Missing MsgType and Source and Transaction uuid
 	msg = Message{
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
+		Headers: []string{"key1", "value1", "key2", "value2", "key3", "value3"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
 			{"client2", "146564565673", "500"}},
 		Path: "/webpa-uuid",
@@ -753,52 +609,35 @@ func TestWRPToHeader_Create(t *testing.T) {
 	header, err = WRPToHeader(&msg)
 	assert.Nil(header)
 	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
+	assert.Equal(ErrInvalidMsgType, err)
 
-	// Invalid Transaction_uuid
-	msg = Message{Type: CreateMessageType,
-		Source:      "src",
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
+	expectedHeader = http.Header{
+		"X-Midt-Msg-Type":                 {"Create"},
+		"X-Midt-Source":                   {"src"},
+		"X-Midt-Path":                     {"/webpa-uuid"},
+		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
+		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2", "key3", "value3"},
+		"X-Midt-Request-Delivery-Reponse": {"0"},
+		"X-Midt-Include-Spans":            {"true"},
+		"X-Midt-Spans":                    {"client1", "14678987563", "200", "client2", "146564565673", "500"},
 	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	msg = Message{Type: CreateMessageType,
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
+	rdr = int64(0)
+	incSpan = true
 	msg = Message{Type: CreateMessageType,
 		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
 			{"client2", "146564565673", "500"}},
+		Path: "/webpa-uuid",
 	}
+	msg.RequestDeliveryResponse = &rdr
+	msg.IncludeSpans = &incSpan
+
 	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
+	assert.NotNil(header)
+	assert.Nil(err)
+	assert.Equal(expectedHeader, header)
 }
 
 func TestWRPToHeader_Retrieve(t *testing.T) {
@@ -809,8 +648,6 @@ func TestWRPToHeader_Retrieve(t *testing.T) {
 		"X-Midt-Msg-Type":                 {"Retrieve"},
 		"X-Midt-Source":                   {"src"},
 		"X-Midt-Path":                     {"/webpa-uuid"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2", "key3", "value3"},
 		"X-Midt-Request-Delivery-Reponse": {"534290"},
@@ -821,8 +658,6 @@ func TestWRPToHeader_Retrieve(t *testing.T) {
 	incSpan := true
 	msg := Message{Type: RetrieveMessageType,
 		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
 		Spans: [][]string{{"client1", "14678987563", "200"},
@@ -836,65 +671,6 @@ func TestWRPToHeader_Retrieve(t *testing.T) {
 	assert.NotNil(header)
 	assert.Nil(err)
 	assert.Equal(expectedHeader, header)
-
-	// Invalid MsgType and Source and Transaction uuid
-	msg = Message{
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Transaction_uuid
-	msg = Message{Type: RetrieveMessageType,
-		Source:      "src",
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	msg = Message{Type: RetrieveMessageType,
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
-	msg = Message{Type: RetrieveMessageType,
-		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
 }
 
 func TestWRPToHeader_Update(t *testing.T) {
@@ -905,22 +681,18 @@ func TestWRPToHeader_Update(t *testing.T) {
 		"X-Midt-Msg-Type":                 {"Update"},
 		"X-Midt-Source":                   {"src"},
 		"X-Midt-Path":                     {"/webpa-uuid"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2", "key3", "value3"},
 		"X-Midt-Request-Delivery-Reponse": {"534290"},
+		"X-Midt-Spans":                    {"client1", "14678987563"},
 	}
 	rdr := int64(534290)
 	msg := Message{Type: UpdateMessageType,
 		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
+		Spans:           [][]string{{"client1", "14678987563"}},
+		Path:            "/webpa-uuid",
 	}
 	msg.RequestDeliveryResponse = &rdr
 
@@ -928,65 +700,6 @@ func TestWRPToHeader_Update(t *testing.T) {
 	assert.NotNil(header)
 	assert.Nil(err)
 	assert.Equal(expectedHeader, header)
-
-	// Invalid MsgType and Source and Transaction uuid
-	msg = Message{
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Transaction_uuid
-	msg = Message{Type: UpdateMessageType,
-		Source:      "src",
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	msg = Message{Type: UpdateMessageType,
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
-	msg = Message{Type: UpdateMessageType,
-		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
 }
 
 func TestWRPToHeader_Delete(t *testing.T) {
@@ -997,8 +710,6 @@ func TestWRPToHeader_Delete(t *testing.T) {
 		"X-Midt-Msg-Type":                 {"Delete"},
 		"X-Midt-Source":                   {"src"},
 		"X-Midt-Path":                     {"/webpa-uuid"},
-		"X-Midt-Content-Type":             {"application/json"},
-		"X-Midt-Accept":                   {"application/json"},
 		"X-Midt-Transaction-Uuid":         {"test_transaction_id01"},
 		"X-Midt-Headers":                  {"key1", "value1", "key2", "value2", "key3", "value3"},
 		"X-Midt-Request-Delivery-Reponse": {"534290"},
@@ -1008,8 +719,6 @@ func TestWRPToHeader_Delete(t *testing.T) {
 	incSpan := true
 	msg := Message{Type: DeleteMessageType,
 		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
 		TransactionUUID: "test_transaction_id01",
 		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
 		Path:            "/webpa-uuid",
@@ -1022,62 +731,18 @@ func TestWRPToHeader_Delete(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(expectedHeader, header)
 
-	// Invalid MsgType and Source and Transaction uuid
-	msg = Message{
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidMsgType, err.Error())
-
-	// Invalid Transaction_uuid
+	// Basic
 	msg = Message{Type: DeleteMessageType,
-		Source:      "src",
-		ContentType: "application/json",
-		Accept:      "application/json",
-		Headers:     []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
+		Source: "src",
+		Path:   "/webpa-uuid",
+	}
+	expectedHeader = http.Header{
+		"X-Midt-Msg-Type": {"Delete"},
+		"X-Midt-Source":   {"src"},
+		"X-Midt-Path":     {"/webpa-uuid"},
 	}
 	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidTransactionUuid, err.Error())
-
-	// Invalid Source
-	msg = Message{Type: DeleteMessageType,
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-		Path: "/webpa-uuid",
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidSource, err.Error())
-
-	// Invalid Path
-	msg = Message{Type: DeleteMessageType,
-		Source:          "src",
-		ContentType:     "application/json",
-		Accept:          "application/json",
-		TransactionUUID: "test_transaction_id01",
-		Headers:         []string{"key1", "value1", "key2", "value2", "key3", "value3"},
-		Spans: [][]string{{"client1", "14678987563", "200"},
-			{"client2", "146564565673", "500"}},
-	}
-	header, err = WRPToHeader(&msg)
-	assert.Nil(header)
-	assert.NotNil(err)
-	assert.Equal(ErrInvalidPath, err.Error())
+	assert.NotNil(header)
+	assert.Nil(err)
+	assert.Equal(expectedHeader, header)
 }
