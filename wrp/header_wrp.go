@@ -1,7 +1,7 @@
 package wrp
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,18 +9,18 @@ import (
 
 // Constant HTTP header strings representing WRP fields
 const (
-	MsgTypeHeader        = "X-Midt-Msg-Type"
-	ContentTypeHeader    = "X-Midt-Content-Type"
-	AcceptHeader         = "X-Midt-Accept"
-	TrasactionUuidHeader = "X-Midt-Transaction-Uuid"
-	StatusHeader         = "X-Midt-Status"
-	RDRHeader            = "X-Midt-Request-Delivery-Reponse"
-	HeadersArrHeader     = "X-Midt-Headers"
-	IncludeSpansHeader   = "X-Midt-Include-Spans"
-	SpansHeader          = "X-Midt-Spans"
-	PathHeader           = "X-Midt-Path"
-	SourceHeader         = "X-Midt-Source"
+	MsgTypeHeader         = "X-Midt-Msg-Type"
+	TransactionUuidHeader = "X-Midt-Transaction-Uuid"
+	StatusHeader          = "X-Midt-Status"
+	RDRHeader             = "X-Midt-Request-Delivery-Reponse"
+	HeadersArrHeader      = "X-Midt-Headers"
+	IncludeSpansHeader    = "X-Midt-Include-Spans"
+	SpansHeader           = "X-Midt-Spans"
+	PathHeader            = "X-Midt-Path"
+	SourceHeader          = "X-Midt-Source"
 )
+
+var ErrInvalidMsgType = errors.New("Invalid Message Type")
 
 // Map string to MessageType int
 func StringToMessageType(str string) MessageType {
@@ -57,34 +57,15 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 	if !strings.EqualFold(msgType, "") && StringToMessageType(msgType) != MessageType(-1) {
 		msg.Type = StringToMessageType(msgType)
 	} else {
-		return nil, fmt.Errorf("%s", "Invalid Message Type header string")
+		return nil, ErrInvalidMsgType
 	}
 
-	// Source is mandatory for SimpleRequestResponse, SimpleEvent and CRUD
 	if src := header.Get(SourceHeader); !strings.EqualFold(src, "") {
 		msg.Source = src
-	} else if msg.Type == SimpleRequestResponseMessageType || msg.Type == SimpleEventMessageType ||
-		msg.Type == CreateMessageType || msg.Type == RetrieveMessageType || msg.Type == UpdateMessageType ||
-		msg.Type == DeleteMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Source header string")
 	}
 
-	// TransactionUuid is mandatory for SimpleRequestResponse and CRUD
-	if transUuid := header.Get(TrasactionUuidHeader); !strings.EqualFold(transUuid, "") {
+	if transUuid := header.Get(TransactionUuidHeader); !strings.EqualFold(transUuid, "") {
 		msg.TransactionUUID = transUuid
-	} else if msg.Type == SimpleRequestResponseMessageType ||
-		msg.Type == CreateMessageType || msg.Type == RetrieveMessageType || msg.Type == UpdateMessageType ||
-		msg.Type == DeleteMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Transaction_Uuid header string")
-	}
-
-	// all other fields are optional
-	if contType := header.Get(ContentTypeHeader); !strings.EqualFold(contType, "") {
-		msg.ContentType = contType
-	}
-
-	if accept := header.Get(AcceptHeader); !strings.EqualFold(accept, "") {
-		msg.Accept = accept
 	}
 
 	if status := header.Get(StatusHeader); !strings.EqualFold(status, "") {
@@ -93,8 +74,6 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 		} else {
 			return nil, err
 		}
-	} else if msg.Type == AuthMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Status header string")
 	}
 
 	if rdr := header.Get(RDRHeader); !strings.EqualFold(rdr, "") {
@@ -105,17 +84,15 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 		}
 	}
 
-	// path is mandatory for CRUD
 	if path := header.Get(PathHeader); !strings.EqualFold(path, "") {
 		msg.Path = path
-	} else if msg.Type == CreateMessageType || msg.Type == RetrieveMessageType ||
-		msg.Type == UpdateMessageType || msg.Type == DeleteMessageType {
-		return nil, fmt.Errorf("%s", "Invalid Path header string")
 	}
 
 	if includeSpans := header.Get(IncludeSpansHeader); !strings.EqualFold(includeSpans, "") {
 		if spansBool, err := strconv.ParseBool(includeSpans); err == nil {
 			msg.SetIncludeSpans(spansBool)
+		} else {
+			return nil, err
 		}
 	}
 
@@ -147,4 +124,59 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 	}
 
 	return msg, nil
+}
+
+// Convert WRP generic Message to HTTP header
+func WRPToHeader(msg *Message) (header http.Header, err error) {
+
+	header = make(map[string][]string)
+
+	// Message Type is mandatory
+	if strings.EqualFold(msg.Type.String(), InvalidMessageTypeString) {
+		return nil, ErrInvalidMsgType
+	} else {
+		header.Add(MsgTypeHeader, msg.Type.String())
+	}
+
+	if msg.Status != nil {
+		header.Add(StatusHeader, strconv.FormatInt(*msg.Status, 10))
+	}
+
+	if !strings.EqualFold(msg.Source, "") {
+		header.Add(SourceHeader, msg.Source)
+	}
+
+	if !strings.EqualFold(msg.TransactionUUID, "") {
+		header.Add(TransactionUuidHeader, msg.TransactionUUID)
+	}
+
+	if !strings.EqualFold(msg.Path, "") {
+		header.Add(PathHeader, msg.Path)
+	}
+
+	if msg.RequestDeliveryResponse != nil {
+		header.Add(RDRHeader, strconv.FormatInt(*msg.RequestDeliveryResponse, 10))
+	}
+
+	if msg.IncludeSpans != nil {
+		header.Add(IncludeSpansHeader, strconv.FormatBool(*msg.IncludeSpans))
+	}
+
+	if msg.Spans != nil {
+		for i := 0; i < len(msg.Spans); i++ {
+			for _, span := range msg.Spans[i] {
+				header.Add(SpansHeader, span)
+			}
+		}
+	}
+
+	if msg.Headers != nil {
+		if msg.Headers != nil {
+			for _, hdr := range msg.Headers {
+				header.Add(HeadersArrHeader, hdr)
+			}
+		}
+	}
+
+	return
 }
