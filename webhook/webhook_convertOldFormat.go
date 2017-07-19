@@ -45,7 +45,7 @@ func convertOldHooksToNewHooks(body []byte) (hooks []W, err error) {
 		return
 	}
 
-	for _, oldHook range oldHooks {
+	for _, oldHook := range oldHooks {
 		var tempHook W
 		tempHook.Config.URL = oldHook.Config.URL
 		tempHook.Config.ContentType = oldHook.Config.ContentType
