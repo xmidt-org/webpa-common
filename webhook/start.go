@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"strings"
 )
 
 type token string
@@ -152,6 +153,12 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 		resp, err := sc.makeRequest()
 		body, err := getPayload(resp)
 		err = json.Unmarshal(body, &hooks)
+		
+		// temporary fix to convert old webhook struct to new.
+		if err != nil && strings.HasPrefix(err.Error(), "parsing time") {
+			hooks, err = convertOldHooksToNewHooks(body)
+		}
+		
 		rChan <- Result{hooks, err}
 	}
 
