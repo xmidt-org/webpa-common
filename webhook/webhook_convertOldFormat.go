@@ -55,9 +55,9 @@ func convertOldHooksToNewHooks(body []byte) (hooks []W, err error) {
 		tempHook.Duration = time.Duration(oldHook.Duration) * time.Second
 		tempHook.Until = time.Unix(oldHook.Until, 0)
 		tempHook.Address = oldHook.Address
-		
+
 		hooks = append(hooks, tempHook)
 	}
-	
+
 	return
 }

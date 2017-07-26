@@ -10,13 +10,13 @@ import (
 )
 
 type Registry struct {
-	m *monitor
+	m       *monitor
 	Changes chan []W
 }
 
 func NewRegistry(mon *monitor) Registry {
 	return Registry{
-		m: mon,
+		m:       mon,
 		Changes: mon.changes,
 	}
 }

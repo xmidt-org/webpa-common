@@ -121,7 +121,7 @@ func (ul *updatableList) Update(newItems []W) {
 
 		newItem.DurationValidator()
 		newItem.Until = time.Now().Add(newItem.Duration)
-		
+
 		// update item
 		for i := 0; i < len(items) && !found; i++ {
 			if items[i].ID() == newItem.ID() {

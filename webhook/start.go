@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 	"strings"
+	"time"
 )
 
 type token string
@@ -153,12 +153,12 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 		resp, err := sc.makeRequest()
 		body, err := getPayload(resp)
 		err = json.Unmarshal(body, &hooks)
-		
+
 		// temporary fix to convert old webhook struct to new.
 		if err != nil && strings.HasPrefix(err.Error(), "parsing time") {
 			hooks, err = convertOldHooksToNewHooks(body)
 		}
-		
+
 		rChan <- Result{hooks, err}
 	}
 
@@ -169,7 +169,7 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 	fn(sc, getHooksChan)
 	for {
 		select {
-		case r := <- getHooksChan:
+		case r := <-getHooksChan:
 
 			if r.Error != nil || len(r.Hooks) <= 0 {
 				fn(sc, getHooksChan)

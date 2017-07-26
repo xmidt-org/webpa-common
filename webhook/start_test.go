@@ -146,7 +146,7 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 	sc.client = testClient(t, h)
 	go sc.GetCurrentSystemsHooks(rc)
 
-	r := <- rc
+	r := <-rc
 	if r.Error != nil {
 		t.Errorf("error returned retrieving system hooks: %v", r.Error)
 	}
@@ -159,7 +159,7 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 	sc.client = testClient(t, h)
 	go sc.GetCurrentSystemsHooks(rc)
 
-	r = <- rc
+	r = <-rc
 	if r.Error.Error() != "Unable to obtain hook list in allotted time." {
 		t.Errorf("test was expected to fail with error \"Unable to obtain hook list in allotted time.\".  got: %v", r.Error)
 

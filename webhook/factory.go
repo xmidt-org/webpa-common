@@ -53,7 +53,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	// allowing the viper instance to be nil allows a client to do
 	// NewFactory(nil) to get a default Factory instance
 	if v != nil {
-		err = v.Unmarshal(f)	
+		err = v.Unmarshal(f)
 		if err != nil {
 			return
 		}
@@ -64,7 +64,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	} else {
 		f.Start = NewStartFactory(nil)
 	}
-	
+
 	f.undertaker = f.Prune
 	f.Notifier, err = AWS.NewNotifier(v)
 
@@ -76,7 +76,7 @@ func (f *Factory) SetList(ul UpdatableList) {
 }
 
 func (f *Factory) Prune(items []W) (list []W) {
-	for i:=0; i<len(items); i++ {
+	for i := 0; i < len(items); i++ {
 		if items[i].Until.After(time.Now()) {
 			list = append(list, items[i])
 		}
