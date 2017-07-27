@@ -38,6 +38,19 @@ type oldW struct {
 	Address string `json:"registered_from_address"`
 }
 
+func doOldHookConvert(oldHook oldW) (newHook W) {
+	newHook.Config.URL = oldHook.Config.URL
+	newHook.Config.ContentType = oldHook.Config.ContentType
+	newHook.Config.Secret = oldHook.Config.Secret
+	newHook.Events = oldHook.Events
+	newHook.Matcher = oldHook.Matcher
+	newHook.Duration = time.Duration(oldHook.Duration) * time.Second
+	newHook.Until = time.Unix(oldHook.Until, 0)
+	newHook.Address = oldHook.Address
+	
+	return
+}
+
 func convertOldHooksToNewHooks(body []byte) (hooks []W, err error) {
 	var oldHooks []oldW
 	err = json.Unmarshal(body, &oldHooks)
@@ -46,17 +59,7 @@ func convertOldHooksToNewHooks(body []byte) (hooks []W, err error) {
 	}
 
 	for _, oldHook := range oldHooks {
-		var tempHook W
-		tempHook.Config.URL = oldHook.Config.URL
-		tempHook.Config.ContentType = oldHook.Config.ContentType
-		tempHook.Config.Secret = oldHook.Config.Secret
-		tempHook.Events = oldHook.Events
-		tempHook.Matcher = oldHook.Matcher
-		tempHook.Duration = time.Duration(oldHook.Duration) * time.Second
-		tempHook.Until = time.Unix(oldHook.Until, 0)
-		tempHook.Address = oldHook.Address
-
-		hooks = append(hooks, tempHook)
+		hooks = append(hooks, doOldHookConvert(oldHook))
 	}
 
 	return

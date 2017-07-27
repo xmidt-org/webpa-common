@@ -138,6 +138,13 @@ func (m *monitor) listen() {
 	}
 }
 
+func (m *monitor) sendNewHooks(newHooks []W) {
+	select {
+	case m.changes <- newHooks:
+	default:
+	}
+}
+
 // ServeHTTP is used as POST handler for AWS SNS
 // It transforms the message containing webhook to []W and updates the webhook list
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -148,14 +155,23 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 
 	// transform message to W
+	var newHook W
 	var newHooks []W
-	if err := json.Unmarshal(message, &newHooks); err != nil {
+	var oldHook oldW
+	var oldHooks []oldW
+	if err := json.Unmarshal(message, &newHook); err == nil {
+		m.sendNewHooks([]W{newHook})
+	} else if err := json.Unmarshal(message, &newHooks); err == nil {
+		m.sendNewHooks(newHooks)
+	} else if err := json.Unmarshal(message, &oldHook); err == nil {
+		newHook = doOldHookConvert(oldHook)
+		m.sendNewHooks([]W{newHook})
+	} else if err := json.Unmarshal(message, &oldHooks); err == nil {
+		for _, oldHook := range oldHooks {
+			newHooks = append(newHooks, doOldHookConvert(oldHook))
+		}
+		m.sendNewHooks(newHooks)
+	} else {
 		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
-		return
-	}
-
-	select {
-	case m.changes <- newHooks:
-	default:
 	}
 }
