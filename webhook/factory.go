@@ -108,6 +108,10 @@ func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	return reg, monitor
 }
 
+func (f *Factory) SetExternalUpdate(fn func([]W)) {
+	f.m.externalUpdate = fn
+}
+
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
 type monitor struct {
@@ -116,6 +120,7 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
+	externalUpdate   func([]W)
 }
 
 func (m *monitor) listen() {
@@ -123,6 +128,10 @@ func (m *monitor) listen() {
 		select {
 		case update := <-m.changes:
 			m.list.Update(update)
+			
+			if m.externalUpdate != nil {
+				m.externalUpdate(update)
+			}
 		case <-m.undertakerTicker:
 			m.list.Filter(m.undertaker)
 		}
