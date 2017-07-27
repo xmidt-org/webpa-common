@@ -119,33 +119,38 @@ func (ul *updatableList) Update(newItems []W) {
 			items = append(items, ul.Get(i))
 		}
 
-		newItem.DurationValidator()
-		newItem.Until = time.Now().Add(newItem.Duration)
+		// for new items.  we don't want to change a valid expiration time.
+		if &newItem.Until == nil || newItem.Until.Equal(time.Time{}) {
+			newItem.DurationValidator()
+			newItem.Until = time.Now().Add(newItem.Duration)
+		}
 
-		// update item
-		for i := 0; i < len(items) && !found; i++ {
-			if items[i].ID() == newItem.ID() {
-				found = true
+		// we want to add items that will expire in the future
+		if newItem.Until.After(time.Now()) {
+			for i := 0; i < len(items) && !found; i++ {
+				if items[i].ID() == newItem.ID() {
+					found = true
 
-				items[i].Matcher = newItem.Matcher
-				items[i].Events = newItem.Events
-				items[i].Config.ContentType = newItem.Config.ContentType
-				items[i].Config.Secret = newItem.Config.Secret
+					items[i].Matcher = newItem.Matcher
+					items[i].Events = newItem.Events
+					items[i].Config.ContentType = newItem.Config.ContentType
+					items[i].Config.Secret = newItem.Config.Secret
+				}
 			}
-		}
 
-		// add item
-		if !found {
-			items = append(items, &newItem)
-		}
+			// add item
+			if !found {
+				items = append(items, &newItem)
+			}
 
-		var itemsCopy []W
-		for _, i := range items {
-			itemsCopy = append(itemsCopy, *i)
-		}
+			var itemsCopy []W
+			for _, i := range items {
+				itemsCopy = append(itemsCopy, *i)
+			}
 
-		// store items
-		ul.set(itemsCopy)
+			// store items
+			ul.set(itemsCopy)
+		}
 	}
 }
 
