@@ -108,6 +108,8 @@ func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	return reg, monitor
 }
 
+// SetExternalUpdate is a specified function that takes an []W argument
+// This function is called when monitor.changes receives a message
 func (f *Factory) SetExternalUpdate(fn func([]W)) {
 	f.m.externalUpdate = fn
 }
@@ -138,6 +140,7 @@ func (m *monitor) listen() {
 	}
 }
 
+// sendNewHooks handles delivery of []W to monitor.changes
 func (m *monitor) sendNewHooks(newHooks []W) {
 	select {
 	case m.changes <- newHooks:
