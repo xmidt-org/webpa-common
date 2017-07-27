@@ -58,10 +58,10 @@ func (w *W) ID() string {
 	return w.Config.URL
 }
 
-// durationValidator performs a check on a W.Duration value.
+// DurationValidator performs a check on a W.Duration value.
 // if found to be invalid it is set to the DEFAULT_EXPIRATION_DURATION
 func (w *W) DurationValidator() {
-	if w.Duration < 0 || w.Duration > DEFAULT_EXPIRATION_DURATION {
+	if w.Duration <= 0 || w.Duration > DEFAULT_EXPIRATION_DURATION {
 		w.Duration = DEFAULT_EXPIRATION_DURATION
 	}
 }

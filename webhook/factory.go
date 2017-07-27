@@ -108,6 +108,12 @@ func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	return reg, monitor
 }
 
+// SetExternalUpdate is a specified function that takes an []W argument
+// This function is called when monitor.changes receives a message
+func (f *Factory) SetExternalUpdate(fn func([]W)) {
+	f.m.externalUpdate = fn
+}
+
 // monitor is an internal type that listens for webhook updates, invokes
 // the undertaker at specified intervals, and responds to HTTP requests.
 type monitor struct {
@@ -116,6 +122,7 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
+	externalUpdate   func([]W)
 }
 
 func (m *monitor) listen() {
@@ -123,9 +130,21 @@ func (m *monitor) listen() {
 		select {
 		case update := <-m.changes:
 			m.list.Update(update)
+			
+			if m.externalUpdate != nil {
+				m.externalUpdate(update)
+			}
 		case <-m.undertakerTicker:
 			m.list.Filter(m.undertaker)
 		}
+	}
+}
+
+// sendNewHooks handles delivery of []W to monitor.changes
+func (m *monitor) sendNewHooks(newHooks []W) {
+	select {
+	case m.changes <- newHooks:
+	default:
 	}
 }
 
@@ -139,14 +158,23 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 
 	// transform message to W
+	var newHook W
 	var newHooks []W
-	if err := json.Unmarshal(message, &newHooks); err != nil {
+	var oldHook oldW
+	var oldHooks []oldW
+	if err := json.Unmarshal(message, &newHook); err == nil {
+		m.sendNewHooks([]W{newHook})
+	} else if err := json.Unmarshal(message, &newHooks); err == nil {
+		m.sendNewHooks(newHooks)
+	} else if err := json.Unmarshal(message, &oldHook); err == nil {
+		newHook = doOldHookConvert(oldHook)
+		m.sendNewHooks([]W{newHook})
+	} else if err := json.Unmarshal(message, &oldHooks); err == nil {
+		for _, oldHook := range oldHooks {
+			newHooks = append(newHooks, doOldHookConvert(oldHook))
+		}
+		m.sendNewHooks(newHooks)
+	} else {
 		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
-		return
-	}
-
-	select {
-	case m.changes <- newHooks:
-	default:
 	}
 }
