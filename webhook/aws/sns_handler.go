@@ -5,7 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
-
+	"time"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 )
@@ -111,7 +111,7 @@ func (ss *SNSServer) Subscribe() {
 	if err != nil {
 		ss.Error("SNS subscribe error (attempt 1, will attempt again): %v", err)
 		time.Sleep(time.Second * 5)
-		resp, err := ss.SVC.Subscribe(params)
+		resp, err = ss.SVC.Subscribe(params)
 		if err != nil {
 			ss.Error("SNS subscribe error: %v", err)
 			return
