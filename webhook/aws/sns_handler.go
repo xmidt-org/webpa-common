@@ -109,8 +109,13 @@ func (ss *SNSServer) Subscribe() {
 
 	resp, err := ss.SVC.Subscribe(params)
 	if err != nil {
-		ss.Error("SNS subscribe error: %v", err)
-		return
+		ss.Error("SNS subscribe error (attempt 1, will attempt again): %v", err)
+		time.Sleep(time.Second * 5)
+		resp, err := ss.SVC.Subscribe(params)
+		if err != nil {
+			ss.Error("SNS subscribe error: %v", err)
+			return
+		}
 	}
 
 	ss.Debug("SNS subscribe resp: %v", resp)
