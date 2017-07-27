@@ -45,7 +45,12 @@ func doOldHookConvert(oldHook oldW) (newHook W) {
 	newHook.Events = oldHook.Events
 	newHook.Matcher = oldHook.Matcher
 	newHook.Duration = time.Duration(oldHook.Duration) * time.Second
-	newHook.Until = time.Unix(oldHook.Until, 0)
+
+	newHook.Until = time.Time{}
+	if oldHook.Until > 0 {
+		newHook.Until = time.Unix(oldHook.Until, 0)
+	}
+
 	newHook.Address = oldHook.Address
 	
 	return
