@@ -88,9 +88,11 @@ func (ss *SNSServer) SetSNSRoutes(urlPath string, r *mux.Router, handler http.Ha
 
 	r.HandleFunc(urlPath, ss.SubscribeConfirmHandle).Methods("POST").Headers("x-amz-sns-message-type", "SubscriptionConfirmation")
 	if handler != nil {
+		ss.Debug("handler not nil. urlPath: %s\n", urlPath)
 		// handler is supposed to be wrapper that inturn calls NotificationHandle
 		r.Handle(urlPath, handler).Methods("POST").Headers("x-amz-sns-message-type", "Notification")
 	} else {
+		ss.Debug("handler nil. urlPath: %s\n", urlPath)
 		// if no wrapper handler available then define anonymous handler and directly call NotificationHandle
 		r.HandleFunc(urlPath, func(rw http.ResponseWriter, req *http.Request) {
 			ss.NotificationHandle(rw, req)
@@ -107,13 +109,24 @@ func (ss *SNSServer) Subscribe() {
 		Endpoint: aws.String(ss.SelfUrl.String()),
 	}
 
+	ss.Debug("subscribe params: %+v\n\n", params)
+
 	resp, err := ss.SVC.Subscribe(params)
 	if err != nil {
-		ss.Error("SNS subscribe error (attempt 1, will attempt again): %v", err)
-		time.Sleep(time.Second * 5)
-		resp, err = ss.SVC.Subscribe(params)
-		if err != nil {
-			ss.Error("SNS subscribe error: %v", err)
+		var attemptNum int64
+		for attemptNum = 1; attemptNum <= 30; attemptNum++ {
+			ss.Error("SNS subscribe error (attempt %d failed): %v", attemptNum, err)
+			time.Sleep(time.Second * 5)
+			
+			resp, err = ss.SVC.Subscribe(params)
+			if err != nil {
+				ss.Error("SNS subscribe error: %v\nsns subscribe response: %+v\n\n", err, resp)
+			} else {
+				break
+			}
+		}
+		
+		if attemptNum > 30 {
 			return
 		}
 	}
