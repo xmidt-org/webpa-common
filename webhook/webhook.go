@@ -135,6 +135,7 @@ func (ul *updatableList) Update(newItems []W) {
 					items[i].Events = newItem.Events
 					items[i].Config.ContentType = newItem.Config.ContentType
 					items[i].Config.Secret = newItem.Config.Secret
+					items[i].Until = newItem.Until
 				}
 			}
 
