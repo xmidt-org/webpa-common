@@ -1,6 +1,9 @@
 package health
 
 import (
+	"bufio"
+	"errors"
+	"net"
 	"net/http"
 )
 
@@ -25,4 +28,14 @@ func (r *ResponseWriter) StatusCode() int {
 func (r *ResponseWriter) WriteHeader(statusCode int) {
 	r.statusCode = statusCode
 	r.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Hijack delegates to the wrapped ResponseWriter, returning an error if the delegate does
+// not implement http.Hijacker.
+func (r *ResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hijacker, ok := r.ResponseWriter.(http.Hijacker); ok {
+		return hijacker.Hijack()
+	}
+
+	return nil, nil, errors.New("Wrapped response does not implement http.Hijacker")
 }
