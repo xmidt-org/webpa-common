@@ -2,13 +2,14 @@ package server
 
 import (
 	"errors"
+	"net/http"
+	"sync"
+	"time"
+
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/logging/golog"
-	"net/http"
-	"sync"
-	"time"
 )
 
 var (
@@ -133,7 +134,7 @@ func (h *Health) New(logger logging.Logger) (handler *health.Health, server *htt
 	server = &http.Server{
 		Addr:     h.Address,
 		Handler:  mux,
-//		Handler:  handler,
+		Handler:  handler,
 		ErrorLog: NewErrorLog(h.Name, logger),
 	}
 
