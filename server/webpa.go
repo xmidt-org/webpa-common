@@ -134,7 +134,6 @@ func (h *Health) New(logger logging.Logger) (handler *health.Health, server *htt
 	server = &http.Server{
 		Addr:     h.Address,
 		Handler:  mux,
-		Handler:  handler,
 		ErrorLog: NewErrorLog(h.Name, logger),
 	}
 
