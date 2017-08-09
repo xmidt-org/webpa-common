@@ -15,6 +15,11 @@ const (
 	ServiceAliveMessageType          = MessageType(10)
 
 	InvalidMessageTypeString = "!!INVALID!!"
+
+	AuthStatusAuthorized      = 200
+	AuthStatusUnauthorized    = 401
+	AuthStatusPaymentRequired = 402
+	AuthStatusNotAcceptable   = 406
 )
 
 func (mt MessageType) String() string {
