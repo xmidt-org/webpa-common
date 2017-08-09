@@ -22,6 +22,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(uint32(DefaultInitialCapacity), o.initialCapacity())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
 		assert.Equal(DefaultPingPeriod, o.pingPeriod())
+		assert.Equal(DefaultAuthDelay, o.authDelay())
 		assert.Equal(DefaultWriteTimeout, o.writeTimeout())
 		assert.Equal(DefaultReadBufferSize, o.readBufferSize())
 		assert.Equal(DefaultWriteBufferSize, o.writeBufferSize())
@@ -53,6 +54,7 @@ func TestOptions(t *testing.T) {
 			DeviceMessageQueueSize: DefaultDeviceMessageQueueSize + 287342,
 			IdlePeriod:             DefaultIdlePeriod + 3472*time.Minute,
 			PingPeriod:             DefaultPingPeriod + 384*time.Millisecond,
+			AuthDelay:              DefaultAuthDelay + 88*time.Millisecond,
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
 			KeyFunc:                expectedKeyFunc,
 			Logger:                 expectedLogger,
@@ -67,6 +69,7 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.InitialCapacity, o.initialCapacity())
 	assert.Equal(o.IdlePeriod, o.idlePeriod())
 	assert.Equal(o.PingPeriod, o.pingPeriod())
+	assert.Equal(o.AuthDelay, o.authDelay())
 	assert.Equal(o.WriteTimeout, o.writeTimeout())
 	assert.Equal(o.ReadBufferSize, o.readBufferSize())
 	assert.Equal(o.WriteBufferSize, o.writeBufferSize())

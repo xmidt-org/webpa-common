@@ -95,6 +95,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		registry:               newRegistry(o.initialCapacity()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
+		authDelay:              o.authDelay(),
 
 		listeners: o.listeners(),
 	}
@@ -113,6 +114,7 @@ type manager struct {
 
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
+	authDelay              time.Duration
 
 	listeners []Listener
 }
@@ -317,6 +319,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		writeError  error
 		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
 		pingTicker  = time.NewTicker(m.pingPeriod)
+		authTicker  = time.NewTicker(m.authDelay)
 	)
 
 	m.dispatch(&event)
@@ -401,6 +404,9 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
+
+		case <-authTicker.C:
+			// do auth
 		}
 	}
 }

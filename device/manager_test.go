@@ -553,6 +553,9 @@ func testManagerPingPong(t *testing.T) {
 	pongWait.Wait()
 }
 
+func testManagerAuthorize(t *testing.T) {
+}
+
 func TestManager(t *testing.T) {
 	t.Run("Connect", func(t *testing.T) {
 		t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
@@ -574,4 +577,6 @@ func TestManager(t *testing.T) {
 
 	t.Run("PongCallbackFor", testManagerPongCallbackFor)
 	t.Run("PingPong", testManagerPingPong)
+
+	t.Run("Authorize", testManagerAuthorize)
 }
