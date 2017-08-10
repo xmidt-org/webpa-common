@@ -57,6 +57,13 @@ type EncoderTo interface {
 	EncodeTo(Encoder) error
 }
 
+// Typed is implemented by any WRP type which is associated with a MessageType.  All
+// message types implement this interface.
+type Typed interface {
+	// MessageType is the type of message represented by this Typed.
+	MessageType() MessageType
+}
+
 // Routable describes an object which can be routed.  Implementations will most
 // often also be WRP Message instances.  All Routable objects may be passed to
 // Encoders and Decoders.
@@ -64,8 +71,7 @@ type EncoderTo interface {
 // Not all WRP messages are Routable.  Only messages that can be sent through
 // routing software (e.g. talaria) implement this interface.
 type Routable interface {
-	// MessageType is the type of message represented by this Routable.
-	MessageType() MessageType
+	Typed
 
 	// To is the destination of this Routable instance.  It corresponds to the Destination field
 	// in WRP messages defined in this package.
