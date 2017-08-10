@@ -2,11 +2,14 @@ package wrp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSampleMsgpack(t *testing.T) {
@@ -154,6 +157,53 @@ func testTranscodeMessage(t *testing.T, target, source Format, original interfac
 
 	assert.NoError(targetDecoder.Decode(decodeValue.Interface()))
 	assert.Equal(encodeValue.Elem().Interface(), decodeValue.Elem().Interface())
+}
+
+func testMustEncodeValid(t *testing.T, f Format) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		message = AuthorizationStatus{Status: AuthStatusAuthorized}
+
+		expectedData bytes.Buffer
+		encoder      = NewEncoder(&expectedData, f)
+	)
+
+	require.NoError(encoder.Encode(message))
+
+	assert.NotPanics(func() {
+		assert.Equal(
+			expectedData.Bytes(),
+			MustEncode(message, f),
+		)
+	})
+}
+
+func testMustEncodePanic(t *testing.T, f Format) {
+	var (
+		assert = assert.New(t)
+
+		expectedError = errors.New("expected error")
+		message       = new(mockEncoderTo)
+	)
+
+	message.On("EncodeTo", mock.AnythingOfType("*codec.Encoder")).Once().Return(expectedError)
+
+	assert.Panics(func() {
+		MustEncode(message, f)
+	})
+
+	message.AssertExpectations(t)
+}
+
+func TestMustEncode(t *testing.T) {
+	for _, f := range []Format{Msgpack, JSON} {
+		t.Run(f.String(), func(t *testing.T) {
+			t.Run("Valid", func(t *testing.T) { testMustEncodeValid(t, f) })
+			t.Run("Panic", func(t *testing.T) { testMustEncodePanic(t, f) })
+		})
+	}
 }
 
 func TestTranscodeMessage(t *testing.T) {

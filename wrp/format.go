@@ -1,9 +1,11 @@
 package wrp
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/ugorji/go/codec"
 	"io"
+
+	"github.com/ugorji/go/codec"
 )
 
 // Format indicates which format is desired.
@@ -138,4 +140,19 @@ func TranscodeMessage(target Encoder, source Decoder) (msg *Message, err error) 
 	}
 
 	return
+}
+
+// MustEncode is a convenience function that attempts to encode a given message.  A panic
+// is raised on any error.  This function is handy for package initialization.
+func MustEncode(message interface{}, f Format) []byte {
+	var (
+		output  bytes.Buffer
+		encoder = NewEncoder(&output, f)
+	)
+
+	if err := encoder.Encode(message); err != nil {
+		panic(err)
+	}
+
+	return output.Bytes()
 }

@@ -13,9 +13,9 @@ import (
 
 // Request represents a single device Request, carrying routing information and message contents.
 type Request struct {
-	// Message is the original, decoded WRP message containing the routing information.  This is the
-	// only absolutely required field of a device Request.
-	Message wrp.Routable
+	// Message is the original, decoded WRP message containing the routing information.  When sending a request
+	// through Manager.Route, this field is required and must also implement wrp.Routable.
+	Message wrp.Typed
 
 	// Format is the WRP format of the Contents member.  If Format is not JSON, then Routing
 	// will be encoded prior to sending to devices.
@@ -28,6 +28,16 @@ type Request struct {
 	// ctx is the API context for this request, which can be nil.  Normally, it's best to
 	// set this to context.Background() if no cancellation semantics are desired.
 	ctx context.Context
+}
+
+// TransactionKey returns the transaction key associated with this request.  If Message is nil
+// or is not an instance of wrp.Routable, this method returns an empty string.
+func (r *Request) TransactionKey() (key string) {
+	if routable, ok := r.Message.(wrp.Routable); ok {
+		key = routable.TransactionKey()
+	}
+
+	return
 }
 
 // Context returns the context.Context object associated with this Request.
@@ -54,9 +64,14 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 	return r
 }
 
-// ID parses the Routing.To() value into a device identifier.
-func (r *Request) ID() (ID, error) {
-	return ParseID(r.Message.To())
+// ID returns the device id for this request.  If Message is nil or does not implement
+// wrp.Routable, this method returns an empty identifier.
+func (r *Request) ID() (i ID, err error) {
+	if routable, ok := r.Message.(wrp.Routable); ok {
+		i, err = ParseID(routable.To())
+	}
+
+	return
 }
 
 // DecodeRequest decodes a WRP source into a device Request.  Typically, this is used

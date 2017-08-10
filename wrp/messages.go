@@ -15,6 +15,11 @@ const (
 	ServiceAliveMessageType          = MessageType(10)
 
 	InvalidMessageTypeString = "!!INVALID!!"
+
+	AuthStatusAuthorized      = 200
+	AuthStatusUnauthorized    = 401
+	AuthStatusPaymentRequired = 402
+	AuthStatusNotAcceptable   = 406
 )
 
 func (mt MessageType) String() string {
@@ -52,6 +57,13 @@ type EncoderTo interface {
 	EncodeTo(Encoder) error
 }
 
+// Typed is implemented by any WRP type which is associated with a MessageType.  All
+// message types implement this interface.
+type Typed interface {
+	// MessageType is the type of message represented by this Typed.
+	MessageType() MessageType
+}
+
 // Routable describes an object which can be routed.  Implementations will most
 // often also be WRP Message instances.  All Routable objects may be passed to
 // Encoders and Decoders.
@@ -59,8 +71,7 @@ type EncoderTo interface {
 // Not all WRP messages are Routable.  Only messages that can be sent through
 // routing software (e.g. talaria) implement this interface.
 type Routable interface {
-	// MessageType is the type of message represented by this Routable.
-	MessageType() MessageType
+	Typed
 
 	// To is the destination of this Routable instance.  It corresponds to the Destination field
 	// in WRP messages defined in this package.
@@ -171,6 +182,10 @@ type AuthorizationStatus struct {
 	// and is automatically set by the EncodeTo method.
 	Type   MessageType `wrp:"msg_type"`
 	Status int64       `wrp:"status"`
+}
+
+func (msg *AuthorizationStatus) MessageType() MessageType {
+	return msg.Type
 }
 
 func (msg *AuthorizationStatus) EncodeTo(e Encoder) error {

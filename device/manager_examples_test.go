@@ -3,30 +3,69 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 )
 
-func ExampleManagerTransaction() {
-	var (
-		// we use a WaitGroup so that we can predictably order output
-		messageReceived = new(sync.WaitGroup)
+func expectMessage(c Connection) (*wrp.Message, error) {
+	var frame bytes.Buffer
+	if ok, err := c.Read(&frame); !ok || err != nil {
+		return nil, fmt.Errorf("Read failed: %s", err)
+	}
 
+	var (
+		message = new(wrp.Message)
+		decoder = wrp.NewDecoder(&frame, wrp.Msgpack)
+	)
+
+	if err := decoder.Decode(message); err != nil {
+		return nil, fmt.Errorf("Could not decode message: %s", err)
+	}
+
+	return message, nil
+}
+
+func writeMessage(m *wrp.Message, c Connection) error {
+	if frame, err := c.NextWriter(); err != nil {
+		return err
+	} else {
+		encoder := wrp.NewEncoder(frame, wrp.Msgpack)
+		if err := encoder.Encode(m); err != nil {
+			return err
+		}
+
+		return frame.Close()
+	}
+}
+
+func ExampleManagerTransaction() {
+	disconnected := new(sync.WaitGroup)
+	disconnected.Add(1)
+
+	var (
 		options = &Options{
-			Logger: logging.DefaultLogger(),
+			Logger:    logging.DefaultLogger(),
+			AuthDelay: 250 * time.Millisecond,
 			Listeners: []Listener{
 				func(e *Event) {
 					switch e.Type {
 					case Connect:
 						fmt.Printf("%s connected\n", e.Device.ID())
-						messageReceived.Add(1)
+					case MessageSent:
+						if e.Message.MessageType() == wrp.AuthMessageType {
+							fmt.Println("auth status sent")
+						} else {
+							fmt.Println("message sent")
+						}
 					case TransactionComplete:
 						fmt.Println("response received")
-						messageReceived.Done()
+					case Disconnect:
+						fmt.Printf("%s disconnected\n", e.Device.ID())
+						disconnected.Done()
 					}
 				},
 			},
@@ -49,43 +88,42 @@ func ExampleManagerTransaction() {
 		return
 	}
 
-	defer connection.Close()
+	// grab the auth status message that should be coming
+	if message, err := expectMessage(connection); err != nil {
+		fmt.Fprintf(os.Stderr, err.Error())
+		return
+	} else if message.Type != wrp.AuthMessageType {
+		fmt.Fprintf(os.Stderr, "Expected auth status, but got: %s", message.Type)
+		return
+	} else if message.Status == nil {
+		fmt.Fprintf(os.Stderr, "No auth status code")
+		return
+	} else if *message.Status != wrp.AuthStatusAuthorized {
+		fmt.Fprintf(os.Stderr, "Expected authorized, but got: %d", *message.Status)
+		return
+	} else {
+		fmt.Println("auth status received")
+	}
 
-	// spawn a goroutine that simply waits for a request/response and responds
+	// spawn a go routine to respond to our routed message
 	go func() {
-		readFrame := new(bytes.Buffer)
-		if frameRead, err := connection.Read(readFrame); !frameRead || err != nil {
-			fmt.Fprintf(os.Stderr, "Read failed: frameRead=%T, err=%s\n", frameRead, err)
+		if message, err := expectMessage(connection); err != nil {
+			fmt.Fprintf(os.Stderr, err.Error())
 			return
-		}
-
-		var (
-			message = new(wrp.Message)
-			decoder = wrp.NewDecoder(readFrame, wrp.Msgpack)
-
-			writeFrame io.WriteCloser
-			writeError error
-		)
-
-		if err := decoder.Decode(message); err != nil {
-			fmt.Fprintf(os.Stderr, "Could not decode message: %s\n", err)
+		} else if message.Type != wrp.SimpleRequestResponseMessageType {
+			fmt.Fprintf(os.Stderr, "Expected request/response, but got: %s", message.Type)
 			return
-		}
+		} else {
+			fmt.Println("message received")
+			deviceResponse := *message
+			deviceResponse.Source = message.Destination
+			deviceResponse.Destination = message.Source
+			deviceResponse.Payload = []byte("Homer Simpson, Smiling Politely")
 
-		if writeFrame, writeError = connection.NextWriter(); writeError == nil {
-			defer writeFrame.Close()
-			var (
-				// casting is fine here since we know what type message is
-				response = message.Response("mac:111122223333", 1).(*wrp.Message)
-				encoder  = wrp.NewEncoder(writeFrame, wrp.Msgpack)
-			)
-
-			response.Payload = []byte("Homer Simpson, Smiling Politely")
-			writeError = encoder.Encode(response)
-		}
-
-		if writeError != nil {
-			fmt.Fprintf(os.Stderr, "Could not write response: %s\n", writeError)
+			if err := writeMessage(&deviceResponse, connection); err != nil {
+				fmt.Fprintf(os.Stderr, "Unable to write response: %s", err)
+				return
+			}
 		}
 	}()
 
@@ -104,12 +142,22 @@ func ExampleManagerTransaction() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Route error: %s\n", err)
 	} else if response != nil {
-		messageReceived.Wait()
 		fmt.Printf("(%s): %s to %s -> %s\n", response.Message.TransactionUUID, response.Message.Source, response.Message.Destination, response.Message.Payload)
 	}
 
+	// close the connection and ensure that the Disconnect event gets sent
+	// before continuing.  This prevents a race condition with the example code
+	// wrapper that swaps out the stream written to by the fmt.Print* functions.
+	connection.Close()
+	disconnected.Wait()
+
 	// Output:
 	// mac:111122223333 connected
+	// auth status sent
+	// auth status received
+	// message sent
+	// message received
 	// response received
 	// (MyTransactionUUID): mac:111122223333 to Example -> Homer Simpson, Smiling Politely
+	// mac:111122223333 disconnected
 }

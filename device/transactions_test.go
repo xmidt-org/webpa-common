@@ -82,10 +82,13 @@ func testDecodeRequest(t *testing.T, message wrp.Routable, format wrp.Format) {
 	require.NotNil(request)
 	require.NoError(err)
 
-	assert.Equal(message.MessageType(), request.Message.MessageType())
-	assert.Equal(message.To(), request.Message.To())
-	assert.Equal(message.From(), request.Message.From())
-	assert.Equal(message.TransactionKey(), request.Message.TransactionKey())
+	if routable, ok := request.Message.(wrp.Routable); ok {
+		assert.Equal(message.MessageType(), routable.MessageType())
+		assert.Equal(message.To(), routable.To())
+		assert.Equal(message.From(), routable.From())
+		assert.Equal(message.TransactionKey(), routable.TransactionKey())
+	}
+
 	assert.Equal(format, request.Format)
 	assert.Equal(contents, request.Contents)
 	assert.Nil(request.ctx)
