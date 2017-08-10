@@ -118,7 +118,8 @@ func (ss *SNSServer) Subscribe() {
 		attemptNum++
 
 		// this is so tests do not timeout
-		if *params.Endpoint == "http://host:port/api/v2/aws/sns" {
+		if *params.TopicArn == "arn:aws:sns:us-east-1:1234:test-topic" ||
+		   *params.Endpoint == "http://host:port/api/v2/aws/sns" {
 			return
 		}
 
