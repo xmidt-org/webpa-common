@@ -82,13 +82,12 @@ type Event struct {
 	// This field is always set.
 	Device Interface
 
-	// Message is the WRP message relevant to this event.  This field is only set for
-	// MessageReceived and MessageFailed events.
+	// Message is the WRP message relevant to this event.
 	//
 	// Never assume that it is safe to use this Message outside the listener invocation.  Make
 	// a copy if this Message is needed by other goroutines or if it needs to be part of a long-lived
 	// data structure.
-	Message wrp.Routable
+	Message wrp.Typed
 
 	// Format is the encoding format of the Contents field
 	Format wrp.Format
@@ -119,6 +118,35 @@ func (e *Event) Clear() {
 	e.Contents = nil
 	e.Error = nil
 	e.Data = emptyString
+}
+
+// SetRequestFailed is a convenience for setting an Event appropriate for a message failure
+func (e *Event) SetRequestFailed(d Interface, r *Request, err error) {
+	e.Clear()
+	e.Type = MessageFailed
+	e.Device = d
+	e.Message = r.Message
+	e.Format = r.Format
+	e.Error = err
+}
+
+// SetRequestSuccess is a convenience for setting an Event appropriate for a message success
+func (e *Event) SetRequestSuccess(d Interface, r *Request) {
+	e.Clear()
+	e.Type = MessageSent
+	e.Device = d
+	e.Message = r.Message
+	e.Format = r.Format
+}
+
+// SetMessageReceived is a convenience for setting an Event appropriate for a message receipt
+func (e *Event) SetMessageReceived(d Interface, m *wrp.Message, f wrp.Format, c []byte) {
+	e.Clear()
+	e.Type = MessageReceived
+	e.Device = d
+	e.Message = m
+	e.Format = f
+	e.Contents = c
 }
 
 // Listener is an event sink.  Listeners should never modify events and should never

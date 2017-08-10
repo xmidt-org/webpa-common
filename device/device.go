@@ -260,23 +260,20 @@ func (d *device) Send(request *Request) (*Response, error) {
 	}
 
 	var (
-		transactionKey string
+		transactionKey = request.TransactionKey()
 		result         <-chan *Response
 	)
 
-	if request.Message != nil {
-		transactionKey = request.Message.TransactionKey()
-		if len(transactionKey) > 0 {
-			var err error
-			if result, err = d.transactions.Register(transactionKey); err != nil {
-				// if a transaction key cannot be registered, we don't want to proceed.
-				// this indicates some larger problem, most often a duplicate transaction key.
-				return nil, err
-			}
-
-			// ensure that the transaction is cleared
-			defer d.transactions.Cancel(transactionKey)
+	if len(transactionKey) > 0 {
+		var err error
+		if result, err = d.transactions.Register(transactionKey); err != nil {
+			// if a transaction key cannot be registered, we don't want to proceed.
+			// this indicates some larger problem, most often a duplicate transaction key.
+			return nil, err
 		}
+
+		// ensure that the transaction is cleared
+		defer d.transactions.Cancel(transactionKey)
 	}
 
 	if err := d.sendRequest(request); err != nil {

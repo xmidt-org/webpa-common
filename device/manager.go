@@ -281,11 +281,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		}
 
 		d.statistics.AddMessagesReceived(1)
-		event.Clear()
-		event.Device = d
-		event.Message = message
-		event.Format = wrp.Msgpack
-		event.Contents = rawFrame
+		event.SetMessageReceived(d, message, wrp.Msgpack, rawFrame)
 
 		// update any waiting transaction
 		if transactionKey := message.TransactionKey(); len(transactionKey) > 0 {
@@ -306,8 +302,6 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			} else {
 				event.Type = TransactionComplete
 			}
-		} else {
-			event.Type = MessageReceived
 		}
 
 		m.dispatch(&event)
@@ -344,12 +338,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
 		if envelope != nil {
-			event.Clear()
-			event.Type = MessageFailed
-			event.Device = d
-			event.Message = envelope.request.Message
-			event.Format = envelope.request.Format
-			event.Error = writeError
+			event.SetRequestFailed(d, envelope.request, writeError)
 			m.dispatch(&event)
 		}
 
@@ -361,11 +350,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				event.Clear()
-				event.Type = MessageFailed
-				event.Device = d
-				event.Message = undeliverable.request.Message
-				event.Format = undeliverable.request.Format
+				event.SetRequestFailed(d, undeliverable.request, writeError)
 				m.dispatch(&event)
 			default:
 				break
@@ -373,11 +358,8 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		}
 	}()
 
-	// wait for the delay, then send an auth status request do the device
+	// wait for the delay, then send an auth status request to the device
 	time.AfterFunc(m.authDelay, func() {
-		// ignore any errors .... if the device was closed before this point,
-		// that will be handled elsewhere
-		//
 		// TODO: This will keep the device from being garbage collected until the timer
 		// triggers.  This is only a problem if a device connects then disconnects faster
 		// than the authDelay setting.
@@ -419,9 +401,13 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 			if writeError != nil {
 				envelope.complete <- writeError
+				event.SetRequestFailed(d, envelope.request, writeError)
+			} else {
+				event.SetRequestSuccess(d, envelope.request)
 			}
 
 			close(envelope.complete)
+			m.dispatch(&event)
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
