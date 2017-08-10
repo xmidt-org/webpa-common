@@ -14,10 +14,13 @@ import (
 )
 
 var (
+	authStatus = &wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized}
+
 	// authStatusRequest is the device Request sent for a successful authorization.
 	authStatusRequest = Request{
+		Message: authStatus,
 		Contents: wrp.MustEncode(
-			wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized},
+			authStatus,
 			wrp.Msgpack,
 		),
 		Format: wrp.Msgpack,
