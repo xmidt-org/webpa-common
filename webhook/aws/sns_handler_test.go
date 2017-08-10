@@ -78,6 +78,7 @@ func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 }
 
 func TestSubscribeSuccess(t *testing.T) {
+	fmt.Println("\n\nTestSubscribeSuccess")
 
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
@@ -96,6 +97,7 @@ func TestSubscribeSuccess(t *testing.T) {
 }
 
 func TestSubscribeError(t *testing.T) {
+	fmt.Println("\n\nTestSubscribeError")
 
 	assert := assert.New(t)
 
@@ -115,6 +117,7 @@ func TestSubscribeError(t *testing.T) {
 }
 
 func TestUnsubscribeSuccess(t *testing.T) {
+	fmt.Println("\n\nTestUnsubscribeSuccess")
 
 	ss, m, _, _ := SetUpTestSNSServer()
 	testSubscribe(t, m, ss)
@@ -130,6 +133,7 @@ func TestUnsubscribeSuccess(t *testing.T) {
 }
 
 func TestSetSNSRoutes_SubConf(t *testing.T) {
+	fmt.Println("\n\nTestSetSNSRoutes_SubConf")
 
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
@@ -169,6 +173,8 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 }
 
 func TestNotificationHandleSuccess(t *testing.T) {
+	fmt.Println("\n\nTestNotificationHandleSuccess")
+
 	assert := assert.New(t)
 	pub_msg := "Hello world!"
 	ss, m, mv, _ := SetUpTestSNSServer()
@@ -203,6 +209,8 @@ func TestNotificationHandleSuccess(t *testing.T) {
 }
 
 func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
+	fmt.Println("\n\nTestNotificationHandleError_SubArnMismatch")
+
 	assert := assert.New(t)
 	ss, m, mv, _ := SetUpTestSNSServer()
 
@@ -232,6 +240,8 @@ func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
 }
 
 func TestNotificationHandleError_ReadErr(t *testing.T) {
+	fmt.Println("\n\nTestNotificationHandleError_ReadErr")
+
 	assert := assert.New(t)
 	ss, m, mv, _ := SetUpTestSNSServer()
 
@@ -262,6 +272,8 @@ func TestNotificationHandleError_ReadErr(t *testing.T) {
 }
 
 func TestNotificationHandleError_MsgEnvMismatch(t *testing.T) {
+	fmt.Println("\n\nTestNotificationHandleError_MsgEnvMismatch")
+
 	assert := assert.New(t)
 	ss, m, mv, _ := SetUpTestSNSServer()
 
@@ -295,6 +307,8 @@ func TestNotificationHandleError_MsgEnvMismatch(t *testing.T) {
 }
 
 func TestNotificationHandleError_ValidationErr(t *testing.T) {
+	fmt.Println("\n\nTestNotificationHandleError_ValidationErr")
+
 	assert := assert.New(t)
 	ss, m, mv, _ := SetUpTestSNSServer()
 
