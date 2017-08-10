@@ -184,6 +184,10 @@ type AuthorizationStatus struct {
 	Status int64       `wrp:"status"`
 }
 
+func (msg *AuthorizationStatus) MessageType() MessageType {
+	return msg.Type
+}
+
 func (msg *AuthorizationStatus) EncodeTo(e Encoder) error {
 	msg.Type = AuthMessageType
 	return e.Encode(msg)
