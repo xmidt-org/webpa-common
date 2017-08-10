@@ -13,6 +13,17 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 )
 
+var (
+	// authStatusRequest is the device Request sent for a successful authorization.
+	authStatusRequest = Request{
+		Contents: wrp.MustEncode(
+			wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized},
+			wrp.Msgpack,
+		),
+		Format: wrp.Msgpack,
+	}
+)
+
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
 // for explicit disconnection.
@@ -319,7 +330,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		writeError  error
 		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
 		pingTicker  = time.NewTicker(m.pingPeriod)
-		authTicker  = time.NewTicker(m.authDelay)
 	)
 
 	m.dispatch(&event)
@@ -363,6 +373,17 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		}
 	}()
 
+	// wait for the delay, then send an auth status request do the device
+	time.AfterFunc(m.authDelay, func() {
+		// ignore any errors .... if the device was closed before this point,
+		// that will be handled elsewhere
+		//
+		// TODO: This will keep the device from being garbage collected until the timer
+		// triggers.  This is only a problem if a device connects then disconnects faster
+		// than the authDelay setting.
+		d.Send(&authStatusRequest)
+	})
+
 	for writeError == nil {
 		envelope = nil
 
@@ -404,9 +425,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
-
-		case <-authTicker.C:
-			// do auth
 		}
 	}
 }

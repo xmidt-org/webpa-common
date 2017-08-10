@@ -78,7 +78,9 @@ type Interface interface {
 	Closed() bool
 
 	// Send dispatches a message to this device.  This method is useful outside
-	// a Manager if multiple messages should be sent to the device.
+	// a Manager if multiple messages should be sent to the device.  The Request.Message field
+	// is not required if Request.Contents and Request.Format are set appropriately.  However,
+	// a Request.Message is the only way to start a transaction.
 	//
 	// This method is synchronous.  If the request is of a type that should expect a response,
 	// that response is returned.  An error is returned if this device has been closed or
@@ -258,20 +260,23 @@ func (d *device) Send(request *Request) (*Response, error) {
 	}
 
 	var (
-		transactionKey = request.Message.TransactionKey()
+		transactionKey string
 		result         <-chan *Response
 	)
 
-	if len(transactionKey) > 0 {
-		var err error
-		if result, err = d.transactions.Register(transactionKey); err != nil {
-			// if a transaction key cannot be registered, we don't want to proceed.
-			// this indicates some larger problem, most often a duplicate transaction key.
-			return nil, err
-		}
+	if request.Message != nil {
+		transactionKey = request.Message.TransactionKey()
+		if len(transactionKey) > 0 {
+			var err error
+			if result, err = d.transactions.Register(transactionKey); err != nil {
+				// if a transaction key cannot be registered, we don't want to proceed.
+				// this indicates some larger problem, most often a duplicate transaction key.
+				return nil, err
+			}
 
-		// ensure that the transaction is cleared
-		defer d.transactions.Cancel(transactionKey)
+			// ensure that the transaction is cleared
+			defer d.transactions.Cancel(transactionKey)
+		}
 	}
 
 	if err := d.sendRequest(request); err != nil {

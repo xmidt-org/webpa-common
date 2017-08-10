@@ -13,8 +13,8 @@ import (
 
 // Request represents a single device Request, carrying routing information and message contents.
 type Request struct {
-	// Message is the original, decoded WRP message containing the routing information.  This is the
-	// only absolutely required field of a device Request.
+	// Message is the original, decoded WRP message containing the routing information.  When sending a request
+	// through Manager.Route, this field is required.
 	Message wrp.Routable
 
 	// Format is the WRP format of the Contents member.  If Format is not JSON, then Routing
