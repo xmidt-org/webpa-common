@@ -2,10 +2,8 @@ package webhook
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"net/http"
 )
 
@@ -43,74 +41,24 @@ func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// parspIP returns just the ip address from "IP:port"
-func parseIP(s string) (string, error) {
-	ip1, _, err := net.SplitHostPort(s)
-	if err == nil {
-		return ip1, nil
-	}
-
-	ip2 := net.ParseIP(s)
-	if ip2 == nil {
-		return "", errors.New("invalid IP")
-	}
-
-	return ip2.String(), nil
-}
-
-// registrationValidation checks W value requirements
-func (w *W) registrationValidation() (string, int) {
-	if w.Config.URL == "" {
-		return "invalid Config URL", http.StatusBadRequest
-	}
-	if w.Config.ContentType == "" || w.Config.ContentType != "json" {
-		return "invalid content_type", http.StatusBadRequest
-	}
-	if len(w.Matcher.DeviceId) == 0 {
-		w.Matcher.DeviceId = []string{".*"} // match anything
-	}
-	if len(w.Events) == 0 {
-		return "invalid events", http.StatusBadRequest
-	}
-
-	return "", http.StatusOK
-}
-
 // update is an api call to processes a listenener registration for adding and updating
 func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	payload, err := ioutil.ReadAll(req.Body)
 	req.Body.Close()
 
-	w := new(W)
-	err = json.Unmarshal(payload, w)
+	w, err := NewW(payload, req.RemoteAddr)
+	if err != nil {
+		jsonResponse(rw, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s, err := json.Marshal(w)
 	if err != nil {
 		jsonResponse(rw, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	issue, code := w.registrationValidation()
-	if issue != "" || code != http.StatusOK {
-		jsonResponse(rw, code, issue)
-		return
-	}
+	r.m.Notifier.PublishMessage(string(s))
 
-	// update the requesters address
-	ip, err := parseIP(req.RemoteAddr)
-	if err != nil {
-		jsonResponse(rw, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.Address = ip
-
-	// send W as a single item array
-	msg, err := json.Marshal([1]W{*w})
-	if err != nil {
-		jsonResponse(rw, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	r.m.Notifier.PublishMessage(string(msg))
-
-	rw.Header().Set("Content-Type", "application/json")
-	rw.Write( []byte(`{"message": "Success"}`) )
+	jsonResponse(rw, http.StatusOK, "Success")
 }

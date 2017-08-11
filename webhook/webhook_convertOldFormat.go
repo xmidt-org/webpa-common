@@ -38,21 +38,40 @@ type oldW struct {
 	Address string `json:"registered_from_address"`
 }
 
-func doOldHookConvert(oldHook oldW) (newHook W) {
-	newHook.Config.URL = oldHook.Config.URL
-	newHook.Config.ContentType = oldHook.Config.ContentType
-	newHook.Config.Secret = oldHook.Config.Secret
-	newHook.Events = oldHook.Events
-	newHook.Matcher = oldHook.Matcher
-	newHook.Duration = time.Duration(oldHook.Duration) * time.Second
-
-	newHook.Until = time.Time{}
-	if oldHook.Until > 0 {
-		newHook.Until = time.Unix(oldHook.Until, 0)
+func doOldHookConvert(jsonString []byte) (w *W, err error) {
+	old := new(oldW)
+	err = json.Unmarshal(jsonString, old)
+	if err != nil {
+		return
 	}
 
-	newHook.Address = oldHook.Address
-	
+	return oldToNewHookConversion(old)
+}
+
+func oldToNewHookConversion(old *oldW) (w *W, err error) {
+	w = new(W)
+	w.Config.URL = old.Config.URL
+	w.Config.ContentType = old.Config.ContentType
+	w.Config.Secret = old.Config.Secret
+	w.Events = old.Events
+	w.Matcher = old.Matcher
+	w.Address = old.Address
+
+	if old.Duration <= 0 || old.Duration > 300000 {
+		old.Duration = 300000
+	}
+	w.Duration = time.Duration(old.Duration) * time.Second
+
+	w.Until = time.Time{}
+	if old.Until > 0 {
+		w.Until = time.Unix(old.Until, 0)
+	}
+
+	err = w.sanitize("")
+	if nil != err {
+		w = nil
+	}
+
 	return
 }
 
@@ -64,7 +83,13 @@ func convertOldHooksToNewHooks(body []byte) (hooks []W, err error) {
 	}
 
 	for _, oldHook := range oldHooks {
-		hooks = append(hooks, doOldHookConvert(oldHook))
+		var old *W
+		old, err = oldToNewHookConversion(&oldHook)
+		if nil != err {
+			hooks = nil
+			return
+		}
+		hooks = append(hooks, *old)
 	}
 
 	return

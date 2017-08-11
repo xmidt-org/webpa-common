@@ -1,6 +1,9 @@
 package webhook
 
 import (
+	"encoding/json"
+	"errors"
+	"net"
 	"sync/atomic"
 	"time"
 )
@@ -8,6 +11,9 @@ import (
 const (
 	DEFAULT_EXPIRATION_DURATION time.Duration = time.Second * 300
 )
+
+// TODO Use below to validate the input
+//	https://github.com/asaskevich/govalidator
 
 // W is the structure that represents the Webhook listener
 // data we share.
@@ -53,17 +59,69 @@ type W struct {
 	Address string `json:"registered_from_address"`
 }
 
-// ID creates the canonical string identifing a WebhookListener
-func (w *W) ID() string {
-	return w.Config.URL
+func NewW(jsonString []byte, ip string) (w *W, err error) {
+	w = new(W)
+
+	err = json.Unmarshal(jsonString, w)
+	if err != nil {
+		var wa []W
+
+		err = json.Unmarshal(jsonString, &wa)
+		if err != nil {
+			return
+		}
+		w = &wa[0]
+	}
+
+	err = w.sanitize(ip)
+	if nil != err {
+		w = nil
+	}
+	return
 }
 
-// durationValidator performs a check on a W.Duration value.
-// if found to be invalid it is set to the DEFAULT_EXPIRATION_DURATION
-func (w *W) durationValidator() {
+func (w *W) sanitize(ip string) (err error) {
+
+	if "" == w.Config.URL {
+		err = errors.New("invalid Config URL")
+		return
+	}
+
+	if 0 == len(w.Events) {
+		err = errors.New("invalid events")
+		return
+	}
+
+	// TODO Validate content type ?  What about different types?
+
+	if 0 == len(w.Matcher.DeviceId) {
+		w.Matcher.DeviceId = []string{".*"} // match anything
+	}
+
+	if "" == w.Address && "" != ip {
+		// Record the IP address the request came from
+		host, _, _err := net.SplitHostPort(ip)
+		if nil != _err {
+			err = _err
+			return
+		}
+		w.Address = host
+	}
+
 	if w.Duration <= 0 || w.Duration > DEFAULT_EXPIRATION_DURATION {
 		w.Duration = DEFAULT_EXPIRATION_DURATION
 	}
+
+	if &w.Until == nil || w.Until.Equal(time.Time{}) {
+		w.Until = time.Now().Add(w.Duration)
+	}
+
+	return
+}
+
+// ID creates the canonical string identifing a WebhookListener
+func (w *W) ID() string {
+	return w.Config.URL
 }
 
 // List is a read-only random access interface to a set of W's
@@ -117,12 +175,6 @@ func (ul *updatableList) Update(newItems []W) {
 		var items []*W
 		for i := 0; i < ul.Len(); i++ {
 			items = append(items, ul.Get(i))
-		}
-
-		// for new items.  we don't want to change a valid expiration time.
-		if &newItem.Until == nil || newItem.Until.Equal(time.Time{}) {
-			newItem.durationValidator()
-			newItem.Until = time.Now().Add(newItem.Duration)
 		}
 
 		// we want to add items that will expire in the future

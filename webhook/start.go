@@ -172,7 +172,7 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 		case r := <-getHooksChan:
 
 			if r.Error != nil || len(r.Hooks) <= 0 {
-				time.Sleep(time.Second * 2)  // wait a moment between queries
+				time.Sleep(time.Second * 2) // wait a moment between queries
 				fn(sc, getHooksChan)
 			} else {
 				rc <- Result{r.Hooks, r.Error}
