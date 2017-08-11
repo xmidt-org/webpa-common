@@ -14,8 +14,6 @@ import (
 
 func TestSampleMsgpack(t *testing.T) {
 	var (
-		assert = assert.New(t)
-
 		sampleEncoded = []byte{
 			0x85, 0xa8, 0x6d, 0x73, 0x67, 0x5f, 0x74, 0x79,
 			0x70, 0x65, 0x03, 0xb0, 0x74, 0x72, 0x61, 0x6e,
@@ -59,6 +57,7 @@ func TestSampleMsgpack(t *testing.T) {
 
 	t.Run("Encode", func(t *testing.T) {
 		var (
+			assert        = assert.New(t)
 			buffer        bytes.Buffer
 			encoder       = NewEncoder(&buffer, Msgpack)
 			decoder       = NewDecoder(&buffer, Msgpack)
@@ -72,6 +71,7 @@ func TestSampleMsgpack(t *testing.T) {
 
 	t.Run("Decode", func(t *testing.T) {
 		var (
+			assert        = assert.New(t)
 			decoder       = NewDecoder(bytes.NewBuffer(sampleEncoded), Msgpack)
 			actualMessage SimpleRequestResponse
 		)
@@ -82,6 +82,7 @@ func TestSampleMsgpack(t *testing.T) {
 
 	t.Run("DecodeBytes", func(t *testing.T) {
 		var (
+			assert        = assert.New(t)
 			decoder       = NewDecoderBytes(sampleEncoded, Msgpack)
 			actualMessage SimpleRequestResponse
 		)
