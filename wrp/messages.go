@@ -1,7 +1,7 @@
 package wrp
 
 //go:generate go get -u github.com/ugorji/go/codec/codecgen
-//go:generate codecgen -o messages.codec.go messages.go
+//go:generate codecgen -st "wrp" -o messages.codec.go messages.go
 
 // MessageType indicates the kind of WRP message
 type MessageType int64
