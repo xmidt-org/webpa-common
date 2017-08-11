@@ -122,7 +122,7 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
-	externalUpdate   func([]W)
+	externalUpdate func([]W)
 }
 
 func (m *monitor) listen() {
@@ -130,7 +130,7 @@ func (m *monitor) listen() {
 		select {
 		case update := <-m.changes:
 			m.list.Update(update)
-			
+
 			if m.externalUpdate != nil {
 				m.externalUpdate(update)
 			}

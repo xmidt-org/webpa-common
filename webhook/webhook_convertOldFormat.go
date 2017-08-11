@@ -52,7 +52,7 @@ func doOldHookConvert(oldHook oldW) (newHook W) {
 	}
 
 	newHook.Address = oldHook.Address
-	
+
 	return
 }
 

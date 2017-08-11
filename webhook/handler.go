@@ -112,5 +112,5 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 	r.m.Notifier.PublishMessage(string(msg))
 
 	rw.Header().Set("Content-Type", "application/json")
-	rw.Write( []byte(`{"message": "Success"}`) )
+	rw.Write([]byte(`{"message": "Success"}`))
 }
