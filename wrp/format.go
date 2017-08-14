@@ -71,6 +71,13 @@ func (f Format) handle() codec.Handle {
 	panic(fmt.Errorf("Invalid format constant: %d", f))
 }
 
+// EncodeListener can be implemented on any type passed to an Encoder in order
+// to get notified when an encoding happens.  This interface is useful to set
+// mandatory fields, such as message type.
+type EncodeListener interface {
+	BeforeEncode() error
+}
+
 // Encoder represents the underlying ugorji behavior that WRP supports
 type Encoder interface {
 	Encode(interface{}) error
@@ -87,8 +94,10 @@ type encoderDecorator struct {
 // value.EncodeTo() method.  Otherwise, the value is passed as is to the decorated
 // ugorji Encoder.
 func (ed *encoderDecorator) Encode(value interface{}) error {
-	if encoderTo, ok := value.(EncoderTo); ok {
-		return encoderTo.EncodeTo(ed.Encoder)
+	if listener, ok := value.(EncodeListener); ok {
+		if err := listener.BeforeEncode(); err != nil {
+			return err
+		}
 	}
 
 	return ed.Encoder.Encode(value)
