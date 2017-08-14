@@ -50,16 +50,6 @@ func (mt MessageType) String() string {
 	return InvalidMessageTypeString
 }
 
-// EncoderTo describes the behavior of a message that can encode itself.
-// Implementations of this interface will ensure that the MessageType is
-// set correctly prior to encoding.
-type EncoderTo interface {
-	// EncodeTo encodes this message to the given Encoder.  Note that this method
-	// may alter the state of this instance, as it will set the message type appropriate
-	// to the kind of WRP message being sent.
-	EncodeTo(Encoder) error
-}
-
 // Typed is implemented by any WRP type which is associated with a MessageType.  All
 // message types implement this interface.
 type Typed interface {
@@ -182,7 +172,7 @@ func (msg *Message) SetIncludeSpans(value bool) *Message {
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#authorization-status-definition
 type AuthorizationStatus struct {
 	// Type is exposed principally for encoding.  This field *must* be set to AuthMessageType,
-	// and is automatically set by the EncodeTo method.
+	// and is automatically set by the BeforeEncode method.
 	Type   MessageType `wrp:"msg_type"`
 	Status int64       `wrp:"status"`
 }
@@ -191,9 +181,9 @@ func (msg *AuthorizationStatus) MessageType() MessageType {
 	return msg.Type
 }
 
-func (msg *AuthorizationStatus) EncodeTo(e Encoder) error {
+func (msg *AuthorizationStatus) BeforeEncode() error {
 	msg.Type = AuthMessageType
-	return e.Encode(msg)
+	return nil
 }
 
 // SimpleRequestResponse represents a WRP message of type SimpleRequestResponseMessageType.
@@ -201,7 +191,7 @@ func (msg *AuthorizationStatus) EncodeTo(e Encoder) error {
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-request-response-definition
 type SimpleRequestResponse struct {
 	// Type is exposed principally for encoding.  This field *must* be set to SimpleRequestResponseMessageType,
-	// and is automatically set by the EncodeTo method.
+	// and is automatically set by the BeforeEncode method.
 	Type                    MessageType       `wrp:"msg_type"`
 	Source                  string            `wrp:"source"`
 	Destination             string            `wrp:"dest"`
@@ -235,9 +225,9 @@ func (msg *SimpleRequestResponse) SetIncludeSpans(value bool) *SimpleRequestResp
 	return msg
 }
 
-func (msg *SimpleRequestResponse) EncodeTo(e Encoder) error {
+func (msg *SimpleRequestResponse) BeforeEncode() error {
 	msg.Type = SimpleRequestResponseMessageType
-	return e.Encode(msg)
+	return nil
 }
 
 func (msg *SimpleRequestResponse) MessageType() MessageType {
@@ -275,7 +265,7 @@ func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResp
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-event-definition
 type SimpleEvent struct {
 	// Type is exposed principally for encoding.  This field *must* be set to SimpleEventMessageType,
-	// and is automatically set by the EncodeTo method.
+	// and is automatically set by the BeforeEncode method.
 	Type        MessageType       `wrp:"msg_type"`
 	Source      string            `wrp:"source"`
 	Destination string            `wrp:"dest"`
@@ -285,9 +275,9 @@ type SimpleEvent struct {
 	Payload     []byte            `wrp:"payload,omitempty"`
 }
 
-func (msg *SimpleEvent) EncodeTo(e Encoder) error {
+func (msg *SimpleEvent) BeforeEncode() error {
 	msg.Type = SimpleEventMessageType
-	return e.Encode(msg)
+	return nil
 }
 
 func (msg *SimpleEvent) MessageType() MessageType {
@@ -315,7 +305,7 @@ func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64
 	return &response
 }
 
-// CRUD represents a WRP message of one of the CRUD message types.  This type does not implement EncodeTo,
+// CRUD represents a WRP message of one of the CRUD message types.  This type does not implement BeforeEncode,
 // and so does not automatically set the Type field.  Client code must set the Type code appropriately.
 //
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#crud-message-definition
@@ -382,15 +372,15 @@ func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routa
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#on-device-service-registration-message-definition
 type ServiceRegistration struct {
 	// Type is exposed principally for encoding.  This field *must* be set to ServiceRegistrationMessageType,
-	// and is automatically set by the EncodeTo method.
+	// and is automatically set by the BeforeEncode method.
 	Type        MessageType `wrp:"msg_type"`
 	ServiceName string      `wrp:"service_name"`
 	URL         string      `wrp:"url"`
 }
 
-func (msg *ServiceRegistration) EncodeTo(e Encoder) error {
+func (msg *ServiceRegistration) BeforeEncode() error {
 	msg.Type = ServiceRegistrationMessageType
-	return e.Encode(msg)
+	return nil
 }
 
 // ServiceAlive represents a WRP message of type ServiceAliveMessageType.
@@ -398,11 +388,11 @@ func (msg *ServiceRegistration) EncodeTo(e Encoder) error {
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#on-device-service-alive-message-definition
 type ServiceAlive struct {
 	// Type is exposed principally for encoding.  This field *must* be set to ServiceAliveMessageType,
-	// and is automatically set by the EncodeTo method.
+	// and is automatically set by the BeforeEncode method.
 	Type MessageType `wrp:"msg_type"`
 }
 
-func (msg *ServiceAlive) EncodeTo(e Encoder) error {
+func (msg *ServiceAlive) BeforeEncode() error {
 	msg.Type = ServiceAliveMessageType
-	return e.Encode(msg)
+	return nil
 }

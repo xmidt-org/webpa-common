@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -183,13 +182,11 @@ func testMustEncodeValid(t *testing.T, f Format) {
 
 func testMustEncodePanic(t *testing.T, f Format) {
 	var (
-		assert = assert.New(t)
-
-		expectedError = errors.New("expected error")
-		message       = new(mockEncoderTo)
+		assert  = assert.New(t)
+		message = new(mockEncodeListener)
 	)
 
-	message.On("EncodeTo", mock.AnythingOfType("*codec.Encoder")).Once().Return(expectedError)
+	message.On("BeforeEncode").Once().Return(errors.New("expected"))
 
 	assert.Panics(func() {
 		MustEncode(message, f)
