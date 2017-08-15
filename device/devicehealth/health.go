@@ -13,11 +13,13 @@ const (
 	TotalDisconnectionEvents         health.Stat = "TotalDisconnectionEvents"
 )
 
-// Listener provides a Device.Listener that dispatches health statistics
+// Listener provides a device.Listener that dispatches health statistics
 type Listener struct {
 	Dispatcher health.Dispatcher
 }
 
+// OnDeviceEvent is a device.Listener that will dispatched health events to the configured
+// health Dispatcher.
 func (l *Listener) OnDeviceEvent(e *device.Event) {
 	switch e.Type {
 	case device.Connect:
