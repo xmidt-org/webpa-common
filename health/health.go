@@ -3,10 +3,11 @@ package health
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
 )
 
 // StatsListener receives Stats on regular intervals.
@@ -23,9 +24,14 @@ func (f StatsListenerFunc) OnStats(stats Stats) {
 	f(stats)
 }
 
+// Dispatcher represents a sink for Health events
+type Dispatcher interface {
+	SendEvent(HealthFunc)
+}
+
 // Monitor is the basic interface implemented by health event sinks
 type Monitor interface {
-	SendEvent(HealthFunc)
+	Dispatcher
 
 	// HACK HACK HACK
 	// This should be moved to another package
