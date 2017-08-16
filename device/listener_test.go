@@ -38,7 +38,7 @@ func testEventClear(t *testing.T, event Event) {
 	assert := assert.New(t)
 
 	event.Clear()
-	assert.Equal(EventType(255), event.Type)
+	assert.Equal(EventType(0), event.Type)
 	assert.Nil(event.Device)
 	assert.Nil(event.Message)
 	assert.Equal(wrp.Msgpack, event.Format)

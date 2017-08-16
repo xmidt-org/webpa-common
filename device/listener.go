@@ -36,6 +36,9 @@ const (
 	// was no waiting transaction
 	TransactionBroken
 
+	// Ping occurs when a device has been sent a ping
+	Ping
+
 	// Pong occurs when a device has responded to a ping
 	Pong
 
@@ -43,8 +46,8 @@ const (
 )
 
 var (
-	// emptyString is a convenient instance of an empty string
-	emptyString string
+	// blankEvent is an Event in its initial state.  Useful for quick state reset.
+	blankEvent Event
 )
 
 func (et EventType) String() string {
@@ -105,19 +108,13 @@ type Event struct {
 	// device was disconnected with enqueued messages, this field will be nil.
 	Error error
 
-	// Data is the pong data associated with this event.  This field is only set for a Pong event.
+	// Data is the ping or pong data associated with this event.  This field is only set for Ping and Pong events.
 	Data string
 }
 
 // Clear resets all fields in this Event.  This is most often in preparation to reuse the Event instance.
 func (e *Event) Clear() {
-	e.Type = EventType(255)
-	e.Device = nil
-	e.Message = nil
-	e.Format = wrp.Msgpack
-	e.Contents = nil
-	e.Error = nil
-	e.Data = emptyString
+	*e = blankEvent
 }
 
 // SetRequestFailed is a convenience for setting an Event appropriate for a message failure
@@ -147,6 +144,23 @@ func (e *Event) SetMessageReceived(d Interface, m *wrp.Message, f wrp.Format, c 
 	e.Message = m
 	e.Format = f
 	e.Contents = c
+}
+
+// SetPing is a convenience for resetting an Event appropriate for a Ping
+func (e *Event) SetPing(d Interface, data string, err error) {
+	e.Clear()
+	e.Type = Ping
+	e.Device = d
+	e.Data = data
+	e.Error = err
+}
+
+// SetPong is convenience for resetting an Event appropriate for a Pong
+func (e *Event) SetPong(d Interface, data string) {
+	e.Clear()
+	e.Type = Pong
+	e.Device = d
+	e.Data = data
 }
 
 // Listener is an event sink.  Listeners should never modify events and should never

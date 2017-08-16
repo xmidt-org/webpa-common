@@ -235,10 +235,7 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 	event := new(Event)
 
 	return func(data string) {
-		event.Clear()
-		event.Type = Pong
-		event.Device = d
-		event.Data = data
+		event.SetPong(d, data)
 		m.dispatch(event)
 	}
 }
@@ -321,11 +318,13 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		// we'll reuse this event instance
 		event = Event{Type: Connect, Device: d}
 
-		envelope    *envelope
-		frame       io.WriteCloser
-		encoder     = wrp.NewEncoder(nil, wrp.Msgpack)
-		writeError  error
-		pingMessage = []byte(fmt.Sprintf("ping[%s]", d.id))
+		envelope   *envelope
+		frame      io.WriteCloser
+		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
+		writeError error
+
+		pingData    = fmt.Sprintf("ping[%s]", d.id)
+		pingMessage = []byte(pingData)
 		pingTicker  = time.NewTicker(m.pingPeriod)
 	)
 
@@ -414,6 +413,8 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
+			event.SetPing(d, pingData, writeError)
+			m.dispatch(&event)
 		}
 	}
 }
