@@ -8,6 +8,7 @@ import (
 const (
 	DeviceCount                      health.Stat = "DeviceCount"
 	TotalWRPRequestResponseProcessed health.Stat = "TotalWRPRequestResponseProcessed"
+	TotalPingMessagesReceived        health.Stat = "TotalPingMessagesReceived"
 	TotalPongMessagesReceived        health.Stat = "TotalPongMessagesReceived"
 	TotalConnectionEvents            health.Stat = "TotalConnectionEvents"
 	TotalDisconnectionEvents         health.Stat = "TotalDisconnectionEvents"
@@ -37,6 +38,11 @@ func (l *Listener) OnDeviceEvent(e *device.Event) {
 	case device.TransactionComplete:
 		l.Dispatcher.SendEvent(func(s health.Stats) {
 			s[TotalWRPRequestResponseProcessed] += 1
+		})
+
+	case device.Ping:
+		l.Dispatcher.SendEvent(func(s health.Stats) {
+			s[TotalPingMessagesReceived] += 1
 		})
 
 	case device.Pong:
