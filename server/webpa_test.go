@@ -2,14 +2,15 @@ package server
 
 import (
 	"errors"
-//	"github.com/Comcast/webpa-common/health"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
+	//	"github.com/Comcast/webpa-common/health"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 type mockHandler struct {
@@ -286,7 +287,7 @@ func TestHealthNew(t *testing.T) {
 				Options:            record.options,
 			}
 
-			handler, server = health.New(logger)
+			handler, server = health.New(logger, nil)
 		)
 
 		if len(record.address) > 0 {
@@ -316,7 +317,7 @@ func TestWebPANoPrimaryAddress(t *testing.T) {
 		webPA   = WebPA{}
 
 		_, logger         = newTestLogger()
-		monitor, runnable = webPA.Prepare(logger, handler)
+		monitor, runnable = webPA.Prepare(logger, nil, handler)
 	)
 
 	assert.Nil(monitor)
@@ -363,7 +364,7 @@ func TestWebPA(t *testing.T) {
 		}
 
 		_, logger         = newTestLogger()
-		monitor, runnable = webPA.Prepare(logger, handler)
+		monitor, runnable = webPA.Prepare(logger, nil, handler)
 	)
 
 	assert.NotNil(monitor)
