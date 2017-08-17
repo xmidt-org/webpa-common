@@ -48,7 +48,7 @@ import:
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
   subpackages:
 - package: github.com/stretchr/testify
-  version: v1.1.4
+  version: 890a5c3458b43e6104ff5da8dfa139d013d77544
   subpackages:
   - assert
   - require

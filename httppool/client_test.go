@@ -3,15 +3,17 @@ package httppool
 import (
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 const (
@@ -113,27 +115,32 @@ func TestClientDispatcherUsingSend(t *testing.T) {
 	}
 
 	for _, client := range testData {
-		taskWaitGroup := &sync.WaitGroup{}
-		taskWaitGroup.Add(taskCount)
+		var (
+			taskWaitGroup = new(sync.WaitGroup)
+			handler       = new(mockTransactionHandler)
+			tasks         []Task
+		)
 
-		handler := &mockTransactionHandler{}
+		// TODO: Tried several things to be more specific instead of using a stub.  Want to fix this
+		// so it expects specific requests.
+		handler.On("Do", mock.AnythingOfType("*http.Request")).Return(new(http.Response), (error)(nil))
+
+		taskWaitGroup.Add(taskCount)
 		client.Handler = handler
 
-		tasks := make([]Task, 0, taskCount)
-
 		for taskNumber := 0; taskNumber < taskCount; taskNumber++ {
-			var task Task
+			var (
+				task    Task
+				url     = fmt.Sprintf("http://example.com/%d", taskNumber)
+				request = httptest.NewRequest("GET", url, nil)
+			)
 
 			switch taskNumber % 3 {
 			case 0:
-				request := MustNewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber))
-
 				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
 					return request, nil, nil
 				})
-
-				handler.On("Do", request).Return(&http.Response{}, nil)
 
 			case 1:
 				task = Task(func() (*http.Request, Consumer, error) {
@@ -142,14 +149,12 @@ func TestClientDispatcherUsingSend(t *testing.T) {
 				})
 
 			default:
-				request := MustNewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber))
+				request := httptest.NewRequest("GET", fmt.Sprintf("http://example.com/%d", taskNumber), nil)
 
 				task = Task(func() (*http.Request, Consumer, error) {
 					defer taskWaitGroup.Done()
 					return request, nil, nil
 				})
-
-				handler.On("Do", request).Return(nil, transactionError)
 			}
 
 			tasks = append(tasks, task)

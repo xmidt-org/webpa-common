@@ -1,5 +1,5 @@
-hash: 9f6aa9e3226ece55ac73caae81b5181bb831687c0a3210fe463cc0d5d3be8b99
-updated: 2017-06-21T14:19:05.607393572-07:00
+hash: 484a7b8aac5ee68db50a0821aae3db5c3f1a0b9165b42a963b9cbdacbb5037f4
+updated: 2017-08-17T13:17:06.043736384-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -38,7 +38,7 @@ imports:
 - name: github.com/cenk/backoff
   version: 5d150e7eec023ce7a124856b37c68e54b4050ac7
 - name: github.com/davecgh/go-spew
-  version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
+  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:
   - spew
 - name: github.com/facebookgo/clock
@@ -124,7 +124,7 @@ imports:
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
-  version: 69483b4bd14f5845b5a1e55bca19e954e827f1d0
+  version: 890a5c3458b43e6104ff5da8dfa139d013d77544
   subpackages:
   - assert
   - linux
