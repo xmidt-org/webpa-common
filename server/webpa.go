@@ -89,7 +89,8 @@ func (b *Basic) New(logger logging.Logger, handler http.Handler) *http.Server {
 	return server
 }
 
-// Health represents a configurable factory for a Health server.
+// Health represents a configurable factory for a Health server.  As with the Basic type,
+// if the Address is not specified, health is considered to be disabled.
 //
 // Due to a limitation of Viper, this struct does not use an embedded Basic
 // instance.  Rather, it duplicates the fields so that Viper can inject them.
@@ -107,14 +108,11 @@ func (h *Health) Certificate() (certificateFile, keyFile string) {
 	return h.CertificateFile, h.KeyFile
 }
 
-// New creates both a health.Health monitor (which is also an HTTP handler) and an HTTP server
-// which services health requests.
-//
-// This method returns nils if the configured Address is empty, which effectively disables
-// the health server.
-func (h *Health) New(logger logging.Logger) (handler *health.Health, server *http.Server) {
+// NewHealth creates a Health instance from this instance's configuration.  If the Address
+// field is not supplied, this method returns nil.
+func (h *Health) NewHealth(logger logging.Logger) *health.Health {
 	if len(h.Address) == 0 {
-		return
+		return nil
 	}
 
 	options := make([]health.Option, 0, len(h.Options))
@@ -122,16 +120,37 @@ func (h *Health) New(logger logging.Logger) (handler *health.Health, server *htt
 		options = append(options, health.Stat(value))
 	}
 
-	handler = health.New(
+	return health.New(
 		h.LogInterval,
 		logger,
 		options...,
 	)
+}
+
+// New creates an HTTP server instance for serving health statistics.  If the health parameter
+// is nil, then h.NewHealth is used to create a Health instance.  Otherwise, the health parameter
+// is returned as is.
+//
+// If the Address option is not supplied, the health module is considered to be disabled.  In that
+// case, this method simply returns the health parameter as the monitor and a nil server instance.
+func (h *Health) New(logger logging.Logger, health *health.Health) (*health.Health, *http.Server) {
+	if len(h.Address) == 0 {
+		// health is disabled
+		return nil, nil
+	}
+
+	if health == nil {
+		if health = h.NewHealth(logger); health == nil {
+			// should never hit this case, since NewHealth performs the same
+			// Address field check as this method.  but, just to be safe ...
+			return nil, nil
+		}
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/health", handler)
+	mux.Handle("/health", health)
 
-	server = &http.Server{
+	server := &http.Server{
 		Addr:     h.Address,
 		Handler:  mux,
 		ErrorLog: NewErrorLog(h.Name, logger),
@@ -141,7 +160,7 @@ func (h *Health) New(logger logging.Logger) (handler *health.Health, server *htt
 		server.ConnState = NewConnectionStateLogger(h.Name, logger)
 	}
 
-	return
+	return health, server
 }
 
 // WebPA represents a server component within the WebPA cluster.  It is used for both
@@ -171,12 +190,19 @@ type WebPA struct {
 // Runnable may return an error.  The supplied logger will usually come from the New function, but the
 // WebPA.Log object can be used to create a different logger if desired.
 //
+// The caller may pass an arbitrary Health instance.  If this parameter is nil, this method will attempt to
+// create one using Health.NewHealth.  In either case, if Health.Address is not supplied, no health server
+// will be instantiated.
+//
 // The supplied http.Handler is used for the primary server.  If the alternate server has an address,
 // it will also be used for that server.  The health server uses an internally create handler, while the pprof
 // server uses http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger logging.Logger, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
-	healthHandler, healthServer := w.Health.New(logger)
+func (w *WebPA) Prepare(logger logging.Logger, health *health.Health, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+	// allow the health instance to be non-nil, in which case it will be used in favor of
+	// the WebPA-configured instance.
+	healthHandler, healthServer := w.Health.New(logger, health)
+
 	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		if healthHandler != nil && healthServer != nil {
 			logger.Info("Starting [%s] on [%s]", w.Health.Name, w.Health.Address)
