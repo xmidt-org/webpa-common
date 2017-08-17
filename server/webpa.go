@@ -110,12 +110,11 @@ func (h *Health) Certificate() (certificateFile, keyFile string) {
 
 // NewHealth creates a Health instance from this instance's configuration.  If the Address
 // field is not supplied, this method returns nil.
-func (h *Health) NewHealth(logger logging.Logger) *health.Health {
+func (h *Health) NewHealth(logger logging.Logger, options ...health.Option) *health.Health {
 	if len(h.Address) == 0 {
 		return nil
 	}
 
-	options := make([]health.Option, 0, len(h.Options))
 	for _, value := range h.Options {
 		options = append(options, health.Stat(value))
 	}
