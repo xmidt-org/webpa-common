@@ -110,7 +110,6 @@ func testSubscriptionNoTimeout(t *testing.T) {
 	watch.On("IsClosed").Return(false)
 	watch.On("Close")
 
-	// now the rest of the endpoints
 	for _, endpoints := range expectedEndpoints {
 		watch.On("Endpoints").Once().Return(endpoints)
 	}
@@ -142,77 +141,95 @@ func testSubscriptionWithTimeout(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		watch     = NewTestWatch(t)
+		watch     = new(mockWatch)
 		registrar = new(mockRegistrar)
-		delay     = make(chan time.Time)
+		event     = make(chan struct{})
 
-		expectedEndpoints = [][]string{
-			[]string{"testSubscriptionWithTimeout1"},
-			[]string{"testSubscriptionWithTimeout2", "testSubscriptionWithTimeout3"},
-			[]string{"testSubscriptionWithTimeout4", "testSubscriptionWithTimeout5", "testSubscriptionWithTimeout6"},
+		expectedInitialEndpoints = []string{"initial"}
+
+		// these are batches of endpoints.  the listener should receive only the last item in each batch.
+		expectedEndpoints = [][][]string{
+			[][]string{
+				[]string{"batch1"},
+				[]string{"batch1", "batch1"},
+				[]string{"batch1", "batch1", "batch1"},
+			},
+			[][]string{
+				[]string{"batch2"},
+				[]string{"batch2", "batch2"},
+				[]string{"batch2", "batch2", "batch2"},
+			},
 		}
 
-		afterCalled     = make(chan struct{})
-		expectedTimeout = 12856 * time.Second
-		listenerOutput  = make(chan []string, 1)
-		subscription    = Subscription{
+		actualCount  uint32
+		listenerDone = make(chan struct{})
+		delay        = make(chan time.Time)
+
+		subscription = Subscription{
 			Registrar: registrar,
-			Timeout:   expectedTimeout,
-			After: func(timeout time.Duration) <-chan time.Time {
-				t.Logf("After function called with %s", timeout)
-				defer close(afterCalled)
-				assert.Equal(expectedTimeout, timeout)
-				return delay
-			},
+			After:     func(time.Duration) <-chan time.Time { return delay },
+			Timeout:   time.Second,
 			Listener: func(endpoints []string) {
-				listenerOutput <- endpoints
+				newCount := atomic.AddUint32(&actualCount, 1)
+				if newCount == 1 {
+					assert.Equal(expectedInitialEndpoints, endpoints)
+				} else {
+					batch := expectedEndpoints[newCount-2]
+					assert.Equal(batch[len(batch)-1], endpoints)
+				}
+
+				if int(newCount) == len(expectedEndpoints)+1 {
+					close(listenerDone)
+				}
 			},
 		}
 	)
 
 	registrar.On("Watch").Once().Return(watch, nil)
+	watch.On("Event").Return((<-chan struct{})(event))
+	watch.On("IsClosed").Return(false)
+	watch.On("Close")
+	watch.On("Endpoints").Once().Return(expectedInitialEndpoints)
+
+	for _, batch := range expectedEndpoints {
+		for _, endpoints := range batch {
+			watch.On("Endpoints").Once().Return(endpoints)
+		}
+	}
 
 	assert.NoError(subscription.Run())
 	assert.Equal(ErrorAlreadyRunning, subscription.Run())
 
-	// this simulates a succession of events
-	for _, endpoints := range expectedEndpoints {
-		t.Logf("next endpoints: %s", endpoints)
-		watch.NextEndpoints(endpoints)
+	// for each batch, dispatch an event for each set of endpoints followed by a delay event
+	for i, batch := range expectedEndpoints {
+		for repeat := 0; repeat < len(batch); repeat++ {
+			event <- struct{}{}
+		}
 
-		select {
-		case <-listenerOutput:
-			assert.Fail("The listener should not have been invoked")
-		default:
-			// passing
+		// don't send a time event after the last batch
+		if i <= len(expectedEndpoints) {
+			delay <- time.Now()
 		}
 	}
 
-	// ensure that our After function was called
+	timer := time.NewTimer(time.Second)
 	select {
-	case <-afterCalled:
-		// passing
-	default:
-		assert.Fail("The After function should have been called")
+	case <-listenerDone:
+		assert.Equal(len(expectedEndpoints)+1, int(atomic.LoadUint32(&actualCount)))
+		assert.NoError(subscription.Cancel())
+		assert.Equal(ErrorNotRunning, subscription.Cancel())
+
+		registrar.AssertExpectations(t)
+		watch.AssertExpectations(t)
+
+	case <-timer.C:
+		assert.Fail("The listener did not receive all endpoints")
 	}
-
-	// simulate the timer elapsing
-	delay <- time.Now()
-	assert.Equal(expectedEndpoints[len(expectedEndpoints)-1], <-listenerOutput)
-
-	assert.NoError(subscription.Cancel())
-	assert.True(watch.IsClosed())
-	assert.Equal(ErrorNotRunning, subscription.Cancel())
-	assert.True(watch.IsClosed())
-
-	registrar.AssertExpectations(t)
 }
 
 func TestSubscription(t *testing.T) {
 	t.Run("WatchError", testSubscriptionWatchError)
 	t.Run("ListenerPanic", testSubscriptionListenerPanic)
 	t.Run("NoTimeout", testSubscriptionNoTimeout)
-	/*
-		t.Run("WithTimeout", testSubscriptionWithTimeout)
-	*/
+	t.Run("WithTimeout", testSubscriptionWithTimeout)
 }
