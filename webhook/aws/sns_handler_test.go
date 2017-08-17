@@ -231,9 +231,9 @@ func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
 	errResp, _ := ioutil.ReadAll(resp.Body)
 	json.Unmarshal([]byte(errResp), errMsg)
 
-	assert.Equal(http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(http.StatusInternalServerError, resp.StatusCode)
 	assert.Nil(message)
-	assert.Equal(errMsg.Code, http.StatusBadRequest)
+	assert.Equal(errMsg.Code, http.StatusInternalServerError)
 	assert.Equal(errMsg.Message, "SubscriptionARN does not match")
 
 	m.AssertExpectations(t)
