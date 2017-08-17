@@ -9,6 +9,36 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func testAppendOptions(t *testing.T, source []health.Option) {
+	var (
+		assert = assert.New(t)
+		result = AppendOptions(source)
+
+		expectedOptions = map[health.Option]bool{
+			DeviceCount:                      true,
+			TotalWRPRequestResponseProcessed: true,
+			TotalPingMessagesReceived:        true,
+			TotalPongMessagesReceived:        true,
+			TotalConnectionEvents:            true,
+			TotalDisconnectionEvents:         true,
+		}
+	)
+
+	assert.NotEqual(source, result)
+
+	for _, o := range result {
+		delete(expectedOptions, o)
+	}
+
+	assert.Empty(expectedOptions)
+}
+
+func TestAppendOptions(t *testing.T) {
+	t.Run("NilSlice", func(t *testing.T) { testAppendOptions(t, nil) })
+	t.Run("EmptySlice", func(t *testing.T) { testAppendOptions(t, []health.Option{}) })
+	t.Run("ExistingSlice", func(t *testing.T) { testAppendOptions(t, []health.Option{health.Stat("existing")}) })
+}
+
 func testListenerOnDeviceEventConnect(t *testing.T) {
 	var (
 		assert     = assert.New(t)
