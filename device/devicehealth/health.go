@@ -14,6 +14,19 @@ const (
 	TotalDisconnectionEvents         health.Stat = "TotalDisconnectionEvents"
 )
 
+// AppendOptions handles appending the device-specific health options to the given slice.
+func AppendOptions(source []health.Option) []health.Option {
+	return append(
+		source,
+		DeviceCount,
+		TotalWRPRequestResponseProcessed,
+		TotalPingMessagesReceived,
+		TotalPongMessagesReceived,
+		TotalConnectionEvents,
+		TotalDisconnectionEvents,
+	)
+}
+
 // Listener provides a device.Listener that dispatches health statistics
 type Listener struct {
 	Dispatcher health.Dispatcher
