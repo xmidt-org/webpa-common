@@ -14,6 +14,16 @@ const (
 	TotalDisconnectionEvents         health.Stat = "TotalDisconnectionEvents"
 )
 
+// Options is an array of all the health Options exposed via this package
+var Options = []health.Option{
+	DeviceCount,
+	TotalWRPRequestResponseProcessed,
+	TotalPingMessagesReceived,
+	TotalPongMessagesReceived,
+	TotalConnectionEvents,
+	TotalDisconnectionEvents,
+}
+
 // Listener provides a device.Listener that dispatches health statistics
 type Listener struct {
 	Dispatcher health.Dispatcher

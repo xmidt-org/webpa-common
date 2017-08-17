@@ -54,7 +54,7 @@ func testSubscriptionListenerPanic(t *testing.T) {
 
 	registrar.On("Watch").Once().Return(watch, nil)
 	watch.On("Endpoints").Once().Return(expectedEndpoints)
-	watch.On("Close").Once()
+	watch.On("Close")
 
 	assert.NoError(subscription.Run())
 
@@ -62,13 +62,13 @@ func testSubscriptionListenerPanic(t *testing.T) {
 	defer timer.Stop()
 	select {
 	case <-listenerCalled:
-		// passing case
-		registrar.AssertExpectations(t)
-		watch.AssertExpectations(t)
-
 		// Cancel should be idempotent
 		subscription.Cancel()
 		assert.Equal(ErrorNotRunning, subscription.Cancel())
+
+		// passing case
+		registrar.AssertExpectations(t)
+		watch.AssertExpectations(t)
 
 	case <-timer.C:
 		assert.Fail("The listener was not called")
