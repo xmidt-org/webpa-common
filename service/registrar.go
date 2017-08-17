@@ -2,9 +2,10 @@ package service
 
 import (
 	"fmt"
-	"github.com/strava/go.serversets"
 	"regexp"
 	"strconv"
+
+	"github.com/strava/go.serversets"
 )
 
 // Watch is the subset of methods required by this package that *serversets.Watch implements

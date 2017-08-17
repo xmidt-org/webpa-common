@@ -2,9 +2,10 @@ package service
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/logging"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
 )
 
 var (
@@ -25,19 +26,7 @@ type Subscription struct {
 	// be changed concurrently with any methods of this type.
 	//
 	// This field can be set to UpdatableAccessor.Update.  That will simply update the accessor's
-	// endpoints with every watch event:
-	//
-	//     var (
-	//       options = &Options{ /* settings as desired */ }
-	//       watch, _ = registrar.Watch()
-	//       accessor = NewUpdatableAccessor(options, watch.Endpoints())
-	//       subscription = Subscription{
-	//           Watch: watch,
-	//           Listener: accessor.Update,
-	//       }
-	//     )
-	//
-	//     subscription.Run()
+	// endpoints with every watch event.
 	Listener func([]string)
 
 	// Timeout is an optional interval used for fault tolerance in the face of network flapping.  If set
@@ -59,10 +48,9 @@ type Subscription struct {
 // to the Listener.
 func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 	var (
-		logger    = s.Logger
-		delay     <-chan time.Time
-		after     = s.After
-		endpoints []string
+		logger = s.Logger
+		delay  <-chan time.Time
+		after  = s.After
 	)
 
 	if logger == nil {
@@ -82,6 +70,11 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 		// call to Cancel may have happened, e.g. panic, the watch was closed, etc
 		s.Cancel()
 	}()
+
+	endpoints := watch.Endpoints()
+	logger.Info("Dispatching initial endpoints: %v", endpoints)
+	s.Listener(endpoints)
+	endpoints = nil
 
 	logger.Info("Monitoring subscription to: %v", watch)
 
