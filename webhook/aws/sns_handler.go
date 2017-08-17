@@ -2,12 +2,12 @@ package aws
 
 import (
 	"github.com/Comcast/webpa-common/httperror"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
 	"time"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sns"
 )
 
 const (
@@ -119,20 +119,20 @@ func (ss *SNSServer) Subscribe() {
 
 		// this is so tests do not timeout
 		if *params.TopicArn == "arn:aws:sns:us-east-1:1234:test-topic" ||
-		   *params.Endpoint == "http://host:port/api/v2/aws/sns" {
+			*params.Endpoint == "http://host:port/api/v2/aws/sns" {
 			return
 		}
 
 		for {
 			time.Sleep(time.Second * 5)
-			
+
 			resp, err = ss.SVC.Subscribe(params)
 			if err != nil {
 				ss.Error("SNS subscribe error (attempt %d failed): %v", attemptNum, err)
 			} else {
 				break
 			}
-			
+
 			attemptNum++
 		}
 	}
@@ -200,7 +200,8 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 
 	subArn := req.Header.Get("X-Amz-Sns-Subscription-Arn")
 	if !ss.ValidateSubscriptionArn(subArn) {
-		httperror.Format(rw, http.StatusBadRequest, "SubscriptionARN does not match")
+		// Returning HTTP 500 error such that AWS will retry and meanwhile subscriptionConfirmation will be received
+		httperror.Format(rw, http.StatusInternalServerError, "SubscriptionARN does not match")
 		return nil
 	}
 

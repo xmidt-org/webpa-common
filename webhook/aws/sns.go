@@ -175,8 +175,10 @@ func (ss *SNSServer) listenSubscriptionData() {
 
 // Validate that SubscriptionArn received in AWS request matches the cached config data
 func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
-
-	if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {
+	if ss.subscriptionArn.Load() == nil {
+		ss.Error("SNS subscriptionArn is nil")
+		return false
+	} else if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {
 		return true
 	} else {
 		ss.Error(
