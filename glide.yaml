@@ -38,6 +38,8 @@ import:
   version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
 - package: github.com/spf13/viper
   version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
+- package: github.com/samuel/go-zookeeper
+  version: e6b59f6144beb8570562539c1898a0b1fea34b41
 - package: github.com/strava/go.serversets
   version: v1.0
 - package: github.com/ugorji/go
