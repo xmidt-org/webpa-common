@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -12,7 +13,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-	AWS "webpa-common-Jul28/webhook/aws"
 )
 
 const TEST_UNIX_TIME = 1503357402
@@ -103,7 +103,5 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 
 	assert.Equal(http.StatusInternalServerError, errMsg.Code)
 	assert.Equal(errMsg.Message, "SubscriptionARN does not match")
-
-	m.AssertExpectations(t)
 
 }
