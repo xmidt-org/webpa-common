@@ -1,12 +1,57 @@
 package httputil
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func ExampleApplyHeadersUsingHttpHeader() {
+	var (
+		someHeaders = http.Header{
+			"X-Application-Version": []string{"1.0.2"},
+		}
+
+		handler = ApplyHeaders(someHeaders)(
+			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				// this is production code
+			}),
+		)
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+	)
+
+	handler.ServeHTTP(response, request)
+	fmt.Println(response.HeaderMap["X-Application-Version"][0])
+	// Output:
+	// 1.0.2
+}
+
+func ExampleApplyHeadersUsingSimpleMap() {
+	var (
+		someHeaders = map[string]string{
+			"X-Application-Version": "1.0.2",
+		}
+
+		handler = ApplyHeaders(someHeaders)(
+			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				// this is production code
+			}),
+		)
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+	)
+
+	handler.ServeHTTP(response, request)
+	fmt.Println(response.HeaderMap["X-Application-Version"][0])
+	// Output:
+	// 1.0.2
+}
 
 func testApplyHeadersUnsupported(t *testing.T, h interface{}) {
 	assert.Panics(t, func() { ApplyHeaders(h) })
