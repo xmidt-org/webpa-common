@@ -6,7 +6,9 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"net/url"
 	"testing"
+	"time"
 )
 
 const (
@@ -22,6 +24,17 @@ const (
                                 }
 		                }
 		          }`
+	TEST_AWS_CFG = `{
+	"aws": {
+        "accessKey": "accessKey",
+        "secretKey": "secretKey",
+        "env": "test",
+        "sns" : {
+	        "region" : "us-east-1",
+            "protocol" : "http",
+			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic", 
+			"urlPath" : "/sns/"
+    } } }`
 )
 
 func TestNewSNSServerSuccess(t *testing.T) {
@@ -90,15 +103,51 @@ func TestSubscribeSelfURL_Nil(t *testing.T) {
 
 	// SNSServer initialized with nil selfurl
 	ss, m, _, _ := SetUpTestSNSServer()
-
+	urlPath := fmt.Sprint("http://host:port/api/v2/aws/sns/", TEST_UNIX_TIME)
 	expectedInput := &sns.SubscribeInput{
 		Protocol: aws.String("http"),
 		TopicArn: aws.String(ss.Config.Sns.TopicArn),
-		Endpoint: aws.String("http://host:port/api/v2/aws/sns"),
+		Endpoint: aws.String(urlPath),
 	}
 	m.On("Subscribe", expectedInput).Return(&sns.SubscribeOutput{}, fmt.Errorf("%s", "Unreachable"))
 
 	ss.PrepareAndStart()
 
 	m.AssertExpectations(t)
+}
+
+func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	v := SetUpTestViperInstance(TEST_AWS_CONFIG)
+	ss, _ := NewSNSServer(v)
+	selfUrl := &url.URL{
+		Scheme: "http",
+		Host:   "host-test:port",
+	}
+
+	ss.Initialize(nil, selfUrl, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+
+	require.NotNil(ss.Logger)
+	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, "/", TEST_UNIX_TIME), selfUrl.Path)
+	assert.Equal("http://host-test:port/api/v2/aws/sns/1503357402", ss.SelfUrl.String())
+}
+
+func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	v := SetUpTestViperInstance(TEST_AWS_CFG)
+	ss, _ := NewSNSServer(v)
+	selfUrl := &url.URL{
+		Scheme: "http",
+		Host:   "host-test:port",
+	}
+
+	ss.Initialize(nil, selfUrl, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+
+	require.NotNil(ss.Logger)
+	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, TEST_UNIX_TIME), selfUrl.Path)
+	assert.Equal("http://host-test:port/sns/1503357402", ss.SelfUrl.String())
 }

@@ -292,10 +292,15 @@ func (ss *SNSServer) listenAndPublishMessage(quit <-chan struct{}) {
 }
 
 // Unsubscribe from receiving notifications
-func (ss *SNSServer) Unsubscribe() {
-
+func (ss *SNSServer) Unsubscribe(subArn string) {
+	var subscriptionArn string
+	if !strings.EqualFold(subArn, "") {
+		subscriptionArn = subArn
+	} else {
+		subscriptionArn = ss.subscriptionArn.Load().(string)
+	}
 	params := &sns.UnsubscribeInput{
-		SubscriptionArn: aws.String(ss.subscriptionArn.Load().(string)), // Required
+		SubscriptionArn: aws.String(subscriptionArn), // Required
 	}
 
 	resp, err := ss.SVC.Unsubscribe(params)
