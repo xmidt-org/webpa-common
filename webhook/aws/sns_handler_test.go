@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -46,7 +47,12 @@ const (
   "MessageAttributes" : {
     "scytale.env" : {"Type":"String","Value":"Invalid"}
   } }`
+	TEST_UNIX_TIME = 1503357402
 )
+
+func testNow() time.Time {
+	return time.Unix(TEST_UNIX_TIME, 0)
+}
 
 func SetUpTestViperInstance(config string) *viper.Viper {
 
@@ -72,7 +78,7 @@ func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 	}
 
 	r := mux.NewRouter()
-	ss.Initialize(r, nil, nil, nil)
+	ss.Initialize(r, nil, nil, nil, testNow)
 
 	return ss, m, mv, r
 }
@@ -119,15 +125,38 @@ func TestSubscribeError(t *testing.T) {
 func TestUnsubscribeSuccess(t *testing.T) {
 	fmt.Println("\n\nTestUnsubscribeSuccess")
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer()
 	testSubscribe(t, m, ss)
+	testSubConf(t, m, mv, ss)
 
-	m.On("Unsubscribe", mock.AnythingOfType("*sns.UnsubscribeInput")).Return(&sns.UnsubscribeOutput{}, nil)
+	expectedInput := &sns.UnsubscribeInput{
+		SubscriptionArn: aws.String("testSubscriptionArn"), // Required
+	}
+	m.On("Unsubscribe", expectedInput).Return(&sns.UnsubscribeOutput{}, nil)
 
 	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
 	time.Sleep(1 * time.Second)
 
-	ss.Unsubscribe()
+	ss.Unsubscribe("")
+
+	m.AssertExpectations(t)
+}
+
+func TestUnsubscribeWithSubArn(t *testing.T) {
+	fmt.Println("\n\nTestUnsubscribeSuccess")
+
+	ss, m, _, _ := SetUpTestSNSServer()
+	testSubscribe(t, m, ss)
+
+	expectedInput := &sns.UnsubscribeInput{
+		SubscriptionArn: aws.String("subArn"), // Required
+	}
+	m.On("Unsubscribe", expectedInput).Return(&sns.UnsubscribeOutput{}, nil)
+
+	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
+	time.Sleep(1 * time.Second)
+
+	ss.Unsubscribe("subArn")
 
 	m.AssertExpectations(t)
 }
@@ -142,7 +171,7 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 
 	ts := httptest.NewServer(r)
 
-	subConfUrl := fmt.Sprintf("%s%s", ts.URL, ss.Config.Sns.UrlPath)
+	subConfUrl := fmt.Sprintf("%s%s/%d", ts.URL, ss.Config.Sns.UrlPath, TEST_UNIX_TIME)
 
 	// Mocking AWS SubscriptionConfirmation POST call using http client
 	req := httptest.NewRequest("POST", subConfUrl, strings.NewReader(TEST_SUB_MSG))
@@ -231,9 +260,9 @@ func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
 	errResp, _ := ioutil.ReadAll(resp.Body)
 	json.Unmarshal([]byte(errResp), errMsg)
 
-	assert.Equal(http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(http.StatusInternalServerError, resp.StatusCode)
 	assert.Nil(message)
-	assert.Equal(errMsg.Code, http.StatusBadRequest)
+	assert.Equal(errMsg.Code, http.StatusInternalServerError)
 	assert.Equal(errMsg.Message, "SubscriptionARN does not match")
 
 	m.AssertExpectations(t)

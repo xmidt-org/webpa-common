@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,11 +28,11 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 
 	registry, handler := f.NewRegistryAndHandler()
 
-	f.Initialize(r, nil, handler, nil)
+	f.Initialize(r, nil, handler, nil, testNow)
 
 	ts := httptest.NewServer(r)
 
-	subConfUrl := fmt.Sprintf("%s%s", ts.URL, "/api/v2/aws/sns")
+	subConfUrl := fmt.Sprintf("%s%s/%d", ts.URL, "/api/v2/aws/sns", TEST_UNIX_TIME)
 
 	// Mocking AWS SubscriptionConfirmation POST call using http client
 	req := httptest.NewRequest("POST", subConfUrl, strings.NewReader(AWS.TEST_SUB_MSG))
@@ -96,11 +97,11 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	f.Initialize(r, nil, handler, nil)
+	f.Initialize(r, nil, handler, nil, testNow)
 
 	ts := httptest.NewServer(r)
 
-	subConfUrl := fmt.Sprintf("%s%s", ts.URL, "/api/v2/aws/sns")
+	subConfUrl := fmt.Sprintf("%s%s/%d", ts.URL, "/api/v2/aws/sns", TEST_UNIX_TIME)
 
 	// Mocking AWS SubscriptionConfirmation POST call using http client
 	req := httptest.NewRequest("POST", subConfUrl, strings.NewReader(AWS.TEST_SUB_MSG))
@@ -155,7 +156,7 @@ func TestNotifierPublishFlow(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Mocking SNS Notification POST call
-	req := httptest.NewRequest("POST", ts.URL+"/api/v2/aws/sns", strings.NewReader(AWS.NOTIFY_HOOK_MSG))
+	req := httptest.NewRequest("POST", ts.URL+"/api/v2/aws/sns/"+strconv.Itoa(TEST_UNIX_TIME), strings.NewReader(AWS.NOTIFY_HOOK_MSG))
 	req.Header.Add("x-amz-sns-message-type", "Notification")
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
@@ -202,7 +203,7 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Mocking SNS Notification POST call
-	req := httptest.NewRequest("POST", ts.URL+"/api/v2/aws/sns", strings.NewReader(AWS.TEST_NOTIF_ERR_MSG))
+	req := httptest.NewRequest("POST", ts.URL+"/api/v2/aws/sns/"+strconv.Itoa(TEST_UNIX_TIME), strings.NewReader(AWS.TEST_NOTIF_ERR_MSG))
 	req.Header.Add("x-amz-sns-message-type", "Notification")
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
@@ -246,7 +247,7 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// Mocking SNS Notification POST call
-	req := httptest.NewRequest("POST", ts.URL+"/api/v2/aws/sns", strings.NewReader(AWS.TEST_NOTIF_ERR_MSG))
+	req := httptest.NewRequest("POST", ts.URL+"/api/v2/aws/sns/"+strconv.Itoa(TEST_UNIX_TIME), strings.NewReader(AWS.TEST_NOTIF_ERR_MSG))
 	req.Header.Add("x-amz-sns-message-type", "Notification")
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 

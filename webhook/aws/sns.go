@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -8,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -44,11 +46,11 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, http.Handler, logging.Logger)
+	Initialize(*mux.Router, *url.URL, http.Handler, logging.Logger, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string)
-	Unsubscribe()
+	Unsubscribe(string)
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte
 	ValidateSubscriptionArn(string) bool
 }
@@ -93,23 +95,35 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
 func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.Handler,
-	logger logging.Logger) {
+	logger logging.Logger, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
 		rtr = mux.NewRouter()
 	}
 
+	if now == nil {
+		now = time.Now
+	}
+
 	// Set webhook url path to SNS UrlPath
+	// Add unix timestamp to the path to generate unique subArn each time
+	var urlPath string
+	if strings.HasSuffix(ss.Config.Sns.UrlPath, "/") {
+		urlPath = fmt.Sprint(ss.Config.Sns.UrlPath, now().Unix())
+	} else {
+		urlPath = fmt.Sprint(ss.Config.Sns.UrlPath, "/", now().Unix())
+	}
+
 	if selfUrl != nil {
-		selfUrl.Path = ss.Config.Sns.UrlPath
 		ss.SelfUrl = selfUrl
+		ss.SelfUrl.Path = urlPath
 	} else {
 		// Test selfurl http://host:port/path
 		ss.SelfUrl = &url.URL{
 			Scheme: "http",
 			Host:   "host:port",
-			Path:   ss.Config.Sns.UrlPath,
+			Path:   urlPath,
 		}
 	}
 	ss.subscriptionData = make(chan string, 5)
@@ -125,7 +139,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 	ss.Debug("SNS self url endpoint: [%s], protocol [%s]", ss.SelfUrl.String(), ss.SelfUrl.Scheme)
 
 	// Set various SNS POST routes
-	ss.SetSNSRoutes(ss.Config.Sns.UrlPath, rtr, handler)
+	ss.SetSNSRoutes(urlPath, rtr, handler)
 
 }
 
@@ -176,7 +190,10 @@ func (ss *SNSServer) listenSubscriptionData() {
 // Validate that SubscriptionArn received in AWS request matches the cached config data
 func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 
-	if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {
+	if ss.subscriptionArn.Load() == nil {
+		ss.Error("SNS subscriptionArn is nil")
+		return false
+	} else if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {
 		return true
 	} else {
 		ss.Error(
