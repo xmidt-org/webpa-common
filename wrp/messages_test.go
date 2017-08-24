@@ -3,9 +3,10 @@ package wrp
 import (
 	"bytes"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 var (
@@ -42,6 +43,27 @@ func TestMessageTypeString(t *testing.T) {
 	assert.Equal(len(messageTypes), len(strings))
 	assert.Equal(InvalidMessageTypeString, MessageType(-1).String())
 	assert.NotContains(strings, InvalidMessageTypeString)
+}
+
+func TestMessageSupportsTransaction(t *testing.T) {
+	var (
+		assert                      = assert.New(t)
+		expectedSupportsTransaction = map[MessageType]bool{
+			AuthMessageType:                  false,
+			SimpleRequestResponseMessageType: true,
+			SimpleEventMessageType:           false,
+			CreateMessageType:                true,
+			RetrieveMessageType:              true,
+			UpdateMessageType:                true,
+			DeleteMessageType:                true,
+			ServiceRegistrationMessageType:   false,
+			ServiceAliveMessageType:          false,
+		}
+	)
+
+	for messageType, expected := range expectedSupportsTransaction {
+		assert.Equal(expected, messageType.SupportsTransaction())
+	}
 }
 
 func testMessageSetStatus(t *testing.T) {
@@ -99,6 +121,10 @@ func testMessageRoutable(t *testing.T, original Message) {
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
 	assert.Equal(original.TransactionUUID, original.TransactionKey())
+	assert.Equal(
+		original.Type.SupportsTransaction() && len(original.TransactionUUID) > 0,
+		original.IsTransactionPart(),
+	)
 
 	routable := original.Response("testMessageRoutable", 1234)
 	require.NotNil(routable)
@@ -213,6 +239,7 @@ func testAuthorizationStatusEncode(t *testing.T, f Format) {
 	assert.NoError(encoder.Encode(&original))
 	assert.True(buffer.Len() > 0)
 	assert.Equal(AuthMessageType, original.Type)
+	assert.Equal(AuthMessageType, original.MessageType())
 	assert.NoError(decoder.Decode(&decoded))
 	assert.Equal(original, decoded)
 }
@@ -280,6 +307,10 @@ func testSimpleRequestResponseRoutable(t *testing.T, original SimpleRequestRespo
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
 	assert.Equal(original.TransactionUUID, original.TransactionKey())
+	assert.Equal(
+		len(original.TransactionUUID) > 0,
+		original.IsTransactionPart(),
+	)
 
 	routable := original.Response("testSimpleRequestResponseRoutable", 34734)
 	require.NotNil(routable)
@@ -374,6 +405,7 @@ func testSimpleEventRoutable(t *testing.T, original SimpleEvent) {
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
 	assert.Empty(original.TransactionKey())
+	assert.False(original.IsTransactionPart())
 
 	routable := original.Response("testSimpleEventRoutable", 82)
 	require.NotNil(routable)
@@ -492,6 +524,10 @@ func testCRUDRoutable(t *testing.T, original CRUD) {
 	assert.Equal(original.Destination, original.To())
 	assert.Equal(original.Source, original.From())
 	assert.Equal(original.TransactionUUID, original.TransactionKey())
+	assert.Equal(
+		len(original.TransactionUUID) > 0,
+		original.IsTransactionPart(),
+	)
 
 	routable := original.Response("testCRUDRoutable", 369)
 	require.NotNil(routable)

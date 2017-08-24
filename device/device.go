@@ -260,11 +260,11 @@ func (d *device) Send(request *Request) (*Response, error) {
 	}
 
 	var (
-		transactionKey = request.TransactionKey()
-		result         <-chan *Response
+		transactionKey, transactional = request.Transactional()
+		result                        <-chan *Response
 	)
 
-	if len(transactionKey) > 0 {
+	if transactional {
 		var err error
 		if result, err = d.transactions.Register(transactionKey); err != nil {
 			// if a transaction key cannot be registered, we don't want to proceed.
