@@ -284,9 +284,9 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		event.SetMessageReceived(d, message, wrp.Msgpack, rawFrame)
 
 		// update any waiting transaction
-		if transactionKey := message.TransactionKey(); len(transactionKey) > 0 {
+		if message.IsTransactionPart() {
 			err := d.transactions.Complete(
-				transactionKey,
+				message.TransactionKey(),
 				&Response{
 					Device:   d,
 					Message:  message,

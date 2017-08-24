@@ -30,14 +30,15 @@ type Request struct {
 	ctx context.Context
 }
 
-// TransactionKey returns the transaction key associated with this request.  If Message is nil
-// or is not an instance of wrp.Routable, this method returns an empty string.
-func (r *Request) TransactionKey() (key string) {
+// Transactional tests if Message is Routable and, if so, returns the transactional information
+// from the request.  This method returns a tuple containing the transaction key (if any) combined with
+// wheither this request represents part of a transaction.
+func (r *Request) Transactional() (string, bool) {
 	if routable, ok := r.Message.(wrp.Routable); ok {
-		key = routable.TransactionKey()
+		return routable.TransactionKey(), routable.IsTransactionPart()
 	}
 
-	return
+	return "", false
 }
 
 // Context returns the context.Context object associated with this Request.
