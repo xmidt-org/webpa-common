@@ -25,6 +25,24 @@ const (
 	AuthStatusNotAcceptable   = 406
 )
 
+// SupportsTransaction tests if messages of this type are allowed to participate in transactions.
+// If this method returns false, the TransactionUUID field should be ignored (but passed through
+// where applicable).
+func (mt MessageType) SupportsTransaction() bool {
+	switch mt {
+	case AuthMessageType:
+		return false
+	case SimpleEventMessageType:
+		return false
+	case ServiceRegistrationMessageType:
+		return false
+	case ServiceAliveMessageType:
+		return false
+	default:
+		return true
+	}
+}
+
 func (mt MessageType) String() string {
 	switch mt {
 	case AuthMessageType:
@@ -73,6 +91,13 @@ type Routable interface {
 	// From is the originator of this Routable instance.  It corresponds to the Source field
 	// in WRP messages defined in this package.
 	From() string
+
+	// IsTransactionPart tests if this message represents part of a transaction.  For this to be true,
+	// both (1) the msg_type field must be of a type that participates in transactions and (2) a transaction_uuid
+	// must exist in the message (see TransactionKey).
+	//
+	// If this method returns true, TransactionKey will always return a non-empty string.
+	IsTransactionPart() bool
 
 	// TransactionKey corresponds to the transaction_uuid field.  If present, this field is used
 	// to match up responses from devices.
@@ -133,6 +158,10 @@ func (msg *Message) To() string {
 
 func (msg *Message) From() string {
 	return msg.Source
+}
+
+func (msg *Message) IsTransactionPart() bool {
+	return msg.Type.SupportsTransaction() && len(msg.TransactionUUID) > 0
 }
 
 func (msg *Message) TransactionKey() string {
@@ -242,6 +271,10 @@ func (msg *SimpleRequestResponse) From() string {
 	return msg.Source
 }
 
+func (msg *SimpleRequestResponse) IsTransactionPart() bool {
+	return len(msg.TransactionUUID) > 0
+}
+
 func (msg *SimpleRequestResponse) TransactionKey() string {
 	return msg.TransactionUUID
 }
@@ -290,6 +323,11 @@ func (msg *SimpleEvent) To() string {
 
 func (msg *SimpleEvent) From() string {
 	return msg.Source
+}
+
+// IsTransactionPart for SimpleEvent types always returns false
+func (msg *SimpleEvent) IsTransactionPart() bool {
+	return false
 }
 
 func (msg *SimpleEvent) TransactionKey() string {
@@ -352,6 +390,10 @@ func (msg *CRUD) To() string {
 
 func (msg *CRUD) From() string {
 	return msg.Source
+}
+
+func (msg *CRUD) IsTransactionPart() bool {
+	return len(msg.TransactionUUID) > 0
 }
 
 func (msg *CRUD) TransactionKey() string {
