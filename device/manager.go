@@ -352,10 +352,11 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
+				m.logger.Error("Undeliverable message: %v", undeliverable)
 				event.SetRequestFailed(d, undeliverable.request, writeError)
 				m.dispatch(&event)
 			default:
-				break
+				return
 			}
 		}
 	}()
