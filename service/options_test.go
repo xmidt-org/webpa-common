@@ -31,7 +31,7 @@ func TestOptionsDefault(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	assert := assert.New(t)
-	logger := logging.DefaultLogger()
+	logger := logging.NewTestLogger(nil, t)
 	expectedError := errors.New("TestOptions expected error")
 	testData := []struct {
 		options         *Options

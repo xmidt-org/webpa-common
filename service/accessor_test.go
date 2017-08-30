@@ -131,7 +131,7 @@ func TestNewAccessorFactory(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.DefaultLogger()
+		logger  = logging.NewTestLogger(nil, t)
 
 		testData = []struct {
 			endpoints        []string

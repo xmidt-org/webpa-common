@@ -69,7 +69,7 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			errorLog.Log(logging.MessageKey, "Subscription ending due to panic", "error", r)
+			errorLog.Log(logging.MessageKey(), "Subscription ending due to panic", "error", r)
 		}
 
 		// ensure that the cancellation logic runs in this case, since no explicit
@@ -78,27 +78,27 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 	}()
 
 	endpoints := watch.Endpoints()
-	errorLog.Log(logging.MessageKey, "Dispatching initial endpoints", "endpoints", endpoints)
+	errorLog.Log(logging.MessageKey(), "Dispatching initial endpoints", "endpoints", endpoints)
 	s.Listener(endpoints)
 	endpoints = nil
 
-	infoLog.Log(logging.MessageKey, "Monitoring subscription", "watch", watch)
+	infoLog.Log(logging.MessageKey(), "Monitoring subscription", "watch", watch)
 
 	for {
 		select {
 		case <-shutdown:
-			infoLog.Log(logging.MessageKey, "Subscription ending because it was cancelled")
+			infoLog.Log(logging.MessageKey(), "Subscription ending because it was cancelled")
 			return
 
 		case <-delay:
 			delay = nil
-			infoLog.Log(logging.MessageKey, "Dispatching updated endpoints after delay", "delay", s.Timeout, "endpoints", endpoints)
+			infoLog.Log(logging.MessageKey(), "Dispatching updated endpoints after delay", "delay", s.Timeout, "endpoints", endpoints)
 			s.Listener(endpoints)
 			endpoints = nil
 
 		case <-watch.Event():
 			if watch.IsClosed() {
-				infoLog.Log(logging.MessageKey, "Subscription ending because the watch was closed")
+				infoLog.Log(logging.MessageKey(), "Subscription ending because the watch was closed")
 				return
 			}
 
@@ -106,19 +106,19 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 
 			if delay != nil {
 				// there is a delay in effect, so just keep listening for updates
-				infoLog.Log(logging.MessageKey, "Still waiting to dispatch updates", "delay", s.Timeout)
+				infoLog.Log(logging.MessageKey(), "Still waiting to dispatch updates", "delay", s.Timeout)
 				continue
 			}
 
 			if s.Timeout > 0 {
-				infoLog.Log(logging.MessageKey, "Waiting to dispatch updates", "delay", s.Timeout)
+				infoLog.Log(logging.MessageKey(), "Waiting to dispatch updates", "delay", s.Timeout)
 				delay = after(s.Timeout)
 				continue
 			}
 
 			// there is no current delay and no Timeout configured,
 			// so dispatch immediately
-			infoLog.Log(logging.MessageKey, "Dispatching updated endpoints", "endpoints", endpoints)
+			infoLog.Log(logging.MessageKey(), "Dispatching updated endpoints", "endpoints", endpoints)
 			s.Listener(endpoints)
 			endpoints = nil
 		}

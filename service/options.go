@@ -4,7 +4,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/strava/go.serversets"
 )
@@ -69,7 +68,7 @@ func (o *Options) logger() log.Logger {
 		return o.Logger
 	}
 
-	return logging.DefaultLogger()
+	return log.NewNopLogger()
 }
 
 func (o *Options) servers() []string {

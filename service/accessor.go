@@ -115,7 +115,7 @@ func (f *consistentHashFactory) New(endpoints []string) (Accessor, []string) {
 	for _, endpoint := range endpoints {
 		baseURL, err := ParseHostPort(endpoint)
 		if err != nil {
-			f.errorLog.Log(logging.MessageKey, "Skipping bad endpoint", "endpoint", endpoint, "error", err)
+			f.errorLog.Log(logging.MessageKey(), "Skipping bad endpoint", "endpoint", endpoint, "error", err)
 			continue
 		}
 

@@ -27,20 +27,20 @@ func NewRedirectHandler(accessor Accessor, code int, keyFunc func(*http.Request)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		key, err := keyFunc(request)
 		if err != nil {
-			errorLog.Log(logging.MessageKey, "Unable to obtain hash key from request", "error", err)
+			errorLog.Log(logging.MessageKey(), "Unable to obtain hash key from request", "error", err)
 			http.Error(response, err.Error(), http.StatusBadRequest)
 			return
 		}
 
 		node, err := accessor.Get(key)
 		if err != nil {
-			errorLog.Log(logging.MessageKey, "Accessor failed to return a node", "error", err)
+			errorLog.Log(logging.MessageKey(), "Accessor failed to return a node", "error", err)
 			http.Error(response, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		redirectNode := ReplaceHostPort(node, request.URL)
-		debugLog.Log(logging.MessageKey, "Redirecting", "node", redirectNode)
+		debugLog.Log(logging.MessageKey(), "Redirecting", "node", redirectNode)
 		http.Redirect(response, request, redirectNode, code)
 	})
 }
