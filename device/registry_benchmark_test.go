@@ -6,6 +6,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/Comcast/webpa-common/logging"
 )
 
 func benchmarkRegistry(b *testing.B, initialCapacity uint32) {
@@ -13,6 +15,7 @@ func benchmarkRegistry(b *testing.B, initialCapacity uint32) {
 		registry   = newRegistry(initialCapacity)
 		lock       sync.RWMutex
 		macCounter uint64
+		logger     = logging.NewTestLogger(nil, b)
 	)
 
 	b.ResetTimer()
@@ -24,7 +27,7 @@ func benchmarkRegistry(b *testing.B, initialCapacity uint32) {
 			)
 
 			lock.Lock()
-			registry.add(newDevice(id, key, nil, "", 1))
+			registry.add(newDevice(id, key, nil, "", 1, logger))
 			lock.Unlock()
 
 			lock.RLock()

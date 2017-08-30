@@ -11,6 +11,7 @@ import (
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
 )
 
 var (
@@ -101,8 +102,11 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		cf = NewConnectionFactory(o)
 	}
 
+	logger := o.logger()
 	m := &manager{
-		logger: o.logger(),
+		logger:   logger,
+		errorLog: logging.Error(logger),
+		debugLog: logging.Debug(logger),
 
 		connectionFactory:      cf,
 		keyFunc:                o.keyFunc(),
@@ -119,7 +123,9 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 
 // manager is the internal Manager implementation.
 type manager struct {
-	logger logging.Logger
+	logger   log.Logger
+	errorLog log.Logger
+	debugLog log.Logger
 
 	connectionFactory ConnectionFactory
 	keyFunc           KeyFunc
@@ -134,7 +140,7 @@ type manager struct {
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
-	m.logger.Debug("Connect(%s, %v)", request.URL, request.Header)
+	m.debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
 	id, ok := GetID(request.Context())
 	if !ok {
 		httperror.Format(
@@ -183,7 +189,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, err
 	}
 
-	d := newDevice(id, initialKey, convey, encodedConvey, m.deviceMessageQueueSize)
+	d := newDevice(id, initialKey, convey, encodedConvey, m.deviceMessageQueueSize, m.logger)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
@@ -206,18 +212,18 @@ func (m *manager) dispatch(e *Event) {
 // dispatches message failed events for any messages that were waiting to be delivered
 // at the time of pump closure.
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
-	m.logger.Debug("pumpClose(%s, %s)", d.id, pumpError)
+	if pumpError != nil {
+		d.errorLog.Log(logging.MessageKey(), "pump close", logging.ErrorKey(), pumpError)
+	} else {
+		d.debugLog.Log(logging.MessageKey(), "pump close")
+	}
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
 	d.requestClose()
 
-	if pumpError != nil {
-		m.logger.Error("Device [%s] pump encountered error: %s", d.id, pumpError)
-	}
-
 	if closeError := c.Close(); closeError != nil {
-		m.logger.Error("Error closing connection for device [%s]: %s", d.id, closeError)
+		d.debugLog.Log(logging.MessageKey(), "Error closing device connection", logging.ErrorKey(), closeError)
 	}
 
 	m.dispatch(
@@ -243,7 +249,7 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 // readPump is the goroutine which handles the stream of WRP messages from a device.
 // This goroutine exits when any error occurs on the connection.
 func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
-	m.logger.Debug("readPump(%s)", d.id)
+	d.debugLog.Log(logging.MessageKey(), "readPump starting")
 
 	var (
 		frameRead bool
@@ -263,7 +269,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		if readError != nil {
 			return
 		} else if !frameRead {
-			m.logger.Warn("Skipping frame from device [%s]", d.id)
+			d.errorLog.Log(logging.MessageKey(), "skipping unsupported frame")
 			continue
 		}
 
@@ -276,7 +282,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 		decoder.ResetBytes(rawFrame)
 		if decodeError := decoder.Decode(message); decodeError != nil {
 			// malformed WRP messages are allowed: the read pump will keep on chugging
-			m.logger.Error("Skipping malformed frame from device [%s]: %s", d.id, decodeError)
+			d.errorLog.Log(logging.MessageKey(), "skipping malformed frame", logging.ErrorKey(), decodeError)
 			continue
 		}
 
@@ -296,7 +302,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			)
 
 			if err != nil {
-				m.logger.Error("Error while completing transaction: %s", err)
+				d.errorLog.Log(logging.MessageKey(), "Error while completing transaction", logging.ErrorKey(), err)
 				event.Type = TransactionBroken
 				event.Error = err
 			} else {
@@ -312,7 +318,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 // this goroutine exits when either an explicit shutdown is requested or any
 // error occurs on the connection.
 func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
-	m.logger.Debug("writePump(%s, %s)", d.id, d.Key())
+	d.debugLog.Log(logging.MessageKey(), "writePump starting")
 
 	var (
 		// we'll reuse this event instance
@@ -352,7 +358,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				m.logger.Error("Undeliverable message: %v", undeliverable)
+				d.errorLog.Log(logging.MessageKey(), "undeliverable message", "deviceMessage", undeliverable)
 				event.SetRequestFailed(d, undeliverable.request, writeError)
 				m.dispatch(&event)
 			default:

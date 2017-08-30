@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -69,6 +70,7 @@ func TestDevice(t *testing.T) {
 				record.expectedConvey,
 				expectedEncodedConvey,
 				record.expectedQueueSize,
+				logging.NewTestLogger(nil, t),
 			)
 		)
 

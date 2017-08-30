@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"sync/atomic"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 )
 
 const (
@@ -100,6 +103,10 @@ type device struct {
 	id  ID
 	key atomic.Value
 
+	errorLog log.Logger
+	infoLog  log.Logger
+	debugLog log.Logger
+
 	convey        Convey
 	encodedConvey string
 
@@ -113,10 +120,13 @@ type device struct {
 }
 
 // newDevice is an internal factory function for devices
-func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queueSize int) *device {
+func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queueSize int, logger log.Logger) *device {
 	d := &device{
 		id:            id,
 		convey:        convey,
+		errorLog:      logging.Error(logger, "id", id),
+		infoLog:       logging.Info(logger, "id", id),
+		debugLog:      logging.Debug(logger, "id", id),
 		encodedConvey: encodedConvey,
 		statistics:    NewStatistics(time.Now().UTC()),
 		state:         stateOpen,
