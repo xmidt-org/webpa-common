@@ -15,6 +15,7 @@ var (
 
 	callerKey    interface{} = "caller"
 	messageKey   interface{} = "msg"
+	errorKey     interface{} = "error"
 	timestampKey interface{} = "ts"
 )
 
@@ -26,6 +27,11 @@ func CallerKey() interface{} {
 // MessageKey returns the logging key to be used for the textual message of the log entry
 func MessageKey() interface{} {
 	return messageKey
+}
+
+// ErrorKey returns the logging key to be used for error instances
+func ErrorKey() interface{} {
+	return errorKey
 }
 
 // TimestampKey returns the logging key to be used for the timestamp
