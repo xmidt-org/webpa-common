@@ -3,10 +3,11 @@ package handler
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
-	"net/http"
-	"os"
+	"github.com/go-kit/kit/log"
 )
 
 const (
@@ -40,7 +41,7 @@ type AuthorizationHandler struct {
 	HeaderName          string
 	ForbiddenStatusCode int
 	Validator           secure.Validator
-	Logger              logging.Logger
+	Logger              log.Logger
 }
 
 // headerName returns the authorization header to use, either a.HeaderName
@@ -63,12 +64,12 @@ func (a AuthorizationHandler) forbiddenStatusCode() int {
 	return http.StatusForbidden
 }
 
-func (a AuthorizationHandler) logger() logging.Logger {
+func (a AuthorizationHandler) logger() log.Logger {
 	if a.Logger != nil {
 		return a.Logger
 	}
 
-	return &logging.LoggerWriter{os.Stdout}
+	return logging.DefaultLogger()
 }
 
 // Decorate provides an Alice-compatible constructor that validates requests
@@ -79,24 +80,25 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		return delegate
 	}
 
-	headerName := a.headerName()
-	forbiddenStatusCode := a.forbiddenStatusCode()
-	logger := a.logger()
+	var (
+		headerName          = a.headerName()
+		forbiddenStatusCode = a.forbiddenStatusCode()
+		logger              = a.logger()
+		errorLog            = logging.Error(logger)
+	)
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		headerValue := request.Header.Get(headerName)
 		if len(headerValue) == 0 {
-			message := fmt.Sprintf("No %s header", headerName)
-			logger.Error(message)
-			WriteJsonError(response, forbiddenStatusCode, message)
+			errorLog.Log(logging.MessageKey(), "missing header", "name", headerName)
+			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("missing header: %s", headerName))
 			return
 		}
 
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
-			message := fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error())
-			logger.Error(message)
-			WriteJsonError(response, forbiddenStatusCode, message)
+			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, logging.ErrorKey(), err)
+			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error()))
 			return
 		}
 
@@ -106,18 +108,22 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		valid, err := a.Validator.Validate(ctx, token)
 		if err != nil {
-			logger.Error("Validation error: %s", err.Error())
+			errorLog.Log(logging.MessageKey(), "validation error", logging.ErrorKey(), err)
 		} else if valid {
 			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
 		}
 
-		reqLogMsg := fmt.Sprintf("Request {Method: %s, URL: %s, User-Agent: %s, ContentLength: %d, RemoteAddr: %s}",
-		                         request.Method, request.URL.String(), request.Header.Get("User-Agent"), 
-		                         request.ContentLength, request.RemoteAddr)
+		errorLog.Log(
+			logging.MessageKey(), "request denied",
+			"method", request.Method,
+			"url", request.URL,
+			"user-agent", request.Header.Get("User-Agent"),
+			"content-length", request.ContentLength,
+			"remoteAddress", request.RemoteAddr,
+		)
 
-		logger.Error("Request denied: %s", reqLogMsg)
 		response.WriteHeader(forbiddenStatusCode)
 	})
 }

@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 const (
@@ -35,7 +35,7 @@ func (h *mockHttpHandler) ServeHTTP(response http.ResponseWriter, request *http.
 func ExampleBasicAuthorization() {
 	// typical usage: just take the defaults for header and code
 	authorizationHandler := AuthorizationHandler{
-		Logger:    &logging.LoggerWriter{ioutil.Discard},
+		Logger:    logging.DefaultLogger(),
 		Validator: secure.ExactMatchValidator(tokenValue),
 	}
 
@@ -68,7 +68,7 @@ func TestAuthorizationHandlerNoDecoration(t *testing.T) {
 	mockHttpHandler := &mockHttpHandler{}
 
 	handler := AuthorizationHandler{
-		Logger: &logging.LoggerWriter{ioutil.Discard},
+		Logger: logging.NewTestLogger(nil, t),
 	}
 
 	decorated := handler.Decorate(mockHttpHandler)
@@ -78,29 +78,31 @@ func TestAuthorizationHandlerNoDecoration(t *testing.T) {
 }
 
 func TestAuthorizationHandlerNoAuthorizationHeader(t *testing.T) {
-	assert := assert.New(t)
-	customLogger := &logging.LoggerWriter{ioutil.Discard}
+	var (
+		assert = assert.New(t)
+		logger = logging.NewTestLogger(nil, t)
 
-	var testData = []struct {
-		handler            AuthorizationHandler
-		expectedStatusCode int
-	}{
-		{
-			handler: AuthorizationHandler{
-				Validator: &secure.MockValidator{},
+		testData = []struct {
+			handler            AuthorizationHandler
+			expectedStatusCode int
+		}{
+			{
+				handler: AuthorizationHandler{
+					Validator: &secure.MockValidator{},
+				},
+				expectedStatusCode: http.StatusForbidden,
 			},
-			expectedStatusCode: http.StatusForbidden,
-		},
-		{
-			handler: AuthorizationHandler{
-				Validator:           &secure.MockValidator{},
-				HeaderName:          "X-Custom-Authorization",
-				ForbiddenStatusCode: 512,
-				Logger:              customLogger,
+			{
+				handler: AuthorizationHandler{
+					Validator:           &secure.MockValidator{},
+					HeaderName:          "X-Custom-Authorization",
+					ForbiddenStatusCode: 512,
+					Logger:              logger,
+				},
+				expectedStatusCode: 512,
 			},
-			expectedStatusCode: 512,
-		},
-	}
+		}
+	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
@@ -128,7 +130,7 @@ func TestAuthorizationHandlerNoAuthorizationHeader(t *testing.T) {
 
 func TestAuthorizationHandlerInvalidAuthorizationHeader(t *testing.T) {
 	assert := assert.New(t)
-	customLogger := &logging.LoggerWriter{ioutil.Discard}
+	logger := logging.NewTestLogger(nil, t)
 
 	var testData = []struct {
 		handler            AuthorizationHandler
@@ -147,7 +149,7 @@ func TestAuthorizationHandlerInvalidAuthorizationHeader(t *testing.T) {
 				Validator:           &secure.MockValidator{},
 				HeaderName:          "X-Custom-Authorization",
 				ForbiddenStatusCode: 512,
-				Logger:              customLogger,
+				Logger:              logger,
 			},
 			headerName:         "X-Custom-Authorization",
 			expectedStatusCode: 512,
@@ -180,32 +182,34 @@ func TestAuthorizationHandlerInvalidAuthorizationHeader(t *testing.T) {
 }
 
 func TestAuthorizationHandlerSuccess(t *testing.T) {
-	assert := assert.New(t)
-	customLogger := &logging.LoggerWriter{ioutil.Discard}
+	var (
+		assert = assert.New(t)
+		logger = logging.NewTestLogger(nil, t)
 
-	var testData = []struct {
-		handler            AuthorizationHandler
-		headerName         string
-		expectedStatusCode int
-	}{
-		{
-			handler: AuthorizationHandler{
-				Validator: &secure.MockValidator{},
+		testData = []struct {
+			handler            AuthorizationHandler
+			headerName         string
+			expectedStatusCode int
+		}{
+			{
+				handler: AuthorizationHandler{
+					Validator: &secure.MockValidator{},
+				},
+				headerName:         secure.AuthorizationHeader,
+				expectedStatusCode: 222,
 			},
-			headerName:         secure.AuthorizationHeader,
-			expectedStatusCode: 222,
-		},
-		{
-			handler: AuthorizationHandler{
-				Validator:           &secure.MockValidator{},
-				HeaderName:          "X-Custom-Authorization",
-				ForbiddenStatusCode: 512,
-				Logger:              customLogger,
+			{
+				handler: AuthorizationHandler{
+					Validator:           &secure.MockValidator{},
+					HeaderName:          "X-Custom-Authorization",
+					ForbiddenStatusCode: 512,
+					Logger:              logger,
+				},
+				headerName:         "X-Custom-Authorization",
+				expectedStatusCode: 222,
 			},
-			headerName:         "X-Custom-Authorization",
-			expectedStatusCode: 222,
-		},
-	}
+		}
+	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
@@ -240,32 +244,34 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 }
 
 func TestAuthorizationHandlerFailure(t *testing.T) {
-	assert := assert.New(t)
-	customLogger := &logging.LoggerWriter{ioutil.Discard}
+	var (
+		assert = assert.New(t)
+		logger = logging.NewTestLogger(nil, t)
 
-	var testData = []struct {
-		handler            AuthorizationHandler
-		headerName         string
-		expectedStatusCode int
-	}{
-		{
-			handler: AuthorizationHandler{
-				Validator: &secure.MockValidator{},
+		testData = []struct {
+			handler            AuthorizationHandler
+			headerName         string
+			expectedStatusCode int
+		}{
+			{
+				handler: AuthorizationHandler{
+					Validator: &secure.MockValidator{},
+				},
+				headerName:         secure.AuthorizationHeader,
+				expectedStatusCode: http.StatusForbidden,
 			},
-			headerName:         secure.AuthorizationHeader,
-			expectedStatusCode: http.StatusForbidden,
-		},
-		{
-			handler: AuthorizationHandler{
-				Validator:           &secure.MockValidator{},
-				HeaderName:          "X-Custom-Authorization",
-				ForbiddenStatusCode: 512,
-				Logger:              customLogger,
+			{
+				handler: AuthorizationHandler{
+					Validator:           &secure.MockValidator{},
+					HeaderName:          "X-Custom-Authorization",
+					ForbiddenStatusCode: 512,
+					Logger:              logger,
+				},
+				headerName:         "X-Custom-Authorization",
+				expectedStatusCode: 512,
 			},
-			headerName:         "X-Custom-Authorization",
-			expectedStatusCode: 512,
-		},
-	}
+		}
+	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
