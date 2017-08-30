@@ -1,5 +1,5 @@
-hash: c759793a69e62d3f430bcb1baa34317a3be4e238256c4f2a49410d68c64d40d6
-updated: 2017-08-30T09:14:44.253283245-07:00
+hash: ba555a854dedede49de9fefcdbd4fb60033affdeee135f9eb1f1e81189c74367
+updated: 2017-08-30T10:19:46.349830054-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -118,9 +118,9 @@ imports:
 - name: github.com/spf13/jwalterweatherman
   version: fa7ca7e836cf3a8bb4ebf799f472c12d7e903d66
 - name: github.com/spf13/pflag
-  version: 9ff6c6923cfffbcd502984b8e0c80539a94968b7
+  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: github.com/spf13/viper
-  version: 5ed0fc31f7f453625df314d8e66b9791e8d13003
+  version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
 - name: github.com/strava/go.serversets
   version: 28ab685d470f2bfb6d8abe4077cc1ab19c33e24b
 - name: github.com/stretchr/objx
