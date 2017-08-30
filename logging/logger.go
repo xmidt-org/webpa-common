@@ -5,9 +5,14 @@ import (
 	"os"
 	"strings"
 
+	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"gopkg.in/natefinch/lumberjack.v2"
+)
+
+const (
+	StdoutFile = "stdout"
 )
 
 var (
@@ -47,8 +52,18 @@ func DefaultLogger() log.Logger {
 
 // Options stores the configuration of a Logger.  Lumberjack is used for rolling files.
 type Options struct {
-	// File is the lumberjack Logger file information.  If nil, output is sent to the console.
-	File *lumberjack.Logger `json:"file"`
+	// File is the system file path for the log file.  If set to "stdout", this will log to os.Stdout.
+	// Otherwise, a lumberjack.Logger is created
+	File string `json:"file"`
+
+	// MaxSize is the lumberjack MaxSize
+	MaxSize int `json:"maxsize"`
+
+	// MaxAge is the lumberjack MaxAge
+	MaxAge int `json:"maxage"`
+
+	// MaxBackups is the lumberjack MaxBackups
+	MaxBackups int `json:"maxbackups"`
 
 	// JSON is a flag indicating whether JSON logging output is used.  The default is false,
 	// meaning that logfmt output is used.
@@ -63,14 +78,6 @@ type Options struct {
 	LoggerFactory func(io.Writer) log.Logger
 }
 
-func (o *Options) file() *lumberjack.Logger {
-	if o != nil {
-		return o.File
-	}
-
-	return nil
-}
-
 func (o *Options) json() bool {
 	if o != nil {
 		return o.JSON
@@ -80,8 +87,13 @@ func (o *Options) json() bool {
 }
 
 func (o *Options) output() io.Writer {
-	if o != nil && o.File != nil {
-		return o.File
+	if o != nil && o.File != StdoutFile {
+		return &lumberjack.Logger{
+			Filename:   o.File,
+			MaxSize:    o.MaxSize,
+			MaxAge:     o.MaxAge,
+			MaxBackups: o.MaxBackups,
+		}
 	}
 
 	return log.NewSyncWriter(os.Stdout)
