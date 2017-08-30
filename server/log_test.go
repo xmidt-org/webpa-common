@@ -2,21 +2,22 @@ package server
 
 import (
 	"bytes"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/stretchr/testify/assert"
-	"log"
+	stdlibLog "log"
 	"net"
 	"net/http"
 	"testing"
+
+	"github.com/go-kit/kit/log"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
 	serverName = "serverName"
 )
 
-func newTestLogger() (verify *bytes.Buffer, logger logging.Logger) {
+func newTestLogger() (verify *bytes.Buffer, logger log.Logger) {
 	verify = new(bytes.Buffer)
-	logger = &logging.LoggerWriter{verify}
+	logger = log.NewLogfmtLogger(log.NewSyncWriter(verify))
 	return
 }
 
@@ -27,7 +28,7 @@ func assertBufferContains(assert *assert.Assertions, verify *bytes.Buffer, value
 	}
 }
 
-func assertErrorLog(assert *assert.Assertions, verify *bytes.Buffer, serverName string, errorLog *log.Logger) {
+func assertErrorLog(assert *assert.Assertions, verify *bytes.Buffer, serverName string, errorLog *stdlibLog.Logger) {
 	if assert.NotNil(errorLog) {
 		errorLog.Print("howdy!")
 		assertBufferContains(assert, verify, serverName, "howdy!")

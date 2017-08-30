@@ -2,10 +2,11 @@ package server
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func ExampleInitialize() {
@@ -147,6 +148,6 @@ func TestInitializeWhenWebPANewLoggerError(t *testing.T) {
 	)
 
 	assert.NotNil(logger)
-	assert.Nil(webPA)
-	assert.NotNil(err)
+	assert.NotNil(webPA)
+	assert.Nil(err)
 }
