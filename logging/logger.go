@@ -1,11 +1,7 @@
 package logging
 
 import (
-	"io"
-	"os"
 	"strings"
-
-	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -48,75 +44,6 @@ func TimestampKey() interface{} {
 // This returned instance is safe for concurrent access.
 func DefaultLogger() log.Logger {
 	return defaultLogger
-}
-
-// Options stores the configuration of a Logger.  Lumberjack is used for rolling files.
-type Options struct {
-	// File is the system file path for the log file.  If set to "stdout", this will log to os.Stdout.
-	// Otherwise, a lumberjack.Logger is created
-	File string `json:"file"`
-
-	// MaxSize is the lumberjack MaxSize
-	MaxSize int `json:"maxsize"`
-
-	// MaxAge is the lumberjack MaxAge
-	MaxAge int `json:"maxage"`
-
-	// MaxBackups is the lumberjack MaxBackups
-	MaxBackups int `json:"maxbackups"`
-
-	// JSON is a flag indicating whether JSON logging output is used.  The default is false,
-	// meaning that logfmt output is used.
-	JSON bool `json:"json"`
-
-	// Level is the error level to output: ERROR, INFO, WARN, or DEBUG.  Any unrecognized string,
-	// including the empty string, is equivalent to passing ERROR.
-	Level string `json:"level"`
-
-	// LoggerFactory overrides the JSON field if specified.  This function is used to produce
-	// a go-kit Logger from an io.Writer.
-	LoggerFactory func(io.Writer) log.Logger
-}
-
-func (o *Options) json() bool {
-	if o != nil {
-		return o.JSON
-	}
-
-	return false
-}
-
-func (o *Options) output() io.Writer {
-	if o != nil && o.File != StdoutFile {
-		return &lumberjack.Logger{
-			Filename:   o.File,
-			MaxSize:    o.MaxSize,
-			MaxAge:     o.MaxAge,
-			MaxBackups: o.MaxBackups,
-		}
-	}
-
-	return log.NewSyncWriter(os.Stdout)
-}
-
-func (o *Options) loggerFactory() func(io.Writer) log.Logger {
-	if o != nil {
-		if o.LoggerFactory != nil {
-			return o.LoggerFactory
-		} else if o.JSON {
-			return log.NewJSONLogger
-		}
-	}
-
-	return log.NewLogfmtLogger
-}
-
-func (o *Options) level() string {
-	if o != nil {
-		return o.Level
-	}
-
-	return ""
 }
 
 // New creates a go-kit Logger from a set of options.  The options object can be nil,
@@ -165,6 +92,8 @@ func DefaultCaller(next log.Logger, keyvals ...interface{}) log.Logger {
 	)
 }
 
+// Error places both the caller and a constant error level into the prefix of the returned logger.
+// Additional key value pairs may also be added.
 func Error(next log.Logger, keyvals ...interface{}) log.Logger {
 	return log.WithPrefix(
 		next,
@@ -172,6 +101,8 @@ func Error(next log.Logger, keyvals ...interface{}) log.Logger {
 	)
 }
 
+// Info places both the caller and a constant info level into the prefix of the returned logger.
+// Additional key value pairs may also be added.
 func Info(next log.Logger, keyvals ...interface{}) log.Logger {
 	return log.WithPrefix(
 		next,
@@ -179,6 +110,8 @@ func Info(next log.Logger, keyvals ...interface{}) log.Logger {
 	)
 }
 
+// Warn places both the caller and a constant warn level into the prefix of the returned logger.
+// Additional key value pairs may also be added.
 func Warn(next log.Logger, keyvals ...interface{}) log.Logger {
 	return log.WithPrefix(
 		next,
@@ -186,6 +119,8 @@ func Warn(next log.Logger, keyvals ...interface{}) log.Logger {
 	)
 }
 
+// Debug places both the caller and a constant debug level into the prefix of the returned logger.
+// Additional key value pairs may also be added.
 func Debug(next log.Logger, keyvals ...interface{}) log.Logger {
 	return log.WithPrefix(
 		next,
