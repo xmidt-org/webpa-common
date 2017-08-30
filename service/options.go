@@ -1,10 +1,12 @@
 package service
 
 import (
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/strava/go.serversets"
 	"strings"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
+	"github.com/strava/go.serversets"
 )
 
 const (
@@ -23,7 +25,7 @@ const (
 type Options struct {
 	// Logger is used by any component configured via this Options.  If unset, a default
 	// logger is used.
-	Logger logging.Logger `json:"-"`
+	Logger log.Logger `json:"-"`
 
 	// Connection is the comma-delimited Zookeeper connection string.  Both this and
 	// Servers may be set, and they will be merged together when connecting to Zookeeper.
@@ -62,7 +64,7 @@ type Options struct {
 	PingFunc func() error `json:"-"`
 }
 
-func (o *Options) logger() logging.Logger {
+func (o *Options) logger() log.Logger {
 	if o != nil && o.Logger != nil {
 		return o.Logger
 	}

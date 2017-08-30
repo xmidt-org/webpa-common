@@ -4,13 +4,16 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/billhathaway/consistentHash"
 	"net"
 	"net/url"
 	"sort"
 	"strings"
 	"sync/atomic"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/billhathaway/consistentHash"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 var (
@@ -88,7 +91,7 @@ type AccessorFactory interface {
 // NewAccessorFactory uses a set of Options to produce an AccessorFactory
 func NewAccessorFactory(o *Options) AccessorFactory {
 	return &consistentHashFactory{
-		logger:     o.logger(),
+		errorLog:   logging.DefaultCaller(o.logger(), level.Key(), level.ErrorValue()),
 		vnodeCount: o.vnodeCount(),
 	}
 }
@@ -96,7 +99,7 @@ func NewAccessorFactory(o *Options) AccessorFactory {
 // consistentHashFactory creates consistentHash instances, which implement Accessor.
 // This is the standard implementation of AccessorFactory.
 type consistentHashFactory struct {
-	logger     logging.Logger
+	errorLog   log.Logger
 	vnodeCount int
 }
 
@@ -112,7 +115,7 @@ func (f *consistentHashFactory) New(endpoints []string) (Accessor, []string) {
 	for _, endpoint := range endpoints {
 		baseURL, err := ParseHostPort(endpoint)
 		if err != nil {
-			f.logger.Error("Skipping bad endpoint [%s]: %s", endpoint, err)
+			f.errorLog.Log(logging.MessageKey, "Skipping bad endpoint", "endpoint", endpoint, "error", err)
 			continue
 		}
 
