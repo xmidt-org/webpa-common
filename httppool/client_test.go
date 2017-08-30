@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -48,9 +47,7 @@ func TestClientDefaults(t *testing.T) {
 		assert.Equal(http.DefaultClient, client.handler())
 		assert.Equal(DefaultQueueSize, client.queueSize())
 		assert.Equal(DefaultWorkers, client.workers())
-
-		_, ok := client.logger().(*logging.LoggerWriter)
-		assert.True(ok)
+		assert.NotNil(client.logger())
 	}
 }
 
@@ -59,7 +56,7 @@ func TestClientNonDefaults(t *testing.T) {
 
 	expectedName := "expected"
 	expectedHandler := &http.Client{}
-	expectedLogger := &logging.LoggerWriter{os.Stderr}
+	expectedLogger := logging.NewTestLogger(nil, t)
 
 	// none of these clients should use default values
 	var testData = []Client{
@@ -92,22 +89,23 @@ func TestClientNonDefaults(t *testing.T) {
 
 func TestClientDispatcherUsingSend(t *testing.T) {
 	assert := assert.New(t)
+	logger := logging.NewTestLogger(nil, t)
 
 	var testData = []Client{
 		Client{
-			Logger: testLogger,
+			Logger: logger,
 		},
 		Client{
-			Logger:    testLogger,
+			Logger:    logger,
 			Workers:   1,
 			QueueSize: 5,
 		},
 		Client{
-			Logger: testLogger,
+			Logger: logger,
 			Period: 100 * time.Millisecond,
 		},
 		Client{
-			Logger:    testLogger,
+			Logger:    logger,
 			Workers:   12,
 			QueueSize: 200,
 			Period:    100 * time.Millisecond,
@@ -212,7 +210,7 @@ func TestOffer(t *testing.T) {
 		Handler:   mockTransactionHandler,
 		Workers:   1,
 		QueueSize: 1,
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 	}).Start()
 
 	// first, hold up the dispatcher with a long running request we control
@@ -255,7 +253,7 @@ func TestHandleTaskWhenTaskPanics(t *testing.T) {
 		panic("ow!")
 	}
 
-	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(t, 1)
 	defer dispatcher.Close()
 
 	assert.NotPanics(func() {
@@ -272,7 +270,7 @@ func TestHandleTaskWhenTaskReturnsNilRequest(t *testing.T) {
 		return nil, mockConsumer.Consumer, nil
 	}
 
-	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(t, 1)
 	defer dispatcher.Close()
 
 	dispatcher.handleTask(workerContext, nilRequestTask)
@@ -288,7 +286,7 @@ func TestHandleTaskWhenTransactionError(t *testing.T) {
 		return request, mockConsumer.Consumer, nil
 	}
 
-	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(t, 1)
 	defer dispatcher.Close()
 
 	expectedError := errors.New("expected")
@@ -309,7 +307,7 @@ func TestHandleTaskWhenNonNilResponseAndError(t *testing.T) {
 		return request, mockConsumer.Consumer, nil
 	}
 
-	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(t, 1)
 	defer dispatcher.Close()
 
 	expectedError := errors.New("expected")
@@ -333,7 +331,7 @@ func TestHandleTaskCleanupError(t *testing.T) {
 		return request, mockConsumer.Consumer, nil
 	}
 
-	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(t, 1)
 	defer dispatcher.Close()
 
 	mockTransactionHandler.On("Do", request).Return(response, nil).Once()
@@ -358,7 +356,7 @@ func TestHandleTask(t *testing.T) {
 		return request, mockConsumer.Consumer, nil
 	}
 
-	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(1)
+	dispatcher, mockTransactionHandler, workerContext := newPooledDispatcher(t, 1)
 	defer dispatcher.Close()
 
 	mockTransactionHandler.On("Do", request).Return(response, nil).Once()
@@ -388,7 +386,7 @@ func TestSendUsingListener(t *testing.T) {
 		Name:      "TestSendUsingListener",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -426,7 +424,7 @@ func TestSendUsingListenerWhenTaskError(t *testing.T) {
 		Name:      "TestSendUsingListenerWhenTaskError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -464,7 +462,7 @@ func TestSendUsingListenerWhenTransactionError(t *testing.T) {
 		Name:      "TestSendUsingListenerWhenTransactionError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -503,7 +501,7 @@ func TestOfferUsingListener(t *testing.T) {
 		Name:      "TestOfferUsingListener",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -542,7 +540,7 @@ func TestOfferUsingListenerWhenTaskError(t *testing.T) {
 		Name:      "TestOfferUsingListenerWhenTaskError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -581,7 +579,7 @@ func TestOfferUsingListenerWhenTransactionError(t *testing.T) {
 		Name:      "TestOfferUsingListenerWhenTransactionError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    testLogger,
+		Logger:    logging.NewTestLogger(nil, t),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
