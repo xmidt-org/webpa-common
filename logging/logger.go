@@ -1,128 +1,157 @@
 package logging
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"os"
+	"strings"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
-
-// ErrorLogger provides the interface for outputting errors to a log sink
-type ErrorLogger interface {
-	Error(parameters ...interface{})
-}
-
-// Logger defines the expected methods to be provided by logging infrastructure.
-// This interface uses different idioms than those used by golang's stdlib Logger.
-type Logger interface {
-	ErrorLogger
-
-	Trace(parameters ...interface{})
-	Debug(parameters ...interface{})
-	Info(parameters ...interface{})
-	Warn(parameters ...interface{})
-}
-
-// PrintLogger exposes a Printf method for infrastructure that uses that method
-// for logging.
-type PrintLogger struct {
-	Delegate Logger
-}
-
-func (printLogger PrintLogger) Printf(format string, parameters ...interface{}) {
-	allParameters := make([]interface{}, len(parameters)+1)
-	allParameters[0] = format
-	copy(allParameters[1:], parameters)
-
-	printLogger.Delegate.Info(allParameters...)
-}
 
 const (
-	traceLevel string = "[TRACE] "
-	debugLevel string = "[DEBUG] "
-	infoLevel  string = "[INFO]  "
-	warnLevel  string = "[WARN]  "
-	errorLevel string = "[ERROR] "
-	fatalLevel string = "[FATAL] "
+	// CallerKey is the logging key used to hold the caller for loggers created via this package
+	CallerKey = "caller"
+
+	// MessageKey is the logging key for messages
+	MessageKey = "msg"
+
+	// TimestampKey is the logging key for timestamps
+	TimestampKey = "ts"
 )
 
-// LoggerWriter is a default, built-in logging type that simply writes output
-// to an embedded io.Writer.  This is a "poor man's" Logger.  It should normally
-// only be used in utilities and tests.
-//
-// This logger will panic if any io errors occur.
-type LoggerWriter struct {
-	io.Writer
-}
+var (
+	defaultLogger = New(nil)
+)
 
-func (l *LoggerWriter) logf(level, format string, parameters []interface{}) {
-	var buffer bytes.Buffer
-	buffer.WriteString(level)
-
-	if _, err := fmt.Fprintf(&buffer, format, parameters...); err != nil {
-		panic(err)
-	}
-
-	buffer.WriteRune('\n')
-	if _, err := l.Write(buffer.Bytes()); err != nil {
-		panic(err)
-	}
-}
-
-func (l *LoggerWriter) formatf(level string, parameters []interface{}) {
-	if len(parameters) > 0 {
-		format, ok := parameters[0].(string)
-		if !ok {
-			if stringer, ok := parameters[0].(fmt.Stringer); ok {
-				format = stringer.String()
-			} else {
-				format = fmt.Sprintf("%v", parameters[0])
-			}
-		}
-
-		l.logf(level, format, parameters[1:])
-	} else {
-		l.logf(level, "", parameters)
-	}
-}
-
-func (l *LoggerWriter) Trace(parameters ...interface{}) { l.formatf(traceLevel, parameters) }
-func (l *LoggerWriter) Debug(parameters ...interface{}) { l.formatf(debugLevel, parameters) }
-func (l *LoggerWriter) Info(parameters ...interface{})  { l.formatf(infoLevel, parameters) }
-func (l *LoggerWriter) Warn(parameters ...interface{})  { l.formatf(warnLevel, parameters) }
-func (l *LoggerWriter) Error(parameters ...interface{}) { l.formatf(errorLevel, parameters) }
-
-func (l *LoggerWriter) Printf(format string, parameters ...interface{}) {
-	l.logf(infoLevel, format, parameters)
-}
-
-var defaultLogger Logger = &LoggerWriter{os.Stdout}
-
-func DefaultLogger() Logger {
+// DefaultLogger returns a global singleton default that logs to os.Stdout.
+// This returned instance is safe for concurrent access.
+func DefaultLogger() log.Logger {
 	return defaultLogger
 }
 
-// testDelegate is an internal interface implemented by testing.T and testing.B
-type testDelegate interface {
-	Log(...interface{})
+// Options stores the configuration of a Logger.  Lumberjack is used for rolling files.
+type Options struct {
+	// File is the lumberjack Logger file information.  If nil, output is sent to the console.
+	File *lumberjack.Logger `json:"file"`
+
+	// JSON is a flag indicating whether JSON logging output is used.  The default is false,
+	// meaning that logfmt output is used.
+	JSON bool `json:"json"`
+
+	// Level is the error level to output: ERROR, INFO, WARN, or DEBUG.  Any unrecognized string,
+	// including the empty string, is equivalent to passing ERROR.
+	Level string `json:"level"`
 }
 
-type testWriter struct {
-	testDelegate
+func (o *Options) file() *lumberjack.Logger {
+	if o != nil {
+		return o.File
+	}
+
+	return nil
 }
 
-func (tw *testWriter) Write(data []byte) (int, error) {
-	tw.Log(string(data))
-	return len(data), nil
+func (o *Options) json() bool {
+	if o != nil {
+		return o.JSON
+	}
+
+	return false
 }
 
-// TestWriter produces an io.Writer that outputs to testDelegate.Log with a single
-// string.  Use this function to create a test logger: &LoggerWriter{TestWriter(t)}.
-func TestWriter(delegate testDelegate) io.Writer {
-	return &testWriter{delegate}
+func (o *Options) output() io.Writer {
+	if o != nil && o.File != nil {
+		return o.File
+	}
+
+	return log.NewSyncWriter(os.Stdout)
 }
 
-// TestLogger is a convenience for &LoggerWriter{TestWriter(t)}
-func TestLogger(delegate testDelegate) Logger {
-	return &LoggerWriter{TestWriter(delegate)}
+func (o *Options) loggerFactory() func(io.Writer) log.Logger {
+	if o != nil && o.JSON {
+		return log.NewJSONLogger
+	}
+
+	return log.NewLogfmtLogger
+}
+
+func (o *Options) level() string {
+	if o != nil {
+		return o.Level
+	}
+
+	return ""
+}
+
+// New creates a go-kit Logger from a set of options.  The options object can be nil,
+// in which case a default logger that logs to os.Stdout is returned.  The returned logger
+// includes the timestamp in UTC format and will filter according to the Level field.
+//
+// In order to allow arbitrary decoration, this function does not insert the caller information.
+// Use DefaultCaller or Caller in this package to do that.
+func New(o *Options) log.Logger {
+	logger := log.With(
+		// TODO: possibly support terminal output later
+		o.loggerFactory()(o.output()),
+		TimestampKey, log.DefaultTimestampUTC,
+	)
+
+	switch strings.ToUpper(o.level()) {
+	case "DEBUG":
+		logger = level.NewFilter(logger, level.AllowDebug())
+
+	case "INFO":
+		logger = level.NewFilter(logger, level.AllowInfo())
+
+	case "WARN":
+		logger = level.NewFilter(logger, level.AllowWarn())
+
+	default:
+		logger = level.NewFilter(logger, level.AllowError())
+	}
+
+	return logger
+}
+
+// DefaultCaller produces a contextual logger as with log.With, but automatically prepends the
+// caller under the CallerKey.
+//
+// The logger returned by this function should not be further decorated.  This will cause the
+// callstack to include the decorators, which is pointless.  Instead, decorate the next parameter
+// prior to passing it to this function.
+func DefaultCaller(next log.Logger, keyvals ...interface{}) log.Logger {
+	return log.WithPrefix(
+		next,
+		append([]interface{}{CallerKey, log.DefaultCaller}, keyvals...),
+	)
+}
+
+func Error(next log.Logger, keyvals ...interface{}) log.Logger {
+	return log.WithPrefix(
+		next,
+		append([]interface{}{CallerKey, log.DefaultCaller, level.Key(), level.ErrorValue()}, keyvals...),
+	)
+}
+
+func Info(next log.Logger, keyvals ...interface{}) log.Logger {
+	return log.WithPrefix(
+		next,
+		append([]interface{}{CallerKey, log.DefaultCaller, level.Key(), level.InfoValue()}, keyvals...),
+	)
+}
+
+func Warn(next log.Logger, keyvals ...interface{}) log.Logger {
+	return log.WithPrefix(
+		next,
+		append([]interface{}{CallerKey, log.DefaultCaller, level.Key(), level.WarnValue()}, keyvals...),
+	)
+}
+
+func Debug(next log.Logger, keyvals ...interface{}) log.Logger {
+	return log.WithPrefix(
+		next,
+		append([]interface{}{CallerKey, log.DefaultCaller, level.Key(), level.DebugValue()}, keyvals...),
+	)
 }
