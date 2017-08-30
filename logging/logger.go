@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	lumberjack "gopkg.in/natefinch/lumberjack.v2"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	defaultLogger = New(&Options{Level: "DEBUG"})
+	defaultLogger = log.NewNopLogger()
 
 	callerKey    interface{} = "caller"
 	messageKey   interface{} = "msg"
@@ -44,7 +44,7 @@ func TimestampKey() interface{} {
 	return timestampKey
 }
 
-// DefaultLogger returns a global singleton default that logs to os.Stdout.
+// DefaultLogger returns a global singleton NOP logger.
 // This returned instance is safe for concurrent access.
 func DefaultLogger() log.Logger {
 	return defaultLogger
