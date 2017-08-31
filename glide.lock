@@ -1,5 +1,5 @@
-hash: ba555a854dedede49de9fefcdbd4fb60033affdeee135f9eb1f1e81189c74367
-updated: 2017-08-30T10:19:46.349830054-07:00
+hash: 50b6d2df35c40e43088c1c7aa32966be1f89bdf44c833db4601484dd0b1d45dc
+updated: 2017-08-31T12:12:18.685531678-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -50,8 +50,10 @@ imports:
 - name: github.com/go-kit/kit
   version: a9ca6725cbbea455e61c6bc8a1ed28e81eb3493b
   subpackages:
+  - endpoint
   - log
   - log/level
+  - sd
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-stack/stack
@@ -107,8 +109,6 @@ imports:
   - crypto
   - jws
   - jwt
-- name: github.com/spaolacci/murmur3
-  version: 0d12bf811670bf6a1a63828dfbd003eded177fce
 - name: github.com/spf13/afero
   version: 72b31426848c6ef12a7a8e216708cb0d1530f074
   subpackages:

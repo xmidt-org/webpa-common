@@ -37,8 +37,6 @@ import:
   version: v1.0.0
 - package: github.com/samuel/go-zookeeper
   version: e6b59f6144beb8570562539c1898a0b1fea34b41
-- package: github.com/strava/go.serversets
-  version: v1.0
 - package: github.com/ugorji/go
   version: d23841a297e5489e787e72fceffabf9d2994b52a
   subpackages:
