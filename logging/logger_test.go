@@ -1,110 +1,189 @@
 package logging
 
 import (
-	"bytes"
+	"strings"
 	"testing"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-type testStringer struct {
-	message string
+func TestCallerKey(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal(callerKey, CallerKey())
 }
 
-func (t testStringer) String() string {
-	return t.message
+func TestMessageKey(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal(messageKey, MessageKey())
 }
 
-func TestLoggerWriterUsingParameters(t *testing.T) {
-	var usingParameters = []struct {
-		parameters      []interface{}
-		expectedMessage string
-	}{
-		{
-			[]interface{}{},
-			"",
-		},
-		{
-			[]interface{}{"this is a format string: %d", 12},
-			"this is a format string: 12",
-		},
-		{
-			[]interface{}{"a %s complicated %d format string", "foobar", -23},
-			"a foobar complicated -23 format string",
-		},
-		{
-			[]interface{}{testStringer{""}},
-			"",
-		},
-		{
-			[]interface{}{testStringer{"this is a format string: %d"}, 12},
-			"this is a format string: 12",
-		},
-		{
-			[]interface{}{testStringer{"a %s complicated %d format string"}, "foobar", -23},
-			"a foobar complicated -23 format string",
-		},
-		{
-			[]interface{}{47},
-			"47",
-		},
-		{
-			[]interface{}{-1234, "rawk! I shouldn't be!"},
-			"-1234%!(EXTRA string=rawk! I shouldn't be!)",
-		},
-	}
-
-	var output bytes.Buffer
-	loggerWriter := LoggerWriter{&output}
-	verify := func(expectedLogEntry string, logFunction func(...interface{}), parameters []interface{}) {
-		output.Reset()
-		logFunction(parameters...)
-		if expectedLogEntry != output.String() {
-			t.Errorf(`Expected "%s", but got "%s"`, expectedLogEntry, output.String())
-		}
-	}
-
-	for _, record := range usingParameters {
-		verify(traceLevel+record.expectedMessage+"\n", loggerWriter.Trace, record.parameters)
-		verify(debugLevel+record.expectedMessage+"\n", loggerWriter.Debug, record.parameters)
-		verify(infoLevel+record.expectedMessage+"\n", loggerWriter.Info, record.parameters)
-		verify(warnLevel+record.expectedMessage+"\n", loggerWriter.Warn, record.parameters)
-		verify(errorLevel+record.expectedMessage+"\n", loggerWriter.Error, record.parameters)
-	}
+func TestErrorKey(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal(errorKey, ErrorKey())
 }
 
-func TestLoggerWriterUsingFormat(t *testing.T) {
-	var formats = []struct {
-		format          string
-		parameters      []interface{}
-		expectedMessage string
-	}{
-		{
-			"",
-			nil,
-			"",
-		},
-		{
-			"%s",
-			[]interface{}{"foobar"},
-			"foobar",
-		},
-		{
-			"%s: %d",
-			[]interface{}{"foobar", 12},
-			"foobar: 12",
-		},
+func TestTimestampKey(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal(timestampKey, TimestampKey())
+}
+
+func TestDefaultLogger(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal(defaultLogger, DefaultLogger())
+}
+
+func TestNew(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.NotNil(New(nil))
+	assert.NotNil(New(new(Options)))
+}
+
+func testNewFilter(t *testing.T, o *Options) {
+	var (
+		assert = assert.New(t)
+		next   = new(mockLogger)
+	)
+
+	switch strings.ToUpper(o.level()) {
+	case "DEBUG":
+		next.On("Log", mock.MatchedBy(matchLevel(level.DebugValue()))).
+			Run(expectKeys(assert, MessageKey())).
+			Return(nil).
+			Once()
+		fallthrough
+
+	case "INFO":
+		next.On("Log", mock.MatchedBy(matchLevel(level.InfoValue()))).
+			Run(expectKeys(assert, MessageKey())).
+			Return(nil).
+			Once()
+		fallthrough
+
+	case "WARN":
+		next.On("Log", mock.MatchedBy(matchLevel(level.WarnValue()))).
+			Run(expectKeys(assert, MessageKey())).
+			Return(nil).
+			Once()
+		fallthrough
+
+	default:
+		next.On("Log", mock.MatchedBy(matchLevel(level.ErrorValue()))).
+			Run(expectKeys(assert, MessageKey())).
+			Return(nil).
+			Once()
 	}
 
-	var output bytes.Buffer
-	loggerWriter := LoggerWriter{&output}
-	verify := func(expectedLogEntry string, formatFunction func(string, ...interface{}), format string, parameters []interface{}) {
-		output.Reset()
-		formatFunction(format, parameters...)
-		if expectedLogEntry != output.String() {
-			t.Errorf(`Expected "%s", but got "%s"`, expectedLogEntry, output.String())
-		}
-	}
+	filter := NewFilter(next, o)
+	filter.Log(level.Key(), level.DebugValue(), MessageKey(), "debug message")
+	filter.Log(level.Key(), level.InfoValue(), MessageKey(), "info message")
+	filter.Log(level.Key(), level.WarnValue(), MessageKey(), "warn message")
+	filter.Log(level.Key(), level.ErrorValue(), MessageKey(), "error message")
 
-	for _, record := range formats {
-		verify(infoLevel+record.expectedMessage+"\n", loggerWriter.Printf, record.format, record.parameters)
-	}
+	next.AssertExpectations(t)
+}
+
+func TestNewFilter(t *testing.T) {
+	t.Run("Nil", func(t *testing.T) { testNewFilter(t, nil) })
+	t.Run("Default", func(t *testing.T) { testNewFilter(t, new(Options)) })
+	t.Run("Error", func(t *testing.T) { testNewFilter(t, &Options{Level: "error"}) })
+	t.Run("Warn", func(t *testing.T) { testNewFilter(t, &Options{Level: "warn"}) })
+	t.Run("Info", func(t *testing.T) { testNewFilter(t, &Options{Level: "info"}) })
+	t.Run("Debug", func(t *testing.T) { testNewFilter(t, &Options{Level: "debug"}) })
+}
+
+func testDefaultCallerSimple(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		next   = new(mockLogger)
+	)
+
+	next.On("Log", mock.MatchedBy(func([]interface{}) bool { return true })).
+		Run(expectKeys(assert, CallerKey(), MessageKey())).
+		Return(expectKeys(assert, MessageKey())).
+		Once()
+
+	decorated := DefaultCaller(next)
+	decorated.Log(MessageKey(), "message")
+
+	next.AssertExpectations(t)
+}
+
+func testDefaultCallerKeyvals(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		next   = new(mockLogger)
+	)
+
+	next.On("Log", mock.MatchedBy(func([]interface{}) bool { return true })).
+		Run(expectKeys(assert, CallerKey(), MessageKey())).
+		Return(expectKeys(assert, MessageKey(), "foo")).
+		Once()
+
+	decorated := DefaultCaller(next, "foo", "bar")
+	decorated.Log(MessageKey(), "message")
+
+	next.AssertExpectations(t)
+}
+
+func TestDefaultCaller(t *testing.T) {
+	t.Run("Simple", testDefaultCallerSimple)
+	t.Run("Keyvals", testDefaultCallerKeyvals)
+}
+
+func testLevelledLogger(t *testing.T, factory func(log.Logger, ...interface{}) log.Logger, expected level.Value) {
+	var (
+		assert = assert.New(t)
+		next   = new(mockLogger)
+	)
+
+	next.On("Log", mock.MatchedBy(matchLevel(expected))).
+		Run(expectKeys(assert, level.Key(), CallerKey(), MessageKey())).
+		Return(nil).
+		Once()
+
+	decorated := factory(next)
+	decorated.Log(level.Key(), expected, MessageKey(), "message")
+
+	next.AssertExpectations(t)
+}
+
+func testLevelledLoggerKeyvals(t *testing.T, factory func(log.Logger, ...interface{}) log.Logger, expected level.Value) {
+	var (
+		assert = assert.New(t)
+		next   = new(mockLogger)
+	)
+
+	next.On("Log", mock.MatchedBy(matchLevel(expected))).
+		Run(expectKeys(assert, level.Key(), "foo", CallerKey(), MessageKey())).
+		Return(nil).
+		Once()
+
+	decorated := factory(next, "foo", "bar")
+	decorated.Log(MessageKey(), "message")
+
+	next.AssertExpectations(t)
+}
+
+func TestError(t *testing.T) {
+	t.Run("Simple", func(t *testing.T) { testLevelledLogger(t, Error, level.ErrorValue()) })
+	t.Run("Keyvals", func(t *testing.T) { testLevelledLoggerKeyvals(t, Error, level.ErrorValue()) })
+}
+
+func TestInfo(t *testing.T) {
+	t.Run("Simple", func(t *testing.T) { testLevelledLogger(t, Info, level.InfoValue()) })
+	t.Run("Keyvals", func(t *testing.T) { testLevelledLoggerKeyvals(t, Info, level.InfoValue()) })
+}
+
+func TestWarn(t *testing.T) {
+	t.Run("Simple", func(t *testing.T) { testLevelledLogger(t, Warn, level.WarnValue()) })
+	t.Run("Keyvals", func(t *testing.T) { testLevelledLoggerKeyvals(t, Warn, level.WarnValue()) })
+}
+
+func TestDebug(t *testing.T) {
+	t.Run("Simple", func(t *testing.T) { testLevelledLogger(t, Debug, level.DebugValue()) })
+	t.Run("Keyvals", func(t *testing.T) { testLevelledLoggerKeyvals(t, Debug, level.DebugValue()) })
 }

@@ -89,7 +89,7 @@ func closeTestDevices(assert *assert.Assertions, devices map[ID][]Connection) {
 func testManagerConnectMissingDeviceContext(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
-		Logger: logging.TestLogger(t),
+		Logger: logging.NewTestLogger(nil, t),
 	}
 
 	manager := NewManager(options, nil)
@@ -105,7 +105,7 @@ func testManagerConnectMissingDeviceContext(t *testing.T) {
 func testManagerConnectBadConveyHeader(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
-		Logger: logging.TestLogger(t),
+		Logger: logging.NewTestLogger(nil, t),
 	}
 
 	manager := NewManager(options, nil)
@@ -127,7 +127,7 @@ func testManagerConnectKeyError(t *testing.T) {
 		}
 
 		options = &Options{
-			Logger:  logging.TestLogger(t),
+			Logger:  logging.NewTestLogger(nil, t),
 			KeyFunc: badKeyFunc,
 		}
 
@@ -146,7 +146,7 @@ func testManagerConnectConnectionFactoryError(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		options = &Options{
-			Logger: logging.TestLogger(t),
+			Logger: logging.NewTestLogger(nil, t),
 			Listeners: []Listener{
 				func(e *Event) {
 					assert.Fail("The listener should not have been called")
@@ -178,7 +178,7 @@ func testManagerConnectVisit(t *testing.T) {
 		connections = make(chan Interface, testConnectionCount)
 
 		options = &Options{
-			Logger: logging.TestLogger(t),
+			Logger: logging.NewTestLogger(nil, t),
 			Listeners: []Listener{
 				func(event *Event) {
 					if event.Type == Connect {
@@ -246,12 +246,12 @@ func testManagerConnectVisit(t *testing.T) {
 
 func testManagerPongCallbackFor(t *testing.T) {
 	assert := assert.New(t)
-	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, "", 1)
+	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, "", 1, logging.NewTestLogger(nil, t))
 	expectedData := "expected pong data"
 	listenerCalled := false
 
 	manager := &manager{
-		logger: logging.TestLogger(t),
+		logger: logging.NewTestLogger(nil, t),
 		listeners: []Listener{
 			func(event *Event) {
 				listenerCalled = true
@@ -276,7 +276,7 @@ func testManagerDisconnect(t *testing.T) {
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger: logging.TestLogger(t),
+		Logger: logging.NewTestLogger(nil, t),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {
@@ -320,7 +320,7 @@ func testManagerDisconnectOne(t *testing.T) {
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger: logging.TestLogger(t),
+		Logger: logging.NewTestLogger(nil, t),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {
@@ -374,7 +374,7 @@ func testManagerDisconnectIf(t *testing.T) {
 	disconnections := make(chan Interface, testConnectionCount)
 
 	options := &Options{
-		Logger: logging.TestLogger(t),
+		Logger: logging.NewTestLogger(nil, t),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {
@@ -471,8 +471,9 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 			},
 		}
 
-		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, "", 1)
-		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, "", 1)
+		logger  = logging.NewTestLogger(nil, t)
+		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, "", 1, logger)
+		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, "", 1, logger)
 
 		connectionFactory = new(mockConnectionFactory)
 		manager           = NewManager(nil, connectionFactory).(*manager)
@@ -495,7 +496,7 @@ func testManagerPingPong(t *testing.T) {
 		pongs       = make(chan Interface, 100)
 
 		options = &Options{
-			Logger: logging.TestLogger(t),
+			Logger: logging.NewTestLogger(nil, t),
 			Listeners: []Listener{
 				func(event *Event) {
 					switch event.Type {

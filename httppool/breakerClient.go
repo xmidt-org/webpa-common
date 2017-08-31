@@ -3,14 +3,33 @@ package httppool
 import (
 	"net/http"
 	"time"
-	
+
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/rubyist/circuitbreaker"
 )
 
-func BreakerClient(timeout time.Duration, threshold int64, log logging.Logger, delegate *http.Client) *circuit.HTTPClient {
-	client := circuit.NewHostBasedHTTPClient(timeout, threshold, delegate)
-	
+func breakerEventString(e circuit.BreakerEvent) string {
+	switch e {
+	case circuit.BreakerTripped:
+		return "tripped"
+	case circuit.BreakerReset:
+		return "reset"
+	case circuit.BreakerFail:
+		return "fail"
+	case circuit.BreakerReady:
+		return "ready"
+	default:
+		return "unknown"
+	}
+}
+
+func BreakerClient(timeout time.Duration, threshold int64, logger log.Logger, delegate *http.Client) *circuit.HTTPClient {
+	var (
+		client   = circuit.NewHostBasedHTTPClient(timeout, threshold, delegate)
+		debugLog = logging.Debug(logger, "timeout", timeout, "threshold", threshold)
+	)
+
 	// alter the breaker that's returned:
 	delegateLookup := client.BreakerLookup
 	tripFunc := circuit.ConsecutiveTripFunc(threshold)
@@ -19,23 +38,13 @@ func BreakerClient(timeout time.Duration, threshold int64, log logging.Logger, d
 		breaker.ShouldTrip = tripFunc
 		return breaker
 	}
-	
+
 	subscription := client.Panel.Subscribe()
 	go func() {
 		for panelEvent := range subscription {
-			switch panelEvent.Event {
-			case circuit.BreakerTripped:
-				log.Debug("breaker event (tripped): %s", panelEvent.Name)
-			case circuit.BreakerReset:
-				log.Debug("breaker event (reset): %s", panelEvent.Name)
-			case circuit.BreakerFail:
-				log.Debug("breaker event (fail): %s", panelEvent.Name)
-			case circuit.BreakerReady:
-				log.Debug("breaker event (ready): %s", panelEvent.Name)
-			}
+			debugLog.Log("event", breakerEventString(panelEvent.Event), "name", panelEvent.Name)
 		}
 	}()
-	
+
 	return client
 }
-

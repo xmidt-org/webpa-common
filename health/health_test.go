@@ -3,29 +3,29 @@ package health
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 // setupHealth supplies a Health object with useful test configuration
-func setupHealth() *Health {
+func setupHealth(t *testing.T) *Health {
 	return New(
 		time.Duration(69)*time.Second,
-		&logging.LoggerWriter{os.Stdout},
+		logging.NewTestLogger(nil, t),
 	)
 }
 
 func TestLifecycle(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		h      = setupHealth()
+		h      = setupHealth(t)
 
 		healthWaitGroup = &sync.WaitGroup{}
 		shutdown        = make(chan struct{})
@@ -98,7 +98,7 @@ func TestLifecycle(t *testing.T) {
 func TestServeHTTP(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		h        = setupHealth()
+		h        = setupHealth(t)
 		shutdown = make(chan struct{})
 
 		request  = httptest.NewRequest("GET", "http://something.net", nil)
@@ -164,7 +164,7 @@ func TestHealthRequestTracker(t *testing.T) {
 		t.Logf("%#v", record)
 
 		var (
-			monitor  = setupHealth()
+			monitor  = setupHealth(t)
 			shutdown = make(chan struct{})
 
 			handler  = new(mockHandler)
@@ -205,7 +205,7 @@ func TestHealthRequestTracker(t *testing.T) {
 func TestHealthRequestTrackerDelegatePanic(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		monitor  = setupHealth()
+		monitor  = setupHealth(t)
 		shutdown = make(chan struct{})
 
 		handler  = new(mockHandler)

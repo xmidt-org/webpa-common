@@ -2,18 +2,19 @@ package service
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestNewOptions(t *testing.T) {
 	var (
 		assert        = assert.New(t)
 		require       = require.New(t)
-		logger        = logging.DefaultLogger()
+		logger        = logging.NewTestLogger(nil, t)
 		pingCalled    = false
 		pingFunc      = func() error { pingCalled = true; return nil }
 		configuration = bytes.NewBufferString(`{
@@ -43,7 +44,7 @@ func TestNewOptionsNoPingFunc(t *testing.T) {
 	var (
 		assert        = assert.New(t)
 		require       = require.New(t)
-		logger        = logging.DefaultLogger()
+		logger        = logging.NewTestLogger(nil, t)
 		configuration = bytes.NewBufferString(`{
 			"servers": ["host1:1234", "host2:5678"],
 			"connection": "foobar"

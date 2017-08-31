@@ -2,11 +2,13 @@ package service
 
 import (
 	"errors"
+	"testing"
+
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/strava/go.serversets"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestNewRegistrar(t *testing.T) {
@@ -155,6 +157,7 @@ func TestRegisterAllNoRegistrations(t *testing.T) {
 
 func TestRegisterAll(t *testing.T) {
 	assert := assert.New(t)
+	logger := logging.NewTestLogger(nil, t)
 	testData := []struct {
 		options                 *Options
 		expectedHosts           []string
@@ -164,6 +167,7 @@ func TestRegisterAll(t *testing.T) {
 	}{
 		{
 			options: &Options{
+				Logger:        logger,
 				Registrations: []string{"https://node1.comcast.net:1467"},
 			},
 			expectedHosts:           []string{"https://node1.comcast.net"},
@@ -173,6 +177,7 @@ func TestRegisterAll(t *testing.T) {
 		},
 		{
 			options: &Options{
+				Logger:        logger,
 				Registrations: []string{"https://port.is.too.large:23987928374312"},
 			},
 			expectedHosts:           []string{},
@@ -182,6 +187,7 @@ func TestRegisterAll(t *testing.T) {
 		},
 		{
 			options: &Options{
+				Logger:        logger,
 				Registrations: []string{"node17.foobar.com", "https://node1.comcast.net:1467"},
 			},
 			expectedHosts:           []string{"http://node17.foobar.com", "https://node1.comcast.net"},
@@ -191,6 +197,7 @@ func TestRegisterAll(t *testing.T) {
 		},
 		{
 			options: &Options{
+				Logger:        logger,
 				Registrations: []string{"node17.foobar.com", "https://port.is.too.large:23987928374312"},
 			},
 			expectedHosts:           []string{},
@@ -200,6 +207,7 @@ func TestRegisterAll(t *testing.T) {
 		},
 		{
 			options: &Options{
+				Logger:        logger,
 				Registrations: []string{"https://port.is.too.large:23987928374312", "http://valid.com:1111"},
 			},
 			expectedHosts:           []string{},

@@ -1,13 +1,15 @@
 package aws
 
 import (
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sns"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -88,11 +90,11 @@ func (ss *SNSServer) SetSNSRoutes(urlPath string, r *mux.Router, handler http.Ha
 
 	r.HandleFunc(urlPath, ss.SubscribeConfirmHandle).Methods("POST").Headers("x-amz-sns-message-type", "SubscriptionConfirmation")
 	if handler != nil {
-		ss.Debug("handler not nil. urlPath: %s\n", urlPath)
+		ss.debugLog.Log(logging.MessageKey(), "handler not nil", "urlPath", urlPath)
 		// handler is supposed to be wrapper that inturn calls NotificationHandle
 		r.Handle(urlPath, handler).Methods("POST").Headers("x-amz-sns-message-type", "Notification")
 	} else {
-		ss.Debug("handler nil. urlPath: %s\n", urlPath)
+		ss.debugLog.Log(logging.MessageKey(), "handler nil", "urlPath", urlPath)
 		// if no wrapper handler available then define anonymous handler and directly call NotificationHandle
 		r.HandleFunc(urlPath, func(rw http.ResponseWriter, req *http.Request) {
 			ss.NotificationHandle(rw, req)
@@ -109,12 +111,12 @@ func (ss *SNSServer) Subscribe() {
 		Endpoint: aws.String(ss.SelfUrl.String()),
 	}
 
-	ss.Debug("subscribe params: %+v\n\n", params)
+	ss.debugLog.Log("subscribeParams", params)
 
 	resp, err := ss.SVC.Subscribe(params)
 	if err != nil {
 		attemptNum := 1
-		ss.Error("SNS subscribe error (attempt %d failed): %v", attemptNum, err)
+		ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 		attemptNum++
 
 		// this is so tests do not timeout
@@ -128,7 +130,7 @@ func (ss *SNSServer) Subscribe() {
 
 			resp, err = ss.SVC.Subscribe(params)
 			if err != nil {
-				ss.Error("SNS subscribe error (attempt %d failed): %v", attemptNum, err)
+				ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 			} else {
 				break
 			}
@@ -137,7 +139,7 @@ func (ss *SNSServer) Subscribe() {
 		}
 	}
 
-	ss.Debug("SNS subscribe resp: %v", resp)
+	ss.debugLog.Log("subscribeResponse", resp)
 
 	// Add SubscriptionArn to subscription data channel
 	ss.subscriptionData <- *resp.SubscriptionArn
@@ -150,7 +152,7 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	raw, err := DecodeJSONMessage(req, msg)
 	if err != nil {
-		ss.Error("SNS read req body error %v", err)
+		ss.errorLog.Log(logging.MessageKey(), "SNS read req body error", logging.ErrorKey(), err)
 		httperror.Format(rw, http.StatusBadRequest, "request body error")
 		return
 	}
@@ -158,23 +160,28 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 	// Verify SNS Message authenticity by verifying signature
 	valid, v_err := ss.Validate(msg)
 	if !valid || v_err != nil {
-		ss.Error("SNS signature validation error %v", v_err)
+		ss.errorLog.Log(logging.MessageKey(), "SNS signature validation error", logging.ErrorKey(), v_err)
 		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
 		return
 	}
 
 	// Validate that SubscriptionConfirmation is for the topic you desire to subscribe to
 	if !strings.EqualFold(msg.TopicArn, ss.Config.Sns.TopicArn) {
-		ss.Error("SNS subscription confirmation TopicArn mismatch, received '%s', expected '%s'",
-			msg.TopicArn, ss.Config.Sns.TopicArn)
+		ss.errorLog.Log(
+			logging.MessageKey(), "SNS subscription confirmation TopicArn mismatch",
+			"received", msg.TopicArn,
+			"expected", ss.Config.Sns.TopicArn)
 		httperror.Format(rw, http.StatusBadRequest, "TopicArn does not match")
 		return
 	}
 
 	// TODO: health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
 
-	ss.Debug("SNS confirmation payload raw [%v]", string(raw))
-	ss.Debug("SNS confirmation payload msg [%#v]", msg)
+	ss.debugLog.Log(
+		logging.MessageKey(), "SNS confirmation payload",
+		"raw", string(raw),
+		"msg", msg,
+	)
 
 	params := &sns.ConfirmSubscriptionInput{
 		Token:    aws.String(msg.Token),    // Required
@@ -182,12 +189,12 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 	}
 	resp, err := ss.SVC.ConfirmSubscription(params)
 	if err != nil {
-		ss.Error("SNS confirm error %v", err)
+		ss.errorLog.Log(logging.MessageKey(), "SNS confirm error", logging.ErrorKey(), err)
 		// TODO return error response
 		return
 	}
 
-	ss.Debug("SNS confirm response: %v", resp)
+	ss.debugLog.Log(logging.MessageKey(), "SNS confirm response", "response", resp)
 
 	// Add SubscriptionArn to subscription data channel
 	ss.subscriptionData <- *resp.SubscriptionArn
@@ -209,7 +216,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 
 	raw, err := DecodeJSONMessage(req, msg)
 	if err != nil {
-		ss.Error("SNS read req body error %v", err)
+		ss.errorLog.Log(logging.MessageKey(), "SNS read req body error", logging.ErrorKey(), err)
 		httperror.Format(rw, http.StatusBadRequest, "request body error")
 		return nil
 	}
@@ -217,30 +224,33 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	// Verify SNS Message authenticity by verifying signature
 	valid, v_err := ss.Validate(msg)
 	if !valid || v_err != nil {
-		ss.Error("SNS signature validation error %v", v_err)
+		ss.errorLog.Log(logging.MessageKey(), "SNS signature validation error", logging.ErrorKey(), v_err)
 		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
 		return nil
 	}
 	// TODO: health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
 
-	ss.Debug("SNS notification payload raw [%v]", string(raw))
-	ss.Debug("SNS notification payload msg [%#v]", msg)
+	ss.debugLog.Log(
+		logging.MessageKey(), "SNS notification payload",
+		"raw", string(raw),
+		"msg", msg,
+	)
 
 	// Validate that SubscriptionConfirmation is for the topic you desire to subscribe to
 	if !strings.EqualFold(msg.TopicArn, ss.Config.Sns.TopicArn) {
-		ss.Error("SNS notification TopicArn mismatch, received '%s', expected '%s'",
-			msg.TopicArn, ss.Config.Sns.TopicArn)
+		ss.errorLog.Log(
+			logging.MessageKey(), "SNS notification TopicArn mismatch",
+			"received", msg.TopicArn,
+			"expected", ss.Config.Sns.TopicArn)
 		httperror.Format(rw, http.StatusBadRequest, "TopicArn does not match")
 		return nil
 	}
 
 	EnvAttr := msg.MessageAttributes[MSG_ATTR]
-	ss.Trace("SQS notification EnvAttr %v", EnvAttr)
-
 	msgEnv := EnvAttr.Value
-	ss.Trace("SNS notification msgEnv %v", msgEnv)
+	ss.debugLog.Log(logging.MessageKey(), "SQS notification", "envAttr", EnvAttr, "msgEnv", msgEnv)
 	if msgEnv != ss.Config.Env {
-		ss.Error("SNS msg env %v does not match config env %v", msgEnv, ss.Config.Env)
+		ss.errorLog.Log(logging.MessageKey(), "SNS environment mismatch", "msgEnv", msgEnv, "config", ss.Config.Env)
 		httperror.Format(rw, http.StatusBadRequest, "SNS Msg config env does not match")
 		return nil
 	}
@@ -251,7 +261,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 // Publish Notification message to AWS SNS topic
 func (ss *SNSServer) PublishMessage(message string) {
 
-	ss.Debug("SNS PublishMessage called %v ", message)
+	ss.debugLog.Log(logging.MessageKey(), "SNS PublishMessage", "called", message)
 
 	// push Notification message onto notif data channel
 	ss.notificationData <- message
@@ -279,9 +289,9 @@ func (ss *SNSServer) listenAndPublishMessage(quit <-chan struct{}) {
 			resp, err := ss.SVC.Publish(params)
 
 			if err != nil {
-				ss.Error("SNS send message error %v", err)
+				ss.errorLog.Log(logging.MessageKey(), "SNS send message error", logging.ErrorKey(), err)
 			}
-			ss.Debug("SNS send message resp: %v", resp)
+			ss.debugLog.Log(logging.MessageKey(), "SNS send message", "response", resp)
 		// TODO : health.SendEvent(HTH.Set("TotalDataPayloadSent", int(len([]byte(resp.GoString()))) ))
 
 		// To terminate the go routine when SNS is not ready, so dont allow publish message
@@ -306,8 +316,8 @@ func (ss *SNSServer) Unsubscribe(subArn string) {
 	resp, err := ss.SVC.Unsubscribe(params)
 
 	if err != nil {
-		ss.Error("SNS Unsubscribe error ", err.Error())
+		ss.errorLog.Log(logging.MessageKey(), "SNS Unsubscribe error", logging.ErrorKey(), err)
 	}
 
-	ss.Debug("Successfully unsubscribed from the SNS topic ", resp)
+	ss.debugLog.Log(logging.MessageKey(), "Successfully unsubscribed from the SNS topic", "response", resp)
 }

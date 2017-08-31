@@ -12,6 +12,7 @@ import (
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 )
 
@@ -109,8 +110,8 @@ func useID(f IDFromRequest) func(http.Handler) http.Handler {
 // MessageHandler is a configurable http.Handler which handles inbound WRP traffic
 // to be sent to devices.
 type MessageHandler struct {
-	// Logger is the sink for logging output.  If not set, logging will be sent to logging.DefaultLogger().
-	Logger logging.Logger
+	// Logger is the sink for logging output.  If not set, logging will be sent to a NOP logger
+	Logger log.Logger
 
 	// Decoders is the pool of wrp.Decoder objects used to decode http.Request bodies
 	// sent to this handler.  This field is required.
@@ -125,7 +126,7 @@ type MessageHandler struct {
 	Router Router
 }
 
-func (mh *MessageHandler) logger() logging.Logger {
+func (mh *MessageHandler) logger() log.Logger {
 	if mh.Logger != nil {
 		return mh.Logger
 	}
@@ -180,7 +181,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 		)
 	} else if deviceResponse != nil {
 		if err := EncodeResponse(httpResponse, deviceResponse, mh.Encoders); err != nil {
-			mh.logger().Error("Error while writing transaction response: %s", err)
+			logging.Error(mh.logger()).Log(logging.MessageKey(), "Error while writing transaction response", logging.ErrorKey(), err)
 		}
 	}
 
@@ -190,12 +191,12 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 }
 
 type ConnectHandler struct {
-	Logger         logging.Logger
+	Logger         log.Logger
 	Connector      Connector
 	ResponseHeader http.Header
 }
 
-func (ch *ConnectHandler) logger() logging.Logger {
+func (ch *ConnectHandler) logger() log.Logger {
 	if ch.Logger != nil {
 		return ch.Logger
 	}
@@ -205,9 +206,9 @@ func (ch *ConnectHandler) logger() logging.Logger {
 
 func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	if device, err := ch.Connector.Connect(response, request, ch.ResponseHeader); err != nil {
-		ch.logger().Error("Failed to connect device: %s", err)
+		logging.Error(ch.logger()).Log(logging.MessageKey(), "Failed to connect device", logging.ErrorKey(), err)
 	} else {
-		ch.logger().Debug("Connected device: %s", device.ID())
+		logging.Debug(ch.logger()).Log(logging.MessageKey(), "Connected device", "id", device.ID())
 	}
 }
 

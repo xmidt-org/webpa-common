@@ -1,11 +1,12 @@
 package service
 
 import (
+	"net/url"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/url"
-	"testing"
 )
 
 func TestParseHostPort(t *testing.T) {
@@ -130,7 +131,7 @@ func TestNewAccessorFactory(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.TestLogger(t)
+		logger  = logging.NewTestLogger(nil, t)
 
 		testData = []struct {
 			endpoints        []string

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 )
 
 // StatsListener receives Stats on regular intervals.
@@ -44,7 +45,8 @@ type Monitor interface {
 type Health struct {
 	stats            Stats
 	statDumpInterval time.Duration
-	log              logging.Logger
+	errorLog         log.Logger
+	debugLog         log.Logger
 	events           chan HealthFunc
 	statsListeners   []StatsListener
 	memInfoReader    *MemInfoReader
@@ -62,7 +64,7 @@ func (h *Health) RequestTracker(delegate http.Handler) http.Handler {
 
 		defer func() {
 			if r := recover(); r != nil {
-				h.log.Error("Delegate handler panicked: %s", r)
+				h.errorLog.Log(logging.MessageKey(), "Delegate handler panicked", logging.ErrorKey(), r)
 
 				// TODO: Probably need an error stat instead of just "denied"
 				h.SendEvent(Inc(TotalRequestsDenied, 1))
@@ -97,13 +99,14 @@ func (h *Health) SendEvent(healthFunc HealthFunc) {
 }
 
 // New creates a Health object with the given statistics.
-func New(interval time.Duration, log logging.Logger, options ...Option) *Health {
+func New(interval time.Duration, logger log.Logger, options ...Option) *Health {
 	initialStats := NewStats(options)
 
 	return &Health{
 		stats:            initialStats,
 		statDumpInterval: interval,
-		log:              log,
+		errorLog:         logging.Error(logger),
+		debugLog:         logging.Debug(logger),
 		memInfoReader:    &MemInfoReader{},
 	}
 }
@@ -112,7 +115,7 @@ func New(interval time.Duration, log logging.Logger, options ...Option) *Health 
 // Health object is Run, it cannot be Run again.
 func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	h.once.Do(func() {
-		h.log.Debug("Health Monitor Started")
+		h.debugLog.Log(logging.MessageKey(), "Health Monitor Started")
 		h.events = make(chan HealthFunc, 100)
 
 		waitGroup.Add(1)
@@ -120,7 +123,7 @@ func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error 
 			defer waitGroup.Done()
 			ticker := time.NewTicker(h.statDumpInterval)
 			defer ticker.Stop()
-			defer h.log.Debug("Health Monitor Stopped")
+			defer h.debugLog.Log(logging.MessageKey(), "Health Monitor Stopped")
 			defer close(h.events)
 
 			for {
@@ -160,7 +163,7 @@ func (h *Health) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 
 	// TODO: leverage the standard error writing elsewhere in webpa-common
 	if err != nil {
-		h.log.Error("Could not marshal stats: %v", err)
+		h.errorLog.Log(logging.MessageKey(), "Could not marshal stats", logging.ErrorKey(), err)
 		response.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(response, `{"message": "%s"}\n`, err.Error())
 	} else {

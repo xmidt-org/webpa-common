@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/spf13/viper"
 )
 
@@ -17,7 +17,7 @@ const (
 // Since service discovery is an optional module for a WebPA server, this function allows
 // the supplied Viper to be nil or otherwise uninitialized.  Client code that opts in to
 // service discovery can thus use the same codepath to configure an Options instance.
-func NewOptions(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o *Options, err error) {
+func NewOptions(logger log.Logger, pingFunc func() error, v *viper.Viper) (o *Options, err error) {
 	o = new(Options)
 	if v != nil {
 		err = v.Unmarshal(o)
@@ -31,7 +31,7 @@ func NewOptions(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o
 // Initialize is the top-level function for bootstrapping the service discovery infrastructure
 // using a Viper instance.  No watches are set by this function, but all registrations are made
 // and monitored via the returned RegistrarWatcher.
-func Initialize(logger logging.Logger, pingFunc func() error, v *viper.Viper) (o *Options, r Registrar, re RegisteredEndpoints, err error) {
+func Initialize(logger log.Logger, pingFunc func() error, v *viper.Viper) (o *Options, r Registrar, re RegisteredEndpoints, err error) {
 	o, err = NewOptions(logger, pingFunc, v)
 	if err != nil {
 		return

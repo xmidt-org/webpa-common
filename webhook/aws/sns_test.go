@@ -2,13 +2,14 @@ package aws
 
 import (
 	"fmt"
+	"net/url"
+	"testing"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/url"
-	"testing"
-	"time"
 )
 
 const (
@@ -129,7 +130,8 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 
 	ss.Initialize(nil, selfUrl, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
-	require.NotNil(ss.Logger)
+	require.NotNil(ss.errorLog)
+	require.NotNil(ss.debugLog)
 	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, "/", TEST_UNIX_TIME), selfUrl.Path)
 	assert.Equal("http://host-test:port/api/v2/aws/sns/1503357402", ss.SelfUrl.String())
 }
@@ -147,7 +149,8 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 
 	ss.Initialize(nil, selfUrl, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
-	require.NotNil(ss.Logger)
+	require.NotNil(ss.errorLog)
+	require.NotNil(ss.debugLog)
 	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, TEST_UNIX_TIME), selfUrl.Path)
 	assert.Equal("http://host-test:port/sns/1503357402", ss.SelfUrl.String())
 }

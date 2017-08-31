@@ -3,12 +3,13 @@ package httppool
 import (
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/logging"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 )
 
 const (
@@ -45,9 +46,8 @@ type Client struct {
 	// Each Dispatcher will use a distinct copy created with Start() is called.
 	Listeners []Listener
 
-	// Logger is the logging strategy used by this client.  If not supplied, all output will
-	// go to the console.
-	Logger logging.Logger
+	// Logger is the logging strategy used by this client.  If not supplied, logging is discarded.
+	Logger log.Logger
 
 	// QueueSize specifies that maximum number of requests that can be queued.
 	// If this value is zero or negative, DefaultQueueSize is used.
@@ -86,12 +86,12 @@ func (client *Client) workers() int {
 	return DefaultWorkers
 }
 
-func (client *Client) logger() logging.Logger {
+func (client *Client) logger() log.Logger {
 	if client.Logger != nil {
 		return client.Logger
 	}
 
-	return &logging.LoggerWriter{os.Stdout}
+	return logging.DefaultLogger()
 }
 
 func (client *Client) handler() transactionHandler {
@@ -107,7 +107,7 @@ func (client *Client) handler() transactionHandler {
 func (client *Client) Start() (dispatcher DispatchCloser) {
 	name := client.name()
 	logger := client.logger()
-	logger.Debug("%s.Start()", name)
+	logging.Debug(logger).Log(logging.MessageKey(), "client start", "name", name)
 
 	var (
 		worker    func(*workerContext)
@@ -125,7 +125,8 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 				name:      name,
 				handler:   client.handler(),
 				listeners: listeners,
-				logger:    logger,
+				errorLog:  logging.Error(logger, "name", name),
+				debugLog:  logging.Debug(logger, "name", name),
 				tasks:     make(chan Task, client.queueSize()),
 			},
 			period: client.Period,
@@ -139,7 +140,8 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 				name:      name,
 				handler:   client.handler(),
 				listeners: listeners,
-				logger:    logger,
+				errorLog:  logging.Error(logger, "name", name),
+				debugLog:  logging.Debug(logger, "name", name),
 				tasks:     make(chan Task, client.queueSize()),
 			},
 		}
@@ -155,6 +157,8 @@ func (client *Client) Start() (dispatcher DispatchCloser) {
 		go worker(
 			&workerContext{
 				id:            workerId,
+				errorLog:      logging.Error(logger, "name", name, "contextID", workerId),
+				debugLog:      logging.Debug(logger, "name", name, "contextID", workerId),
 				listeners:     listeners,
 				cleanupBuffer: make([]byte, 8*1024),
 			},
@@ -172,6 +176,8 @@ type workerContext struct {
 	event         event
 	listeners     []Listener
 	cleanupBuffer []byte
+	errorLog      log.Logger
+	debugLog      log.Logger
 }
 
 // dispatch handles dispatching an event to any registered listeners.
@@ -192,7 +198,8 @@ type pooledDispatcher struct {
 	state     int32
 	name      string
 	handler   transactionHandler
-	logger    logging.Logger
+	debugLog  log.Logger
+	errorLog  log.Logger
 	listeners []Listener
 	tasks     chan Task
 }
@@ -212,7 +219,7 @@ func (pooled *pooledDispatcher) dispatch(eventType EventType, eventError error) 
 // Close shuts down the task channel.  Workers are allowed to finish
 // and exit gracefully.
 func (pooled *pooledDispatcher) Close() (err error) {
-	pooled.logger.Debug("%s.Close()", pooled.name)
+	pooled.debugLog.Log(logging.MessageKey(), "Close")
 	defer func() {
 		if r := recover(); r != nil {
 			err = ErrorClosed
@@ -228,7 +235,7 @@ func (pooled *pooledDispatcher) Close() (err error) {
 //
 // This method will return ErrorClosed if the task channel has been closed.
 func (pooled *pooledDispatcher) Send(task Task) (err error) {
-	pooled.logger.Debug("%s.Send(%v)", pooled.name, task)
+	pooled.debugLog.Log(logging.MessageKey(), "Send")
 	defer func() {
 		eventType := EventTypeQueue
 		if r := recover(); r != nil {
@@ -245,7 +252,7 @@ func (pooled *pooledDispatcher) Send(task Task) (err error) {
 
 // Offer attempts to send the task via a nonblocking select.
 func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
-	pooled.logger.Debug("%s.Offer(%v)", pooled.name, task)
+	pooled.debugLog.Log(logging.MessageKey(), "Offer")
 	defer func() {
 		eventType := EventTypeQueue
 		if r := recover(); r != nil {
@@ -272,7 +279,7 @@ func (pooled *pooledDispatcher) Offer(task Task) (taken bool, err error) {
 // handleTask takes care of using a task to create the request
 // and then sending that request to the handler
 func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
-	pooled.logger.Debug("%s.handleTask(%d, %v)", pooled.name, context.id, task)
+	context.debugLog.Log(logging.MessageKey(), "handleTask")
 	context.dispatch(EventTypeStart, nil)
 
 	var err error
@@ -280,7 +287,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 	defer func() {
 		// prevent panics from killing a worker
 		if r := recover(); r != nil {
-			pooled.logger.Error("%s[%d] encountered a panic: %s", pooled.name, context.id, r)
+			pooled.errorLog.Log(logging.MessageKey(), "encountered a panic", "contextId", context.id, logging.ErrorKey(), r)
 			context.dispatch(EventTypeFinish, fmt.Errorf("%s", r))
 		} else {
 			context.dispatch(EventTypeFinish, err)
@@ -289,10 +296,10 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 
 	request, consumer, err := task()
 	if err != nil {
-		pooled.logger.Error("%s[%d] received an error from a task: %s", pooled.name, context.id, err)
+		context.errorLog.Log(logging.MessageKey(), "task error", logging.ErrorKey(), err)
 		return
 	} else if request == nil {
-		pooled.logger.Error("Worker %d received a nil request", context.id)
+		context.errorLog.Log(logging.MessageKey(), "nil request")
 		return
 	}
 
@@ -302,7 +309,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 			// if the consumer already cleaned things up, CopyBuffer will return EOF
 			// use a canonical cleanup buffer to ease GC pressure
 			if _, err := io.CopyBuffer(ioutil.Discard, response.Body, context.cleanupBuffer); err != nil && err != io.EOF {
-				pooled.logger.Error("%s[%d] encountered an error while consuming the response body: %s", pooled.name, context.id, err)
+				context.errorLog.Log(logging.MessageKey(), "error while consuming response body", logging.ErrorKey(), err)
 			}
 
 			response.Body.Close()
@@ -310,7 +317,7 @@ func (pooled *pooledDispatcher) handleTask(context *workerContext, task Task) {
 	}
 
 	if err != nil {
-		pooled.logger.Error("%s[%d] HTTP transaction resulted in error: %s", pooled.name, context.id, err)
+		context.errorLog.Log(logging.MessageKey(), "HTTP transaction error", logging.ErrorKey(), err)
 		return
 	}
 
@@ -326,7 +333,7 @@ type unlimitedClientDispatcher struct {
 }
 
 func (unlimited *unlimitedClientDispatcher) worker(context *workerContext) {
-	unlimited.logger.Debug("%s Unlimited Worker %d starting", unlimited.name, context.id)
+	context.debugLog.Log(logging.MessageKey(), "worker starting", "type", "unlimited")
 
 	for task := range unlimited.tasks {
 		unlimited.handleTask(context, task)
@@ -341,7 +348,7 @@ type limitedClientDispatcher struct {
 }
 
 func (limited *limitedClientDispatcher) worker(context *workerContext) {
-	limited.logger.Debug("%s Rate-limited Worker %d starting", limited.name, context.id)
+	context.debugLog.Log(logging.MessageKey(), "worker starting", "type", "limited")
 	ticker := time.NewTicker(limited.period)
 	defer ticker.Stop()
 

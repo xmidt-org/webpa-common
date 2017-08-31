@@ -2,11 +2,13 @@ package service
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewRedirectHandler(t *testing.T) {
@@ -27,7 +29,7 @@ func TestNewRedirectHandler(t *testing.T) {
 
 	mockAccessor.On("Get", expectedKey).Return(expectedNode, nil).Once()
 
-	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, nil)
+	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, logging.NewTestLogger(nil, t))
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusTemporaryRedirect, response.Code)
 
@@ -51,7 +53,7 @@ func TestNewRedirectHandlerBadKey(t *testing.T) {
 		return []byte{}, expectedKeyError
 	}
 
-	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, nil)
+	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, logging.NewTestLogger(nil, t))
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
 	assert.Contains(response.Body.String(), expectedKeyError.Error())
@@ -77,7 +79,7 @@ func TestNewRedirectHandlerNoNode(t *testing.T) {
 		return expectedKey, nil
 	}
 
-	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, nil)
+	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, logging.NewTestLogger(nil, t))
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
 	assert.Contains(response.Body.String(), expectedAccessorError.Error())

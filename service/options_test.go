@@ -2,11 +2,12 @@ package service
 
 import (
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/strava/go.serversets"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 func TestOptionsDefault(t *testing.T) {
@@ -30,7 +31,7 @@ func TestOptionsDefault(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	assert := assert.New(t)
-	logger := logging.TestLogger(t)
+	logger := logging.NewTestLogger(nil, t)
 	expectedError := errors.New("TestOptions expected error")
 	testData := []struct {
 		options         *Options

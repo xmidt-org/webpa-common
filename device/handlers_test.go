@@ -221,7 +221,7 @@ func TestUseID(t *testing.T) {
 func testMessageHandlerLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.TestLogger(t)
+		logger = logging.NewTestLogger(nil, t)
 
 		handler = MessageHandler{}
 	)
@@ -543,7 +543,7 @@ func TestMessageHandler(t *testing.T) {
 func testConnectHandlerLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.TestLogger(t)
+		logger = logging.NewTestLogger(nil, t)
 
 		handler = ConnectHandler{}
 	)

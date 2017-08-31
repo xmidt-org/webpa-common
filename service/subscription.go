@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 )
 
 var (
@@ -17,7 +18,7 @@ var (
 // with updated endpoints.
 type Subscription struct {
 	// Logger is the option Logger used by this subscription.  If not supplied, it defaults to logging.DefaultLogger().
-	Logger logging.Logger
+	Logger log.Logger
 
 	// Registrar is the service registration component used to create a Watch.
 	Registrar Registrar
@@ -57,13 +58,18 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 		logger = logging.DefaultLogger()
 	}
 
+	var (
+		errorLog = logging.Error(logger)
+		infoLog  = logging.Info(logger)
+	)
+
 	if after == nil {
 		after = time.After
 	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error("Subscription ending due to panic: %s", r)
+			errorLog.Log(logging.MessageKey(), "Subscription ending due to panic", "error", r)
 		}
 
 		// ensure that the cancellation logic runs in this case, since no explicit
@@ -72,27 +78,27 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 	}()
 
 	endpoints := watch.Endpoints()
-	logger.Info("Dispatching initial endpoints: %v", endpoints)
+	errorLog.Log(logging.MessageKey(), "Dispatching initial endpoints", "endpoints", endpoints)
 	s.Listener(endpoints)
 	endpoints = nil
 
-	logger.Info("Monitoring subscription to: %v", watch)
+	infoLog.Log(logging.MessageKey(), "Monitoring subscription", "watch", watch)
 
 	for {
 		select {
 		case <-shutdown:
-			logger.Info("Subscription ending because it was cancelled")
+			infoLog.Log(logging.MessageKey(), "Subscription ending because it was cancelled")
 			return
 
 		case <-delay:
 			delay = nil
-			logger.Info("Dispatching updated endpoints after delay: %v", endpoints)
+			infoLog.Log(logging.MessageKey(), "Dispatching updated endpoints after delay", "delay", s.Timeout, "endpoints", endpoints)
 			s.Listener(endpoints)
 			endpoints = nil
 
 		case <-watch.Event():
 			if watch.IsClosed() {
-				logger.Info("Subscription ending because the watch was closed")
+				infoLog.Log(logging.MessageKey(), "Subscription ending because the watch was closed")
 				return
 			}
 
@@ -100,19 +106,19 @@ func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
 
 			if delay != nil {
 				// there is a delay in effect, so just keep listening for updates
-				logger.Info("Still waiting %s to dispatch updates", s.Timeout)
+				infoLog.Log(logging.MessageKey(), "Still waiting to dispatch updates", "delay", s.Timeout)
 				continue
 			}
 
 			if s.Timeout > 0 {
-				logger.Info("Waiting %s to dispatch updates", s.Timeout)
+				infoLog.Log(logging.MessageKey(), "Waiting to dispatch updates", "delay", s.Timeout)
 				delay = after(s.Timeout)
 				continue
 			}
 
 			// there is no current delay and no Timeout configured,
 			// so dispatch immediately
-			logger.Info("Dispatching updated endpoints: %v", endpoints)
+			infoLog.Log(logging.MessageKey(), "Dispatching updated endpoints", "endpoints", endpoints)
 			s.Listener(endpoints)
 			endpoints = nil
 		}

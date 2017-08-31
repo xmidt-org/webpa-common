@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,6 +17,7 @@ func testSubscriptionWatchError(t *testing.T) {
 		registrar     = new(mockRegistrar)
 
 		subscription = Subscription{
+			Logger:    logging.NewTestLogger(nil, t),
 			Registrar: registrar,
 			Listener: func([]string) {
 				assert.Fail("The listener should not have been called")
@@ -43,6 +45,7 @@ func testSubscriptionListenerPanic(t *testing.T) {
 		listenerCalled    = make(chan struct{})
 
 		subscription = Subscription{
+			Logger:    logging.NewTestLogger(nil, t),
 			Registrar: registrar,
 			Listener: func(endpoints []string) {
 				defer close(listenerCalled)
@@ -93,6 +96,7 @@ func testSubscriptionNoTimeout(t *testing.T) {
 		listenerDone = make(chan struct{})
 
 		subscription = Subscription{
+			Logger:    logging.NewTestLogger(nil, t),
 			Registrar: registrar,
 			Listener: func(endpoints []string) {
 				assert.Equal(expectedEndpoints[actualCount], endpoints)
@@ -166,6 +170,7 @@ func testSubscriptionWithTimeout(t *testing.T) {
 		delay        = make(chan time.Time)
 
 		subscription = Subscription{
+			Logger:    logging.NewTestLogger(nil, t),
 			Registrar: registrar,
 			After:     func(time.Duration) <-chan time.Time { return delay },
 			Timeout:   time.Second,

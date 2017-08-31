@@ -1,15 +1,13 @@
 package httppool
 
 import (
+	"net/http"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"io/ioutil"
-	"net/http"
-	"testing"
 )
-
-var testLogger = &logging.LoggerWriter{ioutil.Discard}
 
 func MustNewRequest(method string, url string) *http.Request {
 	request, err := http.NewRequest(method, url, nil)
@@ -89,17 +87,23 @@ func (consumer *mockConsumer) AssertExpectations(t *testing.T) {
 
 // newPooledDispatcher creates a pooledDispatcher for testing.  A mockTransactionHandler
 // is also returned, which is set as the pooledDispatcher.handler member as well.
-func newPooledDispatcher(queueSize int) (*pooledDispatcher, *mockTransactionHandler, *workerContext) {
-	handler := &mockTransactionHandler{}
-	workerContext := &workerContext{
-		id:            999,
-		cleanupBuffer: make([]byte, 100),
-	}
+func newPooledDispatcher(t *testing.T, queueSize int) (*pooledDispatcher, *mockTransactionHandler, *workerContext) {
+	var (
+		handler       = &mockTransactionHandler{}
+		logger        = logging.NewTestLogger(nil, t)
+		workerContext = &workerContext{
+			id:            999,
+			errorLog:      logging.Error(logger, "contextID", 999, "name", "test"),
+			debugLog:      logging.Debug(logger, "contextID", 999, "name", "test"),
+			cleanupBuffer: make([]byte, 100),
+		}
+	)
 
 	return &pooledDispatcher{
-		handler: handler,
-		logger:  testLogger,
-		tasks:   make(chan Task, queueSize),
+		handler:  handler,
+		errorLog: logging.Error(logger),
+		debugLog: logging.Debug(logger),
+		tasks:    make(chan Task, queueSize),
 	}, handler, workerContext
 }
 

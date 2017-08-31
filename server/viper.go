@@ -2,10 +2,12 @@ package server
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"time"
 )
 
 const (
@@ -151,7 +153,7 @@ This function always returns a logger, regardless of any errors.  This allows cl
 logger when reporting errors.  This function falls back to a logger that writes to os.Stdout if it cannot
 create a logger from the Viper environment.
 */
-func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger logging.Logger, webPA *WebPA, err error) {
+func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger log.Logger, webPA *WebPA, err error) {
 	defer func() {
 		if err != nil {
 			// never return a WebPA in the presence of an error, to
@@ -177,6 +179,6 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
-	logger, err = webPA.Log.NewLogger(applicationName)
+	logger = logging.New(webPA.Log)
 	return
 }

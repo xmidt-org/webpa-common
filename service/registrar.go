@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strconv"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/strava/go.serversets"
 )
 
@@ -119,14 +120,14 @@ func RegisterAll(registrar Registrar, o *Options) (RegisteredEndpoints, error) {
 		}
 
 		var (
-			logger    = o.logger()
+			infoLog   = logging.Info(o.logger())
 			pingFunc  = o.pingFunc()
 			endpoints = make(RegisteredEndpoints, len(registrations))
 		)
 
 		for index, host := range hosts {
 			port := ports[index]
-			logger.Info("Registering endpoint: %s:%d", host, port)
+			infoLog.Log(logging.MessageKey(), "Registering endpoint", "host", host, "port", port)
 
 			registeredEndpoint, err := registrar.RegisterEndpoint(host, port, pingFunc)
 			if err != nil {

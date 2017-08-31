@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 )
 
 const (
@@ -88,8 +89,8 @@ type Options struct {
 	KeyFunc KeyFunc
 
 	// Logger is the output sink for log messages.  If not supplied, log output
-	// is sent to logging.DefaultLogger().
-	Logger logging.Logger
+	// is sent to a NOP logger.
+	Logger log.Logger
 }
 
 func (o *Options) deviceMessageQueueSize() int {
@@ -205,7 +206,7 @@ func (o *Options) keyFunc() KeyFunc {
 	return UUIDKeyFunc(nil, nil)
 }
 
-func (o *Options) logger() logging.Logger {
+func (o *Options) logger() log.Logger {
 	if o != nil && o.Logger != nil {
 		return o.Logger
 	}
