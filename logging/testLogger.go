@@ -6,29 +6,29 @@ import (
 	"github.com/go-kit/kit/log"
 )
 
-// testLogger is implemented by testing.T and testing.B
-type testLogger interface {
+// testSink is implemented by testing.T and testing.B
+type testSink interface {
 	Log(...interface{})
 }
 
-// testWriter implements io.Writer and delegates to a testLogger
+// testWriter implements io.Writer and delegates to a testSink
 type testWriter struct {
-	testLogger
+	testSink
 }
 
 func (t testWriter) Write(data []byte) (int, error) {
-	t.testLogger.Log(string(data))
+	t.testSink.Log(string(data))
 	return len(data), nil
 }
 
 // NewTestWriter returns an io.Writer which delegates to a testing log.
 // The returned io.Writer does not need to be synchronized.
-func NewTestWriter(t testLogger) io.Writer {
+func NewTestWriter(t testSink) io.Writer {
 	return testWriter{t}
 }
 
 // NewTestLogger produces a go-kit Logger which delegates to the supplied testing log.
-func NewTestLogger(o *Options, t testLogger) log.Logger {
+func NewTestLogger(o *Options, t testSink) log.Logger {
 	if o == nil {
 		// we want to see all log output in tests by default
 		o = &Options{Level: "DEBUG"}

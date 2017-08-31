@@ -46,3 +46,11 @@ func expectKeys(assert *assert.Assertions, keys ...interface{}) func(mock.Argume
 		assert.Empty(expected, "Missing keys: %v", expected)
 	}
 }
+
+type mockTestSink struct {
+	mock.Mock
+}
+
+func (m *mockTestSink) Log(values ...interface{}) {
+	m.Called(values)
+}
