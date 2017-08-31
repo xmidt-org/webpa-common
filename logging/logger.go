@@ -47,7 +47,8 @@ func DefaultLogger() log.Logger {
 // includes the timestamp in UTC format and will filter according to the Level field.
 //
 // In order to allow arbitrary decoration, this function does not insert the caller information.
-// Use DefaultCaller or Caller in this package to do that.
+// Use either DefaultCaller in this package or the go-kit/kit/log API to add a Caller to the
+// returned Logger.
 func New(o *Options) log.Logger {
 	return NewFilter(
 		log.With(
