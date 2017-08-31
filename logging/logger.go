@@ -7,10 +7,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 )
 
-const (
-	StdoutFile = "stdout"
-)
-
 var (
 	defaultLogger = log.NewNopLogger()
 

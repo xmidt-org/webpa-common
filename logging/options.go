@@ -8,6 +8,10 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+const (
+	StdoutFile = "stdout"
+)
+
 // Options stores the configuration of a Logger.  Lumberjack is used for rolling files.
 type Options struct {
 	// File is the system file path for the log file.  If set to "stdout", this will log to os.Stdout.
