@@ -1,23 +1,21 @@
 package service
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/strava/go.serversets"
 )
 
 const (
-	DefaultScheme        = "http"
-	DefaultHost          = "localhost"
-	DefaultServer        = "localhost:2181"
-	DefaultTimeout       = 5 * time.Second
-	DefaultBaseDirectory = "/webpa"
-	DefaultMemberPrefix  = "webpa_"
-	DefaultEnvironment   = serversets.Local
-	DefaultServiceName   = "test"
-	DefaultVnodeCount    = 211
+	DefaultServer         = "localhost:2181"
+	DefaultConnectTimeout = 5 * time.Second
+	DefaultSessionTimeout = 1 * time.Hour
+	DefaultPath           = "/xmidt"
+	DefaultServiceName    = "test"
+	DefaultRegistration   = "http://localhost:8080"
+	DefaultVnodeCount     = 211
 )
 
 // Options represents the set of configurable attributes for service discovery and registration
@@ -34,33 +32,40 @@ type Options struct {
 	// and they will be merged together when connecting to Zookeeper.
 	Servers []string `json:"servers,omitempty"`
 
-	// Timeout is the Zookeeper connection timeout.
-	Timeout time.Duration `json:"timeout"`
+	// ConnectTimeout is the Zookeeper connection timeout.
+	ConnectTimeout time.Duration `json:"connectTimeout"`
 
-	// BaseDirectory is the base path for all znodes created via this Options.
-	BaseDirectory string `json:"baseDirectory,omitempty"`
+	// SessionTimeout is the Zookeeper session timeout.
+	SessionTimeout time.Duration `json:"sessionTimeout"`
 
-	// MemberPrefix is the prefix for ephemeral nodes regstered via this Options.
-	MemberPrefix string `json:"memberPrefix,omitempty"`
+	// UpdateDelay specifies the period of time between a service discovery update and when a client
+	// is notified.  Updates during the wait time simply replace the waiting set of instances.
+	// There is no default for this field.  If unset, all updates are immediately processed.
+	UpdateDelay time.Duration `json:"updateDelay"`
 
-	// Environment is the environment component of the ephemeral znode path.
-	Environment string `json:"environment,omitempty"`
+	// Path is the base path for all znodes created via this Options.
+	Path string `json:"path,omitempty"`
 
 	// ServiceName is the name of the service being registered.
 	ServiceName string `json:"serviceName,omitempty"`
 
-	// Registrations holds the slice of information used to register endpoints.  Typically,
-	// this slice will either (1) be empty for an application that only watches for changes,  or (2) have the single
-	// Registration indicating how this service is known.  Multiple registrations, essentially
-	// being aliases for the same application, are supported.
-	Registrations []string `json:"registrations,omitempty"`
+	// Registration is the data stored about this service, typically host:port or scheme://host:port.
+	Registration string `json:"registration,omitempty"`
 
 	// VnodeCount is used to tune the underlying consistent hash algorithm for servers.
 	VnodeCount uint `json:"vnodeCount"`
+}
 
-	// PingFunc is the callback function used to determine if this application is still able
-	// to respond to requests.  This can be nil, and there is no default.
-	PingFunc func() error `json:"-"`
+func (o *Options) String() string {
+	if o == nil {
+		return "<nil>"
+	}
+
+	if data, err := json.Marshal(o); err == nil {
+		return string(data)
+	} else {
+		return err.Error()
+	}
 }
 
 func (o *Options) logger() log.Logger {
@@ -93,36 +98,36 @@ func (o *Options) servers() []string {
 	return servers
 }
 
-func (o *Options) timeout() time.Duration {
-	if o != nil && o.Timeout > 0 {
-		return time.Duration(o.Timeout)
+func (o *Options) connectTimeout() time.Duration {
+	if o != nil && o.ConnectTimeout > 0 {
+		return o.ConnectTimeout
 	}
 
-	return DefaultTimeout
+	return DefaultConnectTimeout
 }
 
-func (o *Options) baseDirectory() string {
-	if o != nil && len(o.BaseDirectory) > 0 {
-		return o.BaseDirectory
+func (o *Options) sessionTimeout() time.Duration {
+	if o != nil && o.SessionTimeout > 0 {
+		return o.SessionTimeout
 	}
 
-	return DefaultBaseDirectory
+	return DefaultSessionTimeout
 }
 
-func (o *Options) memberPrefix() string {
-	if o != nil && len(o.MemberPrefix) > 0 {
-		return o.MemberPrefix
+func (o *Options) updateDelay() time.Duration {
+	if o != nil && o.UpdateDelay > 0 {
+		return o.UpdateDelay
 	}
 
-	return DefaultMemberPrefix
+	return 0
 }
 
-func (o *Options) environment() serversets.Environment {
-	if o != nil && len(o.Environment) > 0 {
-		return serversets.Environment(o.Environment)
+func (o *Options) path() string {
+	if o != nil && len(o.Path) > 0 {
+		return o.Path
 	}
 
-	return DefaultEnvironment
+	return DefaultPath
 }
 
 func (o *Options) serviceName() string {
@@ -133,12 +138,12 @@ func (o *Options) serviceName() string {
 	return DefaultServiceName
 }
 
-func (o *Options) registrations() []string {
-	if o != nil {
-		return o.Registrations
+func (o *Options) registration() string {
+	if o != nil && len(o.Registration) > 0 {
+		return o.Registration
 	}
 
-	return nil
+	return DefaultRegistration
 }
 
 func (o *Options) vnodeCount() int {
@@ -147,12 +152,4 @@ func (o *Options) vnodeCount() int {
 	}
 
 	return DefaultVnodeCount
-}
-
-func (o *Options) pingFunc() func() error {
-	if o != nil {
-		return o.PingFunc
-	}
-
-	return nil
 }

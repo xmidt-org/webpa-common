@@ -1,186 +1,198 @@
 package service
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
-	"net"
-	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/billhathaway/consistentHash"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/sd"
+)
+
+const (
+	DefaultVNodeCount = 211
 )
 
 var (
-	ErrorAccessorNotInitialized = errors.New("No calls to Update have been made")
+	ErrAccessorUninitialized     = errors.New("Accessor has not been initialized")
+	ErrSubscriptionAlreadyClosed = errors.New("Subscription has already been closed")
 )
 
-// ParseHostPort parses a value of the form returned by net.JoinHostPort and
-// produces a base URL.  If no scheme is present, this function prepends "http://"
-// to the URL.  All base URLs returned by this function are guaranteed to have a
-// scheme, host, and port.
-//
-// The go.serversets library returns endpoints in this format.  This function is
-// used to turn and endpoint into a valid base URL for a given service.
-func ParseHostPort(value string) (baseURL string, err error) {
-	var host, portString string
-	host, portString, err = net.SplitHostPort(value)
-	if err != nil {
-		return
+// InstancesFilter represents a function which can preprocess slices of instances from the
+// service discovery subsystem.
+type InstancesFilter func([]string) []string
+
+// DefaultInstancesFilter removes blank nodes and sorts the remaining nodes so that
+// there is a consistent ordering.
+func DefaultInstancesFilter(original []string) []string {
+	filtered := make([]string, 0, len(original))
+
+	for _, o := range original {
+		f := strings.TrimSpace(o)
+		if len(f) > 0 {
+			filtered = append(filtered, f)
+		}
 	}
 
-	if strings.Contains(host, "://") {
-		baseURL = fmt.Sprintf("%s:%s", host, portString)
-	} else {
-		baseURL = fmt.Sprintf("http://%s:%s", host, portString)
-	}
-
-	return
+	sort.Strings(filtered)
+	return filtered
 }
 
-// ReplaceHostPort accepts a hostPort value of the form produced by ParseHostPort and
-// returns a URL with the scheme, host, and port replaced in the original URL.  The original
-// URL's path, query, and fragment are preserved.
+// AccessorFactory defines the behavior of functions which can take a set
+// of nodes and turn them into an Accessor.
 //
-// This function is primarily useful when using a string returned from Accessor.Get to
-// redirect to or dispatch to a hashed service node.
-func ReplaceHostPort(hostPort string, originalURL *url.URL) string {
-	var buffer bytes.Buffer
-	buffer.WriteString(hostPort)
+// A Subscription will use an InstancesFilter prior to invoking this factory.
+type AccessorFactory func([]string) Accessor
 
-	path := originalURL.EscapedPath()
-	if len(path) > 0 && path[0] != '/' {
-		buffer.WriteByte('/')
+// ConsistentAccessorFactory produces a factory which uses consistent hashing
+// of server nodes.
+func ConsistentAccessorFactory(vnodeCount int) AccessorFactory {
+	if vnodeCount < 1 {
+		vnodeCount = DefaultVNodeCount
 	}
 
-	buffer.WriteString(path)
+	return func(instances []string) Accessor {
+		hasher := consistentHash.New()
+		hasher.SetVnodeCount(vnodeCount)
+		for _, i := range instances {
+			hasher.Add(i)
+		}
 
-	if originalURL.ForceQuery || len(originalURL.RawQuery) > 0 {
-		buffer.WriteByte('?')
-		buffer.WriteString(originalURL.RawQuery)
+		return hasher
 	}
-
-	if len(originalURL.Fragment) > 0 {
-		buffer.WriteByte('#')
-		buffer.WriteString(originalURL.Fragment)
-	}
-
-	return buffer.String()
 }
 
-// Accessor provides access to services based around []byte keys.
-// *consistentHash.ConsistentHash implements this interface.
+// Accessor holds a hash of server nodes.
 type Accessor interface {
-	Get([]byte) (string, error)
+	// Get fetches the server node associated with a particular key.
+	Get(key []byte) (string, error)
 }
 
-// AccessorFactory is a Factory Interface for creating service Accessors.
-type AccessorFactory interface {
-	// New creates an Accessor using a slice of endpoints.  Each endpoint must
-	// be of the form parseable by ParseHostPort.  Invalid endpoints are skipped
-	// with an error log message.  The returned slice of strings is the sorted, deduped
-	// list of base URLs added to the Accessor.
-	New([]string) (Accessor, []string)
+// Subscription represents an Accessor which is listening for updates from some the service discovery
+// subsystem.  Once closed, a Subscription should be abandoned.
+type Subscription interface {
+	Accessor
+	Update([]string)
+	Close() error
 }
 
-// NewAccessorFactory uses a set of Options to produce an AccessorFactory
-func NewAccessorFactory(o *Options) AccessorFactory {
-	return &consistentHashFactory{
-		errorLog:   logging.DefaultCaller(o.logger(), level.Key(), level.ErrorValue()),
-		vnodeCount: o.vnodeCount(),
+// subscription is the internal Subscription implementation
+type subscription struct {
+	errorLog log.Logger
+	infoLog  log.Logger
+
+	state    uint32
+	shutdown chan struct{}
+
+	lock    sync.RWMutex
+	current Accessor
+
+	updateDelay time.Duration
+	after       func(time.Duration) <-chan time.Time
+	instancer   sd.Instancer
+	filter      InstancesFilter
+	factory     AccessorFactory
+}
+
+func (s *subscription) Get(key []byte) (string, error) {
+	defer s.lock.RUnlock()
+	s.lock.RLock()
+	if s.current == nil {
+		return "", ErrAccessorUninitialized
 	}
+
+	return s.current.Get(key)
 }
 
-// consistentHashFactory creates consistentHash instances, which implement Accessor.
-// This is the standard implementation of AccessorFactory.
-type consistentHashFactory struct {
-	errorLog   log.Logger
-	vnodeCount int
+func (s *subscription) Update(instances []string) {
+	filtered := s.filter(instances)
+	s.infoLog.Log(logging.MessageKey(), "updating instances", "filtered", true, "instances", filtered)
+
+	defer s.lock.Unlock()
+	s.lock.Lock()
+	s.current = s.factory(filtered)
 }
 
-func (f *consistentHashFactory) New(endpoints []string) (Accessor, []string) {
+func (s *subscription) Close() error {
+	if atomic.CompareAndSwapUint32(&s.state, 0, 1) {
+		close(s.shutdown)
+		return nil
+	}
+
+	return ErrSubscriptionAlreadyClosed
+}
+
+func (s *subscription) run() {
+	s.infoLog.Log(logging.MessageKey(), "monitor starting")
 	var (
-		hash     = consistentHash.New()
-		baseURLs = make([]string, 0, len(endpoints))
-		dedupe   = make(map[string]bool, len(endpoints))
+		events           = make(chan sd.Event, 5)
+		delayedInstances []string
+		delay            <-chan time.Time
 	)
 
-	hash.SetVnodeCount(f.vnodeCount)
+	defer func() {
+		s.instancer.Deregister(events)
+		s.infoLog.Log(logging.MessageKey(), "monitor shutting down")
+	}()
 
-	for _, endpoint := range endpoints {
-		baseURL, err := ParseHostPort(endpoint)
-		if err != nil {
-			f.errorLog.Log(logging.MessageKey(), "Skipping bad endpoint", "endpoint", endpoint, "error", err)
-			continue
+	s.instancer.Register(events)
+
+	for {
+		select {
+		case e := <-events:
+			if e.Err != nil {
+				s.errorLog.Log(logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
+			} else {
+				if s.updateDelay > 0 {
+					if delay == nil {
+						delay = s.after(s.updateDelay)
+					}
+
+					s.infoLog.Log(logging.MessageKey(), "waiting to dispatch new instances", "delayed", true, "filtered", false, "instances", e.Instances)
+					delayedInstances = make([]string, len(e.Instances))
+					copy(delayedInstances, e.Instances)
+				} else {
+					// dispatch immediately
+					s.Update(e.Instances)
+					continue
+				}
+			}
+
+		case <-delay:
+			s.Update(delayedInstances)
+			delay = nil
+			delayedInstances = nil
+
+		case <-s.shutdown:
+			return
 		}
+	}
+}
 
-		if _, ok := dedupe[baseURL]; !ok {
-			dedupe[baseURL] = true
-			baseURLs = append(baseURLs, baseURL)
+// NewSubscription creates a Subscription which monitors the given instancer.
+func NewSubscription(o *Options, i sd.Instancer) Subscription {
+	var (
+		logger      = o.logger()
+		vnodeCount  = o.vnodeCount()
+		updateDelay = o.updateDelay()
+
+		s = &subscription{
+			errorLog:    logging.Error(logger, "serviceName", o.serviceName(), "path", o.path(), "vnodeCount", vnodeCount, "updateDelay", updateDelay),
+			infoLog:     logging.Info(logger, "serviceName", o.serviceName(), "path", o.path(), "vnodeCount", vnodeCount, "updateDelay", updateDelay),
+			shutdown:    make(chan struct{}),
+			updateDelay: updateDelay,
+			after:       time.After,
+			instancer:   i,
+			filter:      DefaultInstancesFilter,
+			factory:     ConsistentAccessorFactory(vnodeCount),
 		}
-	}
+	)
 
-	// sort first, before adding, to give a consistent ordering
-	sort.Strings(baseURLs)
-	for _, baseURL := range baseURLs {
-		hash.Add(baseURL)
-	}
-
-	return hash, baseURLs
-}
-
-// UpdatableAccessor represents an accessor whose set of hashed endpoints can be changed.
-// Changes to this accessor via its Update method are atomic.  It is safe to use Get and
-// Update from multiple goroutines.
-type UpdatableAccessor interface {
-	Accessor
-
-	// Update atomically changes the set of endpoints returned by Get.  This method is
-	// safe for concurrent use with any method of this interface.
-	//
-	// This method may be used as a closure in a call to one or more subscriptions:
-	//
-	//     var (
-	//       registrarWatcher RegistrarWatcher = /* obtain a RegistrarWatcher, possibly from Viper */
-	//       o *Options = /* obtain an options somehow */
-	//       accessor = NewUpdatableAccessor(o)
-	//       watch, _ = registrarWatcher.Watch()
-	//     )
-	//
-	//     Subscribe(logger, watch, accessor.Update)
-	Update([]string)
-}
-
-// updatableAccessor is the internal UpdatableAccessor implementation
-type updatableAccessor struct {
-	factory  AccessorFactory
-	accessor atomic.Value
-}
-
-func (ua *updatableAccessor) Get(key []byte) (string, error) {
-	return ua.accessor.Load().(Accessor).Get(key)
-}
-
-func (ua *updatableAccessor) Update(endpoints []string) {
-	newAccessor, _ := ua.factory.New(endpoints)
-	ua.accessor.Store(newAccessor)
-}
-
-// NewUpdatableAccessor is a factory function that produces an UpdatableAccessor
-// from a set of Options, which can be nil for defaults.
-//
-// The initialEndpoints slice contains the first set of available endpoints.  This slice can
-// be empty, in which case Get will return errors until Update is called with a nonempty slice.
-func NewUpdatableAccessor(o *Options, initialEndpoints []string) UpdatableAccessor {
-	accessor := &updatableAccessor{
-		factory: NewAccessorFactory(o),
-	}
-
-	accessor.Update(initialEndpoints)
-	return accessor
+	go s.run()
+	return s
 }
