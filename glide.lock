@@ -1,5 +1,5 @@
-hash: 50b6d2df35c40e43088c1c7aa32966be1f89bdf44c833db4601484dd0b1d45dc
-updated: 2017-08-31T12:12:18.685531678-07:00
+hash: fce081a5f113549f077690517ab76e696eeb384eb0663a0d73bab342bd65f994
+updated: 2017-09-01T15:21:30.504491457-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -54,6 +54,8 @@ imports:
   - log
   - log/level
   - sd
+  - sd/internal/instance
+  - sd/zk
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-stack/stack
@@ -109,6 +111,8 @@ imports:
   - crypto
   - jws
   - jwt
+- name: github.com/spaolacci/murmur3
+  version: 0d12bf811670bf6a1a63828dfbd003eded177fce
 - name: github.com/spf13/afero
   version: 72b31426848c6ef12a7a8e216708cb0d1530f074
   subpackages:
@@ -121,8 +125,6 @@ imports:
   version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: github.com/spf13/viper
   version: 25b30aa063fc18e48662b86996252eabdcf2f0c7
-- name: github.com/strava/go.serversets
-  version: 28ab685d470f2bfb6d8abe4077cc1ab19c33e24b
 - name: github.com/stretchr/objx
   version: cbeaeb16a013161a98496fad62933b1d21786672
 - name: github.com/stretchr/testify
@@ -157,4 +159,6 @@ imports:
   version: a96e63847dc3c67d17befa69c303767e2f84e54f
 - name: gopkg.in/yaml.v2
   version: 4c78c975fe7c825c6d1466c42be594d1d6f3aba6
-testImports: []
+testImports:
+- name: github.com/strava/go.serversets
+  version: 28ab685d470f2bfb6d8abe4077cc1ab19c33e24b

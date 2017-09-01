@@ -18,6 +18,8 @@ import:
   version: v2.1
 - package: github.com/billhathaway/consistentHash
   version: addea16d2229dba874111898b45be7f4a78af631
+- package: github.com/spaolacci/murmur3
+  version: v1.0
 - package: github.com/gorilla/mux
   version: v1.3.0
 - package: github.com/gorilla/schema
