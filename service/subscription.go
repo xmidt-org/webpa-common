@@ -93,6 +93,10 @@ func (s *Subscription) monitor(i sd.Instancer) {
 		}
 
 		i.Deregister(events)
+
+		// Always ensure that Stop is called to correctly reflect our state, esp. in the case of a panic
+		// Stop is idempotent, so this will be safe.
+		s.Stop()
 	}()
 
 	i.Register(events)
