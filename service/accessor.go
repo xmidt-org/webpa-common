@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"sort"
 	"strings"
 
@@ -10,10 +9,6 @@ import (
 
 const (
 	DefaultVNodeCount = 211
-)
-
-var (
-	ErrAccessorUninitialized = errors.New("Accessor has not been initialized")
 )
 
 // InstancesFilter represents a function which can preprocess slices of instances from the

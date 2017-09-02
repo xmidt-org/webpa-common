@@ -21,7 +21,7 @@ func testSubscribeNoDelay(t *testing.T) {
 		deregisterCalled  = make(chan struct{})
 
 		options = &Options{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
 			After: func(time.Duration) <-chan time.Time {
 				assert.Fail("The after function should not have been called")
 				return nil
@@ -106,7 +106,7 @@ func testSubscribeDelay(t *testing.T) {
 		deregisterCalled  = make(chan struct{})
 
 		options = &Options{
-			Logger:      logging.NewTestLogger(nil, t),
+			Logger:      logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
 			UpdateDelay: 5 * time.Minute,
 			After: func(d time.Duration) <-chan time.Time {
 				assert.Equal(5*time.Minute, d)
@@ -140,10 +140,9 @@ func testSubscribeDelay(t *testing.T) {
 	registeredChannel <- sd.Event{Err: errors.New("expected")}
 	assert.Zero(len(sub.Updates()))
 
+	// the very first event should be dispatched immediately
 	registeredChannel <- sd.Event{Instances: []string{"localhost:8888"}}
-	assert.Zero(len(sub.Updates()))
 
-	delay <- time.Now()
 	select {
 	case accessor := <-sub.Updates():
 		instance, err := accessor.Get([]byte("some key"))
@@ -158,10 +157,19 @@ func testSubscribeDelay(t *testing.T) {
 	}
 
 	registeredChannel <- sd.Event{Instances: []string{"localhost:1234"}}
-	assert.Zero(len(sub.Updates()))
+
+	select {
+	case <-sub.Updates():
+		assert.Fail("No updates should have been sent before the delay expired")
+
+	case <-sub.Stopped():
+		assert.Fail("The subscription should not have stopped")
+
+	case <-time.After(250 * time.Millisecond):
+		// passing
+	}
 
 	registeredChannel <- sd.Event{Instances: []string{"localhost:4321"}}
-	assert.Zero(len(sub.Updates()))
 
 	delay <- time.Now()
 	select {
@@ -200,7 +208,7 @@ func testSubscribeMonitorPanic(t *testing.T) {
 		deregisterCalled  = make(chan struct{})
 
 		options = &Options{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
 			After: func(time.Duration) <-chan time.Time {
 				assert.Fail("The after function should not have been called")
 				return nil

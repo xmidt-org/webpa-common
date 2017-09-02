@@ -80,6 +80,7 @@ func (s *Subscription) monitor(i sd.Instancer) {
 	s.infoLog.Log(logging.MessageKey(), "subscription monitor starting")
 
 	var (
+		first            = true
 		events           = make(chan sd.Event, 10)
 		delayedInstances []string
 		delay            <-chan time.Time
@@ -104,9 +105,16 @@ func (s *Subscription) monitor(i sd.Instancer) {
 	for {
 		select {
 		case e := <-events:
-			if e.Err != nil {
+			switch {
+			case e.Err != nil:
 				s.errorLog.Log(logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
-			} else if s.updateDelay > 0 {
+
+			case first:
+				// for the very first event, we want to dispatch immediately no matter what
+				first = false
+				s.dispatch(e.Instances)
+
+			case s.updateDelay > 0:
 				if delay == nil {
 					delay = s.after(s.updateDelay)
 				}
@@ -114,7 +122,8 @@ func (s *Subscription) monitor(i sd.Instancer) {
 				delayedInstances = make([]string, len(e.Instances))
 				copy(delayedInstances, e.Instances)
 				s.infoLog.Log(logging.MessageKey(), "waiting to dispatch updated instances", "instances", delayedInstances)
-			} else {
+
+			default:
 				s.dispatch(e.Instances)
 			}
 
