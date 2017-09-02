@@ -5,6 +5,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/sd/zk"
 )
@@ -61,14 +62,26 @@ func (z *zkFacade) Close() error {
 	return nil
 }
 
+var (
+	// zkClientFactory is the factory function used to produce a go-kit zk.Client.
+	// Tests can replace this internal member to take over control of client creation.
+	zkClientFactory func([]string, log.Logger, ...zk.Option) (zk.Client, error) = zk.NewClient
+)
+
 // New constructs a service discovery facade from a set of Options.
+//
+// The returned facade will only be connected to the service discovery backed, e.g. zookeeper.
+// No registration or listening will be active when this function returns.  This allows clients
+// to call Register when the application is truly ready to begin serving requests.
 func New(o *Options) (Interface, error) {
 	var (
-		path      = o.path()
-		registrar sd.Registrar
-		logger    = logging.DefaultCaller(o.logger(), "service", true, "path", path)
+		registration = o.registration()
+		path         = o.path()
+		registrar    sd.Registrar
+		logger       = logging.DefaultCaller(o.logger(), "service", true, "serviceName", o.serviceName(), "path", path, "registration", registration)
 
-		client, err = zk.NewClient(
+		// use the internal singleton factory function, which is set to zk.NewClient normally
+		client, err = zkClientFactory(
 			o.servers(),
 			logger,
 			zk.ConnectTimeout(o.connectTimeout()),
@@ -80,7 +93,6 @@ func New(o *Options) (Interface, error) {
 		return nil, err
 	}
 
-	registration := o.registration()
 	if len(registration) > 0 {
 		registrar = zk.NewRegistrar(
 			client,
@@ -92,6 +104,8 @@ func New(o *Options) (Interface, error) {
 			logger,
 		)
 	}
+
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "service discovery initialized")
 
 	return &zkFacade{
 		logger:    logger,

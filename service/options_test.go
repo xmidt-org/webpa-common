@@ -40,6 +40,7 @@ func TestOptions(t *testing.T) {
 					Servers:        []string{"node1.comcast.net:2181", "node2.comcast.net:275"},
 					ConnectTimeout: 16 * time.Minute,
 					SessionTimeout: 2 * time.Hour,
+					UpdateDelay:    3 * time.Minute,
 					Path:           "/testOptions/workspace",
 					ServiceName:    "options",
 					Registration:   "https://comcast.net:8080",
@@ -53,6 +54,7 @@ func TestOptions(t *testing.T) {
 					Connection:     "foobar.com:1234",
 					ConnectTimeout: 45 * time.Minute,
 					SessionTimeout: 1 * time.Hour,
+					UpdateDelay:    67 * time.Hour,
 					Path:           "/testOptions/workspace",
 					ServiceName:    "anotherOptions",
 					Registration:   "https://comcast.com:1111",
@@ -66,6 +68,7 @@ func TestOptions(t *testing.T) {
 					Connection:     "grover.net:9999,foobar.com:1234",
 					ConnectTimeout: 123 * time.Second,
 					SessionTimeout: 13 * time.Minute,
+					UpdateDelay:    0,
 					Path:           "/testOptions/anotherone",
 					ServiceName:    "anotherOptions",
 					Registration:   "https://comcast.com:92",
@@ -80,6 +83,7 @@ func TestOptions(t *testing.T) {
 					Servers:        []string{"node1.comcast.net:2181", "node2.comcast.net:275"},
 					ConnectTimeout: 3847923 * time.Second,
 					SessionTimeout: 2 * time.Minute,
+					UpdateDelay:    17 * time.Second,
 					Path:           "/testOptions/anotherone",
 					ServiceName:    "anotherOptions",
 					Registration:   "https://comcast.com:92",
@@ -103,6 +107,7 @@ func TestOptions(t *testing.T) {
 		assert.Equal(options.Logger, options.logger())
 		assert.Equal(options.ConnectTimeout, options.connectTimeout())
 		assert.Equal(options.SessionTimeout, options.sessionTimeout())
+		assert.Equal(options.UpdateDelay, options.updateDelay())
 		assert.Equal(options.Path, options.path())
 		assert.Equal(options.ServiceName, options.serviceName())
 		assert.Equal(options.Registration, options.registration())
