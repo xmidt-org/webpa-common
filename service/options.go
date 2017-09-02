@@ -54,6 +54,18 @@ type Options struct {
 
 	// VnodeCount is used to tune the underlying consistent hash algorithm for servers.
 	VnodeCount uint `json:"vnodeCount"`
+
+	// InstancesFilter is the optional filter for discovered instances.  If not set,
+	// DefaultInstancesFilter will be used.
+	InstancesFilter InstancesFilter `json:"-"`
+
+	// AccessorFactory is the optional factory for Accessor instances.  If not set,
+	// ConsistentAccessorFactory will be used.
+	AccessorFactory AccessorFactory `json:"-"`
+
+	// After is the optional function to use to obtain a channel which receives a time.Time
+	// after a delay.  If not set, time.After is used.
+	After func(time.Duration) <-chan time.Time `json:"-"`
 }
 
 func (o *Options) String() string {
@@ -152,4 +164,28 @@ func (o *Options) vnodeCount() int {
 	}
 
 	return DefaultVnodeCount
+}
+
+func (o *Options) instancesFilter() InstancesFilter {
+	if o != nil && o.InstancesFilter != nil {
+		return o.InstancesFilter
+	}
+
+	return DefaultInstancesFilter
+}
+
+func (o *Options) accessorFactory() AccessorFactory {
+	if o != nil && o.AccessorFactory != nil {
+		return o.AccessorFactory
+	}
+
+	return ConsistentAccessorFactory(o.vnodeCount())
+}
+
+func (o *Options) after() func(time.Duration) <-chan time.Time {
+	if o != nil && o.After != nil {
+		return o.After
+	}
+
+	return time.After
 }

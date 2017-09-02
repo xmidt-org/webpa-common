@@ -56,11 +56,11 @@ type mockInstancer struct {
 	mock.Mock
 }
 
-func (m *mockInstancer) Register(events <-chan sd.Event) {
+func (m *mockInstancer) Register(events chan<- sd.Event) {
 	m.Called(events)
 }
 
-func (m *mockInstancer) Deregister(events <-chan sd.Event) {
+func (m *mockInstancer) Deregister(events chan<- sd.Event) {
 	m.Called(events)
 }
 
