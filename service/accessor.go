@@ -136,8 +136,8 @@ func (s *subscription) run() {
 	)
 
 	defer func() {
-		s.instancer.Deregister(events)
 		s.infoLog.Log(logging.MessageKey(), "monitor shutting down")
+		s.instancer.Deregister(events)
 	}()
 
 	s.instancer.Register(events)

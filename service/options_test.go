@@ -12,7 +12,7 @@ func TestOptionsDefault(t *testing.T) {
 	assert := assert.New(t)
 
 	for _, o := range []*Options{nil, new(Options)} {
-		t.Log(o)
+		t.Logf("%#v", o)
 
 		assert.NotNil(o.logger())
 		assert.Equal([]string{DefaultServer}, o.servers())
