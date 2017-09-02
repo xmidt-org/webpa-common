@@ -1,7 +1,6 @@
 package service
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/Comcast/webpa-common/logging"
@@ -11,20 +10,9 @@ import (
 
 // KeyFunc examines an HTTP request and produces the service key to use when finding
 // an instance to use.
+//
+// The device.IDHashParser function is a valid KeyFunc, and is the typical one used by WebPA.
 type KeyFunc func(*http.Request) ([]byte, error)
-
-// HeaderKeyFunc returns a KeyFunc which uses the contents of an HTTP header as the service key.
-// This is the typical KeyFunc used for WebPA, e.g. HeaderKeyFunc("X-Webpa-Device-Name")
-func HeaderKeyFunc(headerName string) KeyFunc {
-	return func(request *http.Request) ([]byte, error) {
-		value := request.Header.Get(headerName)
-		if len(value) > 0 {
-			return []byte(value), nil
-		}
-
-		return nil, fmt.Errorf("Missing header: %s", headerName)
-	}
-}
 
 // RedirectHandler is an http.Handler that redirects all incoming requests using a key obtained
 // from a request.  The Accessor is passed the key to return the appropriate instance to redirect to.
