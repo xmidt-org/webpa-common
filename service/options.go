@@ -14,7 +14,6 @@ const (
 	DefaultSessionTimeout = 1 * time.Hour
 	DefaultPath           = "/xmidt"
 	DefaultServiceName    = "test"
-	DefaultRegistration   = "http://localhost:8080"
 	DefaultVnodeCount     = 211
 )
 
@@ -151,11 +150,11 @@ func (o *Options) serviceName() string {
 }
 
 func (o *Options) registration() string {
-	if o != nil && len(o.Registration) > 0 {
+	if o != nil {
 		return o.Registration
 	}
 
-	return DefaultRegistration
+	return ""
 }
 
 func (o *Options) vnodeCount() int {

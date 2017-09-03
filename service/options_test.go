@@ -21,7 +21,7 @@ func testOptionsDefault(t *testing.T) {
 		assert.Zero(o.updateDelay())
 		assert.Equal(DefaultPath, o.path())
 		assert.Equal(DefaultServiceName, o.serviceName())
-		assert.Equal(DefaultRegistration, o.registration())
+		assert.Empty(o.registration())
 		assert.Equal(DefaultVnodeCount, o.vnodeCount())
 		assert.NotNil(o.instancesFilter())
 		assert.NotNil(o.accessorFactory())
