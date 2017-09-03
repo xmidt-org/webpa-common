@@ -1,8 +1,8 @@
 {
-	"discovery": {
+	"service": {
 		"servers": ["localhost:2181"],
-		"environment": "dev",
-		"serviceName": "talaria",
-		"registrations": ["http://sample1:1515"]
+		"path": "/xmidt/local",
+		"serviceName": "endpoint",
+		"registration": "http://sample1:1515"
 	}
 }
