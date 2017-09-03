@@ -35,6 +35,7 @@ type Subscription interface {
 type subscription struct {
 	errorLog log.Logger
 	infoLog  log.Logger
+	debugLog log.Logger
 
 	state   uint32
 	stopped chan struct{}
@@ -112,12 +113,15 @@ func (s *subscription) monitor(i sd.Instancer) {
 	for {
 		select {
 		case e := <-events:
+			s.debugLog.Log(logging.MessageKey(), "service discovery event", "instances", e.Instances, logging.ErrorKey(), e.Err)
+
 			switch {
 			case e.Err != nil:
 				s.errorLog.Log(logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
 
 			case first:
 				// for the very first event, we want to dispatch immediately no matter what
+				s.debugLog.Log(logging.MessageKey(), "dispatching first event immediately")
 				first = false
 				s.dispatch(e.Instances)
 
@@ -135,11 +139,13 @@ func (s *subscription) monitor(i sd.Instancer) {
 			}
 
 		case <-delay:
+			s.debugLog.Log(logging.MessageKey(), "dispatching instances after delay")
 			s.dispatch(delayedInstances)
 			delay = nil
 			delayedInstances = nil
 
 		case <-s.stopped:
+			s.infoLog.Log(logging.MessageKey(), "subscription stopped")
 			return
 		}
 	}
@@ -159,6 +165,7 @@ func Subscribe(o *Options, i sd.Instancer) Subscription {
 		s = &subscription{
 			errorLog:        logging.Error(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
 			infoLog:         logging.Info(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
+			debugLog:        logging.Debug(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
 			stopped:         make(chan struct{}),
 			updates:         make(chan Accessor, 10),
 			serviceName:     serviceName,
