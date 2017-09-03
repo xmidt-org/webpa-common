@@ -1,7 +1,8 @@
 package service
 
 import (
-	"encoding/json"
+	"bytes"
+	"strconv"
 	"strings"
 	"time"
 
@@ -68,15 +69,77 @@ type Options struct {
 }
 
 func (o *Options) String() string {
+	var output bytes.Buffer
 	if o == nil {
-		return "<nil>"
+		output.WriteString("<nil>")
+	} else {
+		if len(o.Connection) > 0 {
+			if output.Len() > 0 {
+				output.WriteString(", ")
+			}
+
+			output.WriteString("connection=")
+			output.WriteString(o.Connection)
+		}
+
+		if len(o.Servers) > 0 {
+			if output.Len() > 0 {
+				output.WriteString(", ")
+			}
+
+			output.WriteString("servers=")
+			output.WriteString(strings.Join(o.Servers, ","))
+		}
+
+		if o.ConnectTimeout > 0 {
+			if output.Len() > 0 {
+				output.WriteString(", ")
+			}
+
+			output.WriteString("connectTimeout=")
+			output.WriteString(o.ConnectTimeout.String())
+		}
+
+		if o.SessionTimeout > 0 {
+			if output.Len() > 0 {
+				output.WriteString(", ")
+			}
+
+			output.WriteString("sessionTimeout=")
+			output.WriteString(o.SessionTimeout.String())
+		}
+
+		if o.UpdateDelay > 0 {
+			if output.Len() > 0 {
+				output.WriteString(", ")
+			}
+
+			output.WriteString("updateDelay=")
+			output.WriteString(o.UpdateDelay.String())
+		}
+
+		if o.VnodeCount > 0 {
+			if output.Len() > 0 {
+				output.WriteString(", ")
+			}
+
+			output.WriteString("vnodeCount=")
+			output.WriteString(strconv.FormatUint(uint64(o.VnodeCount), 10))
+		}
+
+		if output.Len() > 0 {
+			output.WriteString(", ")
+		}
+
+		output.WriteString("path=")
+		output.WriteString(o.Path)
+		output.WriteString(", serviceName=")
+		output.WriteString(o.ServiceName)
+		output.WriteString(", registration=")
+		output.WriteString(o.Registration)
 	}
 
-	if data, err := json.Marshal(o); err == nil {
-		return string(data)
-	} else {
-		return err.Error()
-	}
+	return output.String()
 }
 
 func (o *Options) logger() log.Logger {
