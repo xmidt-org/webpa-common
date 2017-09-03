@@ -41,13 +41,10 @@ func (u *UpdatableAccessor) Update(a Accessor) {
 	u.current = a
 }
 
-// Consume spawns a goroutine that updates the current Accessor delegate in response
-// to subscription events.  When the subscription is stopped, the goroutine spawned
-// by this method exits.
-//
-// Consume may be called multiple times with different subscriptions.  Although calling
-// this method repeatedly with the same subscription is allowed, it's not useful.
-func (u *UpdatableAccessor) Consume(s *Subscription) {
+// Consume spawns a goroutines that updates this accessor in response to subscription events.
+// A subscription will always send the initial set of instances, so this method can be
+// relied upon to initialze this UpdatableAccessor.
+func (u *UpdatableAccessor) Consume(s Subscription) {
 	go func() {
 		for {
 			select {

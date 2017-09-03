@@ -41,7 +41,7 @@ func testSubscribeNoDelay(t *testing.T) {
 
 	// start the subscription under test
 	sub := Subscribe(options, instancer)
-	assert.NotEmpty(sub.String())
+	assert.NotEmpty(sub.(*subscription).String())
 	assert.Zero(len(sub.Updates()))
 
 	select {
@@ -127,7 +127,7 @@ func testSubscribeDelay(t *testing.T) {
 
 	// start the subscription under test
 	sub := Subscribe(options, instancer)
-	assert.NotEmpty(sub.String())
+	assert.NotEmpty(sub.(*subscription).String())
 	assert.Zero(len(sub.Updates()))
 
 	select {
@@ -231,7 +231,7 @@ func testSubscribeMonitorPanic(t *testing.T) {
 
 	// start the subscription under test
 	sub := Subscribe(options, instancer)
-	assert.NotEmpty(sub.String())
+	assert.NotEmpty(sub.(*subscription).String())
 	assert.Zero(len(sub.Updates()))
 
 	select {

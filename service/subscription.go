@@ -13,7 +13,26 @@ import (
 // Subscription represents a subscription to a specific Instancer.  A Subscription
 // is initially active when created, and can be stopped via Stop.  Once stopped,
 // a subscription cannot be restarted and will send no further updates.
-type Subscription struct {
+type Subscription interface {
+	// Stopped returns a channel that will be closed when this subscription has been stopped.
+	// This method is similar to context.Context.Done().
+	Stopped() <-chan struct{}
+
+	// Stop halts all updates and deregisters this subscription with the Instancer.  This method
+	// is idempotent.  Once this method is called, no further updates will be send on the updates
+	// channel, and the Stopped channel will be closed.
+	Stop()
+
+	// Updates returns the channel that receives updates from the underlying Instancer.
+	// This channel is never closed.  Use Stopped to react to this subscription being stopped.
+	//
+	// The returned channel is buffered, and the initial Accessor with the first set of instances
+	// will be placed into the channel immediately when Subscribe is called.
+	Updates() <-chan Accessor
+}
+
+// subscription is the internal Subscription implementation
+type subscription struct {
 	errorLog log.Logger
 	infoLog  log.Logger
 
@@ -31,7 +50,7 @@ type Subscription struct {
 
 // String returns a string representation of this Subscription, useful
 // for logging and debugging.
-func (s *Subscription) String() string {
+func (s *subscription) String() string {
 	return fmt.Sprintf(
 		"serviceName: %s, path: %s, updateDelay: %s",
 		s.serviceName,
@@ -40,27 +59,15 @@ func (s *Subscription) String() string {
 	)
 }
 
-// Stopped returns a channel that will be closed when this subscription has been stopped.
-// This method is similar to context.Context.Done().
-func (s *Subscription) Stopped() <-chan struct{} {
+func (s *subscription) Stopped() <-chan struct{} {
 	return s.stopped
 }
 
-// Updates returns the channel on which updated Accessor instances are sent.  This channel
-// is never closed, to avoid signalling clients spuriously.  To react to a subscription being
-// stopped, use the Stopped method.
-//
-// The channel returned by this method receives the initial set of instances known to the
-// Instancer prior to any updates.  Thus, clients can rely on being initialized properly
-// via this channel.
-func (s *Subscription) Updates() <-chan Accessor {
+func (s *subscription) Updates() <-chan Accessor {
 	return s.updates
 }
 
-// Stop halts all updates and deregisters this subscription with the Instancer.  This method
-// is idempotent.  Once this method is called, no further updates will be send on the Updates
-// channel, and the Stopped channel will be closed.
-func (s *Subscription) Stop() {
+func (s *subscription) Stop() {
 	if atomic.CompareAndSwapUint32(&s.state, 0, 1) {
 		close(s.stopped)
 	}
@@ -68,7 +75,7 @@ func (s *Subscription) Stop() {
 
 // dispatch translates the given instances into an Accessor and sends that Accessor
 // over the Updates channel
-func (s *Subscription) dispatch(instances []string) {
+func (s *subscription) dispatch(instances []string) {
 	filtered := s.instancesFilter(instances)
 	s.infoLog.Log(logging.MessageKey(), "dispatching updated instances", "instances", filtered)
 	s.updates <- s.accessorFactory(filtered)
@@ -76,7 +83,7 @@ func (s *Subscription) dispatch(instances []string) {
 
 // monitor is the goroutine that dispatches updated Accessor objects in response to
 // Instancer events.
-func (s *Subscription) monitor(i sd.Instancer) {
+func (s *subscription) monitor(i sd.Instancer) {
 	s.infoLog.Log(logging.MessageKey(), "subscription monitor starting")
 
 	var (
@@ -139,16 +146,17 @@ func (s *Subscription) monitor(i sd.Instancer) {
 }
 
 // Subscribe starts monitoering an Instancer for updates.  The returned subscription will produce
-// a stream of Accessor objects on its Updates channel.  The Updates channel will also receive
-// the initial set of instances, similar to Instancer.Register.
-func Subscribe(o *Options, i sd.Instancer) *Subscription {
+// a stream of Accessor objects on the given updates channel.  The updates channel will also receive
+// the initial set of instances, similar to Instancer.Register.  Slow consumers of updates will block
+// subsequence update events.
+func Subscribe(o *Options, i sd.Instancer) Subscription {
 	var (
 		logger      = o.logger()
 		serviceName = o.serviceName()
 		path        = o.path()
 		updateDelay = o.updateDelay()
 
-		s = &Subscription{
+		s = &subscription{
 			errorLog:        logging.Error(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
 			infoLog:         logging.Info(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
 			stopped:         make(chan struct{}),
