@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/server"
 	"github.com/Comcast/webpa-common/service"
+	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/sd"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"os"
-	"os/signal"
 )
 
 const (
@@ -24,38 +27,57 @@ func newFlagSet() *pflag.FlagSet {
 
 func endpoint(arguments []string) int {
 	var (
-		logger = logging.DefaultLogger()
+		logger = logging.New(&logging.Options{JSON: true, Level: "debug"})
 
 		f = newFlagSet()
 		v = viper.New()
 	)
 
 	if err := server.Configure(applicationName, arguments, f, v); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not configure Viper: %s\n", err)
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not configure Viper", logging.ErrorKey(), err)
 		return 1
 	}
 
 	if err := v.ReadInConfig(); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not read Viper configuration: %s\n", err)
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not read Viper configuration", logging.ErrorKey(), err)
 		return 1
 	}
 
-	_, registrar, _, err := service.Initialize(logger, nil, v.Sub(service.DiscoveryKey))
+	serviceOptions, err := service.FromViper(service.Sub(v))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not initialize service discovery: %s\n", err)
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not read service options", logging.ErrorKey(), err)
 		return 1
 	}
 
-	subscription := service.Subscription{
-		Registrar: registrar,
-		Listener: func([]string) {
-			// no need to do anything, as the service package logs an INFO message
-		},
+	logger.Log(level.Key(), level.InfoValue(), "serviceOptions", serviceOptions)
+	services, err := service.New(serviceOptions)
+	if err != nil {
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not initialize service discovery", logging.ErrorKey(), err)
+		return 1
 	}
 
-	if err := subscription.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not run subscription: %s\n", err)
+	instancer, err := services.NewInstancer()
+	if err != nil {
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create instancer", logging.ErrorKey(), err)
+		return 1
 	}
+
+	go func() {
+		events := make(chan sd.Event, 10)
+		defer instancer.Deregister(events)
+		instancer.Register(events)
+
+		for {
+			select {
+			case e := <-events:
+				if e.Err != nil {
+					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
+				} else {
+					logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "updated instances", "instances", e.Instances)
+				}
+			}
+		}
+	}()
 
 	fmt.Println("Send any signal to this process to exit ...")
 	signals := make(chan os.Signal, 1)

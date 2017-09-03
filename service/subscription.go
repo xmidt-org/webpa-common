@@ -1,169 +1,175 @@
 package service
 
 import (
-	"errors"
-	"sync"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/sd"
 )
 
-var (
-	ErrorAlreadyRunning = errors.New("That subscription is already running")
-	ErrorNotRunning     = errors.New("That subscription is not running")
-)
+// Subscription represents a subscription to a specific Instancer.  A Subscription
+// is initially active when created, and can be stopped via Stop.  Once stopped,
+// a subscription cannot be restarted and will send no further updates.
+type Subscription interface {
+	// Stopped returns a channel that will be closed when this subscription has been stopped.
+	// This method is similar to context.Context.Done().
+	Stopped() <-chan struct{}
 
-// Subscription represents a specific sink for watch events.  The Listener function is notified
-// with updated endpoints.
-type Subscription struct {
-	// Logger is the option Logger used by this subscription.  If not supplied, it defaults to logging.DefaultLogger().
-	Logger log.Logger
+	// Stop halts all updates and deregisters this subscription with the Instancer.  This method
+	// is idempotent.  Once this method is called, no further updates will be send on the updates
+	// channel, and the Stopped channel will be closed.
+	Stop()
 
-	// Registrar is the service registration component used to create a Watch.
-	Registrar Registrar
-
-	// Listener is the sink for service endpoint updates.  This field is required, and must not
-	// be changed concurrently with any methods of this type.
+	// Updates returns the channel that receives updates from the underlying Instancer.
+	// This channel is never closed.  Use Stopped to react to this subscription being stopped.
 	//
-	// This field can be set to UpdatableAccessor.Update.  That will simply update the accessor's
-	// endpoints with every watch event.
-	Listener func([]string)
-
-	// Timeout is an optional interval used for fault tolerance in the face of network flapping.  If set
-	// to a positive value, then updates will not be immediately dispatched to the Listener.  Rather, when an
-	// update first occurs, a timer is started.  Within the timer interval, only the most recent update is kept.
-	// When the timer elapses, the most recent update is dispatched to the Listener and this process starts over.
-	Timeout time.Duration
-
-	// After is an optional function which is used to produce a time channel for delays.  Setting this
-	// field is only relevant if Timeout > 0.  If this field is nil, time.After is used.
-	After func(time.Duration) <-chan time.Time
-
-	mutex    sync.Mutex
-	watch    Watch
-	shutdown chan struct{}
+	// The returned channel is buffered, and the initial Accessor with the first set of instances
+	// will be placed into the channel immediately when Subscribe is called.
+	Updates() <-chan Accessor
 }
 
-// monitor is a goroutine that monitors the watch and dispatches updated endpoints
-// to the Listener.
-func (s *Subscription) monitor(watch Watch, shutdown <-chan struct{}) {
-	var (
-		logger = s.Logger
-		delay  <-chan time.Time
-		after  = s.After
+// subscription is the internal Subscription implementation
+type subscription struct {
+	errorLog log.Logger
+	infoLog  log.Logger
+
+	state   uint32
+	stopped chan struct{}
+	updates chan Accessor
+
+	serviceName     string
+	path            string
+	updateDelay     time.Duration
+	after           func(time.Duration) <-chan time.Time
+	instancesFilter InstancesFilter
+	accessorFactory AccessorFactory
+}
+
+// String returns a string representation of this Subscription, useful
+// for logging and debugging.
+func (s *subscription) String() string {
+	return fmt.Sprintf(
+		"serviceName: %s, path: %s, updateDelay: %s",
+		s.serviceName,
+		s.path,
+		s.updateDelay,
 	)
+}
 
-	if logger == nil {
-		logger = logging.DefaultLogger()
+func (s *subscription) Stopped() <-chan struct{} {
+	return s.stopped
+}
+
+func (s *subscription) Updates() <-chan Accessor {
+	return s.updates
+}
+
+func (s *subscription) Stop() {
+	if atomic.CompareAndSwapUint32(&s.state, 0, 1) {
+		close(s.stopped)
 	}
+}
+
+// dispatch translates the given instances into an Accessor and sends that Accessor
+// over the Updates channel
+func (s *subscription) dispatch(instances []string) {
+	filtered := s.instancesFilter(instances)
+	s.infoLog.Log(logging.MessageKey(), "dispatching updated instances", "instances", filtered)
+	s.updates <- s.accessorFactory(filtered)
+}
+
+// monitor is the goroutine that dispatches updated Accessor objects in response to
+// Instancer events.
+func (s *subscription) monitor(i sd.Instancer) {
+	s.infoLog.Log(logging.MessageKey(), "subscription monitor starting")
 
 	var (
-		errorLog = logging.Error(logger)
-		infoLog  = logging.Info(logger)
+		first            = true
+		events           = make(chan sd.Event, 10)
+		delayedInstances []string
+		delay            <-chan time.Time
 	)
-
-	if after == nil {
-		after = time.After
-	}
 
 	defer func() {
 		if r := recover(); r != nil {
-			errorLog.Log(logging.MessageKey(), "Subscription ending due to panic", "error", r)
+			s.errorLog.Log(logging.MessageKey(), "subscription monitor exiting", logging.ErrorKey(), r)
+		} else {
+			s.infoLog.Log(logging.MessageKey(), "subscription monitor exiting")
 		}
 
-		// ensure that the cancellation logic runs in this case, since no explicit
-		// call to Cancel may have happened, e.g. panic, the watch was closed, etc
-		s.Cancel()
+		i.Deregister(events)
+
+		// Always ensure that Stop is called to correctly reflect our state, esp. in the case of a panic
+		// Stop is idempotent, so this will be safe.
+		s.Stop()
 	}()
 
-	endpoints := watch.Endpoints()
-	errorLog.Log(logging.MessageKey(), "Dispatching initial endpoints", "endpoints", endpoints)
-	s.Listener(endpoints)
-	endpoints = nil
-
-	infoLog.Log(logging.MessageKey(), "Monitoring subscription", "watch", watch)
+	i.Register(events)
 
 	for {
 		select {
-		case <-shutdown:
-			infoLog.Log(logging.MessageKey(), "Subscription ending because it was cancelled")
-			return
+		case e := <-events:
+			switch {
+			case e.Err != nil:
+				s.errorLog.Log(logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
+
+			case first:
+				// for the very first event, we want to dispatch immediately no matter what
+				first = false
+				s.dispatch(e.Instances)
+
+			case s.updateDelay > 0:
+				if delay == nil {
+					delay = s.after(s.updateDelay)
+				}
+
+				delayedInstances = make([]string, len(e.Instances))
+				copy(delayedInstances, e.Instances)
+				s.infoLog.Log(logging.MessageKey(), "waiting to dispatch updated instances", "instances", delayedInstances)
+
+			default:
+				s.dispatch(e.Instances)
+			}
 
 		case <-delay:
+			s.dispatch(delayedInstances)
 			delay = nil
-			infoLog.Log(logging.MessageKey(), "Dispatching updated endpoints after delay", "delay", s.Timeout, "endpoints", endpoints)
-			s.Listener(endpoints)
-			endpoints = nil
+			delayedInstances = nil
 
-		case <-watch.Event():
-			if watch.IsClosed() {
-				infoLog.Log(logging.MessageKey(), "Subscription ending because the watch was closed")
-				return
-			}
-
-			endpoints = watch.Endpoints()
-
-			if delay != nil {
-				// there is a delay in effect, so just keep listening for updates
-				infoLog.Log(logging.MessageKey(), "Still waiting to dispatch updates", "delay", s.Timeout)
-				continue
-			}
-
-			if s.Timeout > 0 {
-				infoLog.Log(logging.MessageKey(), "Waiting to dispatch updates", "delay", s.Timeout)
-				delay = after(s.Timeout)
-				continue
-			}
-
-			// there is no current delay and no Timeout configured,
-			// so dispatch immediately
-			infoLog.Log(logging.MessageKey(), "Dispatching updated endpoints", "endpoints", endpoints)
-			s.Listener(endpoints)
-			endpoints = nil
+		case <-s.stopped:
+			return
 		}
 	}
 }
 
-// Run starts monitoring the watch for this subscription.  This method is idempotent, and returns
-// ErrorAlreadyRunning if this instance is already running.
-func (s *Subscription) Run() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.watch != nil {
-		return ErrorAlreadyRunning
-	}
+// Subscribe starts monitoering an Instancer for updates.  The returned subscription will produce
+// a stream of Accessor objects on the given updates channel.  The updates channel will also receive
+// the initial set of instances, similar to Instancer.Register.  Slow consumers of updates will block
+// subsequence update events.
+func Subscribe(o *Options, i sd.Instancer) Subscription {
+	var (
+		logger      = o.logger()
+		serviceName = o.serviceName()
+		path        = o.path()
+		updateDelay = o.updateDelay()
 
-	watch, err := s.Registrar.Watch()
-	if err != nil {
-		return err
-	}
+		s = &subscription{
+			errorLog:        logging.Error(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
+			infoLog:         logging.Info(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
+			stopped:         make(chan struct{}),
+			updates:         make(chan Accessor, 10),
+			serviceName:     serviceName,
+			path:            path,
+			updateDelay:     updateDelay,
+			after:           o.after(),
+			instancesFilter: o.instancesFilter(),
+			accessorFactory: o.accessorFactory(),
+		}
+	)
 
-	s.watch = watch
-	s.shutdown = make(chan struct{})
-	go s.monitor(s.watch, s.shutdown)
-	return nil
-}
-
-// Cancel stops monitoring the watch for this subscription.  This method is idempotent, and returns
-// true to indicate that the subscription was cancelled.  If this subscription was not running,
-// this method returns false.
-func (s *Subscription) Cancel() error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// close the shutdown channel first, so log messages accurately
-	// reflect cancellation when applicable
-	if s.shutdown != nil {
-		close(s.shutdown)
-		s.shutdown = nil
-	}
-
-	if s.watch != nil {
-		s.watch.Close()
-		s.watch = nil
-		return nil
-	}
-
-	return ErrorNotRunning
+	go s.monitor(i)
+	return s
 }

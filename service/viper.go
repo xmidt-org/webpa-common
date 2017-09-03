@@ -1,43 +1,33 @@
 package service
 
 import (
-	"github.com/go-kit/kit/log"
 	"github.com/spf13/viper"
 )
 
 const (
-	// DiscoveryKey is the default Viper subkey used for service discovery configuration.
-	// WebPA servers should typically use this key as a standard.
-	DiscoveryKey = "discovery"
+	// ServiceKey is the expected Viper subkey containing service discovery configuration
+	ServiceKey = "service"
 )
 
-// NewOptions produces an Options from a Viper instance.  Typically, the Viper instance
-// will be configured via the server package.
-//
-// Since service discovery is an optional module for a WebPA server, this function allows
-// the supplied Viper to be nil or otherwise uninitialized.  Client code that opts in to
-// service discovery can thus use the same codepath to configure an Options instance.
-func NewOptions(logger log.Logger, pingFunc func() error, v *viper.Viper) (o *Options, err error) {
-	o = new(Options)
+// Sub returns the standard Viper subconfiguration for service discovery.
+// If this function is passed nil, it returns nil.
+func Sub(v *viper.Viper) *viper.Viper {
 	if v != nil {
-		err = v.Unmarshal(o)
+		return v.Sub(ServiceKey)
 	}
 
-	o.Logger = logger
-	o.PingFunc = pingFunc
-	return
+	return nil
 }
 
-// Initialize is the top-level function for bootstrapping the service discovery infrastructure
-// using a Viper instance.  No watches are set by this function, but all registrations are made
-// and monitored via the returned RegistrarWatcher.
-func Initialize(logger log.Logger, pingFunc func() error, v *viper.Viper) (o *Options, r Registrar, re RegisteredEndpoints, err error) {
-	o, err = NewOptions(logger, pingFunc, v)
-	if err != nil {
-		return
+// FromViper returns an Options from a Viper environment.  This function accepts nil,
+// in which case a non-nil default Options instance is returned.
+func FromViper(v *viper.Viper) (*Options, error) {
+	o := new(Options)
+	if v != nil {
+		if err := v.Unmarshal(o); err != nil {
+			return nil, err
+		}
 	}
 
-	r = NewRegistrar(o)
-	re, err = RegisterAll(r, o)
-	return
+	return o, nil
 }

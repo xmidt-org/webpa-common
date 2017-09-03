@@ -1,66 +1,118 @@
 package service
 
 import (
-	"bytes"
+	"strings"
 	"testing"
+	"time"
 
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewOptions(t *testing.T) {
+func TestSub(t *testing.T) {
 	var (
-		assert        = assert.New(t)
-		require       = require.New(t)
-		logger        = logging.NewTestLogger(nil, t)
-		pingCalled    = false
-		pingFunc      = func() error { pingCalled = true; return nil }
-		configuration = bytes.NewBufferString(`{
-			"servers": ["host1:1234", "host2:5678"],
-			"connection": "foobar"
-		}`)
-
-		v = viper.New()
+		assert  = assert.New(t)
+		require = require.New(t)
+		v       = viper.New()
 	)
 
+	assert.Nil(Sub(nil))
+	assert.Nil(Sub(v))
+
 	v.SetConfigType("json")
-	require.Nil(v.ReadConfig(configuration))
+	require.NoError(v.ReadConfig(strings.NewReader(`
+		{"service": {
+			"path": "/foo/bar"
+		}}
+	`)))
 
-	o, err := NewOptions(logger, pingFunc, v)
-	require.NotNil(o)
-	assert.Nil(err)
-	assert.Equal(logger, o.Logger)
-	assert.Equal("foobar", o.Connection)
-	assert.Equal([]string{"host1:1234", "host2:5678"}, o.Servers)
-
-	require.NotNil(o.PingFunc)
-	assert.Nil(o.PingFunc())
-	assert.True(pingCalled)
+	child := Sub(v)
+	require.NotNil(child)
+	assert.Equal("/foo/bar", child.GetString("path"))
 }
 
-func TestNewOptionsNoPingFunc(t *testing.T) {
+func testFromViperNil(t *testing.T) {
 	var (
-		assert        = assert.New(t)
-		require       = require.New(t)
-		logger        = logging.NewTestLogger(nil, t)
-		configuration = bytes.NewBufferString(`{
-			"servers": ["host1:1234", "host2:5678"],
-			"connection": "foobar"
-		}`)
+		assert = assert.New(t)
+		o, err = FromViper(nil)
+	)
+
+	assert.NotNil(o)
+	assert.NoError(err)
+
+}
+
+func testFromViperMissing(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		o, err = FromViper(viper.New())
+	)
+
+	assert.NotNil(o)
+	assert.NoError(err)
+
+}
+
+func testFromViperError(t *testing.T) {
+	var (
+		assert           = assert.New(t)
+		require          = require.New(t)
+		badConfiguration = `
+			{"connectTimeout": "this is not a valid timeout"}
+		`
 
 		v = viper.New()
 	)
 
 	v.SetConfigType("json")
-	require.Nil(v.ReadConfig(configuration))
+	require.NoError(v.ReadConfig(strings.NewReader(badConfiguration)))
 
-	o, err := NewOptions(logger, nil, v)
+	o, err := FromViper(v)
+	assert.Nil(o)
+	assert.Error(err)
+}
+
+func testFromViperUnmarshal(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		require       = require.New(t)
+		configuration = `
+			{
+				"connection": "host1:2181,host2:2181",
+				"connectTimeout": "12m",
+				"sessionTimeout": "1h0m",
+				"updateDelay": "5m",
+				"path": "/foo/bar",
+				"serviceName": "fantastical",
+				"registration": "https://foobar.com:8080",
+				"vnodeCount": 567829
+			}
+		`
+
+		v = viper.New()
+	)
+
+	v.SetConfigType("json")
+	require.NoError(v.ReadConfig(strings.NewReader(configuration)))
+
+	o, err := FromViper(v)
 	require.NotNil(o)
-	assert.Nil(err)
-	assert.Nil(o.PingFunc)
-	assert.Equal(logger, o.Logger)
-	assert.Equal("foobar", o.Connection)
-	assert.Equal([]string{"host1:1234", "host2:5678"}, o.Servers)
+	require.Nil(err)
+
+	assert.Equal("host1:2181,host2:2181", o.Connection)
+	assert.Equal(12*time.Minute, o.ConnectTimeout)
+	assert.Equal(1*time.Hour, o.SessionTimeout)
+	assert.Equal(5*time.Minute, o.UpdateDelay)
+	assert.Equal("/foo/bar", o.Path)
+	assert.Equal("fantastical", o.ServiceName)
+	assert.Equal("https://foobar.com:8080", o.Registration)
+	assert.Equal(uint(567829), o.VnodeCount)
+}
+
+func TestFromViper(t *testing.T) {
+	t.Run("Nil", testFromViperNil)
+	t.Run("Missing", testFromViperMissing)
+	t.Run("Error", testFromViperError)
+	t.Run("Unmarshal", testFromViperUnmarshal)
 }

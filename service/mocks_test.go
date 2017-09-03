@@ -1,52 +1,55 @@
 package service
 
 import (
-	"github.com/strava/go.serversets"
+	"github.com/go-kit/kit/sd"
+	"github.com/go-kit/kit/sd/zk"
+	zkclient "github.com/samuel/go-zookeeper/zk"
 	"github.com/stretchr/testify/mock"
 )
 
-func nilPingFunc(actual func() error) bool {
-	return actual == nil
+// resetZkClientFactory resets the global singleton factory function
+// to its original value.  This function is handy as a defer for tests.
+func resetZkClientFactory() {
+	zkClientFactory = zk.NewClient
 }
 
-type mockRegistrar struct {
+type mockClient struct {
 	mock.Mock
 }
 
-func (m *mockRegistrar) RegisterEndpoint(host string, port int, pingFunc func() error) (*serversets.Endpoint, error) {
-	arguments := m.Called(host, port, pingFunc)
-	first, _ := arguments.Get(0).(*serversets.Endpoint)
-	return first, arguments.Error(1)
+func (m *mockClient) GetEntries(path string) ([]string, <-chan zkclient.Event, error) {
+	arguments := m.Called(path)
+	return arguments.Get(0).([]string),
+		arguments.Get(1).(<-chan zkclient.Event),
+		arguments.Error(2)
 }
 
-func (m *mockRegistrar) Watch() (Watch, error) {
-	arguments := m.Called()
-	first, _ := arguments.Get(0).(Watch)
-	return first, arguments.Error(1)
+func (m *mockClient) CreateParentNodes(path string) error {
+	return m.Called(path).Error(0)
 }
 
-type mockWatch struct {
-	mock.Mock
+func (m *mockClient) Register(s *zk.Service) error {
+	return m.Called(s).Error(0)
 }
 
-func (m *mockWatch) Close() {
+func (m *mockClient) Deregister(s *zk.Service) error {
+	return m.Called(s).Error(0)
+}
+
+func (m *mockClient) Stop() {
 	m.Called()
 }
 
-func (m *mockWatch) IsClosed() bool {
-	arguments := m.Called()
-	return arguments.Bool(0)
+type mockInstancer struct {
+	mock.Mock
 }
 
-func (m *mockWatch) Endpoints() []string {
-	arguments := m.Called()
-	first, _ := arguments.Get(0).([]string)
-	return first
+func (m *mockInstancer) Register(events chan<- sd.Event) {
+	m.Called(events)
 }
 
-func (m *mockWatch) Event() <-chan struct{} {
-	arguments := m.Called()
-	return arguments.Get(0).(<-chan struct{})
+func (m *mockInstancer) Deregister(events chan<- sd.Event) {
+	m.Called(events)
 }
 
 type mockAccessor struct {
@@ -58,13 +61,18 @@ func (m *mockAccessor) Get(key []byte) (string, error) {
 	return arguments.String(0), arguments.Error(1)
 }
 
-type mockAccessorFactory struct {
+type mockSubscription struct {
 	mock.Mock
 }
 
-func (m *mockAccessorFactory) New(endpoints []string) (Accessor, []string) {
-	arguments := m.Called(endpoints)
-	first, _ := arguments.Get(0).(Accessor)
-	second, _ := arguments.Get(1).([]string)
-	return first, second
+func (m *mockSubscription) Stopped() <-chan struct{} {
+	return m.Called().Get(0).(<-chan struct{})
+}
+
+func (m *mockSubscription) Stop() {
+	m.Called()
+}
+
+func (m *mockSubscription) Updates() <-chan Accessor {
+	return m.Called().Get(0).(<-chan Accessor)
 }

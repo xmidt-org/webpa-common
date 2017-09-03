@@ -8,85 +8,90 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestNewRedirectHandler(t *testing.T) {
+func testRedirectHandlerKeyFuncError(t *testing.T) {
 	var (
-		assert       = assert.New(t)
-		require      = require.New(t)
-		expectedKey  = []byte("here is a lovely little key, full of vim and vigour")
-		expectedNode = "http://nogohere.instead.com"
+		assert = assert.New(t)
 
-		mockAccessor = new(mockAccessor)
-		response     = httptest.NewRecorder()
-		request      = httptest.NewRequest("GET", "http://foobar.com/test", nil)
-		keyFunc      = func(actualRequest *http.Request) ([]byte, error) {
-			assert.Equal(request, actualRequest)
-			return expectedKey, nil
+		expectedError = errors.New("expected")
+		keyFunc       = func(*http.Request) ([]byte, error) { return nil, expectedError }
+		accessor      = new(mockAccessor)
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+
+		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
+			KeyFunc:      keyFunc,
+			Accessor:     accessor,
+			RedirectCode: http.StatusTemporaryRedirect,
 		}
 	)
 
-	mockAccessor.On("Get", expectedKey).Return(expectedNode, nil).Once()
-
-	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, logging.NewTestLogger(nil, t))
 	handler.ServeHTTP(response, request)
-	assert.Equal(http.StatusTemporaryRedirect, response.Code)
 
-	actualLocation, err := response.Result().Location()
-	require.NotNil(actualLocation)
-	assert.Equal("http://nogohere.instead.com/test", actualLocation.String())
-	assert.Nil(err)
-
-	mockAccessor.AssertExpectations(t)
-}
-
-func TestNewRedirectHandlerBadKey(t *testing.T) {
-	assert := assert.New(t)
-	expectedKeyError := errors.New("Expected error from key function")
-
-	mockAccessor := new(mockAccessor)
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "http://foobar.com/test", nil)
-	keyFunc := func(actualRequest *http.Request) ([]byte, error) {
-		assert.Equal(request, actualRequest)
-		return []byte{}, expectedKeyError
-	}
-
-	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, logging.NewTestLogger(nil, t))
-	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
-	assert.Contains(response.Body.String(), expectedKeyError.Error())
-
-	actualLocation, err := response.Result().Location()
-	assert.Nil(actualLocation)
-	assert.NotNil(err)
-
-	mockAccessor.AssertExpectations(t)
+	accessor.AssertExpectations(t)
 }
 
-func TestNewRedirectHandlerNoNode(t *testing.T) {
-	assert := assert.New(t)
-	expectedKey := []byte("this little key went to market ...")
-	expectedAccessorError := errors.New("Expected error from the Accessor")
+func testRedirectHandlerAccessorError(t *testing.T) {
+	var (
+		assert = assert.New(t)
 
-	mockAccessor := new(mockAccessor)
-	mockAccessor.On("Get", expectedKey).Return("", expectedAccessorError).Once()
-	response := httptest.NewRecorder()
-	request := httptest.NewRequest("GET", "http://foobar.com/test", nil)
-	keyFunc := func(actualRequest *http.Request) ([]byte, error) {
-		assert.Equal(request, actualRequest)
-		return expectedKey, nil
-	}
+		expectedKey   = []byte("34589lkdjasd")
+		keyFunc       = func(*http.Request) ([]byte, error) { return expectedKey, nil }
+		expectedError = errors.New("expected")
+		accessor      = new(mockAccessor)
 
-	handler := NewRedirectHandler(mockAccessor, http.StatusTemporaryRedirect, keyFunc, logging.NewTestLogger(nil, t))
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+
+		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
+			KeyFunc:      keyFunc,
+			Accessor:     accessor,
+			RedirectCode: http.StatusTemporaryRedirect,
+		}
+	)
+
+	accessor.On("Get", expectedKey).Return("", expectedError).Once()
 	handler.ServeHTTP(response, request)
+
 	assert.Equal(http.StatusInternalServerError, response.Code)
-	assert.Contains(response.Body.String(), expectedAccessorError.Error())
+	accessor.AssertExpectations(t)
+}
 
-	actualLocation, err := response.Result().Location()
-	assert.Nil(actualLocation)
-	assert.NotNil(err)
+func testRedirectHandlerSuccess(t *testing.T) {
+	var (
+		assert = assert.New(t)
 
-	mockAccessor.AssertExpectations(t)
+		expectedKey      = []byte("asdfqwer")
+		expectedInstance = "https://ahost123.com:324"
+		keyFunc          = func(*http.Request) ([]byte, error) { return expectedKey, nil }
+		accessor         = new(mockAccessor)
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+
+		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
+			KeyFunc:      keyFunc,
+			Accessor:     accessor,
+			RedirectCode: http.StatusTemporaryRedirect,
+		}
+	)
+
+	accessor.On("Get", expectedKey).Return(expectedInstance, error(nil)).Once()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(handler.RedirectCode, response.Code)
+	assert.Equal(expectedInstance, response.HeaderMap.Get("Location"))
+	accessor.AssertExpectations(t)
+}
+
+func TestRedirectHandler(t *testing.T) {
+	t.Run("KeyFuncError", testRedirectHandlerKeyFuncError)
+	t.Run("AccessorError", testRedirectHandlerAccessorError)
+	t.Run("Success", testRedirectHandlerSuccess)
 }

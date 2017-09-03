@@ -2,239 +2,272 @@ package service
 
 import (
 	"errors"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-func testSubscriptionWatchError(t *testing.T) {
+func testSubscribeNoDelay(t *testing.T) {
 	var (
-		assert        = assert.New(t)
-		expectedError = errors.New("expected")
-		registrar     = new(mockRegistrar)
+		assert    = assert.New(t)
+		instancer = new(mockInstancer)
 
-		subscription = Subscription{
-			Logger:    logging.NewTestLogger(nil, t),
-			Registrar: registrar,
-			Listener: func([]string) {
-				assert.Fail("The listener should not have been called")
+		registeredChannel chan<- sd.Event
+		registerCalled    = make(chan struct{})
+		deregisterCalled  = make(chan struct{})
+
+		options = &Options{
+			Logger: logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
+			After: func(time.Duration) <-chan time.Time {
+				assert.Fail("The after function should not have been called")
+				return nil
 			},
 		}
 	)
 
-	registrar.On("Watch").Once().Return(nil, expectedError)
+	instancer.On("Register", mock.MatchedBy(func(ch chan<- sd.Event) bool {
+		registeredChannel = ch
+		return true
+	})).Run(func(mock.Arguments) { close(registerCalled) }).Once()
 
-	assert.Equal(expectedError, subscription.Run())
-	assert.Equal(ErrorNotRunning, subscription.Cancel())
+	instancer.On("Deregister", mock.MatchedBy(func(ch chan<- sd.Event) bool {
+		assert.Equal(registeredChannel, ch)
+		return true
+	})).Run(func(mock.Arguments) { close(deregisterCalled) }).Once()
 
-	registrar.AssertExpectations(t)
-}
+	// start the subscription under test
+	sub := Subscribe(options, instancer)
+	assert.NotEmpty(sub.(*subscription).String())
+	assert.Zero(len(sub.Updates()))
 
-func testSubscriptionListenerPanic(t *testing.T) {
-	var (
-		assert        = assert.New(t)
-		expectedError = errors.New("expected")
-
-		watch     = new(mockWatch)
-		registrar = new(mockRegistrar)
-
-		expectedEndpoints = []string{"expected endpoint"}
-		listenerCalled    = make(chan struct{})
-
-		subscription = Subscription{
-			Logger:    logging.NewTestLogger(nil, t),
-			Registrar: registrar,
-			Listener: func(endpoints []string) {
-				defer close(listenerCalled)
-				assert.Equal(expectedEndpoints, endpoints)
-				panic(expectedError)
-			},
-		}
-	)
-
-	registrar.On("Watch").Once().Return(watch, nil)
-	watch.On("Endpoints").Once().Return(expectedEndpoints)
-	watch.On("Close")
-
-	assert.NoError(subscription.Run())
-
-	timer := time.NewTimer(time.Second)
-	defer timer.Stop()
 	select {
-	case <-listenerCalled:
-		// Cancel should be idempotent
-		subscription.Cancel()
-		assert.Equal(ErrorNotRunning, subscription.Cancel())
-
-		// passing case
-		registrar.AssertExpectations(t)
-		watch.AssertExpectations(t)
-
-	case <-timer.C:
-		assert.Fail("The listener was not called")
+	case <-registerCalled:
+		// passing
+	case <-time.After(time.Second):
+		assert.Fail("Instancer.Register was not called")
 	}
+
+	registeredChannel <- sd.Event{Err: errors.New("expected")}
+	assert.Zero(len(sub.Updates()))
+
+	registeredChannel <- sd.Event{Instances: []string{"localhost:8888"}}
+	select {
+	case accessor := <-sub.Updates():
+		instance, err := accessor.Get([]byte("some key"))
+		assert.Equal("localhost:8888", instance)
+		assert.NoError(err)
+
+	case <-sub.Stopped():
+		assert.Fail("The subscription should not have stopped")
+
+	case <-time.After(time.Second):
+		assert.Fail("No accessor update occurred")
+	}
+
+	registeredChannel <- sd.Event{Instances: []string{"localhost:1234"}}
+	select {
+	case accessor := <-sub.Updates():
+		instance, err := accessor.Get([]byte("some key"))
+		assert.Equal("localhost:1234", instance)
+		assert.NoError(err)
+
+	case <-sub.Stopped():
+		assert.Fail("The subscription should not have stopped")
+
+	case <-time.After(time.Second):
+		assert.Fail("No accessor update occurred")
+	}
+
+	sub.Stop()
+
+	select {
+	case <-deregisterCalled:
+		// passing
+	case <-time.After(time.Second):
+		assert.Fail("Instancer.Deregister was not called")
+	}
+
+	sub.Stop() // idempotency
+	instancer.AssertExpectations(t)
 }
 
-func testSubscriptionNoTimeout(t *testing.T) {
+func testSubscribeDelay(t *testing.T) {
 	var (
-		assert = assert.New(t)
+		assert    = assert.New(t)
+		instancer = new(mockInstancer)
+		delay     = make(chan time.Time, 1)
 
-		watch     = new(mockWatch)
-		registrar = new(mockRegistrar)
-		event     = make(chan struct{})
+		registeredChannel chan<- sd.Event
+		registerCalled    = make(chan struct{})
+		deregisterCalled  = make(chan struct{})
 
-		expectedEndpoints = [][]string{
-			[]string{"testSubscriptionNoTimeout1"},
-			[]string{"testSubscriptionNoTimeout2", "testSubscriptionNoTimeout3"},
-			[]string{"testSubscriptionNoTimeout4", "testSubscriptionNoTimeout5", "testSubscriptionNoTimeout6"},
-		}
-
-		actualCount  uint32
-		listenerDone = make(chan struct{})
-
-		subscription = Subscription{
-			Logger:    logging.NewTestLogger(nil, t),
-			Registrar: registrar,
-			Listener: func(endpoints []string) {
-				assert.Equal(expectedEndpoints[actualCount], endpoints)
-				newCount := atomic.AddUint32(&actualCount, 1)
-
-				if int(newCount) == len(expectedEndpoints) {
-					close(listenerDone)
-				}
+		options = &Options{
+			Logger:      logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
+			UpdateDelay: 5 * time.Minute,
+			After: func(d time.Duration) <-chan time.Time {
+				assert.Equal(5*time.Minute, d)
+				return delay
 			},
 		}
 	)
 
-	registrar.On("Watch").Once().Return(watch, nil)
-	watch.On("Event").Return((<-chan struct{})(event))
-	watch.On("IsClosed").Return(false)
-	watch.On("Close")
+	instancer.On("Register", mock.MatchedBy(func(ch chan<- sd.Event) bool {
+		registeredChannel = ch
+		return true
+	})).Run(func(mock.Arguments) { close(registerCalled) }).Once()
 
-	for _, endpoints := range expectedEndpoints {
-		watch.On("Endpoints").Once().Return(endpoints)
-	}
+	instancer.On("Deregister", mock.MatchedBy(func(ch chan<- sd.Event) bool {
+		assert.Equal(registeredChannel, ch)
+		return true
+	})).Run(func(mock.Arguments) { close(deregisterCalled) }).Once()
 
-	assert.NoError(subscription.Run())
-	assert.Equal(ErrorAlreadyRunning, subscription.Run())
+	// start the subscription under test
+	sub := Subscribe(options, instancer)
+	assert.NotEmpty(sub.(*subscription).String())
+	assert.Zero(len(sub.Updates()))
 
-	// do this one less than the expected endpoints, since the first element is the initial endpoints
-	for repeat := 1; repeat < len(expectedEndpoints); repeat++ {
-		event <- struct{}{}
-	}
-
-	timer := time.NewTimer(time.Second)
 	select {
-	case <-listenerDone:
-		assert.Equal(len(expectedEndpoints), int(atomic.LoadUint32(&actualCount)))
-		assert.NoError(subscription.Cancel())
-		assert.Equal(ErrorNotRunning, subscription.Cancel())
-
-		registrar.AssertExpectations(t)
-		watch.AssertExpectations(t)
-
-	case <-timer.C:
-		assert.Fail("The listener did not receive all endpoints")
+	case <-registerCalled:
+		// passing
+	case <-time.After(time.Second):
+		assert.Fail("Instancer.Register was not called")
 	}
+
+	registeredChannel <- sd.Event{Err: errors.New("expected")}
+	assert.Zero(len(sub.Updates()))
+
+	// the very first event should be dispatched immediately
+	registeredChannel <- sd.Event{Instances: []string{"localhost:8888"}}
+
+	select {
+	case accessor := <-sub.Updates():
+		instance, err := accessor.Get([]byte("some key"))
+		assert.Equal("localhost:8888", instance)
+		assert.NoError(err)
+
+	case <-sub.Stopped():
+		assert.Fail("The subscription should not have stopped")
+
+	case <-time.After(time.Second):
+		assert.Fail("No accessor update occurred")
+	}
+
+	registeredChannel <- sd.Event{Instances: []string{"localhost:1234"}}
+
+	select {
+	case <-sub.Updates():
+		assert.Fail("No updates should have been sent before the delay expired")
+
+	case <-sub.Stopped():
+		assert.Fail("The subscription should not have stopped")
+
+	case <-time.After(250 * time.Millisecond):
+		// passing
+	}
+
+	registeredChannel <- sd.Event{Instances: []string{"localhost:4321"}}
+
+	delay <- time.Now()
+	select {
+	case accessor := <-sub.Updates():
+		instance, err := accessor.Get([]byte("some key"))
+		assert.Equal("localhost:4321", instance)
+		assert.NoError(err)
+
+	case <-sub.Stopped():
+		assert.Fail("The subscription should not have stopped")
+
+	case <-time.After(time.Second):
+		assert.Fail("No accessor update occurred")
+	}
+
+	sub.Stop()
+
+	select {
+	case <-deregisterCalled:
+		// passing
+	case <-time.After(time.Second):
+		assert.Fail("Instancer.Deregister was not called")
+	}
+
+	sub.Stop() // idempotency
+	instancer.AssertExpectations(t)
 }
 
-func testSubscriptionWithTimeout(t *testing.T) {
+func testSubscribeMonitorPanic(t *testing.T) {
 	var (
-		assert = assert.New(t)
+		assert    = assert.New(t)
+		instancer = new(mockInstancer)
 
-		watch     = new(mockWatch)
-		registrar = new(mockRegistrar)
-		event     = make(chan struct{})
+		registeredChannel chan<- sd.Event
+		registerCalled    = make(chan struct{})
+		deregisterCalled  = make(chan struct{})
 
-		expectedInitialEndpoints = []string{"initial"}
-
-		// these are batches of endpoints.  the listener should receive only the last item in each batch.
-		expectedEndpoints = [][][]string{
-			[][]string{
-				[]string{"batch1"},
-				[]string{"batch1", "batch1"},
-				[]string{"batch1", "batch1", "batch1"},
+		options = &Options{
+			Logger: logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
+			After: func(time.Duration) <-chan time.Time {
+				assert.Fail("The after function should not have been called")
+				return nil
 			},
-			[][]string{
-				[]string{"batch2"},
-				[]string{"batch2", "batch2"},
-				[]string{"batch2", "batch2", "batch2"},
-			},
-		}
-
-		actualCount  uint32
-		listenerDone = make(chan struct{})
-		delay        = make(chan time.Time)
-
-		subscription = Subscription{
-			Logger:    logging.NewTestLogger(nil, t),
-			Registrar: registrar,
-			After:     func(time.Duration) <-chan time.Time { return delay },
-			Timeout:   time.Second,
-			Listener: func(endpoints []string) {
-				newCount := atomic.AddUint32(&actualCount, 1)
-				if newCount == 1 {
-					assert.Equal(expectedInitialEndpoints, endpoints)
-				} else {
-					batch := expectedEndpoints[newCount-2]
-					assert.Equal(batch[len(batch)-1], endpoints)
-				}
-
-				if int(newCount) == len(expectedEndpoints)+1 {
-					close(listenerDone)
-				}
+			InstancesFilter: func([]string) []string {
+				panic("expected")
 			},
 		}
 	)
 
-	registrar.On("Watch").Once().Return(watch, nil)
-	watch.On("Event").Return((<-chan struct{})(event))
-	watch.On("IsClosed").Return(false)
-	watch.On("Close")
-	watch.On("Endpoints").Once().Return(expectedInitialEndpoints)
+	instancer.On("Register", mock.MatchedBy(func(ch chan<- sd.Event) bool {
+		registeredChannel = ch
+		return true
+	})).Run(func(mock.Arguments) { close(registerCalled) }).Once()
 
-	for _, batch := range expectedEndpoints {
-		for _, endpoints := range batch {
-			watch.On("Endpoints").Once().Return(endpoints)
-		}
-	}
+	instancer.On("Deregister", mock.MatchedBy(func(ch chan<- sd.Event) bool {
+		assert.Equal(registeredChannel, ch)
+		return true
+	})).Run(func(mock.Arguments) { close(deregisterCalled) }).Once()
 
-	assert.NoError(subscription.Run())
-	assert.Equal(ErrorAlreadyRunning, subscription.Run())
+	// start the subscription under test
+	sub := Subscribe(options, instancer)
+	assert.NotEmpty(sub.(*subscription).String())
+	assert.Zero(len(sub.Updates()))
 
-	// for each batch, dispatch an event for each set of endpoints followed by a delay event
-	for i, batch := range expectedEndpoints {
-		for repeat := 0; repeat < len(batch); repeat++ {
-			event <- struct{}{}
-		}
-
-		// don't send a time event after the last batch
-		if i <= len(expectedEndpoints) {
-			delay <- time.Now()
-		}
-	}
-
-	timer := time.NewTimer(time.Second)
 	select {
-	case <-listenerDone:
-		assert.Equal(len(expectedEndpoints)+1, int(atomic.LoadUint32(&actualCount)))
-		assert.NoError(subscription.Cancel())
-		assert.Equal(ErrorNotRunning, subscription.Cancel())
-
-		registrar.AssertExpectations(t)
-		watch.AssertExpectations(t)
-
-	case <-timer.C:
-		assert.Fail("The listener did not receive all endpoints")
+	case <-registerCalled:
+		// passing
+	case <-time.After(time.Second):
+		assert.Fail("Instancer.Register was not called")
 	}
+
+	registeredChannel <- sd.Event{Err: errors.New("expected")}
+	assert.Zero(len(sub.Updates()))
+
+	// this should cause the panic
+	registeredChannel <- sd.Event{Instances: []string{"localhost:8888"}}
+	assert.Zero(len(sub.Updates()))
+	select {
+	case <-sub.Stopped():
+		// passing
+
+	case <-time.After(time.Second):
+		assert.Fail("The subscription should have stopped itself after a panic")
+	}
+
+	select {
+	case <-deregisterCalled:
+		// passing
+	case <-time.After(time.Second):
+		assert.Fail("Instancer.Deregister was not called")
+	}
+
+	sub.Stop() // idempotency
+	instancer.AssertExpectations(t)
 }
 
-func TestSubscription(t *testing.T) {
-	t.Run("WatchError", testSubscriptionWatchError)
-	t.Run("ListenerPanic", testSubscriptionListenerPanic)
-	t.Run("NoTimeout", testSubscriptionNoTimeout)
-	t.Run("WithTimeout", testSubscriptionWithTimeout)
+func TestSubscribe(t *testing.T) {
+	t.Run("NoDelay", testSubscribeNoDelay)
+	t.Run("Delay", testSubscribeDelay)
+	t.Run("MonitorPanic", testSubscribeMonitorPanic)
 }

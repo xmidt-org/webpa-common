@@ -37,7 +37,7 @@ type Options struct {
 }
 
 func (o *Options) output() io.Writer {
-	if o != nil && o.File != StdoutFile {
+	if o != nil && len(o.File) > 0 && o.File != StdoutFile {
 		return &lumberjack.Logger{
 			Filename:   o.File,
 			MaxSize:    o.MaxSize,
