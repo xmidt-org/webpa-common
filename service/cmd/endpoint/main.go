@@ -56,6 +56,10 @@ func endpoint(arguments []string) int {
 		return 1
 	}
 
+	// Register will only register something if the Registration field is set on the options
+	defer services.Deregister()
+	services.Register()
+
 	instancer, err := services.NewInstancer()
 	if err != nil {
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create instancer", logging.ErrorKey(), err)
