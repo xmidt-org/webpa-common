@@ -77,8 +77,9 @@ func New(o *Options) (Interface, error) {
 	var (
 		registration = o.registration()
 		path         = o.path()
+		serviceName  = o.serviceName()
 		registrar    sd.Registrar
-		logger       = logging.DefaultCaller(o.logger(), "service", true, "serviceName", o.serviceName(), "path", path, "registration", registration)
+		logger       = logging.DefaultCaller(o.logger(), "serviceName", o.serviceName(), "path", path, "registration", registration)
 
 		// use the internal singleton factory function, which is set to zk.NewClient normally
 		client, err = zkClientFactory(
@@ -98,7 +99,7 @@ func New(o *Options) (Interface, error) {
 			client,
 			zk.Service{
 				Path: path,
-				Name: o.serviceName(),
+				Name: serviceName,
 				Data: []byte(registration),
 			},
 			logger,
