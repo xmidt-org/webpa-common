@@ -35,6 +35,11 @@ func (m *MockSVC) Unsubscribe(input *sns.UnsubscribeInput) (*sns.UnsubscribeOutp
 	return args.Get(0).(*sns.UnsubscribeOutput), args.Error(1)
 }
 
+func (m *MockSVC) ListSubscriptionsByTopic(input *sns.ListSubscriptionsByTopicInput) (*sns.ListSubscriptionsByTopicOutput, error) {
+	args := m.Called(input)
+	return args.Get(0).(*sns.ListSubscriptionsByTopicOutput), args.Error(1)
+}
+
 func (m *MockValidator) Validate(msg *SNSMessage) (bool, error) {
 	args := m.Called(msg)
 	return args.Get(0).(bool), args.Error(1)

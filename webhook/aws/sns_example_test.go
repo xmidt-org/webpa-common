@@ -80,6 +80,10 @@ func testSubConf(t *testing.T, m *MockSVC, mv *MockValidator, ss *SNSServer) {
 		SubscriptionArn: &confSubArn}, nil)
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil).Once()
 
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{}}, nil)
+
 	// Mocking AWS SubscriptionConfirmation POST call using http client
 	req := httptest.NewRequest("POST", ss.SelfUrl.String()+ss.Config.Sns.UrlPath, strings.NewReader(TEST_SUB_MSG))
 	req.Header.Add("x-amz-sns-message-type", "SubscriptionConfirmation")

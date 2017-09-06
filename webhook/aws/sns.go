@@ -180,6 +180,8 @@ func (ss *SNSServer) listenSubscriptionData() {
 				quit = make(chan struct{})
 				go ss.listenAndPublishMessage(quit)
 
+				// As SNS is ready, unsubscribe old subscriptions
+				ss.UnsubscribeOldSubscriptions()
 			} else {
 				// stop the listenAndPublishMessage go routine
 				// if already running by closing the quit channel
