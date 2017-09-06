@@ -43,7 +43,12 @@ func writeMessage(m *wrp.Message, c Connection) error {
 }
 
 func ExampleManagerTransaction() {
-	disconnected := new(sync.WaitGroup)
+	var (
+		transactionComplete = new(sync.WaitGroup)
+		disconnected        = new(sync.WaitGroup)
+	)
+
+	transactionComplete.Add(1)
 	disconnected.Add(1)
 
 	var (
@@ -63,6 +68,7 @@ func ExampleManagerTransaction() {
 						}
 					case TransactionComplete:
 						fmt.Println("response received")
+						transactionComplete.Done()
 					case Disconnect:
 						fmt.Printf("%s disconnected\n", e.Device.ID())
 						disconnected.Done()
@@ -142,6 +148,7 @@ func ExampleManagerTransaction() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Route error: %s\n", err)
 	} else if response != nil {
+		transactionComplete.Wait()
 		fmt.Printf("(%s): %s to %s -> %s\n", response.Message.TransactionUUID, response.Message.Source, response.Message.Destination, response.Message.Payload)
 	}
 
