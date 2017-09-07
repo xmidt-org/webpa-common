@@ -16,7 +16,7 @@ import (
 
 func TestSNSReadyAndPublishSuccess(t *testing.T) {
 
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -29,7 +29,7 @@ func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -114,7 +114,7 @@ func testPublish(t *testing.T, m *MockSVC, ss *SNSServer) {
 func TestSNSSubConfValidateErr(t *testing.T) {
 	assert := assert.New(t)
 
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 

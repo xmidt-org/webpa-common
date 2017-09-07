@@ -103,7 +103,7 @@ func TestNewNotifierViperNotNil(t *testing.T) {
 func TestSubscribeSelfURL_Nil(t *testing.T) {
 
 	// SNSServer initialized with nil selfurl
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	urlPath := fmt.Sprint("http://host:port/api/v2/aws/sns/", TEST_UNIX_TIME)
 	expectedInput := &sns.SubscribeInput{
 		Protocol: aws.String("http"),

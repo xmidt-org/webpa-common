@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -63,7 +65,7 @@ func SetUpTestViperInstance(config string) *viper.Viper {
 	return v
 }
 
-func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
+func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 
 	v := SetUpTestViperInstance(TEST_AWS_CONFIG)
 
@@ -78,7 +80,8 @@ func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 	}
 
 	r := mux.NewRouter()
-	ss.Initialize(r, nil, nil, nil, testNow)
+	logger := logging.NewTestLogger(nil, t)
+	ss.Initialize(r, nil, nil, logger, testNow)
 
 	return ss, m, mv, r
 }
@@ -89,7 +92,7 @@ func TestSubscribeSuccess(t *testing.T) {
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 	ss.PrepareAndStart()
@@ -107,7 +110,7 @@ func TestSubscribeError(t *testing.T) {
 
 	assert := assert.New(t)
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{},
 		fmt.Errorf("%s", "InvalidClientTokenId"))
 
@@ -125,7 +128,7 @@ func TestSubscribeError(t *testing.T) {
 func TestUnsubscribeSuccess(t *testing.T) {
 	fmt.Println("\n\nTestUnsubscribeSuccess")
 
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
 
@@ -145,7 +148,7 @@ func TestUnsubscribeSuccess(t *testing.T) {
 func TestUnsubscribeWithSubArn(t *testing.T) {
 	fmt.Println("\n\nTestUnsubscribeSuccess")
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	testSubscribe(t, m, ss)
 
 	expectedInput := &sns.UnsubscribeInput{
@@ -167,7 +170,7 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 	confSubArn := "testRoute"
-	ss, m, mv, r := SetUpTestSNSServer()
+	ss, m, mv, r := SetUpTestSNSServer(t)
 
 	ts := httptest.NewServer(r)
 
@@ -197,6 +200,8 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	time.Sleep(1 * time.Second)
+
 	m.AssertExpectations(t)
 
 	mv.AssertExpectations(t)
@@ -210,7 +215,7 @@ func TestNotificationHandleSuccess(t *testing.T) {
 
 	assert := assert.New(t)
 	pub_msg := "Hello world!"
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -245,7 +250,7 @@ func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_SubArnMismatch")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -276,7 +281,7 @@ func TestNotificationHandleError_ReadErr(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_ReadErr")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -308,7 +313,7 @@ func TestNotificationHandleError_MsgEnvMismatch(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_MsgEnvMismatch")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -343,7 +348,7 @@ func TestNotificationHandleError_ValidationErr(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_ValidationErr")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -374,4 +379,44 @@ func TestNotificationHandleError_ValidationErr(t *testing.T) {
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
+}
+
+func TestListSubscriptionsByMatchingEndpointSuccess(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	ss, m, _, _ := SetUpTestSNSServer(t)
+
+	sub1 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1503357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test1"),
+	}
+	sub2 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1444357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test2"),
+	}
+	sub3 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1412357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test3"),
+	}
+	sub4 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1563357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test4"),
+	}
+
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2, sub3, sub4}}, nil)
+
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+
+	assert.Nil(err)
+	require.NotNil(unsubList)
+	assert.Equal(2, unsubList.Len())
+	assert.Equal("test2", unsubList.Front().Value.(string))
+	assert.Equal("test3", unsubList.Back().Value.(string))
 }
