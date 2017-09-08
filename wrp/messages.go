@@ -1,72 +1,6 @@
 package wrp
 
-//go:generate go get -u github.com/ugorji/go/codec/codecgen
-//go:generate codecgen -st "wrp" -o messages.codec.go messages.go
-
-// MessageType indicates the kind of WRP message
-type MessageType int64
-
-const (
-	AuthMessageType                  = MessageType(2)
-	SimpleRequestResponseMessageType = MessageType(3)
-	SimpleEventMessageType           = MessageType(4)
-	CreateMessageType                = MessageType(5)
-	RetrieveMessageType              = MessageType(6)
-	UpdateMessageType                = MessageType(7)
-	DeleteMessageType                = MessageType(8)
-	ServiceRegistrationMessageType   = MessageType(9)
-	ServiceAliveMessageType          = MessageType(10)
-
-	InvalidMessageTypeString = "!!INVALID!!"
-
-	AuthStatusAuthorized      = 200
-	AuthStatusUnauthorized    = 401
-	AuthStatusPaymentRequired = 402
-	AuthStatusNotAcceptable   = 406
-)
-
-// SupportsTransaction tests if messages of this type are allowed to participate in transactions.
-// If this method returns false, the TransactionUUID field should be ignored (but passed through
-// where applicable).
-func (mt MessageType) SupportsTransaction() bool {
-	switch mt {
-	case AuthMessageType:
-		return false
-	case SimpleEventMessageType:
-		return false
-	case ServiceRegistrationMessageType:
-		return false
-	case ServiceAliveMessageType:
-		return false
-	default:
-		return true
-	}
-}
-
-func (mt MessageType) String() string {
-	switch mt {
-	case AuthMessageType:
-		return "Auth"
-	case SimpleRequestResponseMessageType:
-		return "SimpleRequestResponse"
-	case SimpleEventMessageType:
-		return "SimpleEvent"
-	case CreateMessageType:
-		return "Create"
-	case RetrieveMessageType:
-		return "Retrieve"
-	case UpdateMessageType:
-		return "Update"
-	case DeleteMessageType:
-		return "Delete"
-	case ServiceRegistrationMessageType:
-		return "ServiceRegistration"
-	case ServiceAliveMessageType:
-		return "ServiceAlive"
-	}
-
-	return InvalidMessageTypeString
-}
+//go:generate codecgen -st "wrp" -o messages_codec.go messages.go
 
 // Typed is implemented by any WRP type which is associated with a MessageType.  All
 // message types implement this interface.
@@ -211,7 +145,7 @@ func (msg *AuthorizationStatus) MessageType() MessageType {
 }
 
 func (msg *AuthorizationStatus) BeforeEncode() error {
-	msg.Type = AuthMessageType
+	msg.Type = AuthorizationStatusMessageType
 	return nil
 }
 

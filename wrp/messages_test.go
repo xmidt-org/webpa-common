@@ -14,58 +14,6 @@ var (
 	allFormats = []Format{JSON, Msgpack}
 )
 
-func TestMessageTypeString(t *testing.T) {
-	var (
-		assert       = assert.New(t)
-		messageTypes = []MessageType{
-			AuthMessageType,
-			SimpleRequestResponseMessageType,
-			SimpleEventMessageType,
-			CreateMessageType,
-			RetrieveMessageType,
-			UpdateMessageType,
-			DeleteMessageType,
-			ServiceRegistrationMessageType,
-			ServiceAliveMessageType,
-		}
-
-		strings = make(map[string]bool, len(messageTypes))
-	)
-
-	for _, messageType := range messageTypes {
-		stringValue := messageType.String()
-		assert.NotEmpty(stringValue)
-
-		assert.NotContains(strings, stringValue)
-		strings[stringValue] = true
-	}
-
-	assert.Equal(len(messageTypes), len(strings))
-	assert.Equal(InvalidMessageTypeString, MessageType(-1).String())
-	assert.NotContains(strings, InvalidMessageTypeString)
-}
-
-func TestMessageSupportsTransaction(t *testing.T) {
-	var (
-		assert                      = assert.New(t)
-		expectedSupportsTransaction = map[MessageType]bool{
-			AuthMessageType:                  false,
-			SimpleRequestResponseMessageType: true,
-			SimpleEventMessageType:           false,
-			CreateMessageType:                true,
-			RetrieveMessageType:              true,
-			UpdateMessageType:                true,
-			DeleteMessageType:                true,
-			ServiceRegistrationMessageType:   false,
-			ServiceAliveMessageType:          false,
-		}
-	)
-
-	for messageType, expected := range expectedSupportsTransaction {
-		assert.Equal(expected, messageType.SupportsTransaction())
-	}
-}
-
 func testMessageSetStatus(t *testing.T) {
 	var (
 		assert  = assert.New(t)
@@ -169,7 +117,7 @@ func TestMessage(t *testing.T) {
 		messages = []Message{
 			Message{},
 			Message{
-				Type:   AuthMessageType,
+				Type:   AuthorizationStatusMessageType,
 				Status: &expectedStatus,
 			},
 			Message{
@@ -238,8 +186,8 @@ func testAuthorizationStatusEncode(t *testing.T, f Format) {
 
 	assert.NoError(encoder.Encode(&original))
 	assert.True(buffer.Len() > 0)
-	assert.Equal(AuthMessageType, original.Type)
-	assert.Equal(AuthMessageType, original.MessageType())
+	assert.Equal(AuthorizationStatusMessageType, original.Type)
+	assert.Equal(AuthorizationStatusMessageType, original.MessageType())
 	assert.NoError(decoder.Decode(&decoded))
 	assert.Equal(original, decoded)
 }
