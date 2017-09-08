@@ -21,6 +21,17 @@ import (
 )
 
 const (
+	TEST_SNS_CFG = `{
+	"aws": {
+        "accessKey": "test-accessKey",
+        "secretKey": "test-secretKey",
+        "env": "test",
+        "sns" : {
+	        "region" : "us-east-1",
+            "protocol" : "http",
+			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic", 
+			"urlPath" : "/sns/"
+    } } }`
 	NOTIF_MSG = `{
   "Type" : "Notification",
   "MessageId" : "22b80b92-fdea-4c2c-8f9d-bdfb0c7bf324",
@@ -407,16 +418,115 @@ func TestListSubscriptionsByMatchingEndpointSuccess(t *testing.T) {
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test4"),
 	}
+	sub5 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test5"),
+	}
 
 	// mocking SNS ListSubscriptionsByTopic response to empty list
 	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
-		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2, sub3, sub4}}, nil)
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2, sub3, sub4, sub5}}, nil)
 
 	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
 
 	assert.Nil(err)
 	require.NotNil(unsubList)
-	assert.Equal(2, unsubList.Len())
-	assert.Equal("test2", unsubList.Front().Value.(string))
-	assert.Equal("test3", unsubList.Back().Value.(string))
+	assert.Equal(3, unsubList.Len())
+	item := unsubList.Front()
+	assert.Equal("test2", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test3", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test5", item.Value.(string))
+
+	m.AssertExpectations(t)
+}
+
+func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	v := SetUpTestViperInstance(TEST_SNS_CFG)
+
+	awsCfg, _ := NewAWSConfig(v)
+	m := &MockSVC{}
+
+	ss := &SNSServer{
+		Config: *awsCfg,
+		SVC:    m,
+	}
+
+	logger := logging.NewTestLogger(nil, t)
+	ss.Initialize(nil, nil, nil, logger, testNow)
+
+	sub1 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1503357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test1"),
+	}
+	sub2 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1444357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test2"),
+	}
+	sub3 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1412357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test3"),
+	}
+	sub4 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1563357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test4"),
+	}
+	sub5 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test5"),
+	}
+
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	expectedFirstInput := &sns.ListSubscriptionsByTopicInput{
+		TopicArn: aws.String(ss.Config.Sns.TopicArn),
+	}
+	m.On("ListSubscriptionsByTopic", expectedFirstInput).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2},
+			NextToken: aws.String("next")}, nil)
+
+	expectedSecondInput := &sns.ListSubscriptionsByTopicInput{
+		NextToken: aws.String("next"),
+		TopicArn:  aws.String(ss.Config.Sns.TopicArn),
+	}
+	m.On("ListSubscriptionsByTopic", expectedSecondInput).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub3, sub4, sub5}}, nil)
+
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+
+	assert.Nil(err)
+	require.NotNil(unsubList)
+	assert.Equal(3, unsubList.Len())
+	item := unsubList.Front()
+	assert.Equal("test2", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test3", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test5", item.Value.(string))
+
+	m.AssertExpectations(t)
+}
+
+func TestListSubscriptionsByMatchingEndpointAWSErr(t *testing.T) {
+	require := require.New(t)
+
+	ss, m, _, _ := SetUpTestSNSServer(t)
+
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{}}, fmt.Errorf("%s", "SNS error"))
+
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+
+	require.NotNil(err)
+	require.Nil(unsubList)
 }

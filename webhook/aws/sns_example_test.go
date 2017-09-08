@@ -3,6 +3,7 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -142,4 +143,53 @@ func TestSNSSubConfValidateErr(t *testing.T) {
 
 	assert.Equal(ss.subscriptionArn.Load().(string), "pending confirmation")
 
+}
+
+func TestSNSReadyUnsubscribeOldSubscriptions(t *testing.T) {
+	assert := assert.New(t)
+	ss, m, mv, _ := SetUpTestSNSServer(t)
+
+	testSubscribe(t, m, ss)
+
+	confSubArn := "testSubscriptionArn"
+
+	// mocking SNS ConfirmSubscription response
+	m.On("ConfirmSubscription", mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
+		SubscriptionArn: &confSubArn}, nil)
+	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil).Once()
+
+	// mocking SNS ListSubscriptionsByTopic response to list
+	sub1 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1503357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test1"),
+	}
+	sub2 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test2"),
+	}
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2}}, nil)
+
+	// mocking Unsubscribe call
+	m.On("Unsubscribe", &sns.UnsubscribeInput{SubscriptionArn: aws.String("test2")}).Return(&sns.UnsubscribeOutput{}, nil)
+
+	// Mocking AWS SubscriptionConfirmation POST call using http client
+	req := httptest.NewRequest("POST", ss.SelfUrl.String()+ss.Config.Sns.UrlPath, strings.NewReader(TEST_SUB_MSG))
+	req.Header.Add("x-amz-sns-message-type", "SubscriptionConfirmation")
+
+	w := httptest.NewRecorder()
+	ss.SubscribeConfirmHandle(w, req)
+	resp := w.Result()
+
+	assert.Equal(http.StatusOK, resp.StatusCode)
+
+	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
+	time.Sleep(1 * time.Second)
+
+	assert.Equal(ss.subscriptionArn.Load().(string), confSubArn)
+
+	m.AssertExpectations(t)
+	mv.AssertExpectations(t)
 }
