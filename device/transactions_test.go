@@ -185,8 +185,6 @@ func testEncodeResponsePool(t *testing.T, message wrp.Message, responseFormat, p
 		Contents: contents,
 	}
 
-	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
-
 	assert.NoError(EncodeResponse(httpResponse, deviceResponse, pool))
 	assert.Equal(http.StatusOK, httpResponse.Code)
 	assert.Equal(poolFormat.ContentType(), httpResponse.HeaderMap.Get("Content-Type"))
@@ -214,8 +212,6 @@ func testEncodeResponsePoolAndNoContents(t *testing.T, format wrp.Format) {
 		httpResponse = httptest.NewRecorder()
 	)
 
-	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
-
 	assert.NoError(EncodeResponse(httpResponse, deviceResponse, pool))
 	assert.Equal(http.StatusInternalServerError, httpResponse.Code)
 	assert.Equal("application/json", httpResponse.HeaderMap.Get("Content-Type"))
@@ -235,8 +231,6 @@ func testEncodeResponseNoPool(t *testing.T, message wrp.Message, format wrp.Form
 		device       = new(mockDevice)
 		httpResponse = httptest.NewRecorder()
 	)
-
-	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	require.NoError(encoders.EncodeBytes(&contents, &message))
 	deviceResponse := &Response{
@@ -267,8 +261,6 @@ func testEncodeResponseNoPoolAndNoContents(t *testing.T) {
 
 		httpResponse = httptest.NewRecorder()
 	)
-
-	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	assert.NoError(EncodeResponse(httpResponse, deviceResponse, nil))
 	assert.Equal(http.StatusInternalServerError, httpResponse.Code)

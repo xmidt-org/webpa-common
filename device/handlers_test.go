@@ -414,8 +414,6 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		}
 	)
 
-	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
-
 	router.On(
 		"Route",
 		mock.MatchedBy(func(candidate *Request) bool {
@@ -485,8 +483,6 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 			Format:  wrp.Msgpack,
 		}
 	)
-
-	device.On("SetConveyHeader", mock.AnythingOfType("http.Header")).Once()
 
 	router.On(
 		"Route",
