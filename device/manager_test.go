@@ -64,7 +64,7 @@ func connectTestDevices(t *testing.T, assert *assert.Assertions, dialer Dialer, 
 	for id, connectionCount := range testDeviceIDs {
 		connections := make([]Connection, 0, connectionCount)
 		for repeat := 0; repeat < connectionCount; repeat++ {
-			deviceConnection, response, err := dialer.Dial(connectURL, id, nil, nil)
+			deviceConnection, response, err := dialer.Dial(connectURL, id, nil)
 			if assert.NotNil(deviceConnection) && assert.NotNil(response) && assert.NoError(err) {
 				connections = append(connections, deviceConnection)
 			} else {
@@ -100,46 +100,6 @@ func testManagerConnectMissingDeviceContext(t *testing.T) {
 	assert.Nil(device)
 	assert.Error(err)
 	assert.Equal(response.Code, http.StatusInternalServerError)
-}
-
-func testManagerConnectBadConveyHeader(t *testing.T) {
-	assert := assert.New(t)
-	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
-	}
-
-	manager := NewManager(options, nil)
-	response := httptest.NewRecorder()
-	request := WithIDRequest(ID("mac:112233445566"), httptest.NewRequest("POST", "http://localhost.com", nil))
-	request.Header.Set(ConveyHeader, "this is not valid")
-
-	device, err := manager.Connect(response, request, nil)
-	assert.Nil(device)
-	assert.Error(err)
-	assert.Equal(response.Code, http.StatusBadRequest)
-}
-
-func testManagerConnectKeyError(t *testing.T) {
-	var (
-		assert     = assert.New(t)
-		badKeyFunc = func(ID, Convey, *http.Request) (Key, error) {
-			return invalidKey, errors.New("expected")
-		}
-
-		options = &Options{
-			Logger:  logging.NewTestLogger(nil, t),
-			KeyFunc: badKeyFunc,
-		}
-
-		manager  = NewManager(options, nil)
-		response = httptest.NewRecorder()
-		request  = WithIDRequest(ID("mac:112233445566"), httptest.NewRequest("POST", "http://localhost.com", nil))
-	)
-
-	device, err := manager.Connect(response, request, nil)
-	assert.Nil(device)
-	assert.Error(err)
-	assert.Equal(response.Code, http.StatusBadRequest)
 }
 
 func testManagerConnectConnectionFactoryError(t *testing.T) {
@@ -246,7 +206,7 @@ func testManagerConnectVisit(t *testing.T) {
 
 func testManagerPongCallbackFor(t *testing.T) {
 	assert := assert.New(t)
-	expectedDevice := newDevice(ID("ponged device"), Key("expected"), nil, "", 1, logging.NewTestLogger(nil, t))
+	expectedDevice := newDevice(ID("ponged device"), 1, logging.NewTestLogger(nil, t))
 	expectedData := "expected pong data"
 	listenerCalled := false
 
@@ -311,60 +271,6 @@ func testManagerDisconnect(t *testing.T) {
 	deviceSet := make(deviceSet)
 	deviceSet.drain(disconnections)
 	assert.Equal(testConnectionCount, deviceSet.len())
-}
-
-func testManagerDisconnectOne(t *testing.T) {
-	assert := assert.New(t)
-	connectWait := new(sync.WaitGroup)
-	connectWait.Add(testConnectionCount)
-	disconnections := make(chan Interface, testConnectionCount)
-
-	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
-		Listeners: []Listener{
-			func(event *Event) {
-				switch event.Type {
-				case Connect:
-					connectWait.Done()
-				case Disconnect:
-					assert.True(event.Device.Closed())
-					disconnections <- event.Device
-				}
-			},
-		},
-	}
-
-	manager, server, connectURL := startWebsocketServer(options)
-	defer server.Close()
-
-	dialer := NewDialer(options, nil)
-	testDevices := connectTestDevices(t, assert, dialer, connectURL)
-	defer closeTestDevices(assert, testDevices)
-
-	connectWait.Wait()
-	deviceSet := make(deviceSet)
-	manager.VisitAll(deviceSet.managerCapture())
-	assert.Equal(testConnectionCount, deviceSet.len())
-
-	assert.Zero(manager.DisconnectOne(Key("nosuch")))
-	select {
-	case <-disconnections:
-		assert.Fail("No disconnections should have occurred")
-	default:
-		// the passing case
-	}
-
-	for expected, _ := range deviceSet {
-		assert.Equal(1, manager.DisconnectOne(expected.Key()))
-
-		select {
-		case actual := <-disconnections:
-			assert.Equal(expected.Key(), actual.Key())
-			assert.True(actual.Closed())
-		case <-time.After(10 * time.Second):
-			assert.Fail("No disconnection occurred within the timeout")
-		}
-	}
 }
 
 func testManagerDisconnectIf(t *testing.T) {
@@ -472,8 +378,8 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 		}
 
 		logger  = logging.NewTestLogger(nil, t)
-		device1 = newDevice(ID("mac:112233445566"), Key("123"), nil, "", 1, logger)
-		device2 = newDevice(ID("mac:112233445566"), Key("234"), nil, "", 1, logger)
+		device1 = newDevice(ID("mac:112233445566"), 1, logger)
+		device2 = newDevice(ID("mac:112233445566"), 1, logger)
 
 		connectionFactory = new(mockConnectionFactory)
 		manager           = NewManager(nil, connectionFactory).(*manager)
@@ -557,8 +463,6 @@ func testManagerPingPong(t *testing.T) {
 func TestManager(t *testing.T) {
 	t.Run("Connect", func(t *testing.T) {
 		t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
-		t.Run("BadConveyHeader", testManagerConnectBadConveyHeader)
-		t.Run("KeyError", testManagerConnectKeyError)
 		t.Run("ConnectionFactoryError", testManagerConnectConnectionFactoryError)
 		t.Run("Visit", testManagerConnectVisit)
 	})
@@ -570,7 +474,6 @@ func TestManager(t *testing.T) {
 	})
 
 	t.Run("Disconnect", testManagerDisconnect)
-	t.Run("DisconnectOne", testManagerDisconnectOne)
 	t.Run("DisconnectIf", testManagerDisconnectIf)
 
 	t.Run("PongCallbackFor", testManagerPongCallbackFor)

@@ -3,7 +3,7 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"net/http"
+	"io"
 	"sync/atomic"
 	"time"
 
@@ -14,10 +14,6 @@ import (
 const (
 	stateOpen int32 = iota
 	stateClosed
-)
-
-var (
-	nullConvey = []byte("null")
 )
 
 // envelope is a tuple of a device Request and a send-only channel for errors.
@@ -57,20 +53,6 @@ type Interface interface {
 	// but we don't want to turn away duped devices.
 	ID() ID
 
-	// Key returns the current unique key for this device.
-	Key() Key
-
-	// Convey returns the payload to convey with each web-bound request
-	Convey() Convey
-
-	// EncodedConvey returns the exact value of the convey header sent at the time
-	// this device connected to the manager
-	EncodedConvey() string
-
-	// SetConveyHeader sets the appropriate header if this device has any associated convey data.
-	// If this device has no convey data, this method does nothing.
-	SetConveyHeader(http.Header)
-
 	// Pending returns the count of pending messages for this device
 	Pending() int
 
@@ -95,20 +77,19 @@ type Interface interface {
 
 	// Statistics returns the current, tracked Statistics instance for this device
 	Statistics() Statistics
+
+	// MarshalJSONTo writes a JSON representation to the given output io.Writer
+	MarshalJSONTo(io.Writer) (int, error)
 }
 
 // device is the internal Interface implementation.  This type holds the internal
 // metadata exposed publicly, and provides some internal data structures for housekeeping.
 type device struct {
-	id  ID
-	key atomic.Value
+	id ID
 
 	errorLog log.Logger
 	infoLog  log.Logger
 	debugLog log.Logger
-
-	convey        Convey
-	encodedConvey string
 
 	statistics Statistics
 
@@ -120,48 +101,33 @@ type device struct {
 }
 
 // newDevice is an internal factory function for devices
-func newDevice(id ID, initialKey Key, convey Convey, encodedConvey string, queueSize int, logger log.Logger) *device {
-	d := &device{
-		id:            id,
-		convey:        convey,
-		errorLog:      logging.Error(logger, "id", id),
-		infoLog:       logging.Info(logger, "id", id),
-		debugLog:      logging.Debug(logger, "id", id),
-		encodedConvey: encodedConvey,
-		statistics:    NewStatistics(time.Now().UTC()),
-		state:         stateOpen,
-		shutdown:      make(chan struct{}),
-		messages:      make(chan *envelope, queueSize),
-		transactions:  NewTransactions(),
+func newDevice(id ID, queueSize int, logger log.Logger) *device {
+	return &device{
+		id:           id,
+		errorLog:     logging.Error(logger, "id", id),
+		infoLog:      logging.Info(logger, "id", id),
+		debugLog:     logging.Debug(logger, "id", id),
+		statistics:   NewStatistics(time.Now().UTC()),
+		state:        stateOpen,
+		shutdown:     make(chan struct{}),
+		messages:     make(chan *envelope, queueSize),
+		transactions: NewTransactions(),
 	}
-
-	d.updateKey(initialKey)
-	return d
 }
 
-// MarshalJSON exposes public metadata about this device as JSON.  This
-// method will always return a nil error and produce valid JSON.
-func (d *device) MarshalJSON() ([]byte, error) {
-	conveyJSON := nullConvey
-	if d.convey != nil {
-		if decoded, conveyError := EncodeConvey(d.convey, nil); conveyError != nil {
-			// just dump the error text into the convey property,
-			// so at least it can be viewed
-			conveyJSON = []byte(fmt.Sprintf(`"%s"`, decoded))
-		}
-	}
-
-	output := new(bytes.Buffer)
-	fmt.Fprintf(
+func (d *device) MarshalJSONTo(output io.Writer) (int, error) {
+	return fmt.Fprintf(
 		output,
-		`{"id": "%s", "key": "%s", "closed": %t, "convey": %s}`,
+		`{"id": "%s", "closed": %t}`,
 		d.id,
-		d.Key(),
 		d.Closed(),
-		conveyJSON,
 	)
+}
 
-	return output.Bytes(), nil
+func (d *device) MarshalJSON() ([]byte, error) {
+	var output bytes.Buffer
+	_, err := d.MarshalJSONTo(&output)
+	return output.Bytes(), err
 }
 
 // String returns the JSON representation of this device
@@ -178,28 +144,6 @@ func (d *device) requestClose() {
 
 func (d *device) ID() ID {
 	return d.id
-}
-
-func (d *device) Key() Key {
-	return d.key.Load().(Key)
-}
-
-func (d *device) updateKey(newKey Key) {
-	d.key.Store(newKey)
-}
-
-func (d *device) Convey() Convey {
-	return d.convey
-}
-
-func (d *device) EncodedConvey() string {
-	return d.encodedConvey
-}
-
-func (d *device) SetConveyHeader(header http.Header) {
-	if len(d.encodedConvey) > 0 {
-		header.Set(ConveyHeader, d.encodedConvey)
-	}
 }
 
 func (d *device) Pending() int {

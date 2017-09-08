@@ -84,10 +84,6 @@ type Options struct {
 	// Listeners contains the event sinks for managers created using these options
 	Listeners []Listener
 
-	// KeyFunc is the factory function for Keys, used when devices connect.
-	// If this value is nil, then UUIDKeyFunc is used along with crypto/rand's Reader.
-	KeyFunc KeyFunc
-
 	// Logger is the output sink for log messages.  If not supplied, log output
 	// is sent to a NOP logger.
 	Logger log.Logger
@@ -196,14 +192,6 @@ func (o *Options) subprotocols() (subprotocols []string) {
 	}
 
 	return
-}
-
-func (o *Options) keyFunc() KeyFunc {
-	if o != nil && o.KeyFunc != nil {
-		return o.KeyFunc
-	}
-
-	return UUIDKeyFunc(nil, nil)
 }
 
 func (o *Options) logger() log.Logger {

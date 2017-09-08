@@ -42,11 +42,6 @@ type Connector interface {
 	// the same ID, and this method disconnects all duplicate devices associated with that ID.
 	Disconnect(ID) int
 
-	// DisconnectOne disconnects the single device associated with the given Key.  This method
-	// returns the count of devices disconnected, which will be zero (0) if no device existed
-	// or one (1) if there was a device with that key.
-	DisconnectOne(Key) int
-
 	// DisconnectIf iterates over all devices known to this manager, applying the
 	// given predicate.  For any devices that result in true, this method disconnects them.
 	// Note that this method may pause connections and disconnections while it is executing.
@@ -109,7 +104,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		debugLog: logging.Debug(logger),
 
 		connectionFactory:      cf,
-		keyFunc:                o.keyFunc(),
 		registry:               newRegistry(o.initialCapacity()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
@@ -128,7 +122,6 @@ type manager struct {
 	debugLog log.Logger
 
 	connectionFactory ConnectionFactory
-	keyFunc           KeyFunc
 
 	registry *registry
 
@@ -152,44 +145,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	var (
-		encodedConvey = request.Header.Get(ConveyHeader)
-		convey        Convey
-		err           error
-	)
-
-	if len(encodedConvey) > 0 {
-		convey, err = ParseConvey(encodedConvey, nil)
-		if err != nil {
-			badConveyError := fmt.Errorf("Bad convey value [%s]: %s", encodedConvey, err)
-			httperror.Format(
-				response,
-				http.StatusBadRequest,
-				badConveyError,
-			)
-
-			return nil, badConveyError
-		}
-	}
-
-	var initialKey Key
-	if initialKey, err = m.keyFunc(id, convey, request); err != nil {
-		keyError := fmt.Errorf("Unable to obtain key for device [%s]: %s", id, err)
-		httperror.Format(
-			response,
-			http.StatusBadRequest,
-			keyError,
-		)
-
-		return nil, keyError
-	}
-
 	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
 	if err != nil {
 		return nil, err
 	}
 
-	d := newDevice(id, initialKey, convey, encodedConvey, m.deviceMessageQueueSize, m.logger)
+	d := newDevice(id, m.deviceMessageQueueSize, m.logger)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
@@ -441,16 +402,6 @@ func (m *manager) Disconnect(id ID) int {
 	}
 
 	return len(removedDevices)
-}
-
-func (m *manager) DisconnectOne(key Key) int {
-	removedDevice := m.registry.removeKey(key)
-	if removedDevice != nil {
-		removedDevice.requestClose()
-		return 1
-	}
-
-	return 0
 }
 
 func (m *manager) DisconnectIf(filter func(ID) bool) int {

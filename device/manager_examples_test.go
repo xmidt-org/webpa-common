@@ -84,7 +84,6 @@ func ExampleManagerTransaction() {
 			websocketURL,
 			"mac:111122223333",
 			nil,
-			nil,
 		)
 	)
 

@@ -3,7 +3,6 @@ package device
 import (
 	"context"
 	"encoding/json"
-	"net/http"
 	"testing"
 	"time"
 
@@ -20,37 +19,22 @@ func TestDevice(t *testing.T) {
 
 		testData = []struct {
 			expectedID        ID
-			initialKey        Key
-			updatedKey        Key
-			expectedConvey    Convey
 			expectedQueueSize int
 		}{
 			{
 				ID("ID 1"),
-				Key("initial Key 1"),
-				Key("updated Key 1"),
-				nil,
 				50,
 			},
 			{
 				ID("ID 2"),
-				Key("initial Key 2"),
-				Key("updated Key 2"),
-				Convey{"foo": "bar"},
 				27,
 			},
 			{
 				ID("ID 3"),
-				Key("initial Key 3"),
-				Key("updated Key 3"),
-				Convey{"count": 12, "nested": map[string]interface{}{"foo": "bar"}},
 				137,
 			},
 			{
 				ID("ID 4"),
-				Key("initial Key 4"),
-				Key("updated Key 4"),
-				Convey{"bad convey": map[interface{}]interface{}{"foo": "bar"}},
 				2,
 			},
 		}
@@ -60,15 +44,11 @@ func TestDevice(t *testing.T) {
 		t.Logf("%v", record)
 
 		var (
-			ctx, cancel           = context.WithCancel(context.Background())
-			testMessage           = new(wrp.Message)
-			minimumConnectedAt    = time.Now()
-			expectedEncodedConvey = MustEncodeConvey(record.expectedConvey, nil)
-			device                = newDevice(
+			ctx, cancel        = context.WithCancel(context.Background())
+			testMessage        = new(wrp.Message)
+			minimumConnectedAt = time.Now()
+			device             = newDevice(
 				record.expectedID,
-				record.initialKey,
-				record.expectedConvey,
-				expectedEncodedConvey,
 				record.expectedQueueSize,
 				logging.NewTestLogger(nil, t),
 			)
@@ -82,24 +62,13 @@ func TestDevice(t *testing.T) {
 
 		t.Log("initial state")
 		assert.Equal(record.expectedID, device.ID())
-		assert.Equal(record.initialKey, device.Key())
-		assert.Equal(record.expectedConvey, device.Convey())
-		assert.Equal(expectedEncodedConvey, device.EncodedConvey())
 		assert.False(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())
 		}
 
-		t.Log("Convey header")
-		header := make(http.Header)
-		device.SetConveyHeader(header)
-		assert.Equal(expectedEncodedConvey, header.Get(ConveyHeader))
-
 		t.Log("updateKey should hold other state immutable")
-		device.updateKey(record.updatedKey)
 		assert.Equal(record.expectedID, device.ID())
-		assert.Equal(record.updatedKey, device.Key())
-		assert.Equal(record.expectedConvey, device.Convey())
 		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
 		assert.False(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
@@ -124,8 +93,6 @@ func TestDevice(t *testing.T) {
 
 		t.Log("closed state")
 		assert.Equal(record.expectedID, device.ID())
-		assert.Equal(record.updatedKey, device.Key())
-		assert.Equal(record.expectedConvey, device.Convey())
 		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
 		if data, err := json.Marshal(device); assert.Nil(err) {
 			assert.JSONEq(string(data), device.String())

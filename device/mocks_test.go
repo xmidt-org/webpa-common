@@ -1,6 +1,7 @@
 package device
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/stretchr/testify/assert"
@@ -24,24 +25,13 @@ func (m *mockDevice) String() string {
 	return m.Called().String(0)
 }
 
+func (m *mockDevice) MarshalJSONTo(output io.Writer) (int, error) {
+	arguments := m.Called(output)
+	return arguments.Int(0), arguments.Error(1)
+}
+
 func (m *mockDevice) ID() ID {
 	return m.Called().Get(0).(ID)
-}
-
-func (m *mockDevice) Key() Key {
-	return m.Called().Get(0).(Key)
-}
-
-func (m *mockDevice) Convey() Convey {
-	return m.Called().Get(0).(Convey)
-}
-
-func (m *mockDevice) EncodedConvey() string {
-	return m.Called().String(0)
-}
-
-func (m *mockDevice) SetConveyHeader(header http.Header) {
-	m.Called(header)
 }
 
 func (m *mockDevice) Pending() int {
@@ -161,10 +151,6 @@ func (m *mockConnector) Connect(response http.ResponseWriter, request *http.Requ
 }
 
 func (m *mockConnector) Disconnect(id ID) int {
-	return m.Called().Int(0)
-}
-
-func (m *mockConnector) DisconnectOne(key Key) int {
 	return m.Called().Int(0)
 }
 
