@@ -11,6 +11,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 )
 
@@ -274,6 +275,7 @@ func (lh *ListHandler) getJSON() []byte {
 }
 
 func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	lh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "ServeHTTP")
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(lh.getJSON())
 }

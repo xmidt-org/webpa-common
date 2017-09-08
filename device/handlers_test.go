@@ -592,7 +592,98 @@ func TestConnectHandler(t *testing.T) {
 	})
 }
 
+func testListHandlerRefresh(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		handler = ListHandler{
+			Logger: logging.NewTestLogger(nil, t),
+		}
+	)
+
+	assert.Equal(DefaultListRefresh, handler.refresh())
+
+	handler.Refresh = 67 * time.Minute
+	assert.Equal(67*time.Minute, handler.refresh())
+}
+
+func testListHandlerServeHTTP(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		registry = new(mockRegistry)
+
+		handler = ListHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+		}
+	)
+
+	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).Return(0).Once()
+	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).
+		Run(func(arguments mock.Arguments) {
+			visitor := arguments.Get(0).(func(Interface))
+			visitor(newDevice(ID("first"), 1, nil))
+			visitor(newDevice(ID("second"), 1, nil))
+		}).
+		Return(0).Once()
+
+	{
+		var (
+			request  = httptest.NewRequest("GET", "/", nil)
+			response = httptest.NewRecorder()
+		)
+
+		handler.ServeHTTP(response, request)
+		assert.Equal(http.StatusOK, response.Code)
+
+		data, err := ioutil.ReadAll(response.Body)
+		require.NoError(err)
+		assert.JSONEq(`{"devices":[]}`, string(data))
+
+		cacheDuration := handler.cacheExpiry.Sub(time.Now())
+		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
+	}
+
+	{
+		var (
+			request  = httptest.NewRequest("GET", "/", nil)
+			response = httptest.NewRecorder()
+		)
+
+		handler.cacheExpiry = time.Time{}
+		handler.ServeHTTP(response, request)
+		assert.Equal(http.StatusOK, response.Code)
+
+		data, err := ioutil.ReadAll(response.Body)
+		require.NoError(err)
+		assert.JSONEq(`{"devices":[{"id": "first", "closed": false},{"id": "second", "closed": false}]}`, string(data))
+
+		cacheDuration := handler.cacheExpiry.Sub(time.Now())
+		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
+	}
+
+	{
+		var (
+			request  = httptest.NewRequest("GET", "/", nil)
+			response = httptest.NewRecorder()
+		)
+
+		// this should yield the cached bytes
+		handler.ServeHTTP(response, request)
+		assert.Equal(http.StatusOK, response.Code)
+
+		data, err := ioutil.ReadAll(response.Body)
+		require.NoError(err)
+		assert.JSONEq(`{"devices":[{"id": "first", "closed": false},{"id": "second", "closed": false}]}`, string(data))
+
+		cacheDuration := handler.cacheExpiry.Sub(time.Now())
+		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
+	}
+
+	registry.AssertExpectations(t)
+}
+
 func TestListHandler(t *testing.T) {
-	t.Run("ServeHTTP", func(t *testing.T) {
-	})
+	t.Run("Refresh", testListHandlerRefresh)
+	t.Run("ServeHTTP", testListHandlerServeHTTP)
 }
