@@ -1,6 +1,7 @@
 package device
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/stretchr/testify/assert"
@@ -24,24 +25,13 @@ func (m *mockDevice) String() string {
 	return m.Called().String(0)
 }
 
+func (m *mockDevice) MarshalJSONTo(output io.Writer) (int, error) {
+	arguments := m.Called(output)
+	return arguments.Int(0), arguments.Error(1)
+}
+
 func (m *mockDevice) ID() ID {
 	return m.Called().Get(0).(ID)
-}
-
-func (m *mockDevice) Key() Key {
-	return m.Called().Get(0).(Key)
-}
-
-func (m *mockDevice) Convey() Convey {
-	return m.Called().Get(0).(Convey)
-}
-
-func (m *mockDevice) EncodedConvey() string {
-	return m.Called().String(0)
-}
-
-func (m *mockDevice) SetConveyHeader(header http.Header) {
-	m.Called(header)
 }
 
 func (m *mockDevice) Pending() int {
@@ -164,10 +154,23 @@ func (m *mockConnector) Disconnect(id ID) int {
 	return m.Called().Int(0)
 }
 
-func (m *mockConnector) DisconnectOne(key Key) int {
-	return m.Called().Int(0)
-}
-
 func (m *mockConnector) DisconnectIf(predicate func(ID) bool) int {
 	return m.Called(predicate).Int(0)
+}
+
+type mockRegistry struct {
+	mock.Mock
+}
+
+func (m *mockRegistry) Statistics(id ID) (Statistics, error) {
+	arguments := m.Called(id)
+	return arguments.Get(0).(Statistics), arguments.Error(1)
+}
+
+func (m *mockRegistry) VisitIf(predicate func(ID) bool, visitor func(Interface)) int {
+	return m.Called(predicate, visitor).Int(0)
+}
+
+func (m *mockRegistry) VisitAll(visitor func(Interface)) int {
+	return m.Called(visitor).Int(0)
 }

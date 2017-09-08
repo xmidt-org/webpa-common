@@ -9,30 +9,21 @@ import (
 
 var (
 	nosuchID     = ID("nosuch ID")
-	nosuchKey    = Key("nosuch key")
-	nosuchDevice = newDevice(nosuchID, nosuchKey, nil, "", 1, logging.DefaultLogger())
+	nosuchDevice = newDevice(nosuchID, 1, logging.DefaultLogger())
 
 	singleID     = ID("single")
-	singleKey    = Key("single key")
-	singleDevice = newDevice(singleID, singleKey, nil, "", 1, logging.DefaultLogger())
+	singleDevice = newDevice(singleID, 1, logging.DefaultLogger())
 
 	doubleID      = ID("double")
-	doubleKey1    = Key("double key 1")
-	doubleDevice1 = newDevice(doubleID, doubleKey1, nil, "", 1, logging.DefaultLogger())
-	doubleKey2    = Key("double key 2")
-	doubleDevice2 = newDevice(doubleID, doubleKey2, nil, "", 1, logging.DefaultLogger())
+	doubleDevice1 = newDevice(doubleID, 1, logging.DefaultLogger())
+	doubleDevice2 = newDevice(doubleID, 1, logging.DefaultLogger())
 
 	manyID      = ID("many")
-	manyKey1    = Key("many key 1")
-	manyDevice1 = newDevice(manyID, manyKey1, nil, "", 1, logging.DefaultLogger())
-	manyKey2    = Key("many key 2")
-	manyDevice2 = newDevice(manyID, manyKey2, nil, "", 1, logging.DefaultLogger())
-	manyKey3    = Key("many key 3")
-	manyDevice3 = newDevice(manyID, manyKey3, nil, "", 1, logging.DefaultLogger())
-	manyKey4    = Key("many key 4")
-	manyDevice4 = newDevice(manyID, manyKey4, nil, "", 1, logging.DefaultLogger())
-	manyKey5    = Key("many key 5")
-	manyDevice5 = newDevice(manyID, manyKey5, nil, "", 1, logging.DefaultLogger())
+	manyDevice1 = newDevice(manyID, 1, logging.DefaultLogger())
+	manyDevice2 = newDevice(manyID, 1, logging.DefaultLogger())
+	manyDevice3 = newDevice(manyID, 1, logging.DefaultLogger())
+	manyDevice4 = newDevice(manyID, 1, logging.DefaultLogger())
+	manyDevice5 = newDevice(manyID, 1, logging.DefaultLogger())
 )
 
 func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
@@ -57,14 +48,9 @@ func TestRegistryDuplicateDevice(t *testing.T) {
 	assert := assert.New(t)
 	registry := testRegistry(t, assert)
 
-	duplicateDevice := newDevice(ID("duplicate device"), Key("key # 1"), nil, "", 1, logging.DefaultLogger())
+	duplicateDevice := newDevice(ID("duplicate device"), 1, logging.DefaultLogger())
 	assert.Nil(registry.add(duplicateDevice))
-	duplicateDevice.updateKey(Key("key #2"))
 	assert.Equal(ErrorDuplicateDevice, registry.add(duplicateDevice))
-
-	// ensure no deadlock
-	registry.Lock()
-	registry.Unlock()
 }
 
 func TestRegistryVisitID(t *testing.T) {
@@ -87,35 +73,6 @@ func TestRegistryVisitID(t *testing.T) {
 		assert.Equal(
 			len(record.expectVisited),
 			registry.visitID(record.expectedID, actualVisited.registryCapture()),
-		)
-
-		assert.Equal(record.expectVisited, actualVisited)
-	}
-}
-
-func TestRegistryVisitKey(t *testing.T) {
-	assert := assert.New(t)
-	testData := []struct {
-		expectedKey   Key
-		expectVisited deviceSet
-	}{
-		{nosuchKey, expectsDevices()},
-		{singleKey, expectsDevices(singleDevice)},
-		{doubleKey1, expectsDevices(doubleDevice1)},
-		{doubleKey2, expectsDevices(doubleDevice2)},
-		{manyKey1, expectsDevices(manyDevice1)},
-		{manyKey3, expectsDevices(manyDevice3)},
-		{manyKey5, expectsDevices(manyDevice5)},
-	}
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		registry := testRegistry(t, assert)
-		actualVisited := deviceSet{}
-
-		assert.Equal(
-			len(record.expectVisited),
-			registry.visitKey(record.expectedKey, actualVisited.registryCapture()),
 		)
 
 		assert.Equal(record.expectVisited, actualVisited)
@@ -157,62 +114,6 @@ func TestRegistryVisitAll(t *testing.T) {
 	actualVisited := deviceSet{}
 	assert.Equal(len(expectVisited), registry.visitAll(actualVisited.registryCapture()))
 	assert.Equal(expectVisited, actualVisited)
-}
-
-func TestRegistryAddDuplicateKey(t *testing.T) {
-	assert := assert.New(t)
-	registry := testRegistry(t, assert)
-	duplicate := newDevice(singleID, singleKey, nil, "", 1, logging.DefaultLogger())
-	assert.Equal(ErrorDuplicateKey, registry.add(duplicate))
-}
-
-func TestRegistryRemoveOne(t *testing.T) {
-	assert := assert.New(t)
-	testData := []struct {
-		deviceToRemove *device
-		expectRemove   bool
-		expectVisitID  deviceSet
-		expectVisitAll deviceSet
-	}{
-		{
-			nosuchDevice,
-			false,
-			expectsDevices(),
-			expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-		},
-		{
-			singleDevice,
-			true,
-			expectsDevices(),
-			expectsDevices(doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-		},
-		{
-			doubleDevice1,
-			true,
-			expectsDevices(doubleDevice2),
-			expectsDevices(singleDevice, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-		},
-		{
-			manyDevice4,
-			true,
-			expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice5),
-			expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice5),
-		},
-	}
-
-	for _, record := range testData {
-		t.Logf("%v", record)
-		registry := testRegistry(t, assert)
-		assert.Equal(record.expectRemove, registry.removeKey(record.deviceToRemove.Key()) != nil)
-
-		actualVisitID := make(deviceSet)
-		registry.visitID(record.deviceToRemove.id, actualVisitID.registryCapture())
-		assert.Equal(record.expectVisitID, actualVisitID)
-
-		actualVisitAll := make(deviceSet)
-		registry.visitAll(actualVisitAll.registryCapture())
-		assert.Equal(record.expectVisitAll, actualVisitAll)
-	}
 }
 
 func TestRegistryRemoveAll(t *testing.T) {

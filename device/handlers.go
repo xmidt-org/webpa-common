@@ -4,22 +4,20 @@ import (
 	"bytes"
 	"context"
 	"net/http"
-	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 )
 
 const (
-	DefaultMessageTimeout  time.Duration = 2 * time.Minute
-	DefaultRefreshInterval time.Duration = 10 * time.Second
-	DefaultListBacklog     uint32        = 150
+	DefaultMessageTimeout time.Duration = 2 * time.Minute
+	DefaultListRefresh    time.Duration = 10 * time.Second
 )
 
 // Timeout returns an Alice-style constructor which enforces a timeout for all device request contexts.
@@ -212,169 +210,72 @@ func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	}
 }
 
-// ConnectedDeviceListener listens for connection and disconnection events and produces
-// a JSON document containing information about connected devices.  It produces this document
-// on a certain interval.
-type ConnectedDeviceListener struct {
-	// RefreshInterval is the time interval at which the cached JSON device list is updated.
-	// If this field is nonpositive, DefaultRefreshInterval is used.
-	RefreshInterval time.Duration
-
-	// Tick is a factory function that produces a ticker channel and a stop function.
-	// If not set, time.Ticker is used and the stop function is ticker.Stop.
-	Tick func(time.Duration) (<-chan time.Time, func())
-
-	lock           sync.Mutex
-	initializeOnce sync.Once
-	devices        map[Key][]byte
-	changeCount    uint32
-	updates        chan []byte
-	shutdown       chan struct{}
-}
-
-func (l *ConnectedDeviceListener) refreshInterval() time.Duration {
-	if l.RefreshInterval > 0 {
-		return l.RefreshInterval
-	}
-
-	return DefaultRefreshInterval
-}
-
-// newTick returns a ticker channel and a stop function for cleanup.  If tick is set,
-// that function is used.  Otherwise, a time.Ticker is created and (ticker.C, ticker.Stop) is returned.
-func (l *ConnectedDeviceListener) newTick() (<-chan time.Time, func()) {
-	refreshInterval := l.refreshInterval()
-	if l.Tick != nil {
-		return l.Tick(refreshInterval)
-	}
-
-	ticker := time.NewTicker(refreshInterval)
-	return ticker.C, ticker.Stop
-}
-
-func (l *ConnectedDeviceListener) onDeviceEvent(e *Event) {
-	switch e.Type {
-	case Connect:
-		l.lock.Lock()
-		defer l.lock.Unlock()
-		l.changeCount++
-		l.devices[e.Device.Key()] = []byte(e.Device.String())
-	case Disconnect:
-		l.lock.Lock()
-		defer l.lock.Unlock()
-		l.changeCount++
-		delete(l.devices, e.Device.Key())
-	}
-}
-
-func (l *ConnectedDeviceListener) refresh() {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	if l.changeCount > 0 {
-		l.changeCount = 0
-
-		var (
-			output     = bytes.NewBufferString(`{"devices":[`)
-			needsComma bool
-			comma      = []byte(`,`)
-		)
-
-		for _, deviceJSON := range l.devices {
-			if needsComma {
-				output.Write(comma)
-			}
-
-			output.Write(deviceJSON)
-			needsComma = true
-		}
-
-		output.WriteString(`]}`)
-		l.updates <- output.Bytes()
-	}
-}
-
-// Stop stops updates coming from this listener.
-func (l *ConnectedDeviceListener) Stop() {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	if l.shutdown != nil {
-		close(l.shutdown)
-		close(l.updates)
-
-		l.shutdown = nil
-		l.updates = nil
-	}
-}
-
-// Listen starts listening for changes to the set of connected devices.  The returned Listener may
-// be placed into an Options.  This method is idempotent, and may be called to restart this handler
-// after Stop is called.  If this method is called multiple times without calling Stop, it simply
-// returns the same Listener and output channel.
-//
-// The returned channel will received updated JSON device list documents.  This channel can be
-// used with ListHandler.Consume.
-func (l *ConnectedDeviceListener) Listen() (Listener, <-chan []byte) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	l.initializeOnce.Do(func() {
-		l.devices = make(map[Key][]byte, 1000)
-	})
-
-	if l.shutdown == nil {
-		l.shutdown = make(chan struct{})
-		l.updates = make(chan []byte, 1)
-
-		// spawn the monitor goroutine
-		go func(shutdown <-chan struct{}) {
-			refreshC, refreshStop := l.newTick()
-			defer refreshStop()
-
-			for {
-				select {
-				case <-shutdown:
-					return
-				case <-refreshC:
-					l.refresh()
-				}
-			}
-		}(l.shutdown)
-	}
-
-	return l.onDeviceEvent, l.updates
-}
-
 // ListHandler is an HTTP handler which can take updated JSON device lists.
 type ListHandler struct {
-	initializeOnce sync.Once
-	cachedJSON     atomic.Value
+	Logger   log.Logger
+	Registry Registry
+	Refresh  time.Duration
+
+	lock        sync.RWMutex
+	cacheExpiry time.Time
+	cache       bytes.Buffer
+	cacheBytes  []byte
 }
 
-// Consume spawns a goroutine that processes updated JSON from the given channel.
-// This method can be called multiple times with different update sources.  Typically,
-// this method is called once to consume updates from a ConnectedDeviceListener.
-func (lh *ListHandler) Consume(updates <-chan []byte) {
-	lh.initializeOnce.Do(func() {
-		lh.cachedJSON.Store([]byte(`{"devices":[]}`))
-	})
-
-	go func() {
-		for updatedJson := range updates {
-			lh.cachedJSON.Store(updatedJson)
-		}
-	}()
-}
-
-// ServeHTTP emits the cached JSON into the response.  If Listen has not been called yet,
-// or if for any reason there is no cached JSON, this handler returns http.StatusServiceUnavailable.
-func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	if jsonResponse, _ := lh.cachedJSON.Load().([]byte); len(jsonResponse) > 0 {
-		response.Header().Set("Content-Type", "application/json")
-		response.Header().Set("Content-Length", strconv.Itoa(len(jsonResponse)))
-		response.Write(jsonResponse)
-	} else {
-		response.WriteHeader(http.StatusServiceUnavailable)
+func (lh *ListHandler) refresh() time.Duration {
+	if lh.Refresh < 1 {
+		return DefaultListRefresh
 	}
+
+	return lh.Refresh
+}
+
+// tryCache returns the currently cache JSON bytes along with a flag indicating expiry.
+// This method returns true if the cached JSON bytes have expired, false otherwise.
+func (lh *ListHandler) tryCache() ([]byte, bool) {
+	defer lh.lock.RUnlock()
+	lh.lock.RLock()
+
+	return lh.cacheBytes, lh.cacheExpiry.Before(time.Now())
+}
+
+func (lh *ListHandler) updateCache() []byte {
+	defer lh.lock.Unlock()
+	lh.lock.Lock()
+
+	if lh.cacheExpiry.Before(time.Now()) {
+		lh.cache.Reset()
+		lh.cache.WriteString(`{"devices":[`)
+
+		needsSeparator := false
+		lh.Registry.VisitAll(func(d Interface) {
+			if needsSeparator {
+				lh.cache.WriteString(`,`)
+			}
+
+			d.MarshalJSONTo(&lh.cache)
+			needsSeparator = true
+		})
+
+		lh.cache.WriteString(`]}`)
+		lh.cacheBytes = lh.cache.Bytes()
+		lh.cacheExpiry = time.Now().Add(lh.refresh())
+	}
+
+	return lh.cacheBytes
+}
+
+func (lh *ListHandler) getJSON() []byte {
+	cacheBytes, expired := lh.tryCache()
+	if !expired {
+		return cacheBytes
+	}
+
+	return lh.updateCache()
+}
+
+func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	lh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "ServeHTTP")
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(lh.getJSON())
 }

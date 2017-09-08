@@ -1,7 +1,6 @@
 package device
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
@@ -27,7 +26,6 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(DefaultReadBufferSize, o.readBufferSize())
 		assert.Equal(DefaultWriteBufferSize, o.writeBufferSize())
 		assert.Empty(o.subprotocols())
-		assert.NotNil(o.keyFunc())
 		assert.NotNil(o.logger())
 		assert.Empty(o.listeners())
 	}
@@ -37,11 +35,6 @@ func TestOptions(t *testing.T) {
 	var (
 		assert         = assert.New(t)
 		expectedLogger = logging.DefaultLogger()
-
-		expectedKey     = Key("TestOptions key")
-		expectedKeyFunc = func(ID, Convey, *http.Request) (Key, error) {
-			return expectedKey, nil
-		}
 
 		o = Options{
 			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
@@ -56,7 +49,6 @@ func TestOptions(t *testing.T) {
 			PingPeriod:             DefaultPingPeriod + 384*time.Millisecond,
 			AuthDelay:              DefaultAuthDelay + 88*time.Millisecond,
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
-			KeyFunc:                expectedKeyFunc,
 			Logger:                 expectedLogger,
 			Listeners:              []Listener{func(*Event) {}},
 		}
@@ -76,11 +68,4 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.Subprotocols, o.subprotocols())
 	assert.Equal(expectedLogger, o.logger())
 	assert.Equal(o.Listeners, o.listeners())
-
-	actualKeyFunc := o.keyFunc()
-	if assert.NotNil(actualKeyFunc) {
-		actualKey, err := actualKeyFunc(ID(""), nil, nil)
-		assert.Equal(expectedKey, actualKey)
-		assert.Nil(err)
-	}
 }
