@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +21,17 @@ import (
 )
 
 const (
+	TEST_SNS_CFG = `{
+	"aws": {
+        "accessKey": "test-accessKey",
+        "secretKey": "test-secretKey",
+        "env": "test",
+        "sns" : {
+	        "region" : "us-east-1",
+            "protocol" : "http",
+			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic", 
+			"urlPath" : "/sns/"
+    } } }`
 	NOTIF_MSG = `{
   "Type" : "Notification",
   "MessageId" : "22b80b92-fdea-4c2c-8f9d-bdfb0c7bf324",
@@ -63,7 +76,7 @@ func SetUpTestViperInstance(config string) *viper.Viper {
 	return v
 }
 
-func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
+func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 
 	v := SetUpTestViperInstance(TEST_AWS_CONFIG)
 
@@ -78,7 +91,8 @@ func SetUpTestSNSServer() (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 	}
 
 	r := mux.NewRouter()
-	ss.Initialize(r, nil, nil, nil, testNow)
+	logger := logging.NewTestLogger(nil, t)
+	ss.Initialize(r, nil, nil, logger, testNow)
 
 	return ss, m, mv, r
 }
@@ -89,7 +103,7 @@ func TestSubscribeSuccess(t *testing.T) {
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 	ss.PrepareAndStart()
@@ -107,7 +121,7 @@ func TestSubscribeError(t *testing.T) {
 
 	assert := assert.New(t)
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{},
 		fmt.Errorf("%s", "InvalidClientTokenId"))
 
@@ -125,7 +139,7 @@ func TestSubscribeError(t *testing.T) {
 func TestUnsubscribeSuccess(t *testing.T) {
 	fmt.Println("\n\nTestUnsubscribeSuccess")
 
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
 
@@ -145,7 +159,7 @@ func TestUnsubscribeSuccess(t *testing.T) {
 func TestUnsubscribeWithSubArn(t *testing.T) {
 	fmt.Println("\n\nTestUnsubscribeSuccess")
 
-	ss, m, _, _ := SetUpTestSNSServer()
+	ss, m, _, _ := SetUpTestSNSServer(t)
 	testSubscribe(t, m, ss)
 
 	expectedInput := &sns.UnsubscribeInput{
@@ -167,7 +181,7 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 	confSubArn := "testRoute"
-	ss, m, mv, r := SetUpTestSNSServer()
+	ss, m, mv, r := SetUpTestSNSServer(t)
 
 	ts := httptest.NewServer(r)
 
@@ -185,6 +199,10 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 	m.On("ConfirmSubscription", mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
 		SubscriptionArn: &confSubArn}, nil)
 
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{}}, nil)
+
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil)
 
 	req.RequestURI = ""
@@ -192,6 +210,8 @@ func TestSetSNSRoutes_SubConf(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	time.Sleep(1 * time.Second)
 
 	m.AssertExpectations(t)
 
@@ -206,7 +226,7 @@ func TestNotificationHandleSuccess(t *testing.T) {
 
 	assert := assert.New(t)
 	pub_msg := "Hello world!"
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -241,7 +261,7 @@ func TestNotificationHandleError_SubArnMismatch(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_SubArnMismatch")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -272,7 +292,7 @@ func TestNotificationHandleError_ReadErr(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_ReadErr")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -304,7 +324,7 @@ func TestNotificationHandleError_MsgEnvMismatch(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_MsgEnvMismatch")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -339,7 +359,7 @@ func TestNotificationHandleError_ValidationErr(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_ValidationErr")
 
 	assert := assert.New(t)
-	ss, m, mv, _ := SetUpTestSNSServer()
+	ss, m, mv, _ := SetUpTestSNSServer(t)
 
 	testSubscribe(t, m, ss)
 	testSubConf(t, m, mv, ss)
@@ -370,4 +390,143 @@ func TestNotificationHandleError_ValidationErr(t *testing.T) {
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
+}
+
+func TestListSubscriptionsByMatchingEndpointSuccess(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	ss, m, _, _ := SetUpTestSNSServer(t)
+
+	sub1 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1503357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test1"),
+	}
+	sub2 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1444357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test2"),
+	}
+	sub3 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1412357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test3"),
+	}
+	sub4 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1563357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test4"),
+	}
+	sub5 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/api/v2/aws/sns"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test5"),
+	}
+
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2, sub3, sub4, sub5}}, nil)
+
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+
+	assert.Nil(err)
+	require.NotNil(unsubList)
+	assert.Equal(3, unsubList.Len())
+	item := unsubList.Front()
+	assert.Equal("test2", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test3", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test5", item.Value.(string))
+
+	m.AssertExpectations(t)
+}
+
+func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	v := SetUpTestViperInstance(TEST_SNS_CFG)
+
+	awsCfg, _ := NewAWSConfig(v)
+	m := &MockSVC{}
+
+	ss := &SNSServer{
+		Config: *awsCfg,
+		SVC:    m,
+	}
+
+	logger := logging.NewTestLogger(nil, t)
+	ss.Initialize(nil, nil, nil, logger, testNow)
+
+	sub1 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1503357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test1"),
+	}
+	sub2 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1444357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test2"),
+	}
+	sub3 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1412357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test3"),
+	}
+	sub4 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/1563357402"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test4"),
+	}
+	sub5 := &sns.Subscription{
+		Endpoint:        aws.String("http://host:port/sns/"),
+		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
+		SubscriptionArn: aws.String("test5"),
+	}
+
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	expectedFirstInput := &sns.ListSubscriptionsByTopicInput{
+		TopicArn: aws.String(ss.Config.Sns.TopicArn),
+	}
+	m.On("ListSubscriptionsByTopic", expectedFirstInput).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub1, sub2},
+			NextToken: aws.String("next")}, nil)
+
+	expectedSecondInput := &sns.ListSubscriptionsByTopicInput{
+		NextToken: aws.String("next"),
+		TopicArn:  aws.String(ss.Config.Sns.TopicArn),
+	}
+	m.On("ListSubscriptionsByTopic", expectedSecondInput).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{sub3, sub4, sub5}}, nil)
+
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+
+	assert.Nil(err)
+	require.NotNil(unsubList)
+	assert.Equal(3, unsubList.Len())
+	item := unsubList.Front()
+	assert.Equal("test2", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test3", item.Value.(string))
+	item = item.Next()
+	assert.Equal("test5", item.Value.(string))
+
+	m.AssertExpectations(t)
+}
+
+func TestListSubscriptionsByMatchingEndpointAWSErr(t *testing.T) {
+	require := require.New(t)
+
+	ss, m, _, _ := SetUpTestSNSServer(t)
+
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{}}, fmt.Errorf("%s", "SNS error"))
+
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+
+	require.NotNil(err)
+	require.Nil(unsubList)
 }

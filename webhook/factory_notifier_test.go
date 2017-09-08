@@ -42,6 +42,10 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	m.On("ConfirmSubscription", mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
 		SubscriptionArn: &confSubArn}, nil)
 
+	// mocking SNS ListSubscriptionsByTopic response to empty list
+	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
+		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{}}, nil)
+
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil).Once()
 
 	f.PrepareAndStart()

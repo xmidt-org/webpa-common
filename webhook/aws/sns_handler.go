@@ -1,15 +1,17 @@
 package aws
 
 import (
-	"net/http"
-	"strings"
-	"time"
-
+	"container/list"
+	"fmt"
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
 )
 
 const (
@@ -248,7 +250,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 
 	EnvAttr := msg.MessageAttributes[MSG_ATTR]
 	msgEnv := EnvAttr.Value
-	ss.debugLog.Log(logging.MessageKey(), "SQS notification", "envAttr", EnvAttr, "msgEnv", msgEnv)
+	ss.debugLog.Log(logging.MessageKey(), "SNS notification", "envAttr", EnvAttr, "msgEnv", msgEnv)
 	if msgEnv != ss.Config.Env {
 		ss.errorLog.Log(logging.MessageKey(), "SNS environment mismatch", "msgEnv", msgEnv, "config", ss.Config.Env)
 		httperror.Format(rw, http.StatusBadRequest, "SNS Msg config env does not match")
@@ -320,4 +322,83 @@ func (ss *SNSServer) Unsubscribe(subArn string) {
 	}
 
 	ss.debugLog.Log(logging.MessageKey(), "Successfully unsubscribed from the SNS topic", "response", resp)
+}
+
+func (ss *SNSServer) UnsubscribeOldSubscriptions() {
+	unsubList, err := ss.ListSubscriptionsByMatchingEndpoint()
+	if err != nil || unsubList == nil {
+		return
+	}
+
+	subArn := unsubList.Front()
+	for subArn != nil {
+		ss.Unsubscribe(subArn.Value.(string))
+		subArn = subArn.Next()
+	}
+
+}
+
+func (ss *SNSServer) ListSubscriptionsByMatchingEndpoint() (*list.List, error) {
+	var unsubscribeList *list.List
+	var next bool
+	next = true
+
+	// Extract current timestamp and endpoint
+	var timestamp, currentTimestamp int64
+	var err error
+	timeStr := strings.TrimPrefix(ss.SelfUrl.Path, ss.Config.Sns.UrlPath)
+	timeStr = strings.TrimPrefix(timeStr, "/")
+	currentTimestamp, err = strconv.ParseInt(timeStr, 10, 64)
+	if nil != err {
+		ss.errorLog.Log(logging.MessageKey(), "SNS List Subscriptions timestamp parse error", 
+			"selfUrl", ss.SelfUrl.String(), logging.ErrorKey(), err)
+		return nil, err
+	}
+	endpoint := strings.TrimSuffix(ss.SelfUrl.String(), timeStr)
+	endpoint = strings.TrimSuffix(endpoint, "/")
+	ss.debugLog.Log("currentEndpoint", endpoint, "timestamp", currentTimestamp)
+
+	params := &sns.ListSubscriptionsByTopicInput{
+		TopicArn: aws.String(ss.Config.Sns.TopicArn),
+	}
+
+	for next == true {
+
+		resp, err := ss.SVC.ListSubscriptionsByTopic(params)
+		if nil != err {
+			ss.errorLog.Log(logging.MessageKey(), "SNS ListSubscriptionsByTopic error", logging.ErrorKey(), err)
+			return nil, err
+		}
+
+		for _, sub := range resp.Subscriptions {
+			timestamp = 0
+			if !strings.EqualFold(*sub.Endpoint, ss.SelfUrl.String()) &&
+				strings.Contains(*sub.Endpoint, endpoint) {
+
+				fmt.Sscanf(*sub.Endpoint, endpoint+"/%d", &timestamp)
+				if timestamp == 0 || timestamp < currentTimestamp {
+
+					if unsubscribeList == nil {
+						unsubscribeList = list.New()
+						unsubscribeList.PushBack(*sub.SubscriptionArn)
+					} else {
+						unsubscribeList.PushBack(*sub.SubscriptionArn)
+					}
+				}
+			}
+		}
+
+		if resp.NextToken != nil {
+			next = true
+			params = params.SetNextToken(*resp.NextToken)
+		} else {
+			next = false
+		}
+
+	}
+
+	if unsubscribeList != nil {
+		ss.debugLog.Log(logging.MessageKey(), "SNS Unsubscribe List", "length", unsubscribeList.Len())
+	}
+	return unsubscribeList, nil
 }
