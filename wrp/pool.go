@@ -2,38 +2,36 @@ package wrp
 
 import (
 	"io"
+	"sync"
 )
 
 const (
-	DefaultPoolSize = 100
+	DefaultPoolCapacity = 100
 )
 
 // EncoderPool represents a pool of Encoder objects that can be used as is
 // encode WRP messages.  Unlike a sync.Pool, this pool holds on to its pooled
 // encoders across garbage collections.
 type EncoderPool struct {
-	pool   chan Encoder
-	format Format
+	lock     sync.Mutex
+	pool     []Encoder
+	capacity int
+	format   Format
 }
 
 // NewEncoderPool returns an EncoderPool for a given format.  The initialBufferSize is
 // used when encoding to byte arrays.  If this value is nonpositive, DefaultInitialBufferSize
 // is used instead.
-func NewEncoderPool(poolSize int, f Format) *EncoderPool {
-	if poolSize < 1 {
-		poolSize = DefaultPoolSize
+func NewEncoderPool(capacity int, f Format) *EncoderPool {
+	if capacity < 1 {
+		capacity = DefaultPoolCapacity
 	}
 
-	ep := &EncoderPool{
-		pool:   make(chan Encoder, poolSize),
-		format: f,
+	return &EncoderPool{
+		pool:     make([]Encoder, 0, capacity),
+		capacity: capacity,
+		format:   f,
 	}
-
-	for repeat := 0; repeat < poolSize; repeat++ {
-		ep.pool <- ep.New()
-	}
-
-	return ep
 }
 
 // Format returns the wrp format this pool encodes to
@@ -48,27 +46,51 @@ func (ep *EncoderPool) New() Encoder {
 	return NewEncoder(nil, ep.format)
 }
 
+// Len returns the number of pooled elements available for Get.
+func (ep *EncoderPool) Len() int {
+	ep.lock.Lock()
+	length := len(ep.pool)
+	ep.lock.Unlock()
+	return length
+}
+
+// Cap returns the capacity of the pool, which is fixed at the time of creation.
+func (ep *EncoderPool) Cap() int {
+	return ep.capacity
+}
+
 // Get returns an Encoder from the pool.  If the pool is empty, a new Encoder is
 // created using the initial pool configuration.  This method never returns nil.
 func (ep *EncoderPool) Get() (encoder Encoder) {
-	select {
-	case encoder = <-ep.pool:
-	default:
+	ep.lock.Lock()
+
+	last := len(ep.pool) - 1
+	if last >= 0 {
+		encoder, ep.pool[last] = ep.pool[last], nil
+		ep.pool = ep.pool[0:last]
+	} else {
 		encoder = ep.New()
 	}
 
+	ep.lock.Unlock()
 	return
 }
 
-// Put returns an Encoder to the pool.  If this pool is full or if the supplied
-// encoder is nil, this method does nothing.
-func (ep *EncoderPool) Put(encoder Encoder) {
+// Put returns an Encoder to the pool.  This method returns true if the encoder
+// was returned to the pool, false if the pool was full or encoder was nil.
+func (ep *EncoderPool) Put(encoder Encoder) (returned bool) {
 	if encoder != nil {
-		select {
-		case ep.pool <- encoder:
-		default:
+		ep.lock.Lock()
+
+		if len(ep.pool) < ep.capacity {
+			ep.pool = append(ep.pool, encoder)
+			returned = true
 		}
+
+		ep.lock.Unlock()
 	}
+
+	return
 }
 
 // Encode uses an Encoder from the pool to encode the source into the destination
@@ -94,26 +116,23 @@ func (ep *EncoderPool) EncodeBytes(destination *[]byte, source interface{}) erro
 
 // DecoderPool is a pool of Decoder instances for a specific format
 type DecoderPool struct {
-	pool   chan Decoder
-	format Format
+	lock     sync.Mutex
+	pool     []Decoder
+	capacity int
+	format   Format
 }
 
 // NewDecoderPool returns a DecoderPool that works with a given Format
-func NewDecoderPool(poolSize int, f Format) *DecoderPool {
-	if poolSize < 1 {
-		poolSize = DefaultPoolSize
+func NewDecoderPool(capacity int, f Format) *DecoderPool {
+	if capacity < 1 {
+		capacity = DefaultPoolCapacity
 	}
 
-	dp := &DecoderPool{
-		pool:   make(chan Decoder, poolSize),
-		format: f,
+	return &DecoderPool{
+		pool:     make([]Decoder, 0, capacity),
+		capacity: capacity,
+		format:   f,
 	}
-
-	for repeat := 0; repeat < poolSize; repeat++ {
-		dp.pool <- dp.New()
-	}
-
-	return dp
 }
 
 // Format returns the wrp format this pool decodes from
@@ -124,31 +143,55 @@ func (ep *DecoderPool) Format() Format {
 // New simply creates a new Decoder using this pool's configuration.
 // This method is used internally to populate and manage the pool, but
 // can also be used externally to obtain a new, unpooled instance.
-func (ep *DecoderPool) New() Decoder {
-	return NewDecoder(nil, ep.format)
+func (dp *DecoderPool) New() Decoder {
+	return NewDecoder(nil, dp.format)
+}
+
+// Len returns the number of pooled elements available for Get.
+func (dp *DecoderPool) Len() int {
+	dp.lock.Lock()
+	length := len(dp.pool)
+	dp.lock.Unlock()
+	return length
+}
+
+// Cap returns the capacity of the pool, which is fixed at the time of creation.
+func (dp *DecoderPool) Cap() int {
+	return dp.capacity
 }
 
 // Get obtains a Decoder from the pool.  If the pool is empty, a new Decoder is
 // created using the initial pool configuration.  This method never returns nil.
 func (dp *DecoderPool) Get() (decoder Decoder) {
-	select {
-	case decoder = <-dp.pool:
-	default:
+	dp.lock.Lock()
+
+	last := len(dp.pool) - 1
+	if last >= 0 {
+		decoder, dp.pool[last] = dp.pool[last], nil
+		dp.pool = dp.pool[0:last]
+	} else {
 		decoder = dp.New()
 	}
 
+	dp.lock.Unlock()
 	return
 }
 
-// Put returns a Decoder to the pool.  If this pool is full or if the supplied
-// decoder is nil, this method does nothing.
-func (dp *DecoderPool) Put(decoder Decoder) {
+// Put returns a Decoder to the pool.  This method returns true if the decoder
+// was returned to the pool, false if the pool was full or decoder was nil.
+func (dp *DecoderPool) Put(decoder Decoder) (returned bool) {
 	if decoder != nil {
-		select {
-		case dp.pool <- decoder:
-		default:
+		dp.lock.Lock()
+
+		if len(dp.pool) < cap(dp.pool) {
+			dp.pool = append(dp.pool, decoder)
+			returned = true
 		}
+
+		dp.lock.Unlock()
 	}
+
+	return
 }
 
 // Decode unmarshals data from the source onto the destination instance, which is

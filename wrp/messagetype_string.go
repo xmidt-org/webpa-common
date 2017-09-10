@@ -4,9 +4,9 @@ package wrp
 
 import "fmt"
 
-const _MessageType_name = "AuthMessageTypeSimpleRequestResponseMessageTypeSimpleEventMessageTypeCreateMessageTypeRetrieveMessageTypeUpdateMessageTypeDeleteMessageTypeServiceRegistrationMessageTypeServiceAliveMessageTypelastMessageType"
+const _MessageType_name = "AuthorizationStatusMessageTypeSimpleRequestResponseMessageTypeSimpleEventMessageTypeCreateMessageTypeRetrieveMessageTypeUpdateMessageTypeDeleteMessageTypeServiceRegistrationMessageTypeServiceAliveMessageTypelastMessageType"
 
-var _MessageType_index = [...]uint8{0, 15, 47, 69, 86, 105, 122, 139, 169, 192, 207}
+var _MessageType_index = [...]uint8{0, 30, 62, 84, 101, 120, 137, 154, 184, 207, 222}
 
 func (i MessageType) String() string {
 	i -= 2

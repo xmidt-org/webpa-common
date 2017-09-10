@@ -97,7 +97,6 @@ func testFormatString(t *testing.T) {
 	assert.NotEmpty(JSON.String())
 	assert.NotEmpty(Msgpack.String())
 	assert.NotEqual(JSON.String(), Msgpack.String())
-	assert.Equal(InvalidFormatString, Format(999).String())
 }
 
 func testFormatHandle(t *testing.T) {

@@ -8,6 +8,8 @@ import (
 	"github.com/ugorji/go/codec"
 )
 
+//go:generate stringer -type=Format
+
 // Format indicates which format is desired.
 // The zero value indicates Msgpack, which means by default other
 // infrastructure can assume msgpack-formatted data.
@@ -16,8 +18,7 @@ type Format int
 const (
 	Msgpack Format = iota
 	JSON
-
-	InvalidFormatString = "!!INVALID!!"
+	lastFormat
 )
 
 var (
@@ -44,17 +45,6 @@ func (f Format) ContentType() string {
 		return "application/json"
 	default:
 		return "application/octet-stream"
-	}
-}
-
-func (f Format) String() string {
-	switch f {
-	case Msgpack:
-		return "Msgpack"
-	case JSON:
-		return "JSON"
-	default:
-		return InvalidFormatString
 	}
 }
 
