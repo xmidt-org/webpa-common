@@ -22,6 +22,11 @@ const (
 	lastFormat
 )
 
+// AllFormats returns a distinct slice of all supported formats.
+func AllFormats() []Format {
+	return []Format{Msgpack, JSON}
+}
+
 var (
 	jsonHandle = codec.JsonHandle{
 		BasicHandle: codec.BasicHandle{

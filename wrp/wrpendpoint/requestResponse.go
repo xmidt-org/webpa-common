@@ -64,11 +64,8 @@ func (n *note) EncodeBytes(pool *wrp.EncoderPool) ([]byte, error) {
 	}
 
 	var output []byte
-	if err := pool.EncodeBytes(&output, n.message); err != nil {
-		return nil, err
-	}
-
-	return output, nil
+	err := pool.EncodeBytes(&output, n.message)
+	return output, err
 }
 
 // Request is a WRP request.  In addition to implementing Note, this type also provides context management.
@@ -148,6 +145,7 @@ func WrapAsRequest(ctx context.Context, m *wrp.Message) Request {
 			transactionID: m.TransactionUUID,
 			message:       m,
 		},
+		ctx: ctx,
 	}
 }
 
@@ -156,6 +154,7 @@ type Response interface {
 	Note
 }
 
+// response is the internal Response implementation
 type response struct {
 	note
 }
@@ -183,9 +182,11 @@ func DecodeResponseBytes(contents []byte, pool *wrp.DecoderPool) (Response, erro
 
 	return &response{
 		note: note{
-			message:  m,
-			contents: contents,
-			format:   pool.Format(),
+			destination:   m.Destination,
+			transactionID: m.TransactionUUID,
+			message:       m,
+			contents:      contents,
+			format:        pool.Format(),
 		},
 	}, nil
 }
