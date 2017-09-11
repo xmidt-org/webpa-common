@@ -46,14 +46,24 @@ func (mt MessageType) SupportsTransaction() bool {
 	}
 }
 
+// FriendlyName is just the String version of this type minus the "MessageType" suffix.
+// This is used in most textual representations, such as HTTP headers.
+func (mt MessageType) FriendlyName() string {
+	return friendlyNames[mt]
+}
+
 var (
 	// stringToMessageType is a simple map of allowed strings which uniquely indicate MessageType values.
 	// Included in this map are integral string keys.  Keys are assumed to be case insensitive.
 	stringToMessageType map[string]MessageType
+
+	// friendlyNames are the string representations of each message type without the "MessageType" suffix
+	friendlyNames map[MessageType]string
 )
 
 func init() {
 	stringToMessageType = make(map[string]MessageType, lastMessageType-1)
+	friendlyNames = make(map[MessageType]string, lastMessageType-1)
 	suffixLength := len("MessageType")
 
 	// for each MessageType, allow the following string representations:
@@ -65,8 +75,11 @@ func init() {
 		stringToMessageType[strconv.Itoa(int(v))] = v
 
 		vs := v.String()
+		f := vs[0 : len(vs)-suffixLength]
+
 		stringToMessageType[vs] = v
-		stringToMessageType[vs[0:len(vs)-suffixLength]] = v
+		stringToMessageType[f] = v
+		friendlyNames[v] = f
 	}
 }
 

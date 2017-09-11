@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/ugorji/go/codec"
 )
@@ -46,6 +47,19 @@ func (f Format) ContentType() string {
 	default:
 		return "application/octet-stream"
 	}
+}
+
+// FormatFromContentType examines the Content-Type value and returns
+// the appropriate Format.  This function returns an error if the given
+// Content-Type did not map to a WRP format.
+func FormatFromContentType(contentType string) (Format, error) {
+	if strings.Contains(contentType, "json") {
+		return JSON, nil
+	} else if strings.Contains(contentType, "msgpack") {
+		return Msgpack, nil
+	}
+
+	return Format(-1), fmt.Errorf("Invalid WRP content type: %s", contentType)
 }
 
 // handle looks up the appropriate codec.Handle for this format constant.
