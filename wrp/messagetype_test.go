@@ -20,6 +20,7 @@ func TestMessageTypeString(t *testing.T) {
 			DeleteMessageType,
 			ServiceRegistrationMessageType,
 			ServiceAliveMessageType,
+			MessageType(-1),
 		}
 
 		strings = make(map[string]bool, len(messageTypes))

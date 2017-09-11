@@ -30,7 +30,14 @@ func Timeout(timeout time.Duration) endpoint.Middleware {
 				request            = value.(*request)
 			)
 
+			// generally, use WithContext instead of setting the context so that
+			// the Request is immutable.
+			//
+			// However, this is a special case: we know that the request is not in use
+			// by any other goroutine at this point in its lifecycle.  So, this avoids
+			// a needless object allocation.
 			request.ctx = timeoutCtx
+
 			defer cancel()
 			return next(timeoutCtx, request)
 		}

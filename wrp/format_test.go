@@ -96,6 +96,7 @@ func testFormatString(t *testing.T) {
 
 	assert.NotEmpty(JSON.String())
 	assert.NotEmpty(Msgpack.String())
+	assert.NotEmpty(Format(-1).String())
 	assert.NotEqual(JSON.String(), Msgpack.String())
 }
 
@@ -116,10 +117,34 @@ func testFormatContentType(t *testing.T) {
 	assert.Equal("application/octet-stream", Format(999).ContentType())
 }
 
+func testFormatFromContentType(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			contentType  string
+			expected     Format
+			expectsError bool
+		}{
+			{"application/json", JSON, false},
+			{"application/json;charset=utf-8", JSON, false},
+			{"application/msgpack", Msgpack, false},
+			{"text/plain", Format(-1), true},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		actual, err := FormatFromContentType(record.contentType)
+		assert.Equal(record.expected, actual)
+		assert.Equal(record.expectsError, err != nil)
+	}
+}
+
 func TestFormat(t *testing.T) {
 	t.Run("String", testFormatString)
 	t.Run("Handle", testFormatHandle)
 	t.Run("ContentType", testFormatContentType)
+	t.Run("FromContentType", testFormatFromContentType)
 }
 
 // testTranscodeMessage expects a nonpointer reference to a WRP message struct as the original parameter

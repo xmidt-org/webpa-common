@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	ErrMissingMessageTypeHeader = fmt.Errorf("Missing %s header", MessageTypeHeader)
+	errMissingMessageTypeHeader = fmt.Errorf("Missing %s header", MessageTypeHeader)
 )
 
 // getMessageType extracts the wrp.MessageType from header.  This is a required field.
@@ -33,7 +33,7 @@ var (
 func getMessageType(h http.Header) wrp.MessageType {
 	value := h.Get(MessageTypeHeader)
 	if len(value) == 0 {
-		panic(ErrMissingMessageTypeHeader)
+		panic(errMissingMessageTypeHeader)
 	}
 
 	messageType, err := wrp.StringToMessageType(value)
