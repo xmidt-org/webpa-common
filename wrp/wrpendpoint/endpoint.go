@@ -59,6 +59,9 @@ func Logging(logger log.Logger) endpoint.Middleware {
 
 			result, err := next(ctx, value)
 			if err != nil {
+				// use the request instead of the result from next,
+				// as endpoints are allowed to return nil values when they
+				// return non-nil errors
 				logger.Log(
 					level.Key(), level.ErrorValue(),
 					logging.MessageKey(), "WRP error",
@@ -72,10 +75,9 @@ func Logging(logger log.Logger) endpoint.Middleware {
 					level.Key(), level.InfoValue(),
 					logging.MessageKey(), "WRP response",
 					"destination", response.Destination(),
-					"transactionID", request.TransactionID(),
+					"transactionID", response.TransactionID(),
 				)
 			}
-
 			return result, err
 		}
 	}
