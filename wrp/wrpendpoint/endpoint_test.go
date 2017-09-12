@@ -2,9 +2,14 @@ package wrpendpoint
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/logging/mocklogging"
+	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -80,4 +85,83 @@ func TestTimeout(t *testing.T) {
 			testTimeout(t, timeout)
 		})
 	}
+}
+
+func testLoggingSuccess(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		logger = mocklogging.New()
+
+		wrpRequest = WrapAsRequest(context.Background(), &wrp.Message{
+			Destination:     "mac:123412341234",
+			TransactionUUID: "1234567890",
+		})
+
+		wrpResponse = WrapAsResponse(&wrp.Message{
+			Destination:     "test",
+			TransactionUUID: "0987654321",
+		})
+
+		endpoint = func(ctx context.Context, value interface{}) (interface{}, error) {
+			return wrpResponse, nil
+		}
+	)
+
+	mocklogging.OnLog(logger,
+		level.Key(), level.InfoValue(),
+		logging.MessageKey(), mocklogging.AnyValue(),
+		"destination", wrpRequest.Destination(),
+		"transactionID", wrpRequest.TransactionID(),
+	).Return(error(nil)).Once()
+
+	mocklogging.OnLog(logger,
+		level.Key(), level.InfoValue(),
+		logging.MessageKey(), mocklogging.AnyValue(),
+		"destination", wrpResponse.Destination(),
+		"transactionID", wrpResponse.TransactionID(),
+	).Return(error(nil)).Once()
+
+	value, err := Logging(logger)(endpoint)(context.Background(), wrpRequest)
+	assert.Equal(wrpResponse, value)
+	assert.NoError(err)
+
+	logger.AssertExpectations(t)
+}
+
+func testLoggingError(t *testing.T) {
+	var (
+		logger = mocklogging.New()
+
+		wrpRequest = WrapAsRequest(context.Background(), &wrp.Message{
+			Destination:     "mac:123412341234",
+			TransactionUUID: "1234567890",
+		})
+
+		expectedError = errors.New("expected")
+		endpoint      = func(ctx context.Context, value interface{}) (interface{}, error) {
+			return nil, expectedError
+		}
+	)
+
+	mocklogging.OnLog(logger,
+		level.Key(), level.InfoValue(),
+		logging.MessageKey(), mocklogging.AnyValue(),
+		"destination", wrpRequest.Destination(),
+		"transactionID", wrpRequest.TransactionID(),
+	).Return(error(nil)).Once()
+
+	mocklogging.OnLog(logger,
+		level.Key(), level.ErrorValue(),
+		logging.MessageKey(), mocklogging.AnyValue(),
+		"destination", wrpRequest.Destination(),
+		"transactionID", wrpRequest.TransactionID(),
+		logging.ErrorKey(), expectedError,
+	).Return(error(nil)).Once()
+
+	Logging(logger)(endpoint)(context.Background(), wrpRequest)
+}
+
+func TestLogging(t *testing.T) {
+	t.Run("Success", testLoggingSuccess)
+	t.Run("Error", testLoggingError)
 }

@@ -4,7 +4,10 @@ import (
 	"context"
 	"time"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/endpoint"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 const DefaultTimeout = 30 * time.Second
@@ -37,6 +40,45 @@ func Timeout(timeout time.Duration) endpoint.Middleware {
 			request.ctx = timeoutCtx
 			defer cancel()
 			return next(timeoutCtx, request)
+		}
+	}
+}
+
+// Logging provides a Middleware instance that logs WRP requests and responses.
+func Logging(logger log.Logger) endpoint.Middleware {
+	return func(next endpoint.Endpoint) endpoint.Endpoint {
+		return func(ctx context.Context, value interface{}) (interface{}, error) {
+			request := value.(Request)
+
+			logger.Log(
+				level.Key(), level.InfoValue(),
+				logging.MessageKey(), "WRP request",
+				"destination", request.Destination(),
+				"transactionID", request.TransactionID(),
+			)
+
+			result, err := next(ctx, value)
+			if err != nil {
+				// use the request instead of the result from next,
+				// as endpoints are allowed to return nil values when they
+				// return non-nil errors
+				logger.Log(
+					level.Key(), level.ErrorValue(),
+					logging.MessageKey(), "WRP error",
+					"destination", request.Destination(),
+					"transactionID", request.TransactionID(),
+					logging.ErrorKey(), err,
+				)
+			} else {
+				response := result.(Response)
+				logger.Log(
+					level.Key(), level.InfoValue(),
+					logging.MessageKey(), "WRP response",
+					"destination", response.Destination(),
+					"transactionID", response.TransactionID(),
+				)
+			}
+			return result, err
 		}
 	}
 }
