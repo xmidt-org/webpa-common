@@ -81,3 +81,6 @@ func TestTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestLogging(t *testing.T) {
+}
