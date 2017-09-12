@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/ugorji/go/codec"
 )
+
+//go:generate stringer -type=Format
 
 // Format indicates which format is desired.
 // The zero value indicates Msgpack, which means by default other
@@ -16,9 +19,13 @@ type Format int
 const (
 	Msgpack Format = iota
 	JSON
-
-	InvalidFormatString = "!!INVALID!!"
+	lastFormat
 )
+
+// AllFormats returns a distinct slice of all supported formats.
+func AllFormats() []Format {
+	return []Format{Msgpack, JSON}
+}
 
 var (
 	jsonHandle = codec.JsonHandle{
@@ -47,15 +54,17 @@ func (f Format) ContentType() string {
 	}
 }
 
-func (f Format) String() string {
-	switch f {
-	case Msgpack:
-		return "Msgpack"
-	case JSON:
-		return "JSON"
-	default:
-		return InvalidFormatString
+// FormatFromContentType examines the Content-Type value and returns
+// the appropriate Format.  This function returns an error if the given
+// Content-Type did not map to a WRP format.
+func FormatFromContentType(contentType string) (Format, error) {
+	if strings.Contains(contentType, "json") {
+		return JSON, nil
+	} else if strings.Contains(contentType, "msgpack") {
+		return Msgpack, nil
 	}
+
+	return Format(-1), fmt.Errorf("Invalid WRP content type: %s", contentType)
 }
 
 // handle looks up the appropriate codec.Handle for this format constant.

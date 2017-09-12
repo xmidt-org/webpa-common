@@ -3,146 +3,154 @@ package wrp
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func testEncoderPool(assert *assert.Assertions, expectedFormat Format, encoderPool *EncoderPool, output *[]byte) {
+var capacities = []int{-1, 0, 2, 10, 50}
+
+func testEncoderPoolFormat(t *testing.T, ep *EncoderPool) {
+	assert := assert.New(t)
+
+	assert.True(ep.Format() >= 0)
+	assert.True(ep.Format() < lastFormat)
+}
+
+func testEncoderPoolPutGet(t *testing.T, ep *EncoderPool) {
 	var (
-		initialSize = len(encoderPool.pool)
-
-		testMessage = SimpleEvent{
-			Destination: "foobar.com/test",
-			Source:      "mac:11112222333",
-			Payload:     []byte("testEncoderPool"),
-		}
-
-		buffer bytes.Buffer
+		assert  = assert.New(t)
+		require = require.New(t)
 	)
 
-	assert.Equal(expectedFormat, encoderPool.Format())
-	assert.True(initialSize > 0)
+	require.Zero(ep.Len())
+	require.True(ep.Cap() > 0)
 
-	assert.NoError(encoderPool.Encode(&buffer, &testMessage))
-	assert.Equal(initialSize, len(encoderPool.pool))
-	assert.True(buffer.Len() > 0)
+	assert.NotNil(ep.Get())
+	assert.Zero(ep.Len())
+	assert.True(ep.Cap() > 0)
 
-	err := encoderPool.EncodeBytes(output, &testMessage)
-	assert.Equal(initialSize, len(encoderPool.pool))
-	assert.NotEmpty(*output)
-	assert.NoError(err)
-	assert.Equal(*output, buffer.Bytes())
-
-	for len(encoderPool.pool) > 0 {
-		assert.NotNil(encoderPool.Get())
+	for ep.Len() < ep.Cap() {
+		assert.True(ep.Put(ep.New()))
 	}
 
-	// an exhausted pool should still give out encoders
-	assert.NotNil(encoderPool.Get())
+	assert.False(ep.Put(ep.New()))
 
-	for len(encoderPool.pool) < initialSize {
-		encoderPool.Put(encoderPool.New())
+	for ep.Len() > 0 {
+		assert.NotNil(ep.Get())
 	}
 
-	// a full pool should silently reject Puts
-	encoderPool.Put(encoderPool.New())
-	assert.Equal(initialSize, len(encoderPool.pool))
+	assert.True(ep.Put(ep.New()))
+}
+
+func testEncoderPoolEncode(t *testing.T, ep *EncoderPool, dp *DecoderPool) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		input  = &Message{Payload: []byte("hi!"), Source: "test"}
+		output = new(bytes.Buffer)
+
+		decoded = new(Message)
+	)
+
+	require.NoError(ep.Encode(output, input))
+	assert.NoError(dp.Decode(decoded, output))
+
+	assert.Equal(*input, *decoded)
+}
+
+func testEncoderPoolEncodeBytes(t *testing.T, ep *EncoderPool, dp *DecoderPool) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		input  = &Message{Payload: []byte("hi!"), Source: "test"}
+		output []byte
+
+		decoded = new(Message)
+	)
+
+	require.NoError(ep.EncodeBytes(&output, input))
+	assert.NoError(dp.DecodeBytes(decoded, output))
+
+	assert.Equal(*input, *decoded)
 }
 
 func TestEncoderPool(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			poolSize          int
-			initialBufferSize int
-			format            Format
-		}{
-			{0, 0, Msgpack},
-			{10, 10, Msgpack},
-			{0, 0, JSON},
-			{10, 10, JSON},
-			{0, 1000, JSON},
-			{10, 1000, JSON},
-		}
-	)
+	for f := Format(0); f < lastFormat; f++ {
+		t.Run(f.String(), func(t *testing.T) {
+			for _, c := range capacities {
+				t.Run(fmt.Sprintf("Capacity:%d", c), func(t *testing.T) {
+					t.Run("Format", func(t *testing.T) {
+						testEncoderPoolFormat(t, NewEncoderPool(c, f))
+					})
 
-	for _, record := range testData {
-		t.Run(
-			fmt.Sprintf("%s/poolSize=%d/initialBufferSize=%d", record.format, record.poolSize, record.initialBufferSize),
-			func(t *testing.T) {
-				output := make([]byte, record.initialBufferSize)
-				testEncoderPool(assert, record.format, NewEncoderPool(record.poolSize, record.format), &output)
-			},
-		)
+					t.Run("PutGet", func(t *testing.T) {
+						testEncoderPoolPutGet(t, NewEncoderPool(c, f))
+					})
+
+					t.Run("Encode", func(t *testing.T) {
+						testEncoderPoolEncode(t, NewEncoderPool(c, f), NewDecoderPool(c, f))
+					})
+
+					t.Run("EncodeBytes", func(t *testing.T) {
+						testEncoderPoolEncodeBytes(t, NewEncoderPool(c, f), NewDecoderPool(c, f))
+					})
+				})
+			}
+		})
 	}
 }
 
-func testDecoderPool(assert *assert.Assertions, format Format, decoderPool *DecoderPool) {
+func testDecoderPoolFormat(t *testing.T, dp *DecoderPool) {
+	assert := assert.New(t)
+
+	assert.True(dp.Format() >= 0)
+	assert.True(dp.Format() < lastFormat)
+}
+
+func testDecoderPoolPutGet(t *testing.T, dp *DecoderPool) {
 	var (
-		initialSize = len(decoderPool.pool)
-
-		originalMessage = SimpleEvent{
-			Destination: "foobar.com/test",
-			Source:      "mac:11112222333",
-			Payload:     []byte("testDecoderPool"),
-		}
-
-		testMessage *SimpleEvent
-		encoded     []byte
+		assert  = assert.New(t)
+		require = require.New(t)
 	)
 
-	if !assert.NoError(NewEncoderBytes(&encoded, format).Encode(&originalMessage)) {
-		return
+	require.Zero(dp.Len())
+	require.True(dp.Cap() > 0)
+
+	assert.NotNil(dp.Get())
+	assert.Zero(dp.Len())
+	assert.True(dp.Cap() > 0)
+
+	for dp.Len() < dp.Cap() {
+		assert.True(dp.Put(dp.New()))
 	}
 
-	assert.Equal(format, decoderPool.Format())
-	assert.True(initialSize > 0)
+	assert.False(dp.Put(dp.New()))
 
-	testMessage = new(SimpleEvent)
-	assert.NoError(decoderPool.Decode(testMessage, bytes.NewReader(encoded)))
-	assert.Equal(initialSize, len(decoderPool.pool))
-	assert.Equal(originalMessage, *testMessage)
-
-	assert.NoError(decoderPool.DecodeBytes(testMessage, encoded))
-	assert.Equal(initialSize, len(decoderPool.pool))
-	assert.Equal(originalMessage, *testMessage)
-
-	for len(decoderPool.pool) > 0 {
-		assert.NotNil(decoderPool.Get())
+	for dp.Len() > 0 {
+		assert.NotNil(dp.Get())
 	}
 
-	// an exhausted pool should still give out encoders
-	assert.NotNil(decoderPool.Get())
-
-	for len(decoderPool.pool) < initialSize {
-		decoderPool.Put(decoderPool.New())
-	}
-
-	// a full pool should silently reject Puts
-	decoderPool.Put(decoderPool.New())
-	assert.Equal(initialSize, len(decoderPool.pool))
+	assert.True(dp.Put(dp.New()))
 }
 
 func TestDecoderPool(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			poolSize int
-			format   Format
-		}{
-			{0, Msgpack},
-			{10, Msgpack},
-			{0, JSON},
-			{10, JSON},
-		}
-	)
+	for f := Format(0); f < lastFormat; f++ {
+		t.Run(f.String(), func(t *testing.T) {
+			for _, c := range capacities {
+				t.Run(fmt.Sprintf("Capacity:%d", c), func(t *testing.T) {
+					t.Run("Format", func(t *testing.T) {
+						testDecoderPoolFormat(t, NewDecoderPool(c, f))
+					})
 
-	for _, record := range testData {
-		t.Run(
-			fmt.Sprintf("%s/poolSize=%d", record.format, record.poolSize),
-			func(t *testing.T) {
-				testDecoderPool(assert, record.format, NewDecoderPool(record.poolSize, record.format))
-			},
-		)
+					t.Run("PutGet", func(t *testing.T) {
+						testDecoderPoolPutGet(t, NewDecoderPool(c, f))
+					})
+				})
+			}
+		})
 	}
 }

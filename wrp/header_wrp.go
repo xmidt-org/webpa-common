@@ -2,9 +2,6 @@ package wrp
 
 import (
 	"errors"
-	"net/http"
-	"strconv"
-	"strings"
 )
 
 // Constant HTTP header strings representing WRP fields
@@ -23,6 +20,7 @@ const (
 var ErrInvalidMsgType = errors.New("Invalid Message Type")
 
 // Map string to MessageType int
+/*
 func StringToMessageType(str string) MessageType {
 	switch str {
 	case "Auth":
@@ -47,8 +45,10 @@ func StringToMessageType(str string) MessageType {
 		return -1
 	}
 }
+*/
 
 // Convert HTTP header to WRP generic Message
+/*
 func HeaderToWRP(header http.Header) (*Message, error) {
 	msg := new(Message)
 
@@ -125,8 +125,9 @@ func HeaderToWRP(header http.Header) (*Message, error) {
 
 	return msg, nil
 }
-
+*/
 // Convert WRP generic Message to HTTP header
+/*
 func WRPToHeader(msg *Message) (header http.Header, err error) {
 
 	header = make(map[string][]string)
@@ -180,3 +181,4 @@ func WRPToHeader(msg *Message) (header http.Header, err error) {
 
 	return
 }
+*/
