@@ -20,17 +20,24 @@ func (m *L) Log(keyvals ...interface{}) error {
 	return arguments.Error(0)
 }
 
+// errorReporter describes the interface through with key/value matching errors are report.
+// Both *testing.T and *testing.B implement this interface.
+type errorReporter interface {
+	Error(...interface{})
+	Errorf(string, ...interface{})
+}
+
 // M returns a matcher function suitable to passed to mock.MatchedBy.
 // The returns function always returns false if an odd number of objects
 // were passed, i.e. it never matches any call in that case.
-func M(matches ...interface{}) func([]interface{}) bool {
+func M(e errorReporter, matches ...interface{}) func([]interface{}) bool {
 	if len(matches)%2 != 0 {
 		panic("odd number of matched key/value pairs")
 	}
 
 	return func(keyvals []interface{}) bool {
 		if len(keyvals)%2 != 0 {
-			// odd number: never match
+			e.Error("Odd number of logging key/value pairs")
 			return false
 		} else if len(matches) == 0 {
 			// empty matches: always match
@@ -52,22 +59,26 @@ func M(matches ...interface{}) func([]interface{}) bool {
 				switch v := expectedValue.(type) {
 				case func(interface{}) bool:
 					if !v(actualValue) {
+						e.Errorf("Key matcher for %s failed", expectedKey)
 						return false
 					}
 
 				case func(interface{}, interface{}) bool:
 					if !v(actualKey, actualValue) {
+						e.Errorf("Key matcher for %s failed", expectedKey)
 						return false
 					}
 
 				default:
 					if expectedValue != actualValue {
+						e.Errorf("Mismatched value for key %s: expected %s, but got %s", expectedKey, expectedValue, actualValue)
 						return false
 					}
 				}
 			}
 
 			if !foundExpected {
+				e.Errorf("Expected key %s was not present in the key/value pairs passed to Log", expectedKey)
 				return false
 			}
 		}
@@ -89,6 +100,6 @@ func AnyValue() func(interface{}) bool {
 
 // OnLog sets up a Log call with the given matches.  The call is returned
 // for further customization, e.g. via Return or Once.
-func OnLog(l *L, matches ...interface{}) *mock.Call {
-	return l.On("Log", mock.MatchedBy(M(matches...)))
+func OnLog(e errorReporter, l *L, matches ...interface{}) *mock.Call {
+	return l.On("Log", mock.MatchedBy(M(e, matches...)))
 }
