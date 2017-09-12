@@ -59,26 +59,26 @@ func M(f fataler, matches ...interface{}) func([]interface{}) bool {
 				switch v := expectedValue.(type) {
 				case func(interface{}) bool:
 					if !v(actualValue) {
-						f.Fatalf("Key matcher for %s failed", expectedKey)
+						f.Fatalf("Key matcher for [%s] failed", expectedKey)
 						return false
 					}
 
 				case func(interface{}, interface{}) bool:
 					if !v(actualKey, actualValue) {
-						f.Fatalf("Key matcher for %s failed", expectedKey)
+						f.Fatalf("Key matcher for [%s] failed", expectedKey)
 						return false
 					}
 
 				default:
 					if expectedValue != actualValue {
-						f.Fatalf("Mismatched value for key %s: expected %s, but got %s", expectedKey, expectedValue, actualValue)
+						f.Fatalf("Mismatched value for key [%s]: expected [%#v], but got [%#v]", expectedKey, expectedValue, actualValue)
 						return false
 					}
 				}
 			}
 
 			if !foundExpected {
-				f.Fatalf("Expected key %s was not present in the key/value pairs passed to Log", expectedKey)
+				f.Fatalf("Expected key [%s] was not present in the key/value pairs passed to Log", expectedKey)
 				return false
 			}
 		}
