@@ -183,7 +183,7 @@ func testNewMessageFromHeadersBadSpanHeader(t *testing.T) {
 func testNewMessageFromHeadersBadPayload(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		reader = new(mockReader)
+		reader = new(mockReadCloser)
 	)
 
 	reader.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, errors.New("expected")).Once()

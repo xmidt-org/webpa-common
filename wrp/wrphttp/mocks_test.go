@@ -7,13 +7,17 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type mockReader struct {
+type mockReadCloser struct {
 	mock.Mock
 }
 
-func (m *mockReader) Read(p []byte) (int, error) {
+func (m *mockReadCloser) Read(p []byte) (int, error) {
 	arguments := m.Called(p)
 	return arguments.Int(0), arguments.Error(1)
+}
+
+func (m *mockReadCloser) Close() error {
+	return m.Called().Error(0)
 }
 
 type mockResponse struct {
