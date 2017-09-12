@@ -109,3 +109,11 @@ func TestM(t *testing.T) {
 	t.Run("ShouldMatch", testMShouldMatch)
 	t.Run("ShouldNotMatch", testMShouldNotMatch)
 }
+
+func TestAnyValue(t *testing.T) {
+	assert := assert.New(t)
+
+	assert.True(AnyValue()(nil))
+	assert.True(AnyValue()(123451234))
+	assert.True(AnyValue()("asdfasdf"))
+}

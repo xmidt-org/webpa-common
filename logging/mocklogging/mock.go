@@ -76,6 +76,17 @@ func M(matches ...interface{}) func([]interface{}) bool {
 	}
 }
 
+func anyValue(interface{}) bool {
+	return true
+}
+
+// AnyValue returns a Log value matcher that matches any value.  This function is useful
+// when you want to assert that a logging key is present but don't care what its value is.
+// For example, OnLog(l, "aKey", AnyValue()) would expected "aKey" to be passed to Log with any value.
+func AnyValue() func(interface{}) bool {
+	return anyValue
+}
+
 // OnLog sets up a Log call with the given matches.  The call is returned
 // for further customization, e.g. via Return or Once.
 func OnLog(l *L, matches ...interface{}) *mock.Call {
