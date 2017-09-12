@@ -17,7 +17,7 @@ import (
 func ClientEncodeRequestBody(pool *wrp.EncoderPool) gokithttp.EncodeRequestFunc {
 	return func(ctx context.Context, httpRequest *http.Request, value interface{}) error {
 		var (
-			wrpRequest = value.(wrpendpoint.Request).WithContext(ctx)
+			wrpRequest = value.(wrpendpoint.Request)
 			body       = new(bytes.Buffer)
 		)
 
@@ -37,7 +37,7 @@ func ClientEncodeRequestBody(pool *wrp.EncoderPool) gokithttp.EncodeRequestFunc 
 // to HTTP clients using an HTTP header representation of the message fields.
 func ClientEncodeRequestHeaders(ctx context.Context, httpRequest *http.Request, value interface{}) error {
 	var (
-		wrpRequest = value.(wrpendpoint.Request).WithContext(ctx)
+		wrpRequest = value.(wrpendpoint.Request)
 		body       = new(bytes.Buffer)
 	)
 
