@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,6 +14,144 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+func testClientEncodeRequestBodyEncodeError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		pool   = wrp.NewEncoderPool(1, wrp.JSON)
+
+		wrpRequest = new(mockRequestResponse)
+	)
+
+	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).Return(errors.New("expected")).Once()
+	assert.Error(
+		ClientEncodeRequestBody(pool)(context.Background(), httptest.NewRequest("GET", "/", nil), wrpRequest),
+	)
+
+	wrpRequest.AssertExpectations(t)
+}
+
+func testClientEncodeRequestBodySuccess(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		pool         = wrp.NewEncoderPool(1, wrp.JSON)
+		expectedBody = []byte("expected body")
+
+		httpRequest = &http.Request{
+			Header: http.Header{},
+		}
+
+		wrpRequest = new(mockRequestResponse)
+	)
+
+	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
+		Run(func(arguments mock.Arguments) {
+			output := arguments.Get(0).(io.Writer)
+			output.Write(expectedBody)
+		}).
+		Return(error(nil)).Once()
+
+	wrpRequest.On("Destination").Return("mac:101029293838").Once()
+
+	assert.NoError(
+		ClientEncodeRequestBody(pool)(context.Background(), httpRequest, wrpRequest),
+	)
+
+	assert.Equal("mac:101029293838", httpRequest.Header.Get(DestinationHeader))
+	assert.Equal(pool.Format().ContentType(), httpRequest.Header.Get("Content-Type"))
+	assert.Equal(int64(len(expectedBody)), httpRequest.ContentLength)
+
+	actualBody, err := ioutil.ReadAll(httpRequest.Body)
+	assert.Equal(expectedBody, actualBody)
+	assert.NoError(err)
+
+	wrpRequest.AssertExpectations(t)
+}
+
+func TestClientEncodeRequestBody(t *testing.T) {
+	t.Run("EncodeError", testClientEncodeRequestBodyEncodeError)
+	t.Run("Success", testClientEncodeRequestBodySuccess)
+}
+
+func testClientEncodeRequestHeadersNoPayload(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		message = &wrp.Message{
+			Type:        wrp.SimpleEventMessageType,
+			Source:      "test",
+			Destination: "uuid:239487120398",
+		}
+
+		wrpRequest = new(mockRequestResponse)
+
+		httpRequest = &http.Request{
+			Header: http.Header{},
+		}
+	)
+
+	wrpRequest.On("Message").Return(message).Twice()
+
+	assert.NoError(
+		ClientEncodeRequestHeaders(context.Background(), httpRequest, wrpRequest),
+	)
+
+	assert.Empty(httpRequest.Header.Get("Content-Type"))
+	assert.Equal(wrp.SimpleEventMessageType.FriendlyName(), httpRequest.Header.Get(MessageTypeHeader))
+	assert.Equal("test", httpRequest.Header.Get(SourceHeader))
+	assert.Equal("uuid:239487120398", httpRequest.Header.Get(DestinationHeader))
+	assert.Zero(httpRequest.ContentLength)
+
+	actualBody, err := ioutil.ReadAll(httpRequest.Body)
+	assert.Empty(actualBody)
+	assert.NoError(err)
+
+	wrpRequest.AssertExpectations(t)
+}
+
+func testClientEncodeRequestHeadersWithPayload(t *testing.T) {
+	var (
+		assert          = assert.New(t)
+		expectedPayload = []byte("here is a lovely payload")
+
+		message = &wrp.Message{
+			Type:        wrp.SimpleEventMessageType,
+			Source:      "test",
+			Destination: "uuid:239487120398",
+			ContentType: "text/plain",
+			Payload:     expectedPayload,
+		}
+
+		wrpRequest = new(mockRequestResponse)
+
+		httpRequest = &http.Request{
+			Header: http.Header{},
+		}
+	)
+
+	wrpRequest.On("Message").Return(message).Twice()
+
+	assert.NoError(
+		ClientEncodeRequestHeaders(context.Background(), httpRequest, wrpRequest),
+	)
+
+	assert.Equal("text/plain", httpRequest.Header.Get("Content-Type"))
+	assert.Equal(wrp.SimpleEventMessageType.FriendlyName(), httpRequest.Header.Get(MessageTypeHeader))
+	assert.Equal("test", httpRequest.Header.Get(SourceHeader))
+	assert.Equal("uuid:239487120398", httpRequest.Header.Get(DestinationHeader))
+	assert.Equal(int64(len(expectedPayload)), httpRequest.ContentLength)
+
+	actualBody, err := ioutil.ReadAll(httpRequest.Body)
+	assert.Equal(expectedPayload, actualBody)
+	assert.NoError(err)
+
+	wrpRequest.AssertExpectations(t)
+}
+
+func TestClientEncodeRequestHeaders(t *testing.T) {
+	t.Run("NoPayload", testClientEncodeRequestHeadersNoPayload)
+	t.Run("WithPayload", testClientEncodeRequestHeadersWithPayload)
+}
+
 func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
 	var (
 		assert = assert.New(t)
@@ -20,7 +159,7 @@ func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
 
 		expectedPayload = []byte("expected payload")
 		httpResponse    = httptest.NewRecorder()
-		wrpResponse     = new(mockResponse)
+		wrpResponse     = new(mockRequestResponse)
 	)
 
 	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
@@ -44,7 +183,7 @@ func testServerEncodeResponseBodyEncodeError(t *testing.T, format wrp.Format) {
 		pool   = wrp.NewEncoderPool(1, format)
 
 		httpResponse = httptest.NewRecorder()
-		wrpResponse  = new(mockResponse)
+		wrpResponse  = new(mockRequestResponse)
 	)
 
 	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
@@ -81,7 +220,7 @@ func testServerEncodeResponseHeadersNoPayload(t *testing.T) {
 			Destination: "mac:121212121212",
 		}
 
-		wrpResponse  = new(mockResponse)
+		wrpResponse  = new(mockRequestResponse)
 		httpResponse = httptest.NewRecorder()
 	)
 
@@ -109,7 +248,7 @@ func testServerEncodeResponseHeadersWithPayload(t *testing.T) {
 			ContentType: "text/plain",
 		}
 
-		wrpResponse  = new(mockResponse)
+		wrpResponse  = new(mockRequestResponse)
 		httpResponse = httptest.NewRecorder()
 	)
 
