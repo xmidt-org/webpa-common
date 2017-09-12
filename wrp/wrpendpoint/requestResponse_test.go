@@ -249,6 +249,11 @@ func testDecodeResponseBytes(t *testing.T, source []byte, format wrp.Format, ori
 
 	assertNote(t, original, response)
 }
+
+func testWrapAsResponse(t *testing.T, original wrp.Message) {
+	assertNote(t, original, WrapAsResponse(&original))
+}
+
 func TestResponse(t *testing.T) {
 	var (
 		require     = require.New(t)
@@ -261,6 +266,10 @@ func TestResponse(t *testing.T) {
 			Payload:         []byte("hi!"),
 		}
 	)
+
+	t.Run("WrapAsResponse", func(t *testing.T) {
+		testWrapAsResponse(t, testMessage)
+	})
 
 	for _, format := range wrp.AllFormats() {
 		var (

@@ -190,3 +190,14 @@ func DecodeResponseBytes(contents []byte, pool *wrp.DecoderPool) (Response, erro
 		},
 	}, nil
 }
+
+// WrapAsResponse takes an existing WRP message and produces a Response for that message.
+func WrapAsResponse(m *wrp.Message) Response {
+	return &response{
+		note: note{
+			destination:   m.Destination,
+			transactionID: m.TransactionUUID,
+			message:       m,
+		},
+	}
+}
