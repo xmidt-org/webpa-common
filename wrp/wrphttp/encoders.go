@@ -11,8 +11,7 @@ import (
 )
 
 // ServerEncodeResponseBody produces a go-kit transport/http.EncodeResponseFunc that transforms a wrphttp.Response into
-// an HTTP response.  The returned function will transcode as necessary, based on the Format of the response.  If the WRP response
-// has the same format as the output Format, the contents are passed through as is.
+// an HTTP response.
 func ServerEncodeResponseBody(pool *wrp.EncoderPool) gokithttp.EncodeResponseFunc {
 	return func(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
 		var (
