@@ -61,7 +61,7 @@ func ExampleManagerTransaction() {
 					case Connect:
 						fmt.Printf("%s connected\n", e.Device.ID())
 					case MessageSent:
-						if e.Message.MessageType() == wrp.AuthMessageType {
+						if e.Message.MessageType() == wrp.AuthorizationStatusMessageType {
 							fmt.Println("auth status sent")
 						} else {
 							fmt.Println("message sent")
@@ -97,7 +97,7 @@ func ExampleManagerTransaction() {
 	if message, err := expectMessage(connection); err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		return
-	} else if message.Type != wrp.AuthMessageType {
+	} else if message.Type != wrp.AuthorizationStatusMessageType {
 		fmt.Fprintf(os.Stderr, "Expected auth status, but got: %s", message.Type)
 		return
 	} else if message.Status == nil {
