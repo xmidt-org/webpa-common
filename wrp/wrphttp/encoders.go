@@ -3,12 +3,54 @@ package wrphttp
 import (
 	"bytes"
 	"context"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
+
+// ClientEncodeRequestBody produces a go-kit transport/http.EncodeRequestFunc for use when sending WRP requests
+// to HTTP clients.  The returned decoder will set the appropriate headers and set the body to the encoded
+// WRP message in the request.
+func ClientEncodeRequestBody(pool *wrp.EncoderPool) gokithttp.EncodeRequestFunc {
+	return func(ctx context.Context, httpRequest *http.Request, value interface{}) error {
+		var (
+			wrpRequest = value.(wrpendpoint.Request).WithContext(ctx)
+			body       = new(bytes.Buffer)
+		)
+
+		if err := wrpRequest.Encode(body, pool); err != nil {
+			return err
+		}
+
+		httpRequest.Header.Set(DestinationHeader, wrpRequest.Destination())
+		httpRequest.Header.Set("Content-Type", pool.Format().ContentType())
+		httpRequest.ContentLength = int64(body.Len())
+		httpRequest.Body = ioutil.NopCloser(body)
+		return nil
+	}
+}
+
+// ClientEncodeRequestHeaders is a go-kit transport/http.EncodeRequestFunc for use when sending WRP requests
+// to HTTP clients using an HTTP header representation of the message fields.
+func ClientEncodeRequestHeaders(ctx context.Context, httpRequest *http.Request, value interface{}) error {
+	var (
+		wrpRequest = value.(wrpendpoint.Request).WithContext(ctx)
+		body       = new(bytes.Buffer)
+	)
+
+	if err := WriteMessagePayload(httpRequest.Header, body, wrpRequest.Message()); err != nil {
+		return err
+	}
+
+	AddMessageHeaders(httpRequest.Header, wrpRequest.Message())
+	httpRequest.ContentLength = int64(body.Len())
+	httpRequest.Body = ioutil.NopCloser(body)
+
+	return nil
+}
 
 // ServerEncodeResponseBody produces a go-kit transport/http.EncodeResponseFunc that transforms a wrphttp.Response into
 // an HTTP response.
