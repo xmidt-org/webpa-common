@@ -14,11 +14,11 @@ type stubErrorReporter struct {
 	*testing.T
 }
 
-func (s stubErrorReporter) Error(args ...interface{}) {
+func (s stubErrorReporter) Fatal(args ...interface{}) {
 	s.Log(args...)
 }
 
-func (s stubErrorReporter) Errorf(format string, args ...interface{}) {
+func (s stubErrorReporter) Fatalf(format string, args ...interface{}) {
 	s.Logf(format, args...)
 }
 
