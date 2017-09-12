@@ -20,6 +20,7 @@ const (
 	SpanHeader                    = "X-Xmidt-Span"
 	PathHeader                    = "X-Xmidt-Path"
 	SourceHeader                  = "X-Xmidt-Source"
+	DestinationHeader             = "X-Webpa-Device-Name"
 	AcceptHeader                  = "X-Xmidt-Accept"
 )
 
@@ -83,6 +84,10 @@ func getSpans(h http.Header) [][]string {
 			panic(fmt.Errorf("Invalid %s header: %s", SpanHeader, value))
 		}
 
+		for i := 0; i < len(fields); i++ {
+			fields[i] = strings.TrimSpace(fields[i])
+		}
+
 		spans = append(spans, fields)
 	}
 
@@ -111,6 +116,8 @@ func readPayload(h http.Header, p io.Reader) ([]byte, string) {
 	return payload, contentType
 }
 
+// NewMessageFromHeaders extracts a WRP message from a set of HTTP headers.  If supplied, the
+// given io.Reader is assumed to contain the payload of the WRP message.
 func NewMessageFromHeaders(h http.Header, p io.Reader) (message *wrp.Message, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -125,10 +132,10 @@ func NewMessageFromHeaders(h http.Header, p io.Reader) (message *wrp.Message, er
 	}()
 
 	payload, contentType := readPayload(h, p)
-
 	message = &wrp.Message{
 		Type:                    getMessageType(h),
 		Source:                  h.Get(SourceHeader),
+		Destination:             h.Get(DestinationHeader),
 		TransactionUUID:         h.Get(TransactionUuidHeader),
 		Status:                  getIntHeader(h, StatusHeader),
 		RequestDeliveryResponse: getIntHeader(h, RequestDeliveryResponseHeader),
@@ -151,6 +158,10 @@ func AddMessageHeaders(h http.Header, m *wrp.Message) {
 
 	if len(m.Source) > 0 {
 		h.Set(SourceHeader, m.Source)
+	}
+
+	if len(m.Destination) > 0 {
+		h.Set(DestinationHeader, m.Destination)
 	}
 
 	if len(m.TransactionUUID) > 0 {
