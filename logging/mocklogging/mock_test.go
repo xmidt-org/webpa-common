@@ -8,23 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// stubErrorReporter redirects the error report to log messages, so that we can see
-// the expected errors with verbose turned on but not fail tests spuriously.
-type stubErrorReporter struct {
-	*testing.T
-}
-
-func (s stubErrorReporter) Fatal(args ...interface{}) {
-	s.Log(args...)
-}
-
-func (s stubErrorReporter) Fatalf(format string, args ...interface{}) {
-	s.Logf(format, args...)
-}
-
 func TestL(t *testing.T) {
 	logger := New()
-	OnLog(stubErrorReporter{t}, logger, level.Key(), level.InfoValue()).Return(error(nil)).Once()
+	OnLog(logger, level.Key(), level.InfoValue()).Return(error(nil)).Once()
 
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "message")
 	logger.AssertExpectations(t)
@@ -33,18 +19,18 @@ func TestL(t *testing.T) {
 func testMOddMatches(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		M(stubErrorReporter{t}, "odd")
+		M("odd")
 	})
 
 	assert.Panics(func() {
-		M(stubErrorReporter{t}, "odd", "number", "")
+		M("odd", "number", "")
 	})
 }
 
 func testMNoMatches(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		matcher = M(stubErrorReporter{t}) // no matches, which means match any even number of key/value pairs
+		matcher = M() // no matches, which means match any even number of key/value pairs
 	)
 
 	assert.True(matcher([]interface{}{}))
@@ -60,7 +46,6 @@ func testMShouldMatch(t *testing.T) {
 		value3Called = false
 
 		matcher = M(
-			stubErrorReporter{t},
 			"key1", "value1",
 			"key2", func(value interface{}) bool {
 				value2Called = true
@@ -107,15 +92,15 @@ func testMShouldNotMatch(t *testing.T) {
 		}
 	)
 
-	assert.False(M(stubErrorReporter{t}, "key1", "value1")([]interface{}{}))
-	assert.False(M(stubErrorReporter{t}, "key1", "value1")([]interface{}{"key1", "invalid"}))
-	assert.False(M(stubErrorReporter{t}, "key1", "value1")([]interface{}{"another key", "another value"}))
+	assert.False(M("key1", "value1")([]interface{}{}))
+	assert.False(M("key1", "value1")([]interface{}{"key1", "invalid"}))
+	assert.False(M("key1", "value1")([]interface{}{"another key", "another value"}))
 
-	assert.False(M(stubErrorReporter{t}, "key1", "value1", "key2", value2)([]interface{}{"key1", "value1", "key2", "value2"}))
+	assert.False(M("key1", "value1", "key2", value2)([]interface{}{"key1", "value1", "key2", "value2"}))
 	assert.True(value2Called)
 
 	value2Called = false
-	assert.False(M(stubErrorReporter{t}, "key1", "value1", "key3", value3)([]interface{}{"key1", "value1", "key3", "value3"}))
+	assert.False(M("key1", "value1", "key3", value3)([]interface{}{"key1", "value1", "key3", "value3"}))
 }
 
 func TestM(t *testing.T) {
