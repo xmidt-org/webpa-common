@@ -3,6 +3,7 @@ package wrpendpoint
 import (
 	"errors"
 	"sync/atomic"
+	"time"
 
 	"github.com/go-kit/kit/endpoint"
 )
@@ -26,10 +27,33 @@ func (sf ServiceFunc) ServeWRP(r Request) (Response, error) {
 	return sf(r)
 }
 
+// ServiceError gives metadata around the error from a particular service.
+// This type itself implements error.
+type ServiceError struct {
+	// Err is the actual error retrieved from the Service
+	Err error
+
+	// Endpoint is the optional name of the endpoint which serviced the request
+	Endpoint string
+
+	// Duration is the time taken by the Service to produce the error
+	Duration time.Duration
+}
+
+func (se *ServiceError) String() string {
+	return se.Error()
+}
+
+func (se *ServiceError) Error() string {
+	return se.Err.Error()
+}
+
 // workerResult is message that carries back ServeWRP results
 // across a channel or other asynchronous boundary.
 type workerResult struct {
+	endpoint string
 	response Response
+	duration time.Duration
 	err      error
 }
 
@@ -48,6 +72,9 @@ type ServiceDispatcher struct {
 	state     uint32
 	envelopes chan dispatcherEnvelope
 	delegate  Service
+
+	now   func() time.Time
+	since func(time.Time) time.Duration
 }
 
 // NewServiceDispatcher constructs and starts a new ServiceDispatcher.
@@ -66,6 +93,8 @@ func NewServiceDispatcher(workers, queueSize int, delegate Service) *ServiceDisp
 	sd := &ServiceDispatcher{
 		envelopes: make(chan dispatcherEnvelope, queueSize),
 		delegate:  delegate,
+		now:       time.Now,
+		since:     time.Since,
 	}
 
 	for r := 0; r < workers; r++ {
@@ -77,14 +106,18 @@ func NewServiceDispatcher(workers, queueSize int, delegate Service) *ServiceDisp
 
 func (sd *ServiceDispatcher) worker() {
 	for e := range sd.envelopes {
-		ctx := e.request.Context()
+		var (
+			start = sd.now()
+			ctx   = e.request.Context()
+		)
+
 		if ctx.Err() != nil {
-			e.result <- workerResult{nil, ctx.Err()}
+			e.result <- workerResult{err: ctx.Err(), duration: sd.since(start)}
 			continue
 		}
 
 		response, err := sd.delegate.ServeWRP(e.request)
-		e.result <- workerResult{response, err}
+		e.result <- workerResult{response: response, err: err, duration: sd.since(start)}
 	}
 }
 
@@ -122,35 +155,26 @@ func (sd *ServiceDispatcher) ServeWRP(request Request) (Response, error) {
 	}
 }
 
-func DefaultErrorAggregator(errs []error) error {
-	if len(errs) > 0 {
-		return errs[0]
-	}
-
-	return nil
-}
-
 // serviceFanout takes a single WRP request and dispatches it concurrently to zero
 // or more go-kit endpoints.
 type serviceFanout struct {
-	endpoints       []endpoint.Endpoint
-	errorAggregator func([]error) error
+	endpoints map[string]endpoint.Endpoint
+
+	now   func() time.Time
+	since func(time.Time) time.Duration
 }
 
-func NewServiceFanout(errorAggregator func([]error) error, endpoints []endpoint.Endpoint) Service {
+func NewServiceFanout(endpoints map[string]endpoint.Endpoint) Service {
 	if len(endpoints) == 0 {
 		return ServiceFunc(func(Request) (Response, error) {
 			return nil, errors.New("No configured endpoints")
 		})
 	}
 
-	if errorAggregator == nil {
-		errorAggregator = DefaultErrorAggregator
-	}
-
 	return &serviceFanout{
-		endpoints:       endpoints,
-		errorAggregator: errorAggregator,
+		endpoints: endpoints,
+		now:       time.Now,
+		since:     time.Since,
 	}
 }
 
@@ -161,16 +185,33 @@ func (sf *serviceFanout) ServeWRP(request Request) (Response, error) {
 	}
 
 	results := make(chan workerResult, len(sf.endpoints))
-	for _, e := range sf.endpoints {
-		go func(e endpoint.Endpoint) {
-			value, err := e(ctx, request)
-			response, _ := value.(Response)
-			results <- workerResult{response, err}
-		}(e)
+	for name, e := range sf.endpoints {
+		go func(name string, e endpoint.Endpoint) {
+			var (
+				start      = sf.now()
+				value, err = e(ctx, request)
+				duration   = sf.since(start)
+			)
+
+			if err != nil {
+				results <- workerResult{
+					endpoint: name,
+					duration: duration,
+					err:      &ServiceError{Err: err, Endpoint: name, Duration: duration},
+				}
+			} else {
+				response, _ := value.(Response)
+				results <- workerResult{
+					endpoint: name,
+					response: response,
+					duration: duration,
+				}
+			}
+		}(name, e)
 	}
 
 	// there can be at most (1) result from each goroutine
-	var errs []error
+	errs := make(map[string]error, len(sf.endpoints))
 	for r := 0; r < len(sf.endpoints); r++ {
 		select {
 		case <-ctx.Done():
@@ -181,9 +222,10 @@ func (sf *serviceFanout) ServeWRP(request Request) (Response, error) {
 				return r.response, nil
 			}
 
-			errs = append(errs, r.err)
+			errs[r.endpoint] = r.err
 		}
 	}
 
-	return nil, sf.errorAggregator(errs)
+	// TODO: aggregate errors somehow
+	return nil, nil
 }

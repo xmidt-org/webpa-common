@@ -152,11 +152,31 @@ func WrapAsRequest(ctx context.Context, m *wrp.Message) Request {
 // Response represents a WRP response to a Request.  Note that not all WRP requests will have responses, e.g. SimpleEvents.
 type Response interface {
 	Note
+	Timed
+
+	// Endpoint is the tag specifying the remote endpoint that produced this response.  This
+	// can be any string, but is most often a FQDN or URL.  If empty, this response is not
+	// associated with any particular endpoint.
+	//Endpoint() string
+
+	// Errors returns the non-fatal errors that occurred while producing this response.  Keys in
+	// the returned map are usually endpoints.
+	//
+	// Theses associated errors are typically populated when more than one remote endpoint was
+	// consulted to produce this response.  In that case, the Endpoint method returns the endpoint
+	// that successfully return this response, while this method returns the results of trying
+	// the other endpoints.
+	//Errors() map[string]error
 }
 
 // response is the internal Response implementation
 type response struct {
 	note
+	timing Timing
+}
+
+func (r *response) Timing() Timing {
+	return r.timing
 }
 
 // DecodeResponse extracts a WRP response from the given source.
@@ -188,6 +208,7 @@ func DecodeResponseBytes(contents []byte, pool *wrp.DecoderPool) (Response, erro
 			contents:      contents,
 			format:        pool.Format(),
 		},
+		timing: make(Timing),
 	}, nil
 }
 
@@ -199,5 +220,6 @@ func WrapAsResponse(m *wrp.Message) Response {
 			transactionID: m.TransactionUUID,
 			message:       m,
 		},
+		timing: make(Timing),
 	}
 }
