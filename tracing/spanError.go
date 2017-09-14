@@ -10,6 +10,11 @@ func (se SpanError) String() string {
 	return se.Error()
 }
 
+// Spans implements the Spanned interface, making it convenient for reflection
+func (se SpanError) Spans() []Span {
+	return se
+}
+
 func (se SpanError) Error() string {
 	var output bytes.Buffer
 	for _, s := range se {
@@ -26,4 +31,14 @@ func (se SpanError) Error() string {
 	}
 
 	return output.String()
+}
+
+// Spans provides an abstract way to obtain any spans associated with an object,
+// typically an error
+func Spans(err interface{}) []Span {
+	if spanned, ok := err.(Spanned); ok {
+		return spanned.Spans()
+	}
+
+	return nil
 }
