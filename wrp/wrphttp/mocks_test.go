@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	"github.com/stretchr/testify/mock"
@@ -53,4 +54,12 @@ func (m *mockRequestResponse) Context() context.Context {
 
 func (m *mockRequestResponse) WithContext(ctx context.Context) wrpendpoint.Request {
 	return m.Called(ctx).Get(0).(wrpendpoint.Request)
+}
+
+func (m *mockRequestResponse) Spans() []tracing.Span {
+	return m.Called().Get(0).([]tracing.Span)
+}
+
+func (m *mockRequestResponse) AddSpans(spans ...tracing.Span) wrpendpoint.Response {
+	return m.Called(spans).Get(0).(wrpendpoint.Response)
 }

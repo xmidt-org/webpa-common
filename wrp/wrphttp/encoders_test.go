@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -162,6 +163,7 @@ func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
 		wrpResponse     = new(mockRequestResponse)
 	)
 
+	wrpResponse.On("Spans").Return([]tracing.Span{})
 	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
 		Run(func(arguments mock.Arguments) {
 			output := arguments.Get(0).(io.Writer)
@@ -186,6 +188,7 @@ func testServerEncodeResponseBodyEncodeError(t *testing.T, format wrp.Format) {
 		wrpResponse  = new(mockRequestResponse)
 	)
 
+	wrpResponse.On("Spans").Return([]tracing.Span{})
 	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
 		Return(errors.New("expected error")).Once()
 
@@ -224,6 +227,7 @@ func testServerEncodeResponseHeadersNoPayload(t *testing.T) {
 		httpResponse = httptest.NewRecorder()
 	)
 
+	wrpResponse.On("Spans").Return([]tracing.Span{})
 	wrpResponse.On("Message").Return(&message).Twice()
 
 	assert.NoError(ServerEncodeResponseHeaders(context.Background(), httpResponse, wrpResponse))
@@ -252,6 +256,7 @@ func testServerEncodeResponseHeadersWithPayload(t *testing.T) {
 		httpResponse = httptest.NewRecorder()
 	)
 
+	wrpResponse.On("Spans").Return([]tracing.Span{})
 	wrpResponse.On("Message").Return(&message).Twice()
 
 	assert.NoError(ServerEncodeResponseHeaders(context.Background(), httpResponse, wrpResponse))

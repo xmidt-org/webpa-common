@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/Comcast/webpa-common/tracing/tracinghttp"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -61,6 +62,8 @@ func ServerEncodeResponseBody(pool *wrp.EncoderPool) gokithttp.EncodeResponseFun
 			output      bytes.Buffer
 		)
 
+		tracinghttp.WriteSpanHeaders(httpResponse.Header(), "", wrpResponse.Spans())
+
 		if err := wrpResponse.Encode(&output, pool); err != nil {
 			return err
 		}
@@ -75,6 +78,7 @@ func ServerEncodeResponseBody(pool *wrp.EncoderPool) gokithttp.EncodeResponseFun
 // is written as the HTTP response body.
 func ServerEncodeResponseHeaders(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
 	wrpResponse := value.(wrpendpoint.Response)
+	tracinghttp.WriteSpanHeaders(httpResponse.Header(), "", wrpResponse.Spans())
 	AddMessageHeaders(httpResponse.Header(), wrpResponse.Message())
 	return WriteMessagePayload(httpResponse.Header(), httpResponse, wrpResponse.Message())
 }
