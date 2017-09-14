@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 )
 
@@ -152,31 +153,36 @@ func WrapAsRequest(ctx context.Context, m *wrp.Message) Request {
 // Response represents a WRP response to a Request.  Note that not all WRP requests will have responses, e.g. SimpleEvents.
 type Response interface {
 	Note
-	Timed
 
-	// Endpoint is the tag specifying the remote endpoint that produced this response.  This
-	// can be any string, but is most often a FQDN or URL.  If empty, this response is not
-	// associated with any particular endpoint.
-	//Endpoint() string
+	// Spans returns the spans associated with this response.  This implements tracing.Spanned.
+	Spans() []tracing.Span
 
-	// Errors returns the non-fatal errors that occurred while producing this response.  Keys in
-	// the returned map are usually endpoints.
-	//
-	// Theses associated errors are typically populated when more than one remote endpoint was
-	// consulted to produce this response.  In that case, the Endpoint method returns the endpoint
-	// that successfully return this response, while this method returns the results of trying
-	// the other endpoints.
-	//Errors() map[string]error
+	// AddSpans returns a shallow copy of this response with the given spans appended
+	AddSpans(...tracing.Span) Response
 }
 
 // response is the internal Response implementation
 type response struct {
 	note
-	timing Timing
+	spans []tracing.Span
 }
 
-func (r *response) Timing() Timing {
-	return r.timing
+func (r *response) Spans() []tracing.Span {
+	return r.spans
+}
+
+func (r *response) AddSpans(spans ...tracing.Span) Response {
+	if len(spans) == 0 {
+		return r
+	}
+
+	copyOf := new(response)
+	*copyOf = *r
+	copyOf.spans = make([]tracing.Span, len(r.spans)+len(spans))
+	copy(copyOf.spans, r.spans)
+	copy(copyOf.spans[len(r.spans):], spans)
+
+	return copyOf
 }
 
 // DecodeResponse extracts a WRP response from the given source.
@@ -208,7 +214,6 @@ func DecodeResponseBytes(contents []byte, pool *wrp.DecoderPool) (Response, erro
 			contents:      contents,
 			format:        pool.Format(),
 		},
-		timing: make(Timing),
 	}, nil
 }
 
@@ -220,6 +225,5 @@ func WrapAsResponse(m *wrp.Message) Response {
 			transactionID: m.TransactionUUID,
 			message:       m,
 		},
-		timing: make(Timing),
 	}
 }
