@@ -27,9 +27,9 @@ func (e *E) Error() string {
 	return e.Text
 }
 
-// StatusCode obtains a status code from an error if it implements StatusCoder.
+// StatusCode obtains a status code from an object if it implements StatusCoder.
 // The second parameter is false if a code couldn't be retrieved.
-func StatusCode(err error) (int, bool) {
+func StatusCode(err interface{}) (int, bool) {
 	if coder, ok := err.(gokithttp.StatusCoder); ok {
 		return coder.StatusCode(), true
 	}
@@ -37,9 +37,9 @@ func StatusCode(err error) (int, bool) {
 	return -1, false
 }
 
-// Header obtains an http.Header from an error if it implements Headerer.
+// Header obtains an http.Header from an objec if it implements Headerer.
 // The second parameter is false if an http.Header couldn't be retrieved.
-func Header(err error) (http.Header, bool) {
+func Header(err interface{}) (http.Header, bool) {
 	if headerer, ok := err.(gokithttp.Headerer); ok {
 		return headerer.Headers(), true
 	}
