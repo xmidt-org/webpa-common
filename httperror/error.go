@@ -5,6 +5,26 @@ import (
 	"net/http"
 )
 
+// Error is an HTTP-specific carrier of error information.  In addition to implementing error,
+// this type also implements go-kit's StatusCoder and Headerer.
+type Error struct {
+	Code   int
+	Header http.Header
+	Text   string
+}
+
+func (e *Error) StatusCode() int {
+	return e.Code
+}
+
+func (e *Error) Headers() http.Header {
+	return e.Header
+}
+
+func (e *Error) Error() string {
+	return e.Text
+}
+
 // Formatf provides printf-style functionality for writing out the results of some operation.
 // The response status code is set to code, and a JSON message of the form {"code": %d, "message": "%s"} is
 // written as the response body.  fmt.Sprintf is used to turn the format and parameters into a single string
