@@ -25,9 +25,6 @@ type Span interface {
 	// Error is any error that occurred.  Will be nil until Finish is called, and then
 	// it will be set to the error passed to Finish (which also can be nil).
 	Error() error
-
-	// finish is an internal method that completes this span
-	finish(time.Duration, error) bool
 }
 
 type span struct {
