@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// Spanned can be implemented by external messages to describe the spans
+// involved in message processing.
+type Spanned interface {
+	Spans() []Span
+}
+
 // Span represents the result of some operation
 type Span interface {
 	// Name is the name of the operation
