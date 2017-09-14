@@ -27,12 +27,10 @@ func TestSpanner(t *testing.T) {
 			return expectedDuration
 		}
 
-		sp = NewSpanner()
+		sp = NewSpanner(Now(now), Since(since))
 	)
 
 	require.NotNil(sp)
-	sp.(*spanner).now = now
-	sp.(*spanner).since = since
 
 	finisher := sp.Start("test")
 	require.NotNil(finisher)

@@ -14,11 +14,38 @@ type Spanner interface {
 	Start(string) func(error) Span
 }
 
-func NewSpanner() Spanner {
-	return &spanner{
+type SpannerOption func(*spanner)
+
+// Now sets a now function on a spanner.  If now is nil, this option does nothing.
+func Now(now func() time.Time) SpannerOption {
+	return func(sp *spanner) {
+		if now != nil {
+			sp.now = now
+		}
+	}
+}
+
+// Since sets a since function on a spanner.  If since is nil, this option does nothing.
+func Since(since func(time.Time) time.Duration) SpannerOption {
+	return func(sp *spanner) {
+		if since != nil {
+			sp.since = since
+		}
+	}
+}
+
+// NewSpanner constructs a new Spanner with the given options
+func NewSpanner(o ...SpannerOption) Spanner {
+	sp := &spanner{
 		now:   time.Now,
 		since: time.Since,
 	}
+
+	for _, option := range o {
+		option(sp)
+	}
+
+	return sp
 }
 
 type spanner struct {
