@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/tracing/tracinghttp"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
@@ -81,4 +82,23 @@ func ServerEncodeResponseHeaders(ctx context.Context, httpResponse http.Response
 	tracinghttp.WriteSpanHeaders(httpResponse.Header(), "", wrpResponse.Spans())
 	AddMessageHeaders(httpResponse.Header(), wrpResponse.Message())
 	return WriteMessagePayload(httpResponse.Header(), httpResponse, wrpResponse.Message())
+}
+
+// ServerErrorEncoder handles encoding the given error into an HTTP response, using the standard WebPA
+// encoding for headers.
+func ServerErrorEncoder(ctx context.Context, err error, response http.ResponseWriter) {
+	if header, ok := httperror.Header(err); ok {
+		responseHeader := response.Header()
+		for name, values := range header {
+			for _, value := range values {
+				responseHeader.Add(name, value)
+			}
+		}
+	}
+
+	if code, ok := httperror.StatusCode(err); ok {
+		response.WriteHeader(code)
+	} else {
+		response.WriteHeader(http.StatusInternalServerError)
+	}
 }
