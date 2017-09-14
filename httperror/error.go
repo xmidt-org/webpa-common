@@ -5,23 +5,23 @@ import (
 	"net/http"
 )
 
-// Error is an HTTP-specific carrier of error information.  In addition to implementing error,
+// E is an HTTP-specific carrier of error information.  In addition to implementing error,
 // this type also implements go-kit's StatusCoder and Headerer.
-type Error struct {
+type E struct {
 	Code   int
 	Header http.Header
 	Text   string
 }
 
-func (e *Error) StatusCode() int {
+func (e *E) StatusCode() int {
 	return e.Code
 }
 
-func (e *Error) Headers() http.Header {
+func (e *E) Headers() http.Header {
 	return e.Header
 }
 
-func (e *Error) Error() string {
+func (e *E) Error() string {
 	return e.Text
 }
 
