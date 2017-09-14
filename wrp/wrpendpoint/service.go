@@ -3,7 +3,6 @@ package wrpendpoint
 import (
 	"errors"
 	"sync/atomic"
-	"time"
 
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/go-kit/kit/endpoint"
@@ -52,12 +51,12 @@ type dispatcherEnvelope struct {
 // via a pooled set of worker goroutines.  Obviously, the delegate Service must be safe for concurrent
 // invocation.
 type ServiceDispatcher struct {
-	state      uint32
-	name       string
-	workerName string
-	envelopes  chan dispatcherEnvelope
-	spanner    tracing.Spanner
-	delegate   Service
+	name string
+
+	state     uint32
+	envelopes chan dispatcherEnvelope
+	spanner   tracing.Spanner
+	delegate  Service
 }
 
 // NewServiceDispatcher constructs and starts a new ServiceDispatcher.
@@ -78,11 +77,10 @@ func NewServiceDispatcher(name string, workers, queueSize int, delegate Service)
 	}
 
 	sd := &ServiceDispatcher{
-		name:       name,
-		workerName: name + WorkerNameSuffix,
-		envelopes:  make(chan dispatcherEnvelope, queueSize),
-		spanner:    tracing.NewSpanner(),
-		delegate:   delegate,
+		name:      name,
+		envelopes: make(chan dispatcherEnvelope, queueSize),
+		spanner:   tracing.NewSpanner(),
+		delegate:  delegate,
 	}
 
 	for r := 0; r < workers; r++ {
@@ -95,7 +93,7 @@ func NewServiceDispatcher(name string, workers, queueSize int, delegate Service)
 func (sd *ServiceDispatcher) worker() {
 	for e := range sd.envelopes {
 		var (
-			finisher = sd.spanner.Start(sd.workerName)
+			finisher = sd.spanner.Start(sd.name)
 			ctx      = e.request.Context()
 		)
 
@@ -129,28 +127,24 @@ func (sd *ServiceDispatcher) ServeWRP(request Request) (Response, error) {
 		return nil, errors.New("Dispatcher not running")
 	}
 
-	var (
-		finisher = sd.spanner.Start(sd.name)
-		ctx      = request.Context()
-	)
-
+	ctx := request.Context()
 	if ctx.Err() != nil {
-		return nil, tracing.SpanError{finisher(ctx.Err())}
+		return nil, ctx.Err()
 	}
 
 	result := make(chan workerResult, 1)
 	select {
 	case <-ctx.Done():
-		return nil, tracing.SpanError{finisher(ctx.Err())}
+		return nil, ctx.Err()
 	case sd.envelopes <- dispatcherEnvelope{request, result}:
 	}
 
 	select {
 	case <-ctx.Done():
-		return nil, tracing.SpanError{finisher(ctx.Err())}
+		return nil, ctx.Err()
 	case r := <-result:
 		if r.span.Error() != nil {
-			return nil, tracing.SpanError{r.span}
+			return nil, tracing.NewSpanError(r.span.Error(), r.span)
 		}
 
 		return r.response.AddSpans(r.span), nil
@@ -163,9 +157,6 @@ type serviceFanout struct {
 	name      string
 	endpoints map[string]endpoint.Endpoint
 	spanner   tracing.Spanner
-
-	now   func() time.Time
-	since func(time.Time) time.Duration
 }
 
 func NewServiceFanout(name string, endpoints map[string]endpoint.Endpoint) Service {
@@ -183,19 +174,13 @@ func NewServiceFanout(name string, endpoints map[string]endpoint.Endpoint) Servi
 		name:      name,
 		endpoints: endpoints,
 		spanner:   tracing.NewSpanner(),
-		now:       time.Now,
-		since:     time.Since,
 	}
 }
 
 func (sf *serviceFanout) ServeWRP(request Request) (Response, error) {
-	var (
-		finisher = sf.spanner.Start(sf.name)
-		ctx      = request.Context()
-	)
-
+	ctx := request.Context()
 	if ctx.Err() != nil {
-		return nil, tracing.SpanError{finisher(ctx.Err())}
+		return nil, ctx.Err()
 	}
 
 	results := make(chan workerResult, len(sf.endpoints))
@@ -214,19 +199,19 @@ func (sf *serviceFanout) ServeWRP(request Request) (Response, error) {
 		}(name, e)
 	}
 
-	var spanError tracing.SpanError
+	var spanErrors []tracing.Span
 	for r := 0; r < len(sf.endpoints); r++ {
 		select {
 		case <-ctx.Done():
-			return nil, append(spanError, finisher(ctx.Err()))
+			return nil, tracing.NewSpanError(ctx.Err(), spanErrors...)
 		case r := <-results:
 			if r.span.Error() != nil {
-				spanError = append(spanError, r.span)
+				spanErrors = append(spanErrors, r.span)
 			} else {
-				return r.response.AddSpans(spanError...), nil
+				return r.response.AddSpans(spanErrors...), nil
 			}
 		}
 	}
 
-	return nil, spanError
+	return nil, tracing.NewSpanError(errors.New("All endpoints failed"), spanErrors...)
 }

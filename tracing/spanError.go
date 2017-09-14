@@ -1,44 +1,38 @@
 package tracing
 
-import "bytes"
+// SpanError represents an error that has one or more spans associated with it.  A SpanError
+// augments an original error, accessible Err(), with zero or more spans.
+type SpanError interface {
+	error
+	Spanned
 
-// SpanError is a simple slice of Spans that implements error.  To be meaningful,
-// at least (1) Span in the slice must have an error.
-type SpanError []Span
-
-func (se SpanError) String() string {
-	return se.Error()
+	// Err returns the error object which is associated with the spans.  Error() returns
+	// the value from this instance.
+	Err() error
 }
 
-// Spans implements the Spanned interface, making it convenient for reflection
-func (se SpanError) Spans() []Span {
-	return se
-}
-
-func (se SpanError) Error() string {
-	var output bytes.Buffer
-	for _, s := range se {
-		err := s.Error()
-		if err != nil {
-			if output.Len() > 0 {
-				output.WriteRune(',')
-			}
-
-			output.WriteRune('"')
-			output.WriteString(err.Error())
-			output.WriteRune('"')
-		}
+// NewSpanError "span-izes" an existing error object, returning the SpanError which
+// annotates that error with one or more spans.
+func NewSpanError(err error, spans ...Span) SpanError {
+	return &spanError{
+		err:   err,
+		spans: spans,
 	}
-
-	return output.String()
 }
 
-// Spans provides an abstract way to obtain any spans associated with an object,
-// typically an error
-func Spans(err interface{}) []Span {
-	if spanned, ok := err.(Spanned); ok {
-		return spanned.Spans()
-	}
+type spanError struct {
+	err   error
+	spans []Span
+}
 
-	return nil
+func (se *spanError) Error() string {
+	return se.err.Error()
+}
+
+func (se *spanError) Spans() []Span {
+	return se.spans
+}
+
+func (se *spanError) Err() error {
+	return se.err
 }

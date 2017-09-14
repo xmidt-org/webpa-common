@@ -9,32 +9,23 @@ import (
 
 func TestSpanError(t *testing.T) {
 	var (
-		assert   = assert.New(t)
+		assert        = assert.New(t)
+		expectedError = errors.New("expected")
+
 		testData = []struct {
 			spanError     SpanError
-			expectedError string
+			expectedSpans []Span
 		}{
-			{nil, ""},
-			{SpanError{}, ""},
-			{
-				SpanError{&span{err: errors.New("error1")}},
-				`"error1"`,
-			},
-			{
-				SpanError{&span{err: errors.New("error1")}, &span{}},
-				`"error1"`,
-			},
-			{
-				SpanError{&span{err: errors.New("error1")}, &span{}, &span{err: errors.New("another error")}},
-				`"error1","another error"`,
-			},
+			{NewSpanError(expectedError), nil},
+			{NewSpanError(expectedError, &span{}), []Span{&span{}}},
 		}
 	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
 
-		assert.Equal(record.expectedError, record.spanError.String())
-		assert.Equal(record.expectedError, record.spanError.Error())
+		assert.Equal(expectedError, record.spanError.Err())
+		assert.Equal(expectedError.Error(), record.spanError.Error())
+		assert.Equal(record.expectedSpans, record.spanError.Spans())
 	}
 }
