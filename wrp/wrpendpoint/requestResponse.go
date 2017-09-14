@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 )
 
@@ -152,11 +153,36 @@ func WrapAsRequest(ctx context.Context, m *wrp.Message) Request {
 // Response represents a WRP response to a Request.  Note that not all WRP requests will have responses, e.g. SimpleEvents.
 type Response interface {
 	Note
+
+	// Spans returns the spans associated with this response.  This implements tracing.Spanned.
+	Spans() []tracing.Span
+
+	// AddSpans returns a shallow copy of this response with the given spans appended
+	AddSpans(...tracing.Span) Response
 }
 
 // response is the internal Response implementation
 type response struct {
 	note
+	spans []tracing.Span
+}
+
+func (r *response) Spans() []tracing.Span {
+	return r.spans
+}
+
+func (r *response) AddSpans(spans ...tracing.Span) Response {
+	if len(spans) == 0 {
+		return r
+	}
+
+	copyOf := new(response)
+	*copyOf = *r
+	copyOf.spans = make([]tracing.Span, len(r.spans)+len(spans))
+	copy(copyOf.spans, r.spans)
+	copy(copyOf.spans[len(r.spans):], spans)
+
+	return copyOf
 }
 
 // DecodeResponse extracts a WRP response from the given source.
