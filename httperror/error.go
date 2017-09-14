@@ -3,6 +3,8 @@ package httperror
 import (
 	"fmt"
 	"net/http"
+
+	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
 // E is an HTTP-specific carrier of error information.  In addition to implementing error,
@@ -23,6 +25,26 @@ func (e *E) Headers() http.Header {
 
 func (e *E) Error() string {
 	return e.Text
+}
+
+// StatusCode obtains a status code from an error if it implements StatusCoder.
+// The second parameter is false if a code couldn't be retrieved.
+func StatusCode(err error) (int, bool) {
+	if coder, ok := err.(gokithttp.StatusCoder); ok {
+		return coder.StatusCode(), true
+	}
+
+	return -1, false
+}
+
+// Header obtains an http.Header from an error if it implements Headerer.
+// The second parameter is false if an http.Header couldn't be retrieved.
+func Header(err error) (http.Header, bool) {
+	if headerer, ok := err.(gokithttp.Headerer); ok {
+		return headerer.Headers(), true
+	}
+
+	return nil, false
 }
 
 // Formatf provides printf-style functionality for writing out the results of some operation.

@@ -1,13 +1,54 @@
 package httperror
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestE(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		err    = &E{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar"}
+	)
+
+	assert.Equal(503, err.StatusCode())
+	assert.Equal(http.Header{"Foo": []string{"Bar"}}, err.Headers())
+	assert.Equal("fubar", err.Error())
+}
+
+func TestStatusCode(t *testing.T) {
+	var (
+		assert = assert.New(t)
+	)
+
+	code, ok := StatusCode(errors.New("not an HTTP error"))
+	assert.Equal(-1, code)
+	assert.False(ok)
+
+	code, ok = StatusCode(&E{Code: 345})
+	assert.Equal(345, code)
+	assert.True(ok)
+}
+
+func TestHeader(t *testing.T) {
+	var (
+		assert = assert.New(t)
+	)
+
+	header, ok := Header(errors.New("not an HTTP error"))
+	assert.Nil(header)
+	assert.False(ok)
+
+	header, ok = Header(&E{Header: http.Header{"Foo": []string{"Bar"}}})
+	assert.Equal(http.Header{"Foo": []string{"Bar"}}, header)
+	assert.True(ok)
+}
 
 func TestFormatf(t *testing.T) {
 	var (
