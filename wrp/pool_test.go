@@ -2,6 +2,7 @@ package wrp
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -154,43 +155,116 @@ func TestDecoderPool(t *testing.T) {
 		})
 	}
 }
+func BenchmarkWRP(b *testing.B) {
+	var (
+		require = require.New(b)
+		payload = make([]byte, 1024)
+	)
 
-func benchmarkEncoderPool(b *testing.B, pool *EncoderPool) {
-	b.RunParallel(func(pb *testing.PB) {
+	rand.Read(payload)
+
+	var (
+		status                  int64 = 200
+		requestDeliveryResponse int64 = 1
+
+		message = &Message{
+			Type:                    SimpleRequestResponseMessageType,
+			Source:                  "test",
+			Destination:             "mac:123412341234",
+			Status:                  &status,
+			RequestDeliveryResponse: &requestDeliveryResponse,
+			Accept:                  "application/json",
+			ContentType:             "application/octet-stream",
+			Payload:                 payload,
+		}
+
+		encoded      = make(map[Format][]byte)
+		decoderPools = make(map[Format]*DecoderPool)
+		encoderPools = make(map[Format]*EncoderPool)
+	)
+
+	for _, f := range AllFormats() {
 		var (
-			message = new(Message)
 			output  []byte
+			encoder = NewEncoderBytes(&output, f)
 		)
 
+		require.NoError(encoder.Encode(message))
+		encoded[f] = output
+		decoderPools[f] = NewDecoderPool(10, f)
+		encoderPools[f] = NewEncoderPool(10, f)
+	}
+
+	b.ResetTimer()
+	for _, f := range AllFormats() {
+		b.Run(f.String(), func(b *testing.B) {
+			b.Run("EncoderPool", func(b *testing.B) {
+				benchmarkEncoderPool(b, encoderPools[f], message)
+			})
+
+			b.Run("DecoderPool", func(b *testing.B) {
+				benchmarkDecoderPool(b, decoderPools[f], encoded[f])
+			})
+
+			b.Run("Encoder", func(b *testing.B) {
+				benchmarkEncoder(b, f, message)
+			})
+
+			b.Run("Decoder", func(b *testing.B) {
+				benchmarkDecoder(b, f, encoded[f])
+			})
+		})
+	}
+}
+
+func benchmarkEncoderPool(b *testing.B, pool *EncoderPool, message *Message) {
+	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			pool.EncodeBytes(&output, message)
+			var output []byte
+			if err := pool.EncodeBytes(&output, message); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
 
-func BenchmarkEncoderPool(b *testing.B) {
-	for _, format := range AllFormats() {
-		pool := NewEncoderPool(100, format)
-		b.Run(format.String(), func(b *testing.B) { benchmarkEncoderPool(b, pool) })
-	}
+func benchmarkDecoderPool(b *testing.B, pool *DecoderPool, data []byte) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			var message Message
+			if err := pool.DecodeBytes(&message, data); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }
 
-func benchmarkEncoder(b *testing.B, format Format) {
+func benchmarkEncoder(b *testing.B, format Format, message *Message) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			var (
-				message = new(Message)
 				output  []byte
 				encoder = NewEncoderBytes(&output, format)
 			)
 
-			encoder.Encode(message)
+			if err := encoder.Encode(message); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
 
-func BenchmarkEncoder(b *testing.B) {
-	for _, format := range AllFormats() {
-		b.Run(format.String(), func(b *testing.B) { benchmarkEncoder(b, format) })
-	}
+func benchmarkDecoder(b *testing.B, format Format, data []byte) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			var (
+				message Message
+				decoder = NewDecoderBytes(data, format)
+			)
+
+			if err := decoder.Decode(&message); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
 }
