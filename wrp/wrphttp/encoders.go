@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/tracing/tracinghttp"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
@@ -95,11 +96,22 @@ func ServerErrorEncoder(ctx context.Context, err error, response http.ResponseWr
 		}
 	}
 
-	if err == context.DeadlineExceeded {
-		response.WriteHeader(http.StatusGatewayTimeout)
-	} else if coder, ok := err.(gokithttp.StatusCoder); ok {
-		response.WriteHeader(coder.StatusCode())
-	} else {
-		response.WriteHeader(http.StatusInternalServerError)
+	response.WriteHeader(StatusCodeOf(err))
+}
+
+func StatusCodeOf(err error) int {
+	switch v := err.(type) {
+	case gokithttp.StatusCoder:
+		return v.StatusCode()
+
+	case tracing.SpanError:
+		return StatusCodeOf(v.Err())
+
+	default:
+		if err == context.DeadlineExceeded {
+			return http.StatusGatewayTimeout
+		} else {
+			return http.StatusInternalServerError
+		}
 	}
 }

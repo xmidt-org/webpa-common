@@ -213,5 +213,6 @@ func (sf *serviceFanout) ServeWRP(request Request) (Response, error) {
 		}
 	}
 
-	return nil, tracing.NewSpanError(errors.New("All endpoints failed"), spanErrors...)
+	// use the last error as the causal error
+	return nil, tracing.NewSpanError(spanErrors[len(spanErrors)-1].Error(), spanErrors...)
 }
