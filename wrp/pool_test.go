@@ -154,3 +154,43 @@ func TestDecoderPool(t *testing.T) {
 		})
 	}
 }
+
+func benchmarkEncoderPool(b *testing.B, pool *EncoderPool) {
+	b.RunParallel(func(pb *testing.PB) {
+		var (
+			message = new(Message)
+			output  []byte
+		)
+
+		for pb.Next() {
+			pool.EncodeBytes(&output, message)
+		}
+	})
+}
+
+func BenchmarkEncoderPool(b *testing.B) {
+	for _, format := range AllFormats() {
+		pool := NewEncoderPool(100, format)
+		b.Run(format.String(), func(b *testing.B) { benchmarkEncoderPool(b, pool) })
+	}
+}
+
+func benchmarkEncoder(b *testing.B, format Format) {
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			var (
+				message = new(Message)
+				output  []byte
+				encoder = NewEncoderBytes(&output, format)
+			)
+
+			encoder.Encode(message)
+		}
+	})
+}
+
+func BenchmarkEncoder(b *testing.B) {
+	for _, format := range AllFormats() {
+		b.Run(format.String(), func(b *testing.B) { benchmarkEncoder(b, format) })
+	}
+}
