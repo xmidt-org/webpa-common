@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
@@ -171,7 +172,7 @@ func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
 		}).
 		Return(error(nil)).Once()
 
-	assert.NoError(ServerEncodeResponseBody(pool)(context.Background(), httpResponse, wrpResponse))
+	assert.NoError(ServerEncodeResponseBody("", pool)(context.Background(), httpResponse, wrpResponse))
 	assert.Equal(http.StatusOK, httpResponse.Code)
 	assert.Equal(format.ContentType(), httpResponse.HeaderMap.Get("Content-Type"))
 	assert.Equal(expectedPayload, httpResponse.Body.Bytes())
@@ -192,7 +193,7 @@ func testServerEncodeResponseBodyEncodeError(t *testing.T, format wrp.Format) {
 	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
 		Return(errors.New("expected error")).Once()
 
-	assert.Error(ServerEncodeResponseBody(pool)(context.Background(), httpResponse, wrpResponse))
+	assert.Error(ServerEncodeResponseBody("", pool)(context.Background(), httpResponse, wrpResponse))
 	assert.Empty(httpResponse.HeaderMap)
 	assert.Empty(httpResponse.Body.Bytes())
 
@@ -230,7 +231,7 @@ func testServerEncodeResponseHeadersNoPayload(t *testing.T) {
 	wrpResponse.On("Spans").Return([]tracing.Span{})
 	wrpResponse.On("Message").Return(&message).Twice()
 
-	assert.NoError(ServerEncodeResponseHeaders(context.Background(), httpResponse, wrpResponse))
+	assert.NoError(ServerEncodeResponseHeaders("")(context.Background(), httpResponse, wrpResponse))
 	assert.Equal(wrp.SimpleEventMessageType.FriendlyName(), httpResponse.HeaderMap.Get(MessageTypeHeader))
 	assert.Equal("test", httpResponse.HeaderMap.Get(SourceHeader))
 	assert.Equal("mac:121212121212", httpResponse.HeaderMap.Get(DestinationHeader))
@@ -259,7 +260,7 @@ func testServerEncodeResponseHeadersWithPayload(t *testing.T) {
 	wrpResponse.On("Spans").Return([]tracing.Span{})
 	wrpResponse.On("Message").Return(&message).Twice()
 
-	assert.NoError(ServerEncodeResponseHeaders(context.Background(), httpResponse, wrpResponse))
+	assert.NoError(ServerEncodeResponseHeaders("")(context.Background(), httpResponse, wrpResponse))
 	assert.Equal(wrp.SimpleEventMessageType.FriendlyName(), httpResponse.HeaderMap.Get(MessageTypeHeader))
 	assert.Equal("test", httpResponse.HeaderMap.Get(SourceHeader))
 	assert.Equal("mac:121212121212", httpResponse.HeaderMap.Get(DestinationHeader))
@@ -272,4 +273,84 @@ func testServerEncodeResponseHeadersWithPayload(t *testing.T) {
 func TestServerEncodeResponseHeaders(t *testing.T) {
 	t.Run("NoPayload", testServerEncodeResponseHeadersNoPayload)
 	t.Run("WithPayload", testServerEncodeResponseHeadersWithPayload)
+}
+
+func TestServerErrorEncoder(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			err                error
+			expectedStatusCode int
+			expectedHeader     http.Header
+		}{
+			{nil, http.StatusInternalServerError, http.Header{}},
+			{errors.New("random error"), http.StatusInternalServerError, http.Header{}},
+			{context.DeadlineExceeded, http.StatusGatewayTimeout, http.Header{}},
+			{&httperror.E{Code: 403, Header: http.Header{"Foo": []string{"Bar"}}}, 403, http.Header{"Foo": []string{"Bar"}}},
+			{tracing.NewSpanError(nil), http.StatusInternalServerError, http.Header{}},
+			{tracing.NewSpanError(errors.New("random error")), http.StatusInternalServerError, http.Header{}},
+			{tracing.NewSpanError(context.DeadlineExceeded), http.StatusGatewayTimeout, http.Header{}},
+			{tracing.NewSpanError(&httperror.E{Code: 512, Header: http.Header{"Foo": []string{"Bar"}}}), 512, http.Header{"Foo": []string{"Bar"}}},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		response := httptest.NewRecorder()
+		ServerErrorEncoder("")(context.Background(), record.err, response)
+		assert.Equal(record.expectedStatusCode, response.Code)
+		assert.Equal(record.expectedHeader, response.Header())
+	}
+}
+
+func TestHeadersForError(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			err            error
+			expectedHeader http.Header
+		}{
+			{nil, http.Header{}},
+			{errors.New("random error"), http.Header{}},
+			{context.DeadlineExceeded, http.Header{}},
+			{&httperror.E{Header: http.Header{"Foo": []string{"Bar"}}}, http.Header{"Foo": []string{"Bar"}}},
+			{tracing.NewSpanError(nil), http.Header{}},
+			{tracing.NewSpanError(errors.New("random error")), http.Header{}},
+			{tracing.NewSpanError(context.DeadlineExceeded), http.Header{}},
+			{tracing.NewSpanError(&httperror.E{Header: http.Header{"Foo": []string{"Bar"}}}), http.Header{"Foo": []string{"Bar"}}},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+
+		actualHeader := make(http.Header)
+		HeadersForError(record.err, "", actualHeader)
+		assert.Equal(record.expectedHeader, actualHeader)
+	}
+}
+
+func TestStatusCodeForError(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testData = []struct {
+			err                error
+			expectedStatusCode int
+		}{
+			{nil, http.StatusInternalServerError},
+			{errors.New("random error"), http.StatusInternalServerError},
+			{context.DeadlineExceeded, http.StatusGatewayTimeout},
+			{&httperror.E{Code: 403}, 403},
+			{tracing.NewSpanError(nil), http.StatusInternalServerError},
+			{tracing.NewSpanError(errors.New("random error")), http.StatusInternalServerError},
+			{tracing.NewSpanError(context.DeadlineExceeded), http.StatusGatewayTimeout},
+			{tracing.NewSpanError(&httperror.E{Code: 403}), 403},
+		}
+	)
+
+	for _, record := range testData {
+		t.Logf("%#v", record)
+		assert.Equal(record.expectedStatusCode, StatusCodeForError(record.err))
+	}
 }

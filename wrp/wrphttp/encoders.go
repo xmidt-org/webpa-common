@@ -56,14 +56,14 @@ func ClientEncodeRequestHeaders(ctx context.Context, httpRequest *http.Request, 
 
 // ServerEncodeResponseBody produces a go-kit transport/http.EncodeResponseFunc that transforms a wrphttp.Response into
 // an HTTP response.
-func ServerEncodeResponseBody(pool *wrp.EncoderPool) gokithttp.EncodeResponseFunc {
+func ServerEncodeResponseBody(timeLayout string, pool *wrp.EncoderPool) gokithttp.EncodeResponseFunc {
 	return func(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
 		var (
 			wrpResponse = value.(wrpendpoint.Response)
 			output      bytes.Buffer
 		)
 
-		tracinghttp.WriteSpanHeaders(httpResponse.Header(), "", wrpResponse.Spans())
+		tracinghttp.HeadersForSpans(wrpResponse.Spans(), timeLayout, httpResponse.Header())
 
 		if err := wrpResponse.Encode(&output, pool); err != nil {
 			return err
@@ -77,35 +77,60 @@ func ServerEncodeResponseBody(pool *wrp.EncoderPool) gokithttp.EncodeResponseFun
 
 // ServerEncodeResponseHeaders encodes a WRP response's fields into the HTTP response's headers.  The payload
 // is written as the HTTP response body.
-func ServerEncodeResponseHeaders(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
-	wrpResponse := value.(wrpendpoint.Response)
-	tracinghttp.WriteSpanHeaders(httpResponse.Header(), "", wrpResponse.Spans())
-	AddMessageHeaders(httpResponse.Header(), wrpResponse.Message())
-	return WriteMessagePayload(httpResponse.Header(), httpResponse, wrpResponse.Message())
+func ServerEncodeResponseHeaders(timeLayout string) gokithttp.EncodeResponseFunc {
+	return func(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
+		wrpResponse := value.(wrpendpoint.Response)
+		tracinghttp.HeadersForSpans(wrpResponse.Spans(), timeLayout, httpResponse.Header())
+		AddMessageHeaders(httpResponse.Header(), wrpResponse.Message())
+		return WriteMessagePayload(httpResponse.Header(), httpResponse, wrpResponse.Message())
+	}
 }
 
 // ServerErrorEncoder handles encoding the given error into an HTTP response, using the standard WebPA
 // encoding for headers.
-func ServerErrorEncoder(ctx context.Context, err error, response http.ResponseWriter) {
-	if headerer, ok := err.(gokithttp.Headerer); ok {
-		responseHeader := response.Header()
-		for name, values := range headerer.Headers() {
-			for _, value := range values {
-				responseHeader.Add(name, value)
-			}
-		}
+func ServerErrorEncoder(timeLayout string) gokithttp.ErrorEncoder {
+	return func(ctx context.Context, err error, response http.ResponseWriter) {
+		HeadersForError(err, timeLayout, response.Header())
+		response.WriteHeader(StatusCodeForError(err))
 	}
-
-	response.WriteHeader(StatusCodeOf(err))
 }
 
-func StatusCodeOf(err error) int {
+// HeadersForError provides the standard WRP/WebPA method for emitting HTTP response headers
+// for an error object.
+//
+// (a) If err provides a Headers method that returns an http.Header, those headers are emitted
+// (b) If err is a tracing.SpanError, the headers for the spans are written using tracinghttp.HeadersForSpans
+//     and the causal error is passed to this function recursively.
+// (c) Otherwise, no headers are written
+func HeadersForError(err error, timeLayout string, h http.Header) {
+	switch v := err.(type) {
+	case gokithttp.Headerer:
+		for name, values := range v.Headers() {
+			for _, value := range values {
+				h.Add(name, value)
+			}
+		}
+
+	case tracing.SpanError:
+		tracinghttp.HeadersForSpans(v.Spans(), timeLayout, h)
+		HeadersForError(v.Err(), timeLayout, h)
+	}
+}
+
+// StatusCodeForError implements the WRP/WebPA standard way of determining an HTTP response code
+// from an error:
+//
+// (a) If err provides a StatusCode method, that value is returned
+// (b) If err is a tracing.SpanError, the causal error is passed to this function recursively
+// (c) If err is equal to context.DeadlineExceeded, http.StatusGatewayTimeout is returned
+// (d) http.StatusInternalServerError is returned if no other case applies
+func StatusCodeForError(err error) int {
 	switch v := err.(type) {
 	case gokithttp.StatusCoder:
 		return v.StatusCode()
 
 	case tracing.SpanError:
-		return StatusCodeOf(v.Err())
+		return StatusCodeForError(v.Err())
 
 	default:
 		if err == context.DeadlineExceeded {
