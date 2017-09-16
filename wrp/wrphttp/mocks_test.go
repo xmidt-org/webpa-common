@@ -1,12 +1,12 @@
 package wrphttp
 
 import (
-	"context"
 	"io"
 
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -48,12 +48,12 @@ func (m *mockRequestResponse) EncodeBytes(pool *wrp.EncoderPool) ([]byte, error)
 	return arguments.Get(0).([]byte), arguments.Error(1)
 }
 
-func (m *mockRequestResponse) Context() context.Context {
-	return m.Called().Get(0).(context.Context)
+func (m *mockRequestResponse) Logger() log.Logger {
+	return m.Called().Get(0).(log.Logger)
 }
 
-func (m *mockRequestResponse) WithContext(ctx context.Context) wrpendpoint.Request {
-	return m.Called(ctx).Get(0).(wrpendpoint.Request)
+func (m *mockRequestResponse) WithLogger(logger log.Logger) wrpendpoint.Request {
+	return m.Called(logger).Get(0).(wrpendpoint.Request)
 }
 
 func (m *mockRequestResponse) Spans() []tracing.Span {

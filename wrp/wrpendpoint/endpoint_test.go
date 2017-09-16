@@ -2,14 +2,9 @@ package wrpendpoint
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/logging/mocklogging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/go-kit/kit/log/level"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,29 +12,62 @@ func TestNew(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		request Request = &request{
+		expectedRequest Request = &request{
 			note: note{
 				contents: []byte("request"),
 			},
 		}
 
-		expected Response = &response{
+		expectedResponse Response = &response{
 			note: note{
 				contents: []byte("response"),
 			},
 		}
 
-		endpointCtx = context.WithValue(context.Background(), "foo", "bar")
+		expectedCtx = context.WithValue(context.Background(), "foo", "bar")
 		service     = new(mockService)
 		endpoint    = New(service)
 	)
 
-	service.On("ServeWRP", request).Return(expected, error(nil)).Once()
-	actual, err := endpoint(endpointCtx, request)
-	assert.Equal(expected, actual)
+	service.On("ServeWRP", expectedCtx, expectedRequest).Return(expectedResponse, error(nil)).Once()
+	actualResponse, err := endpoint(expectedCtx, expectedRequest)
+	assert.Equal(expectedResponse, actualResponse)
 	assert.NoError(err)
-	assert.Equal(endpointCtx, request.Context())
 	service.AssertExpectations(t)
+}
+
+func TestWrap(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		expectedRequest Request = &request{
+			note: note{
+				contents: []byte("request"),
+			},
+		}
+
+		expectedResponse Response = &response{
+			note: note{
+				contents: []byte("response"),
+			},
+		}
+
+		expectedCtx    = context.WithValue(context.Background(), "foo", "bar")
+		endpointCalled = false
+		endpoint       = func(ctx context.Context, value interface{}) (interface{}, error) {
+			endpointCalled = true
+			assert.Equal(expectedCtx, ctx)
+			assert.Equal(expectedRequest, value)
+			return expectedResponse, nil
+		}
+
+		service = Wrap(endpoint)
+	)
+
+	actualResponse, err := service.ServeWRP(expectedCtx, expectedRequest)
+	assert.Equal(expectedResponse, actualResponse)
+	assert.NoError(err)
+	assert.True(endpointCalled)
 }
 
 func testTimeout(t *testing.T, timeout time.Duration) {
@@ -61,6 +89,13 @@ func testTimeout(t *testing.T, timeout time.Duration) {
 		nextCalled = false
 		next       = func(ctx context.Context, value interface{}) (interface{}, error) {
 			nextCalled = true
+
+			deadline, ok := ctx.Deadline()
+			assert.False(deadline.IsZero())
+			assert.True(ok)
+
+			assert.NotNil(ctx.Done())
+
 			return expected, nil
 		}
 
@@ -70,13 +105,7 @@ func testTimeout(t *testing.T, timeout time.Duration) {
 	actual, err := middleware(next)(context.Background(), request)
 	assert.Equal(expected, actual)
 	assert.NoError(err)
-
-	timeoutCtx := request.Context()
-	assert.NotNil(timeoutCtx.Done())
-	deadline, ok := timeoutCtx.Deadline()
-	assert.False(deadline.IsZero())
-	assert.True(ok)
-	assert.NotNil(timeoutCtx.Err())
+	assert.True(nextCalled)
 }
 
 func TestTimeout(t *testing.T) {
@@ -85,83 +114,4 @@ func TestTimeout(t *testing.T) {
 			testTimeout(t, timeout)
 		})
 	}
-}
-
-func testLoggingSuccess(t *testing.T) {
-	var (
-		assert = assert.New(t)
-		logger = mocklogging.New()
-
-		wrpRequest = WrapAsRequest(context.Background(), &wrp.Message{
-			Destination:     "mac:123412341234",
-			TransactionUUID: "1234567890",
-		})
-
-		wrpResponse = WrapAsResponse(&wrp.Message{
-			Destination:     "test",
-			TransactionUUID: "0987654321",
-		})
-
-		endpoint = func(ctx context.Context, value interface{}) (interface{}, error) {
-			return wrpResponse, nil
-		}
-	)
-
-	mocklogging.OnLog(logger,
-		level.Key(), level.InfoValue(),
-		logging.MessageKey(), mocklogging.AnyValue(),
-		"destination", wrpRequest.Destination(),
-		"transactionID", wrpRequest.TransactionID(),
-	).Return(error(nil)).Once()
-
-	mocklogging.OnLog(logger,
-		level.Key(), level.InfoValue(),
-		logging.MessageKey(), mocklogging.AnyValue(),
-		"destination", wrpResponse.Destination(),
-		"transactionID", wrpResponse.TransactionID(),
-	).Return(error(nil)).Once()
-
-	value, err := Logging(logger)(endpoint)(context.Background(), wrpRequest)
-	assert.Equal(wrpResponse, value)
-	assert.NoError(err)
-
-	logger.AssertExpectations(t)
-}
-
-func testLoggingError(t *testing.T) {
-	var (
-		logger = mocklogging.New()
-
-		wrpRequest = WrapAsRequest(context.Background(), &wrp.Message{
-			Destination:     "mac:123412341234",
-			TransactionUUID: "1234567890",
-		})
-
-		expectedError = errors.New("expected")
-		endpoint      = func(ctx context.Context, value interface{}) (interface{}, error) {
-			return nil, expectedError
-		}
-	)
-
-	mocklogging.OnLog(logger,
-		level.Key(), level.InfoValue(),
-		logging.MessageKey(), mocklogging.AnyValue(),
-		"destination", wrpRequest.Destination(),
-		"transactionID", wrpRequest.TransactionID(),
-	).Return(error(nil)).Once()
-
-	mocklogging.OnLog(logger,
-		level.Key(), level.ErrorValue(),
-		logging.MessageKey(), mocklogging.AnyValue(),
-		"destination", wrpRequest.Destination(),
-		"transactionID", wrpRequest.TransactionID(),
-		logging.ErrorKey(), expectedError,
-	).Return(error(nil)).Once()
-
-	Logging(logger)(endpoint)(context.Background(), wrpRequest)
-}
-
-func TestLogging(t *testing.T) {
-	t.Run("Success", testLoggingSuccess)
-	t.Run("Error", testLoggingError)
 }

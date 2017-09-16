@@ -1,12 +1,13 @@
 package wrpendpoint
 
 import (
-	"context"
 	"io"
 	"io/ioutil"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
 )
 
 // Note is the core type implemented by any entity which carries a WRP message.
@@ -69,54 +70,48 @@ func (n *note) EncodeBytes(pool *wrp.EncoderPool) ([]byte, error) {
 	return output, err
 }
 
-// Request is a WRP request.  In addition to implementing Note, this type also provides context management.
+// Request is a WRP request.  In addition to implementing Note, this type also provides contextual logging.
+// A Request is considered immutable once instantiated.  Methods that update a Request return a shallow copy
+// with the modification.
 type Request interface {
 	Note
-	Context() context.Context
-	WithContext(context.Context) Request
+	Logger() log.Logger
+	WithLogger(log.Logger) Request
 }
 
 // request is the internal Request implementation
 type request struct {
 	note
-	ctx context.Context
+	logger log.Logger
 }
 
-// Context returns the context instance associated with this Request.  This function never returns nil,
-// and will return context.Background() if no context was explicitly associated with this Request.
-func (r *request) Context() context.Context {
-	if r.ctx != nil {
-		return r.ctx
+func (r *request) Logger() log.Logger {
+	if r.logger != nil {
+		return r.logger
 	}
 
-	return context.Background()
+	return logging.DefaultLogger()
 }
 
-// WithContext returns a shallow copy of this Request which is associated with the given context.
-// The supplied context must be non-nil, or this method panics.
-func (r *request) WithContext(ctx context.Context) Request {
-	if ctx == nil {
-		panic("nil context")
-	}
-
+func (r *request) WithLogger(logger log.Logger) Request {
 	copyOf := new(request)
 	*copyOf = *r
-	copyOf.ctx = ctx
+	copyOf.logger = logger
 	return copyOf
 }
 
 // DecodeRequest extracts a WRP request from the given source.
-func DecodeRequest(ctx context.Context, source io.Reader, pool *wrp.DecoderPool) (Request, error) {
+func DecodeRequest(logger log.Logger, source io.Reader, pool *wrp.DecoderPool) (Request, error) {
 	contents, err := ioutil.ReadAll(source)
 	if err != nil {
 		return nil, err
 	}
 
-	return DecodeRequestBytes(ctx, contents, pool)
+	return DecodeRequestBytes(logger, contents, pool)
 }
 
 // DecodeRequestBytes returns a Request taken from the contents.  The given pool is used to decode the WRP message.
-func DecodeRequestBytes(ctx context.Context, contents []byte, pool *wrp.DecoderPool) (Request, error) {
+func DecodeRequestBytes(logger log.Logger, contents []byte, pool *wrp.DecoderPool) (Request, error) {
 	d := pool.Get()
 	defer pool.Put(d)
 
@@ -134,30 +129,33 @@ func DecodeRequestBytes(ctx context.Context, contents []byte, pool *wrp.DecoderP
 			contents:      contents,
 			format:        pool.Format(),
 		},
-		ctx: ctx,
+		logger: logger,
 	}, nil
 }
 
 // WrapAsRequest takes an existing WRP message and produces a Request for that message.
-func WrapAsRequest(ctx context.Context, m *wrp.Message) Request {
+func WrapAsRequest(logger log.Logger, m *wrp.Message) Request {
 	return &request{
 		note: note{
 			destination:   m.Destination,
 			transactionID: m.TransactionUUID,
 			message:       m,
 		},
-		ctx: ctx,
+		logger: logger,
 	}
 }
 
 // Response represents a WRP response to a Request.  Note that not all WRP requests will have responses, e.g. SimpleEvents.
+// A Response instance is considered immutable once created.  Methods that modify a response will return a shallow copy with
+// the modification.
 type Response interface {
 	Note
 
 	// Spans returns the spans associated with this response.  This implements tracing.Spanned.
 	Spans() []tracing.Span
 
-	// AddSpans returns a shallow copy of this response with the given spans appended
+	// AddSpans returns a shallow copy of this response with the given spans appended.  If no spans are passed,
+	// this method returns the original Response unmodified.
 	AddSpans(...tracing.Span) Response
 }
 
