@@ -20,7 +20,7 @@ type serviceFanout struct {
 // invoked service
 type fanoutResponse struct {
 	name     string
-	spans    []tracing.Span
+	span     tracing.Span
 	response Response
 	err      error
 }
@@ -54,21 +54,13 @@ func (sf *serviceFanout) ServeWRP(ctx context.Context, request Request) (Respons
 			var (
 				finisher      = sf.spanner.Start(name)
 				response, err = s.ServeWRP(ctx, request)
-				span          = finisher(err)
 			)
 
-			if err != nil {
-				results <- fanoutResponse{
-					name:  name,
-					spans: []tracing.Span{span},
-					err:   err,
-				}
-			} else {
-				results <- fanoutResponse{
-					name:     name,
-					spans:    []tracing.Span{span},
-					response: response.AddSpans(span),
-				}
+			results <- fanoutResponse{
+				name:     name,
+				span:     finisher(err),
+				response: response,
+				err:      err,
 			}
 		}(name, s)
 	}
@@ -84,9 +76,9 @@ func (sf *serviceFanout) ServeWRP(ctx context.Context, request Request) (Respons
 			request.Logger().Log(level.Key(), level.WarnValue(), logging.MessageKey(), "timed out")
 			return nil, tracing.NewSpanError(ctx.Err(), spans...)
 		case fr := <-results:
+			spans = append(spans, fr.span)
 			if fr.err != nil {
 				lastError = fr.err
-				spans = append(spans, fr.spans...)
 				request.Logger().Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
 			} else {
 				request.Logger().Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
