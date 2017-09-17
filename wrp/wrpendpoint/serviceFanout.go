@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
+	"github.com/go-kit/kit/log/level"
 )
 
 // serviceFanout takes a single WRP request and dispatches it concurrently to zero
@@ -17,6 +19,7 @@ type serviceFanout struct {
 // fanoutResponse is the internal tuple used to communicate the results of an asynchronously
 // invoked service
 type fanoutResponse struct {
+	name     string
 	spans    []tracing.Span
 	response Response
 	err      error
@@ -54,10 +57,18 @@ func (sf *serviceFanout) ServeWRP(ctx context.Context, request Request) (Respons
 				span          = finisher(err)
 			)
 
-			results <- fanoutResponse{
-				spans:    []tracing.Span{span},
-				response: response.AddSpans(span),
-				err:      err,
+			if err != nil {
+				results <- fanoutResponse{
+					name:  name,
+					spans: []tracing.Span{span},
+					err:   err,
+				}
+			} else {
+				results <- fanoutResponse{
+					name:     name,
+					spans:    []tracing.Span{span},
+					response: response.AddSpans(span),
+				}
 			}
 		}(name, s)
 	}
@@ -70,17 +81,21 @@ func (sf *serviceFanout) ServeWRP(ctx context.Context, request Request) (Respons
 	for r := 0; r < len(sf.services); r++ {
 		select {
 		case <-ctx.Done():
+			request.Logger().Log(level.Key(), level.WarnValue(), logging.MessageKey(), "timed out")
 			return nil, tracing.NewSpanError(ctx.Err(), spans...)
 		case fr := <-results:
-			spans = append(spans, fr.spans...)
 			if fr.err != nil {
 				lastError = fr.err
+				spans = append(spans, fr.spans...)
+				request.Logger().Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
 			} else {
+				request.Logger().Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
 				return fr.response.AddSpans(spans...), nil
 			}
 		}
 	}
 
 	// use the last error as the causal error
+	request.Logger().Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), lastError, logging.MessageKey(), "all services failed")
 	return nil, tracing.NewSpanError(lastError, spans...)
 }

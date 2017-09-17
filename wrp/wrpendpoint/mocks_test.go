@@ -12,7 +12,8 @@ type mockService struct {
 
 func (m *mockService) ServeWRP(ctx context.Context, r Request) (Response, error) {
 	arguments := m.Called(ctx, r)
-	return arguments.Get(0).(Response), arguments.Error(1)
+	first, _ := arguments.Get(0).(Response)
+	return first, arguments.Error(1)
 }
 
 type mockReader struct {
