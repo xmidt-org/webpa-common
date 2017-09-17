@@ -69,6 +69,7 @@ func withLogger(logger log.Logger, r *http.Request) log.Logger {
 		logger,
 		"method", r.Method,
 		"url", r.URL.String(),
+		"protocol", r.Proto,
 		"contentLength", r.ContentLength,
 		"remoteAddress", r.RemoteAddr,
 	)
