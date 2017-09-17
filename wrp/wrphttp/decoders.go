@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 
+	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -30,15 +31,20 @@ func ClientDecodeResponseBody(pool *wrp.DecoderPool) gokithttp.DecodeResponseFun
 			)
 
 			if err != nil {
-				return nil, err
+				return nil, &httperror.E{Code: http.StatusBadRequest, Text: err.Error()}
 			} else if responseFormat != pool.Format() {
 				return nil, fmt.Errorf("Unexpected response Content-Type: %s", contentType)
 			}
 
-			return wrpendpoint.DecodeResponseBytes(body, pool)
+			response, err := wrpendpoint.DecodeResponseBytes(body, pool)
+			if err != nil {
+				return nil, &httperror.E{Code: http.StatusInternalServerError, Text: err.Error()}
+			}
+
+			return response, nil
 		}
 
-		return nil, fmt.Errorf("Error from WRP endpoint: %d", httpResponse.StatusCode)
+		return nil, &httperror.E{Code: httpResponse.StatusCode}
 	}
 }
 
@@ -53,14 +59,18 @@ func ClientDecodeResponseHeaders(ctx context.Context, httpResponse *http.Respons
 	if httpResponse.StatusCode == http.StatusOK {
 		message, err := NewMessageFromHeaders(httpResponse.Header, bytes.NewReader(body))
 		if err != nil {
-			return nil, err
+			return nil, &httperror.E{Code: http.StatusBadRequest, Text: err.Error()}
 		}
 
-		return wrpendpoint.WrapAsResponse(message), nil
+		response, err := wrpendpoint.WrapAsResponse(message), nil
+		if err != nil {
+			return nil, &httperror.E{Code: http.StatusInternalServerError, Text: err.Error()}
+		}
+
+		return response, nil
 	}
 
-	return nil, fmt.Errorf("Error from WRP endpoint: %d", httpResponse.StatusCode)
-
+	return nil, &httperror.E{Code: httpResponse.StatusCode}
 }
 
 // withLogger enriches the given logger with request-specific information
