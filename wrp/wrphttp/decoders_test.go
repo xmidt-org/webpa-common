@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	"github.com/stretchr/testify/assert"
@@ -272,6 +273,7 @@ func TestServerDecodeRequestBody(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
 
 		pool        = wrp.NewDecoderPool(1, wrp.JSON)
 		httpRequest = httptest.NewRequest("GET", "/", strings.NewReader(`
@@ -279,12 +281,13 @@ func TestServerDecodeRequestBody(t *testing.T) {
 		`))
 	)
 
-	value, err := ServerDecodeRequestBody(pool)(context.Background(), httpRequest)
+	value, err := ServerDecodeRequestBody(logger, pool)(context.Background(), httpRequest)
 	require.NotNil(value)
 	require.NoError(err)
 
 	wrpRequest, ok := value.(wrpendpoint.Request)
 	require.True(ok)
+	assert.Equal(logger, wrpRequest.Logger())
 
 	assert.Equal(
 		wrp.Message{
@@ -300,6 +303,7 @@ func testServerDecodeRequestHeadersSuccess(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
 
 		httpRequest = httptest.NewRequest("GET", "/", nil)
 	)
@@ -308,12 +312,13 @@ func testServerDecodeRequestHeadersSuccess(t *testing.T) {
 	httpRequest.Header.Set(SourceHeader, "test")
 	httpRequest.Header.Set(DestinationHeader, "mac:432143214321")
 
-	value, err := ServerDecodeRequestHeaders(context.Background(), httpRequest)
+	value, err := ServerDecodeRequestHeaders(logger)(context.Background(), httpRequest)
 	require.NotNil(value)
 	require.NoError(err)
 
 	wrpRequest, ok := value.(wrpendpoint.Request)
 	require.True(ok)
+	assert.Equal(logger, wrpRequest.Logger())
 
 	assert.Equal(
 		wrp.Message{
@@ -328,10 +333,11 @@ func testServerDecodeRequestHeadersSuccess(t *testing.T) {
 func testServerDecodeRequestHeadersBadHeaders(t *testing.T) {
 	var (
 		assert      = assert.New(t)
+		logger      = logging.NewTestLogger(nil, t)
 		httpRequest = httptest.NewRequest("GET", "/", nil)
 	)
 
-	value, err := ServerDecodeRequestHeaders(context.Background(), httpRequest)
+	value, err := ServerDecodeRequestHeaders(logger)(context.Background(), httpRequest)
 	assert.Nil(value)
 	assert.Error(err)
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWriteSpanHeaders(t *testing.T) {
+func TestHeadersForSpans(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
@@ -54,7 +54,7 @@ func TestWriteSpanHeaders(t *testing.T) {
 		t.Logf("%#v", record)
 
 		actualHeader := make(http.Header)
-		WriteSpanHeaders(actualHeader, record.timeLayout, record.spans)
+		HeadersForSpans(record.spans, record.timeLayout, actualHeader)
 		assert.Equal(record.expectedHeader, actualHeader)
 	}
 }

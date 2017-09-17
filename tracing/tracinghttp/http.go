@@ -15,8 +15,9 @@ const (
 	ErrorHeader = "X-Xmidt-Error"
 )
 
-// WriteSpanHeaders emits header information for each Span
-func WriteSpanHeaders(h http.Header, timeLayout string, spans []tracing.Span) {
+// HeadersForSpans emits header information for each Span.  The timeLayout may be empty, in which case time.RFC3339 is used.
+// All times are converted to UTC prior to formatting.
+func HeadersForSpans(spans []tracing.Span, timeLayout string, h http.Header) {
 	if len(timeLayout) == 0 {
 		timeLayout = time.RFC3339
 	}

@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/go-kit/kit/log"
+
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -67,19 +69,21 @@ func ClientDecodeResponseHeaders(ctx context.Context, httpResponse *http.Respons
 //
 // This decoder function is appropriate when the HTTP request body contains a full WRP message.  For situations
 // where the HTTP body is only the payload, use the Headers decoder.
-func ServerDecodeRequestBody(pool *wrp.DecoderPool) gokithttp.DecodeRequestFunc {
+func ServerDecodeRequestBody(logger log.Logger, pool *wrp.DecoderPool) gokithttp.DecodeRequestFunc {
 	return func(ctx context.Context, httpRequest *http.Request) (interface{}, error) {
-		return wrpendpoint.DecodeRequest(ctx, httpRequest.Body, pool)
+		return wrpendpoint.DecodeRequest(logger, httpRequest.Body, pool)
 	}
 }
 
-// ServerDecodeHeaders uses headers to supply the WRP message fields.  The HTTP request body, if supplied, is assumed
-// to be the payload of the WRP message and is read in unmodified.
-func ServerDecodeRequestHeaders(ctx context.Context, httpRequest *http.Request) (interface{}, error) {
-	message, err := NewMessageFromHeaders(httpRequest.Header, httpRequest.Body)
-	if err != nil {
-		return nil, err
-	}
+// ServerDecodeRequestHeaders creates a go-kit transport/http.DecodeRequestFunc that builds a WRP request using HTTP
+// headers for most message fields.  The HTTP entity body, if present, is used as the payload of the WRP message.
+func ServerDecodeRequestHeaders(logger log.Logger) gokithttp.DecodeRequestFunc {
+	return func(ctx context.Context, httpRequest *http.Request) (interface{}, error) {
+		message, err := NewMessageFromHeaders(httpRequest.Header, httpRequest.Body)
+		if err != nil {
+			return nil, err
+		}
 
-	return wrpendpoint.WrapAsRequest(ctx, message), nil
+		return wrpendpoint.WrapAsRequest(logger, message), nil
+	}
 }

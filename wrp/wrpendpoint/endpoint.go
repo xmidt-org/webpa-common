@@ -4,10 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/endpoint"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 )
 
 const DefaultTimeout = 30 * time.Second
@@ -16,11 +13,17 @@ const DefaultTimeout = 30 * time.Second
 // the constraint that ctx must be the context associated with the Request.
 func New(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, value interface{}) (interface{}, error) {
-		request := value.(*request)
-		request.ctx = ctx
-
-		return s.ServeWRP(request)
+		return s.ServeWRP(ctx, value.(Request))
 	}
+}
+
+// Wrap does the opposite of New: it takes a go-kit endpoint and returns a Service
+// that invokes it.
+func Wrap(e endpoint.Endpoint) Service {
+	return ServiceFunc(func(ctx context.Context, request Request) (Response, error) {
+		response, err := e(ctx, request)
+		return response.(Response), err
+	})
 }
 
 // Timeout applies the given timeout to all WRP Requests.  The context's cancellation
@@ -32,53 +35,10 @@ func Timeout(timeout time.Duration) endpoint.Middleware {
 
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		return func(ctx context.Context, value interface{}) (interface{}, error) {
-			var (
-				timeoutCtx, cancel = context.WithTimeout(ctx, timeout)
-				request            = value.(*request)
-			)
-
-			request.ctx = timeoutCtx
+			timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
-			return next(timeoutCtx, request)
-		}
-	}
-}
 
-// Logging provides a Middleware instance that logs WRP requests and responses.
-func Logging(logger log.Logger) endpoint.Middleware {
-	return func(next endpoint.Endpoint) endpoint.Endpoint {
-		return func(ctx context.Context, value interface{}) (interface{}, error) {
-			request := value.(Request)
-
-			logger.Log(
-				level.Key(), level.InfoValue(),
-				logging.MessageKey(), "WRP request",
-				"destination", request.Destination(),
-				"transactionID", request.TransactionID(),
-			)
-
-			result, err := next(ctx, value)
-			if err != nil {
-				// use the request instead of the result from next,
-				// as endpoints are allowed to return nil values when they
-				// return non-nil errors
-				logger.Log(
-					level.Key(), level.ErrorValue(),
-					logging.MessageKey(), "WRP error",
-					"destination", request.Destination(),
-					"transactionID", request.TransactionID(),
-					logging.ErrorKey(), err,
-				)
-			} else {
-				response := result.(Response)
-				logger.Log(
-					level.Key(), level.InfoValue(),
-					logging.MessageKey(), "WRP response",
-					"destination", response.Destination(),
-					"transactionID", response.TransactionID(),
-				)
-			}
-			return result, err
+			return next(timeoutCtx, value)
 		}
 	}
 }

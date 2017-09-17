@@ -1,6 +1,7 @@
 package wrpendpoint
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,22 +17,25 @@ func TestServiceFunc(t *testing.T) {
 			},
 		}
 
-		expected Response = &response{
+		expectedResponse Response = &response{
 			note: note{
 				contents: []byte("expected response"),
 			},
 		}
 
+		expectedCtx = context.WithValue(context.Background(), "foo", "bar")
+
 		serviceFuncCalled = false
 
-		serviceFunc = ServiceFunc(func(r Request) (Response, error) {
+		serviceFunc = ServiceFunc(func(ctx context.Context, r Request) (Response, error) {
 			serviceFuncCalled = true
-			return expected, nil
+			assert.Equal(expectedCtx, ctx)
+			return expectedResponse, nil
 		})
 	)
 
-	actual, err := serviceFunc.ServeWRP(request)
-	assert.Equal(expected, actual)
+	actualResponse, err := serviceFunc.ServeWRP(expectedCtx, request)
+	assert.Equal(expectedResponse, actualResponse)
 	assert.NoError(err)
 	assert.True(serviceFuncCalled)
 }

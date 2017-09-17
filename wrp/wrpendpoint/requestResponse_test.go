@@ -2,14 +2,57 @@ package wrpendpoint
 
 import (
 	"bytes"
-	"context"
+	"errors"
 	"io"
 	"testing"
 
+	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+func assertNote(t *testing.T, expected wrp.Message, actual Note) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+	)
+
+	assert.Equal(expected.Destination, actual.Destination())
+	assert.Equal(expected.TransactionUUID, actual.TransactionID())
+	require.NotNil(actual.Message())
+	assert.Equal(expected, *actual.Message())
+}
+
+func assertLogger(t *testing.T, original Request, expected log.Logger) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+	)
+
+	assert.NotNil(original.Logger())
+	if expected != nil {
+		assert.Equal(expected, original.Logger())
+	}
+
+	withNilLogger := original.WithLogger(nil)
+	require.NotNil(withNilLogger)
+	assert.NotNil(withNilLogger.Logger())
+	assert.True(original != withNilLogger)
+	assert.Equal(original.Message(), withNilLogger.Message())
+	assertNote(t, *original.Message(), withNilLogger)
+
+	newLogger := log.NewNopLogger()
+	withLogger := original.WithLogger(newLogger)
+	require.NotNil(withLogger)
+	assert.NotNil(withLogger.Logger())
+	assert.Equal(newLogger, withLogger.Logger())
+	assert.True(original != withNilLogger)
+	assert.Equal(original.Message(), withNilLogger.Message())
+	assertNote(t, *original.Message(), withNilLogger)
+}
 
 func testNoteEncodeUseContents(t *testing.T) {
 	var (
@@ -97,89 +140,63 @@ func TestNote(t *testing.T) {
 	})
 }
 
-func assertNote(t *testing.T, expected wrp.Message, actual Note) {
+func testDecodeRequest(t *testing.T, logger log.Logger, source io.Reader, format wrp.Format, original wrp.Message) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-	)
-
-	assert.Equal(expected.Destination, actual.Destination())
-	assert.Equal(expected.TransactionUUID, actual.TransactionID())
-	require.NotNil(actual.Message())
-	assert.Equal(expected, *actual.Message())
-}
-
-func testDecodeRequest(t *testing.T, ctx context.Context, source io.Reader, format wrp.Format, original wrp.Message) {
-	var (
-		assert  = assert.New(t)
 		require = require.New(t)
 		pool    = wrp.NewDecoderPool(1, format)
 	)
 
-	request, err := DecodeRequest(ctx, source, pool)
+	request, err := DecodeRequest(logger, source, pool)
 	require.NotNil(request)
 	require.NoError(err)
 
-	if ctx != nil {
-		assert.Equal(ctx, request.Context())
-	} else {
-		assert.Equal(context.Background(), request.Context())
-	}
-
-	assert.Panics(func() { request.WithContext(nil) })
-	request2 := request.WithContext(context.WithValue(context.Background(), "test", true))
-	require.NotNil(request2)
-	assert.NotEqual(request2, request)
-	assert.Equal(*request.Message(), *request2.Message())
-
+	assertLogger(t, request, logger)
 	assertNote(t, original, request)
 }
 
-func testDecodeRequestBytes(t *testing.T, ctx context.Context, source []byte, format wrp.Format, original wrp.Message) {
+func testDecodeRequestReadError(t *testing.T, format wrp.Format) {
 	var (
-		assert  = assert.New(t)
+		assert        = assert.New(t)
+		pool          = wrp.NewDecoderPool(1, format)
+		expectedError = errors.New("expected read error")
+		source        = new(mockReader)
+	)
+
+	source.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
+	request, err := DecodeRequest(nil, source, pool)
+	assert.Nil(request)
+	assert.Equal(expectedError, err)
+}
+
+func testDecodeRequestBytes(t *testing.T, logger log.Logger, source []byte, format wrp.Format, original wrp.Message) {
+	var (
 		require = require.New(t)
 		pool    = wrp.NewDecoderPool(1, format)
 	)
 
-	request, err := DecodeRequestBytes(ctx, source, pool)
+	request, err := DecodeRequestBytes(logger, source, pool)
 	require.NotNil(request)
 	require.NoError(err)
 
-	if ctx != nil {
-		assert.Equal(ctx, request.Context())
-	} else {
-		assert.Equal(context.Background(), request.Context())
-	}
-
-	assert.Panics(func() { request.WithContext(nil) })
-	request2 := request.WithContext(context.WithValue(context.Background(), "test", true))
-	require.NotNil(request2)
-	assert.NotEqual(request2, request)
-	assert.Equal(*request.Message(), *request2.Message())
-
+	assertLogger(t, request, logger)
 	assertNote(t, original, request)
 }
 
-func testWrapAsRequest(t *testing.T, ctx context.Context, original wrp.Message) {
+func testDecodeRequestBytesDecodeError(t *testing.T, format wrp.Format) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		request = WrapAsRequest(ctx, &original)
+		assert = assert.New(t)
+		pool   = wrp.NewDecoderPool(1, format)
 	)
 
-	if ctx != nil {
-		assert.Equal(ctx, request.Context())
-	} else {
-		assert.Equal(context.Background(), request.Context())
-	}
+	request, err := DecodeRequestBytes(nil, []byte{0xFF}, pool)
+	assert.Nil(request)
+	assert.Error(err)
+}
 
-	assert.Panics(func() { request.WithContext(nil) })
-	request2 := request.WithContext(context.WithValue(context.Background(), "test", true))
-	require.NotNil(request2)
-	assert.NotEqual(request2, request)
-	assert.Equal(*request.Message(), *request2.Message())
+func testWrapAsRequest(t *testing.T, logger log.Logger, original wrp.Message) {
+	request := WrapAsRequest(logger, &original)
 
+	assertLogger(t, request, logger)
 	assertNote(t, original, request)
 }
 
@@ -203,23 +220,47 @@ func TestRequest(t *testing.T) {
 		)
 
 		require.NoError(encoder.Encode(&testMessage))
+		t.Run(format.String(), func(t *testing.T) {
+			t.Run("DecodeRequest", func(t *testing.T) {
+				t.Run("NoLogger", func(t *testing.T) {
+					testDecodeRequest(t, nil, bytes.NewReader(encoded), format, testMessage)
+				})
 
-		t.Run("DecodeRequest", func(t *testing.T) {
-			testDecodeRequest(t, nil, bytes.NewReader(encoded), format, testMessage)
-			testDecodeRequest(t, context.WithValue(context.Background(), "foo", "bar"), bytes.NewReader(encoded), format, testMessage)
-		})
+				t.Run("WithLogger", func(t *testing.T) {
+					testDecodeRequest(t, log.NewNopLogger(), bytes.NewReader(encoded), format, testMessage)
+				})
 
-		t.Run("DecodeRequestBytes", func(t *testing.T) {
-			copyOf := make([]byte, len(encoded))
-			copy(copyOf, encoded)
+				t.Run("ReadError", func(t *testing.T) {
+					testDecodeRequestReadError(t, format)
+				})
+			})
 
-			testDecodeRequestBytes(t, nil, copyOf, format, testMessage)
-			testDecodeRequestBytes(t, context.WithValue(context.Background(), "foo", "bar"), copyOf, format, testMessage)
-		})
+			t.Run("DecodeRequestBytes", func(t *testing.T) {
+				copyOf := make([]byte, len(encoded))
+				copy(copyOf, encoded)
 
-		t.Run("WrapAsRequest", func(t *testing.T) {
-			testWrapAsRequest(t, nil, testMessage)
-			testWrapAsRequest(t, context.WithValue(context.Background(), "foo", "bar"), testMessage)
+				t.Run("NoLogger", func(t *testing.T) {
+					testDecodeRequestBytes(t, nil, copyOf, format, testMessage)
+				})
+
+				t.Run("WithLogger", func(t *testing.T) {
+					testDecodeRequestBytes(t, log.NewNopLogger(), copyOf, format, testMessage)
+				})
+
+				t.Run("DecodeError", func(t *testing.T) {
+					testDecodeRequestBytesDecodeError(t, format)
+				})
+			})
+
+			t.Run("WrapAsRequest", func(t *testing.T) {
+				t.Run("NoLogger", func(t *testing.T) {
+					testWrapAsRequest(t, nil, testMessage)
+				})
+
+				t.Run("WithLogger", func(t *testing.T) {
+					testWrapAsRequest(t, log.NewNopLogger(), testMessage)
+				})
+			})
 		})
 	}
 }
@@ -237,6 +278,20 @@ func testDecodeResponse(t *testing.T, source io.Reader, format wrp.Format, origi
 	assertNote(t, original, response)
 }
 
+func testDecodeResponseReadError(t *testing.T, format wrp.Format) {
+	var (
+		assert        = assert.New(t)
+		pool          = wrp.NewDecoderPool(1, format)
+		expectedError = errors.New("expected read error")
+		source        = new(mockReader)
+	)
+
+	source.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
+	response, err := DecodeResponse(source, pool)
+	assert.Nil(response)
+	assert.Equal(expectedError, err)
+}
+
 func testDecodeResponseBytes(t *testing.T, source []byte, format wrp.Format, original wrp.Message) {
 	var (
 		require = require.New(t)
@@ -250,8 +305,56 @@ func testDecodeResponseBytes(t *testing.T, source []byte, format wrp.Format, ori
 	assertNote(t, original, response)
 }
 
+func testDecodeResponseBytesDecodeError(t *testing.T, format wrp.Format) {
+	var (
+		assert = assert.New(t)
+		pool   = wrp.NewDecoderPool(1, format)
+	)
+
+	response, err := DecodeResponseBytes([]byte{0xFF}, pool)
+	assert.Nil(response)
+	assert.Error(err)
+}
+
 func testWrapAsResponse(t *testing.T, original wrp.Message) {
 	assertNote(t, original, WrapAsResponse(&original))
+}
+
+func testResponseSpans(t *testing.T, message wrp.Message) {
+	var (
+		require  = require.New(t)
+		assert   = assert.New(t)
+		spanner  = tracing.NewSpanner()
+		original = WrapAsResponse(&message)
+	)
+
+	require.NotNil(original)
+	assert.Empty(original.Spans())
+
+	noNewSpans := original.AddSpans()
+	require.NotNil(noNewSpans)
+	assert.True(original == noNewSpans)
+	assertNote(t, message, noNewSpans)
+
+	newSpans := original.AddSpans(spanner.Start("first")(nil))
+	require.NotNil(newSpans)
+	assert.True(original != newSpans)
+	assert.Equal(1, len(newSpans.Spans()))
+	assert.Equal("first", newSpans.Spans()[0].Name())
+	assert.NoError(newSpans.Spans()[0].Error())
+	assertNote(t, message, newSpans)
+
+	moreSpans := newSpans.AddSpans(spanner.Start("second")(errors.New("second error")), spanner.Start("third")(nil))
+	require.NotNil(moreSpans)
+	assert.True(newSpans != moreSpans)
+	assert.Equal(3, len(moreSpans.Spans()))
+	assert.Equal("first", moreSpans.Spans()[0].Name())
+	assert.NoError(moreSpans.Spans()[0].Error())
+	assert.Equal("second", moreSpans.Spans()[1].Name())
+	assert.Error(errors.New("second error"), moreSpans.Spans()[1].Error())
+	assert.Equal("third", moreSpans.Spans()[2].Name())
+	assert.NoError(moreSpans.Spans()[2].Error())
+	assertNote(t, message, moreSpans)
 }
 
 func TestResponse(t *testing.T) {
@@ -278,18 +381,29 @@ func TestResponse(t *testing.T) {
 		)
 
 		require.NoError(encoder.Encode(&testMessage))
+		t.Run(format.String(), func(t *testing.T) {
+			t.Run("DecodeResponse", func(t *testing.T) {
+				testDecodeResponse(t, bytes.NewReader(encoded), format, testMessage)
 
-		t.Run("DecodeResponse", func(t *testing.T) {
-			testDecodeResponse(t, bytes.NewReader(encoded), format, testMessage)
-			testDecodeResponse(t, bytes.NewReader(encoded), format, testMessage)
-		})
+				t.Run("ReadError", func(t *testing.T) {
+					testDecodeResponseReadError(t, format)
+				})
+			})
 
-		t.Run("DecodeResponseBytes", func(t *testing.T) {
-			copyOf := make([]byte, len(encoded))
-			copy(copyOf, encoded)
+			t.Run("DecodeResponseBytes", func(t *testing.T) {
+				copyOf := make([]byte, len(encoded))
+				copy(copyOf, encoded)
 
-			testDecodeResponseBytes(t, copyOf, format, testMessage)
-			testDecodeResponseBytes(t, copyOf, format, testMessage)
+				testDecodeResponseBytes(t, copyOf, format, testMessage)
+
+				t.Run("DecodeError", func(t *testing.T) {
+					testDecodeResponseBytesDecodeError(t, format)
+				})
+			})
+
+			t.Run("Spans", func(t *testing.T) {
+				testResponseSpans(t, testMessage)
+			})
 		})
 	}
 }
