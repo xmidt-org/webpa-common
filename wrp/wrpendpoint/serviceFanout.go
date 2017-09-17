@@ -48,7 +48,11 @@ func NewServiceFanout(services map[string]Service) Service {
 }
 
 func (sf *serviceFanout) ServeWRP(ctx context.Context, request Request) (Response, error) {
-	results := make(chan fanoutResponse, len(sf.services))
+	var (
+		logger  = request.Logger()
+		results = make(chan fanoutResponse, len(sf.services))
+	)
+
 	for name, s := range sf.services {
 		go func(name string, s Service) {
 			var (
@@ -73,21 +77,21 @@ func (sf *serviceFanout) ServeWRP(ctx context.Context, request Request) (Respons
 	for r := 0; r < len(sf.services); r++ {
 		select {
 		case <-ctx.Done():
-			request.Logger().Log(level.Key(), level.WarnValue(), logging.MessageKey(), "timed out")
+			logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "timed out")
 			return nil, tracing.NewSpanError(ctx.Err(), spans...)
 		case fr := <-results:
 			spans = append(spans, fr.span)
 			if fr.err != nil {
 				lastError = fr.err
-				request.Logger().Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
+				logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
 			} else {
-				request.Logger().Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
+				logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
 				return fr.response.AddSpans(spans...), nil
 			}
 		}
 	}
 
 	// use the last error as the causal error
-	request.Logger().Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), lastError, logging.MessageKey(), "all services failed")
+	logger.Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), lastError, logging.MessageKey(), "all services failed")
 	return nil, tracing.NewSpanError(lastError, spans...)
 }
