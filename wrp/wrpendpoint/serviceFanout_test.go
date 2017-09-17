@@ -120,14 +120,20 @@ func testNewServiceFanoutSuccessLast(t *testing.T, serviceCount int) {
 	assert.NoError(err)
 	require.NotNil(response)
 
-	require.Equal(serviceCount, len(response.Spans()))
+	// we can't be exact here, since race detection and coverage can play havoc
+	// with the timing of selects
+	require.True(len(response.Spans()) >= (serviceCount - 1))
+	successFound := false
 	for _, s := range response.Spans() {
 		if s.Name() == "success" {
 			assert.NoError(s.Error())
+			successFound = true
 		} else {
 			assert.Error(s.Error())
 		}
 	}
+
+	assert.True(successFound)
 
 	cancel()
 	for _, s := range services {
