@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func testClientEncodeRequestBodyEncodeError(t *testing.T) {
+func testClientEncodeRequestBodyEncodeError(t *testing.T, custom http.Header) {
 	var (
 		assert = assert.New(t)
 		pool   = wrp.NewEncoderPool(1, wrp.JSON)
@@ -26,13 +26,13 @@ func testClientEncodeRequestBodyEncodeError(t *testing.T) {
 
 	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).Return(errors.New("expected")).Once()
 	assert.Error(
-		ClientEncodeRequestBody(pool)(context.Background(), httptest.NewRequest("GET", "/", nil), wrpRequest),
+		ClientEncodeRequestBody(pool, custom)(context.Background(), httptest.NewRequest("GET", "/", nil), wrpRequest),
 	)
 
 	wrpRequest.AssertExpectations(t)
 }
 
-func testClientEncodeRequestBodySuccess(t *testing.T) {
+func testClientEncodeRequestBodySuccess(t *testing.T, custom http.Header) {
 	var (
 		assert       = assert.New(t)
 		pool         = wrp.NewEncoderPool(1, wrp.JSON)
@@ -55,7 +55,7 @@ func testClientEncodeRequestBodySuccess(t *testing.T) {
 	wrpRequest.On("Destination").Return("mac:101029293838").Once()
 
 	assert.NoError(
-		ClientEncodeRequestBody(pool)(context.Background(), httpRequest, wrpRequest),
+		ClientEncodeRequestBody(pool, custom)(context.Background(), httpRequest, wrpRequest),
 	)
 
 	assert.Equal("mac:101029293838", httpRequest.Header.Get(DestinationHeader))
@@ -66,15 +66,40 @@ func testClientEncodeRequestBodySuccess(t *testing.T) {
 	assert.Equal(expectedBody, actualBody)
 	assert.NoError(err)
 
+	for name, value := range custom {
+		assert.Equal(value, httpRequest.Header[name])
+	}
+
 	wrpRequest.AssertExpectations(t)
 }
 
 func TestClientEncodeRequestBody(t *testing.T) {
-	t.Run("EncodeError", testClientEncodeRequestBodyEncodeError)
-	t.Run("Success", testClientEncodeRequestBodySuccess)
+	t.Run("EncodeError", func(t *testing.T) {
+		t.Run("NoCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestBodyEncodeError(t, nil)
+		})
+
+		t.Run("NoCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestBodyEncodeError(t,
+				http.Header{"Accept": []string{"application/msgpack"}},
+			)
+		})
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		t.Run("NoCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestBodySuccess(t, nil)
+		})
+
+		t.Run("NoCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestBodySuccess(t,
+				http.Header{"Accept": []string{"application/msgpack"}},
+			)
+		})
+	})
 }
 
-func testClientEncodeRequestHeadersNoPayload(t *testing.T) {
+func testClientEncodeRequestHeadersNoPayload(t *testing.T, custom http.Header) {
 	var (
 		assert = assert.New(t)
 
@@ -94,7 +119,7 @@ func testClientEncodeRequestHeadersNoPayload(t *testing.T) {
 	wrpRequest.On("Message").Return(message).Twice()
 
 	assert.NoError(
-		ClientEncodeRequestHeaders(context.Background(), httpRequest, wrpRequest),
+		ClientEncodeRequestHeaders(custom)(context.Background(), httpRequest, wrpRequest),
 	)
 
 	assert.Empty(httpRequest.Header.Get("Content-Type"))
@@ -107,10 +132,14 @@ func testClientEncodeRequestHeadersNoPayload(t *testing.T) {
 	assert.Empty(actualBody)
 	assert.NoError(err)
 
+	for name, value := range custom {
+		assert.Equal(value, httpRequest.Header[name])
+	}
+
 	wrpRequest.AssertExpectations(t)
 }
 
-func testClientEncodeRequestHeadersWithPayload(t *testing.T) {
+func testClientEncodeRequestHeadersWithPayload(t *testing.T, custom http.Header) {
 	var (
 		assert          = assert.New(t)
 		expectedPayload = []byte("here is a lovely payload")
@@ -133,7 +162,7 @@ func testClientEncodeRequestHeadersWithPayload(t *testing.T) {
 	wrpRequest.On("Message").Return(message).Twice()
 
 	assert.NoError(
-		ClientEncodeRequestHeaders(context.Background(), httpRequest, wrpRequest),
+		ClientEncodeRequestHeaders(custom)(context.Background(), httpRequest, wrpRequest),
 	)
 
 	assert.Equal("text/plain", httpRequest.Header.Get("Content-Type"))
@@ -146,12 +175,37 @@ func testClientEncodeRequestHeadersWithPayload(t *testing.T) {
 	assert.Equal(expectedPayload, actualBody)
 	assert.NoError(err)
 
+	for name, value := range custom {
+		assert.Equal(value, httpRequest.Header[name])
+	}
+
 	wrpRequest.AssertExpectations(t)
 }
 
 func TestClientEncodeRequestHeaders(t *testing.T) {
-	t.Run("NoPayload", testClientEncodeRequestHeadersNoPayload)
-	t.Run("WithPayload", testClientEncodeRequestHeadersWithPayload)
+	t.Run("NoPayload", func(t *testing.T) {
+		t.Run("NoCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestHeadersNoPayload(t, nil)
+		})
+
+		t.Run("WithCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestHeadersNoPayload(t,
+				http.Header{"Accept": []string{"application/msgpack"}},
+			)
+		})
+	})
+
+	t.Run("WithPayload", func(t *testing.T) {
+		t.Run("NoCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestHeadersWithPayload(t, nil)
+		})
+
+		t.Run("WithCustomHeaders", func(t *testing.T) {
+			testClientEncodeRequestHeadersWithPayload(t,
+				http.Header{"Accept": []string{"application/msgpack"}},
+			)
+		})
+	})
 }
 
 func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
