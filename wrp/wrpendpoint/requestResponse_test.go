@@ -26,16 +26,13 @@ func assertNote(t *testing.T, expected wrp.Message, actual Note) {
 	assert.Equal(expected, *actual.Message())
 }
 
-func assertLogger(t *testing.T, original Request, expected log.Logger) {
+func assertLogger(t *testing.T, original Request, logger log.Logger) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
 	)
 
 	assert.NotNil(original.Logger())
-	if expected != nil {
-		assert.Equal(expected, original.Logger())
-	}
 
 	withNilLogger := original.WithLogger(nil)
 	require.NotNil(withNilLogger)

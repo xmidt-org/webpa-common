@@ -75,7 +75,19 @@ func (n *note) EncodeBytes(pool *wrp.EncoderPool) ([]byte, error) {
 // with the modification.
 type Request interface {
 	Note
+
+	// Logger returns the enriched logger associated with this Request.  Client code should take care
+	// to preserve this logger when changing loggers via WithLogger.
+	//
+	// If the logger associated with this Request is nil, for example via WithLogger(nil), this method
+	// returns logging.DefaultLogger().
 	Logger() log.Logger
+
+	// WithLogger produces a shallow copy of this Request with a new Logger.  Generally, when creating a new
+	// request logger, start with Logger():
+	//
+	//    var request Request = ...
+	//    request = request.WithLogger(log.With(request.Logger(), "more", "stuff"))
 	WithLogger(log.Logger) Request
 }
 
@@ -100,6 +112,21 @@ func (r *request) WithLogger(logger log.Logger) Request {
 	return copyOf
 }
 
+// withLogger enriches a given logger with information about the message
+func withLogger(logger log.Logger, m *wrp.Message, keyvals ...interface{}) log.Logger {
+	return log.WithPrefix(
+		logger,
+		append([]interface{}{
+			"source", m.Source,
+			"destination", m.Destination,
+			"transactionUUID", m.TransactionUUID,
+			"path", m.Path,
+			"payloadLength", len(m.Payload),
+		}, keyvals...,
+		),
+	)
+}
+
 // DecodeRequest extracts a WRP request from the given source.
 func DecodeRequest(logger log.Logger, source io.Reader, pool *wrp.DecoderPool) (Request, error) {
 	contents, err := ioutil.ReadAll(source)
@@ -111,6 +138,9 @@ func DecodeRequest(logger log.Logger, source io.Reader, pool *wrp.DecoderPool) (
 }
 
 // DecodeRequestBytes returns a Request taken from the contents.  The given pool is used to decode the WRP message.
+//
+// This function also enhances the given logger with contextual information about the returned WRP request.  The
+// logger that is passed to this function should never be nil and should never have a Caller or DefaultCaller set.
 func DecodeRequestBytes(logger log.Logger, contents []byte, pool *wrp.DecoderPool) (Request, error) {
 	d := pool.Get()
 	defer pool.Put(d)
@@ -129,7 +159,7 @@ func DecodeRequestBytes(logger log.Logger, contents []byte, pool *wrp.DecoderPoo
 			contents:      contents,
 			format:        pool.Format(),
 		},
-		logger: logger,
+		logger: withLogger(logger, m, "format", pool.Format()),
 	}, nil
 }
 
@@ -141,7 +171,7 @@ func WrapAsRequest(logger log.Logger, m *wrp.Message) Request {
 			transactionID: m.TransactionUUID,
 			message:       m,
 		},
-		logger: logger,
+		logger: withLogger(logger, m),
 	}
 }
 
