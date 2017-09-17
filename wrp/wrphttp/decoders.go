@@ -63,6 +63,18 @@ func ClientDecodeResponseHeaders(ctx context.Context, httpResponse *http.Respons
 
 }
 
+// withLogger enriches the given logger with request-specific information
+func withLogger(logger log.Logger, r *http.Request) log.Logger {
+	return log.WithPrefix(
+		logger,
+		"method", r.Method,
+		"url", r.URL.String(),
+		"protocol", r.Proto,
+		"contentLength", r.ContentLength,
+		"remoteAddress", r.RemoteAddr,
+	)
+}
+
 // ServerDecodeRequestBody creates a go-kit transport/http.DecodeRequestFunc function that parses the body of an HTTP
 // request as a WRP message in the format used by the given pool.  The supplied pool should match the
 // Content-Type of the request, or an error is returned.
@@ -71,7 +83,11 @@ func ClientDecodeResponseHeaders(ctx context.Context, httpResponse *http.Respons
 // where the HTTP body is only the payload, use the Headers decoder.
 func ServerDecodeRequestBody(logger log.Logger, pool *wrp.DecoderPool) gokithttp.DecodeRequestFunc {
 	return func(ctx context.Context, httpRequest *http.Request) (interface{}, error) {
-		return wrpendpoint.DecodeRequest(logger, httpRequest.Body, pool)
+		return wrpendpoint.DecodeRequest(
+			withLogger(logger, httpRequest),
+			httpRequest.Body,
+			pool,
+		)
 	}
 }
 
@@ -84,6 +100,9 @@ func ServerDecodeRequestHeaders(logger log.Logger) gokithttp.DecodeRequestFunc {
 			return nil, err
 		}
 
-		return wrpendpoint.WrapAsRequest(logger, message), nil
+		return wrpendpoint.WrapAsRequest(
+			withLogger(logger, httpRequest),
+			message,
+		), nil
 	}
 }

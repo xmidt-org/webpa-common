@@ -287,7 +287,7 @@ func TestServerDecodeRequestBody(t *testing.T) {
 
 	wrpRequest, ok := value.(wrpendpoint.Request)
 	require.True(ok)
-	assert.Equal(logger, wrpRequest.Logger())
+	assert.NotNil(wrpRequest.Logger())
 
 	assert.Equal(
 		wrp.Message{
@@ -318,7 +318,7 @@ func testServerDecodeRequestHeadersSuccess(t *testing.T) {
 
 	wrpRequest, ok := value.(wrpendpoint.Request)
 	require.True(ok)
-	assert.Equal(logger, wrpRequest.Logger())
+	assert.NotNil(wrpRequest.Logger())
 
 	assert.Equal(
 		wrp.Message{
