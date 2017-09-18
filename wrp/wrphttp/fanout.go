@@ -179,6 +179,11 @@ func (f *FanoutOptions) middleware() []endpoint.Middleware {
 //
 // The FanoutOptions can be nil, in which case a set of defaults is used.
 func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
+	urls, err := o.urls()
+	if err != nil {
+		return nil, err
+	}
+
 	var (
 		encoderPool = wrp.NewEncoderPool(o.encoderPoolSize(), wrp.Msgpack)
 		decoderPool = wrp.NewDecoderPool(o.decoderPoolSize(), wrp.Msgpack)
@@ -188,17 +193,11 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 			Timeout:   o.clientTimeout(),
 		}
 
-		endpoints       = o.endpoints()
-		fanoutEndpoints = make(map[string]endpoint.Endpoint, len(endpoints))
+		fanoutEndpoints = make(map[string]endpoint.Endpoint, len(urls))
 	)
 
-	for _, e := range endpoints {
-		url, err := url.Parse(e)
-		if err != nil {
-			return nil, err
-		}
-
-		fanoutEndpoints[e] =
+	for _, url := range urls {
+		fanoutEndpoints[url.String()] =
 			gokithttp.NewClient(
 				o.method(),
 				url,
