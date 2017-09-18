@@ -51,7 +51,7 @@ func DefaultLogger() log.Logger {
 // returned Logger.
 func New(o *Options) log.Logger {
 	return NewFilter(
-		log.With(
+		log.WithPrefix(
 			o.loggerFactory()(o.output()),
 			TimestampKey(), log.DefaultTimestampUTC,
 		),
