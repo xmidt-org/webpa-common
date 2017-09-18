@@ -180,13 +180,7 @@ func WrapAsRequest(logger log.Logger, m *wrp.Message) Request {
 // the modification.
 type Response interface {
 	Note
-
-	// Spans returns the spans associated with this response.  This implements tracing.Spanned.
-	Spans() []tracing.Span
-
-	// AddSpans returns a shallow copy of this response with the given spans appended.  If no spans are passed,
-	// this method returns the original Response unmodified.
-	AddSpans(...tracing.Span) Response
+	tracing.Mergeable
 }
 
 // response is the internal Response implementation
@@ -199,18 +193,15 @@ func (r *response) Spans() []tracing.Span {
 	return r.spans
 }
 
-func (r *response) AddSpans(spans ...tracing.Span) Response {
-	if len(spans) == 0 {
-		return r
+func (r *response) WithSpans(spans ...tracing.Span) interface{} {
+	if len(spans) > 0 {
+		return &response{
+			note:  r.note,
+			spans: spans,
+		}
 	}
 
-	copyOf := new(response)
-	*copyOf = *r
-	copyOf.spans = make([]tracing.Span, len(r.spans)+len(spans))
-	copy(copyOf.spans, r.spans)
-	copy(copyOf.spans[len(r.spans):], spans)
-
-	return copyOf
+	return r
 }
 
 // DecodeResponse extracts a WRP response from the given source.

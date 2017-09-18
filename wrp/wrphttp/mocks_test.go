@@ -60,6 +60,6 @@ func (m *mockRequestResponse) Spans() []tracing.Span {
 	return m.Called().Get(0).([]tracing.Span)
 }
 
-func (m *mockRequestResponse) AddSpans(spans ...tracing.Span) wrpendpoint.Response {
-	return m.Called(spans).Get(0).(wrpendpoint.Response)
+func (m *mockRequestResponse) WithSpans(spans ...tracing.Span) interface{} {
+	return m.Called(spans).Get(0)
 }

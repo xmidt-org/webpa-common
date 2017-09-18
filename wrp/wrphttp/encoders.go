@@ -16,7 +16,7 @@ import (
 // ClientEncodeRequestBody produces a go-kit transport/http.EncodeRequestFunc for use when sending WRP requests
 // to HTTP clients.  The returned decoder will set the appropriate headers and set the body to the encoded
 // WRP message in the request.
-func ClientEncodeRequestBody(pool *wrp.EncoderPool) gokithttp.EncodeRequestFunc {
+func ClientEncodeRequestBody(pool *wrp.EncoderPool, custom http.Header) gokithttp.EncodeRequestFunc {
 	return func(ctx context.Context, httpRequest *http.Request, value interface{}) error {
 		var (
 			wrpRequest = value.(wrpendpoint.Request)
@@ -25,6 +25,12 @@ func ClientEncodeRequestBody(pool *wrp.EncoderPool) gokithttp.EncodeRequestFunc 
 
 		if err := wrpRequest.Encode(body, pool); err != nil {
 			return err
+		}
+
+		for name, values := range custom {
+			for _, value := range values {
+				httpRequest.Header.Add(name, value)
+			}
 		}
 
 		httpRequest.Header.Set(DestinationHeader, wrpRequest.Destination())
@@ -37,21 +43,29 @@ func ClientEncodeRequestBody(pool *wrp.EncoderPool) gokithttp.EncodeRequestFunc 
 
 // ClientEncodeRequestHeaders is a go-kit transport/http.EncodeRequestFunc for use when sending WRP requests
 // to HTTP clients using an HTTP header representation of the message fields.
-func ClientEncodeRequestHeaders(ctx context.Context, httpRequest *http.Request, value interface{}) error {
-	var (
-		wrpRequest = value.(wrpendpoint.Request)
-		body       = new(bytes.Buffer)
-	)
+func ClientEncodeRequestHeaders(custom http.Header) gokithttp.EncodeRequestFunc {
+	return func(ctx context.Context, httpRequest *http.Request, value interface{}) error {
+		var (
+			wrpRequest = value.(wrpendpoint.Request)
+			body       = new(bytes.Buffer)
+		)
 
-	if err := WriteMessagePayload(httpRequest.Header, body, wrpRequest.Message()); err != nil {
-		return err
+		if err := WriteMessagePayload(httpRequest.Header, body, wrpRequest.Message()); err != nil {
+			return err
+		}
+
+		for name, values := range custom {
+			for _, value := range values {
+				httpRequest.Header.Add(name, value)
+			}
+		}
+
+		AddMessageHeaders(httpRequest.Header, wrpRequest.Message())
+		httpRequest.ContentLength = int64(body.Len())
+		httpRequest.Body = ioutil.NopCloser(body)
+
+		return nil
 	}
-
-	AddMessageHeaders(httpRequest.Header, wrpRequest.Message())
-	httpRequest.ContentLength = int64(body.Len())
-	httpRequest.Body = ioutil.NopCloser(body)
-
-	return nil
 }
 
 // ServerEncodeResponseBody produces a go-kit transport/http.EncodeResponseFunc that transforms a wrphttp.Response into
