@@ -1,16 +1,12 @@
 package wrphttp
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
 	"github.com/go-kit/kit/log"
-	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
 const (
@@ -18,6 +14,7 @@ const (
 	DefaultEndpoint            = "http://localhost:7000/api/v2/device"
 	DefaultTimeout             = 30 * time.Second
 	DefaultMaxIdleConnsPerHost = 20
+	DefaultConcurrency         = 1000
 	DefaultEncoderPoolSize     = 100
 	DefaultDecoderPoolSize     = 100
 )
@@ -38,6 +35,10 @@ type Fanout struct {
 
 	// Timeout is the http.Client Timeout.  If not set, DefaultTimeout is used.
 	Timeout time.Duration `json:"timeout"`
+
+	// Concurrency is the maximum number of concurrent fanouts allowed.  This is enforced via a Concurrent middleware.
+	// If this is not set, DefaultConcurrency is used.
+	Concurrency int `json:"concurrency"`
 
 	// EncoderPoolSize is the size of the WRP encoder pool.  If not set, DefaultEncoderPoolSize is used.
 	EncoderPoolSize int
@@ -107,6 +108,14 @@ func (f *Fanout) timeout() time.Duration {
 	return DefaultTimeout
 }
 
+func (f *Fanout) concurrency() int {
+	if f != nil && f.Concurrency > 0 {
+		return f.Concurrency
+	}
+
+	return DefaultConcurrency
+}
+
 func (f *Fanout) encoderPoolSize() int {
 	if f != nil && f.EncoderPoolSize > 0 {
 		return f.EncoderPoolSize
@@ -121,47 +130,4 @@ func (f *Fanout) decoderPoolSize() int {
 	}
 
 	return DefaultDecoderPoolSize
-}
-
-// NewServiceFanout uses the given Fanout to produce a WRP service that fans out to the given HTTP endpoints
-func NewServiceFanout(f *Fanout) (wrpendpoint.Service, error) {
-	urls, err := f.urls()
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		httpClient = &http.Client{
-			Transport: f.transport(),
-			Timeout:   f.timeout(),
-		}
-
-		encoders = wrp.NewEncoderPool(f.encoderPoolSize(), wrp.Msgpack)
-		decoders = wrp.NewDecoderPool(f.decoderPoolSize(), wrp.Msgpack)
-
-		customHeader = http.Header{
-			"Accept": []string{decoders.Format().ContentType()},
-		}
-
-		endpoints = make(map[string]wrpendpoint.Service, len(urls))
-	)
-
-	for _, url := range urls {
-		name := url.String()
-		if _, ok := endpoints[name]; ok {
-			return nil, fmt.Errorf("Duplicate endpoint url: %s", url)
-		}
-
-		endpoints[name] = wrpendpoint.Wrap(
-			gokithttp.NewClient(
-				f.method(),
-				url,
-				ClientEncodeRequestBody(encoders, customHeader),
-				ClientDecodeResponseBody(decoders),
-				gokithttp.SetClient(httpClient),
-			).Endpoint(),
-		)
-	}
-
-	return wrpendpoint.NewServiceFanout(endpoints), nil
 }
