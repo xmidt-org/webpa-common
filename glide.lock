@@ -1,5 +1,5 @@
 hash: fce081a5f113549f077690517ab76e696eeb384eb0663a0d73bab342bd65f994
-updated: 2017-09-01T16:59:45.831672933-07:00
+updated: 2017-09-18T11:16:59.434592558-07:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -36,7 +36,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/cenk/backoff
-  version: 61153c768f31ee5f130071d08fc82b85208528de
+  version: 80e08cb804a3eb3e576876c777e957e874609a9a
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:
@@ -56,6 +56,7 @@ imports:
   - sd
   - sd/internal/instance
   - sd/zk
+  - transport/http
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-stack/stack
@@ -88,7 +89,7 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/magiconair/properties
-  version: be5ece7dd465ab0765a9682137865547526d1dfb
+  version: 8d7837e64d3c1ee4e54a880c5a920ab4316fc90a
 - name: github.com/mitchellh/mapstructure
   version: d0303fe809921458f417bcf828397a65db30a7e4
 - name: github.com/pelletier/go-toml
@@ -141,7 +142,7 @@ imports:
   subpackages:
   - codec
 - name: golang.org/x/net
-  version: 66aacef3dd8a676686c7ae3716979581e8b03c47
+  version: 8351a756f30f1297fe94bbf4b767ec589c6ea6d0
   subpackages:
   - context
 - name: golang.org/x/sys
