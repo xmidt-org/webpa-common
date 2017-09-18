@@ -79,7 +79,7 @@ func Fanout(spanner tracing.Spanner, endpoints map[string]endpoint.Endpoint) end
 					logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
 				} else {
 					logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
-					response, _ := tracing.MergeSpans(fr.response, spans...)
+					response, _ := tracing.MergeSpans(fr.response, spans)
 					return response, nil
 				}
 			}
