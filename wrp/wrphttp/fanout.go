@@ -173,6 +173,16 @@ func (f *FanoutOptions) middleware() []endpoint.Middleware {
 	return nil
 }
 
+// NewEncoderPool creates a wrp.EncoderPool using this options, which can be nil to take defaults
+func (o *FanoutOptions) NewEncoderPool(format wrp.Format) *wrp.EncoderPool {
+	return wrp.NewEncoderPool(o.encoderPoolSize(), format)
+}
+
+// NewDecoderPool creates a wrp.DecoderPool using this options, which can be nil to take defaults
+func (o *FanoutOptions) NewDecoderPool(format wrp.Format) *wrp.DecoderPool {
+	return wrp.NewDecoderPool(o.decoderPoolSize(), format)
+}
+
 // NewFanoutEndpoint uses the supplied options to produce a go-kit HTTP server endpoint which
 // fans out to the HTTP endpoints specified in the options.  The endpoint returned from this
 // can be used to build one or more go-kit transport/http.Server objects.
@@ -185,8 +195,8 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 	}
 
 	var (
-		encoderPool = wrp.NewEncoderPool(o.encoderPoolSize(), wrp.Msgpack)
-		decoderPool = wrp.NewDecoderPool(o.decoderPoolSize(), wrp.Msgpack)
+		encoderPool = o.NewEncoderPool(wrp.Msgpack)
+		decoderPool = o.NewDecoderPool(wrp.Msgpack)
 
 		httpClient = &http.Client{
 			Transport: o.transport(),
