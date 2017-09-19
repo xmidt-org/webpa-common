@@ -220,6 +220,7 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 	var (
 		middlewareChain = append(
 			[]endpoint.Middleware{
+				middleware.Logging,
 				middleware.Busy(o.maxClients(), &httperror.E{Code: http.StatusServiceUnavailable, Text: "Server Busy"}),
 				middleware.Timeout(o.fanoutTimeout()),
 				middleware.Concurrent(o.concurrency(), &httperror.E{Code: http.StatusTooManyRequests, Text: "Too Many Requests"}),
