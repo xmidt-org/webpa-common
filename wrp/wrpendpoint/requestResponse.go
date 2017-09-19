@@ -123,7 +123,7 @@ func withLogger(logger log.Logger, m *wrp.Message, keyvals ...interface{}) log.L
 			"path", m.Path,
 			"payloadLength", len(m.Payload),
 		}, keyvals...,
-		),
+		)...,
 	)
 }
 
