@@ -18,10 +18,9 @@ func WithLogger(parent context.Context, logger log.Logger) context.Context {
 // Logger retrieves the go-kit logger associated with the context.  If no logger is
 // present in the context, DefaultLogger is returned instead.
 func Logger(ctx context.Context) log.Logger {
-	logger, ok := ctx.Value(loggerKey).(log.Logger)
-	if !ok {
-		return DefaultLogger()
+	if logger, ok := ctx.Value(loggerKey).(log.Logger); ok {
+		return logger
 	}
 
-	return logger
+	return DefaultLogger()
 }
