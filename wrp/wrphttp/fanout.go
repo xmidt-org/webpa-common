@@ -17,7 +17,7 @@ import (
 
 const (
 	DefaultMethod                            = "POST"
-	DefaultEndpoint                          = "http://localhost:7000/api/v2/device"
+	DefaultEndpoint                          = "http://localhost:7000/api/v2/device/send"
 	DefaultMaxIdleConnsPerHost               = 20
 	DefaultFanoutTimeout       time.Duration = 45 * time.Second
 	DefaultClientTimeout       time.Duration = 30 * time.Second
