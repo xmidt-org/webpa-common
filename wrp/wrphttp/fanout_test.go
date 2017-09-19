@@ -25,6 +25,7 @@ func testFanoutOptionsDefaults(t *testing.T, o *FanoutOptions) {
 	assert.NotNil(o.logger())
 	assert.Equal(DefaultMethod, o.method())
 	assert.Equal([]string{DefaultEndpoint}, o.endpoints())
+	assert.Empty(o.authorization())
 
 	urls, err := o.urls()
 	require.Len(urls, 1)
@@ -52,9 +53,10 @@ func testFanoutOptionsConfigured(t *testing.T) {
 		middlewareCalled = false
 
 		o = FanoutOptions{
-			Logger:    expectedLogger,
-			Method:    "GET",
-			Endpoints: []string{"http://host1.com:8080/api", "http://host2.com:9090/api"},
+			Logger:        expectedLogger,
+			Method:        "GET",
+			Endpoints:     []string{"http://host1.com:8080/api", "http://host2.com:9090/api"},
+			Authorization: "QWxhZGRpbjpPcGVuU2VzYW1l",
 			Transport: http.Transport{
 				IdleConnTimeout:     30 * time.Minute,
 				MaxIdleConnsPerHost: 256,
@@ -77,6 +79,7 @@ func testFanoutOptionsConfigured(t *testing.T) {
 	assert.Equal(expectedLogger, o.logger())
 	assert.Equal("GET", o.method())
 	assert.Equal([]string{"http://host1.com:8080/api", "http://host2.com:9090/api"}, o.endpoints())
+	assert.Equal("QWxhZGRpbjpPcGVuU2VzYW1l", o.authorization())
 
 	urls, err := o.urls()
 	require.Len(urls, 2)
@@ -158,7 +161,8 @@ func testNewFanoutEndpointSendReceive(t *testing.T) {
 		}))
 
 		o = &FanoutOptions{
-			Endpoints: []string{server.URL},
+			Endpoints:     []string{server.URL},
+			Authorization: "QWxhZGRpbjpPcGVuU2VzYW1l",
 		}
 	)
 

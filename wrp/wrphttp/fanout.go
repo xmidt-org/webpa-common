@@ -38,6 +38,9 @@ type FanoutOptions struct {
 	// Endpoints are the URLs for each endpoint to fan out to.  If not set, DefaultEndpoint is used.
 	Endpoints []string `json:"endpoints,omitempty"`
 
+	// Authorization is the Basic Auth token.  There is no default for this field.
+	Authorization string `json:"authorization"`
+
 	// Transport is the http.Client transport
 	Transport http.Transport `json:"transport"`
 
@@ -87,6 +90,14 @@ func (f *FanoutOptions) endpoints() []string {
 	}
 
 	return []string{DefaultEndpoint}
+}
+
+func (f *FanoutOptions) authorization() string {
+	if f != nil && len(f.Authorization) > 0 {
+		return f.Authorization
+	}
+
+	return ""
 }
 
 func (f *FanoutOptions) urls() ([]*url.URL, error) {
@@ -204,14 +215,21 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		}
 
 		fanoutEndpoints = make(map[string]endpoint.Endpoint, len(urls))
+		customHeader    = http.Header{
+			"Accept": []string{"application/msgpack"},
+		}
 	)
+
+	if authorization := o.authorization(); len(authorization) > 0 {
+		customHeader.Set("Authorization", "Basic "+authorization)
+	}
 
 	for _, url := range urls {
 		fanoutEndpoints[url.String()] =
 			gokithttp.NewClient(
 				o.method(),
 				url,
-				ClientEncodeRequestBody(encoderPool, http.Header{"Accept": []string{"application/msgpack"}}),
+				ClientEncodeRequestBody(encoderPool, customHeader),
 				ClientDecodeResponseBody(decoderPool),
 				gokithttp.SetClient(httpClient),
 			).Endpoint()
