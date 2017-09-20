@@ -24,20 +24,26 @@ func TestSpanError(t *testing.T) {
 		}
 
 		testData = []struct {
-			spanError     SpanError
-			expectedSpans []Span
+			spanError           SpanError
+			expectedError       error
+			expectedErrorString string
+			expectedSpans       []Span
 		}{
-			{NewSpanError(expectedError), nil},
-			{NewSpanError(expectedError, testSpans[0]), []Span{testSpans[0]}},
-			{NewSpanError(expectedError, testSpans...), testSpans},
+			{NewSpanError(nil), nil, NoErrorSupplied, nil},
+			{NewSpanError(nil, testSpans[0]), nil, NoErrorSupplied, []Span{testSpans[0]}},
+			{NewSpanError(nil, testSpans...), nil, NoErrorSupplied, testSpans},
+
+			{NewSpanError(expectedError), expectedError, "expected", nil},
+			{NewSpanError(expectedError, testSpans[0]), expectedError, "expected", []Span{testSpans[0]}},
+			{NewSpanError(expectedError, testSpans...), expectedError, "expected", testSpans},
 		}
 	)
 
 	for _, record := range testData {
 		t.Logf("%#v", record)
 
-		assert.Equal(expectedError, record.spanError.Err())
-		assert.Equal(expectedError.Error(), record.spanError.Error())
+		assert.Equal(record.expectedError, record.spanError.Err())
+		assert.Equal(record.expectedErrorString, record.spanError.Error())
 		assert.Equal(record.expectedSpans, record.spanError.Spans())
 
 		assert.True(record.spanError == record.spanError.WithSpans())
