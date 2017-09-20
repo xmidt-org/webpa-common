@@ -1,12 +1,14 @@
 package tracing
 
-// Spanned can be implemented by external messages to describe the spans
-// involved in message processing.
+// Spanned can be implemented by message objects to describe the spans
+// involved in producing the message.  Generally, this interface should
+// be implemented on transient objects that pass through the layers
+// of an application.
 type Spanned interface {
 	Spans() []Span
 }
 
-// Mergeable represents a Spanned which can merge with other spans.
+// Mergeable represents a Spanned which can be merged with other spans
 type Mergeable interface {
 	Spanned
 
@@ -17,10 +19,11 @@ type Mergeable interface {
 }
 
 // Spans extracts the slice of Span instances from a container, if possible.
-// If container implements Spanned, then container.Spans() is returned with a true.
-// If container is a Span, a slice of that one element is returned with a true.
-// If container is a []Span, it's returned as is with a true.
-// Otherwise, this function returns nil, false.
+//
+//   If container implements Spanned, then container.Spans() is returned with a true.
+//   If container is a Span, a slice of that one element is returned with a true.
+//   If container is a []Span, it's returned as is with a true.
+//   Otherwise, this function returns nil, false.
 func Spans(container interface{}) ([]Span, bool) {
 	switch v := container.(type) {
 	case Span:
@@ -79,16 +82,12 @@ func MergeSpans(container interface{}, spans ...interface{}) (interface{}, bool)
 }
 
 // NopMergeable is just a Mergeable with no other state.  This is useful for tests.
-type NopMergeable struct {
-	S []Span
+type NopMergeable []Span
+
+func (nm NopMergeable) Spans() []Span {
+	return nm
 }
 
-func (nm *NopMergeable) Spans() []Span {
-	return nm.S
-}
-
-func (nm *NopMergeable) WithSpans(spans ...Span) interface{} {
-	return &NopMergeable{
-		S: spans,
-	}
+func (nm NopMergeable) WithSpans(spans ...Span) interface{} {
+	return NopMergeable(spans)
 }

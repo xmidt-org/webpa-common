@@ -5,7 +5,8 @@ import (
 	"time"
 )
 
-// Span represents the result of some operation
+// Span represents the result of some arbitrary section of code.  Clients create Span objects
+// via a Spanner.  A Span is immutable once it has been created via a Spanner closure.
 type Span interface {
 	// Name is the name of the operation
 	Name() string
@@ -13,14 +14,16 @@ type Span interface {
 	// Start is the time at which the operation started
 	Start() time.Time
 
-	// Duration is how long the operation took.  Will be zero until Finish is called.
+	// Duration is how long the operation took.  This value is computed once, when the
+	// closure from Spanner.Start is called.
 	Duration() time.Duration
 
-	// Error is any error that occurred.  Will be nil until Finish is called, and then
-	// it will be set to the error passed to Finish (which also can be nil).
+	// Error is any error that occurred.  This will be the error passed to the closure
+	// returned from Spanner.Start.  This error can be nil.
 	Error() error
 }
 
+// span is the internal Span implementation
 type span struct {
 	name     string
 	start    time.Time
