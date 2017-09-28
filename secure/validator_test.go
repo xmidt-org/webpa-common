@@ -53,13 +53,13 @@ func TestValidatorFunc(t *testing.T) {
 func TestValidators(t *testing.T) {
 	assert := assert.New(t)
 	var testData = [][]bool{
-		[]bool{true},
-		[]bool{false},
-		[]bool{true, false},
-		[]bool{false, true},
-		[]bool{true, false, false},
-		[]bool{false, true, false},
-		[]bool{false, false, true},
+		{true},
+		{false},
+		{true, false},
+		{false, true},
+		{true, false, false},
+		{false, true, false},
+		{false, false, true},
 	}
 
 	for _, record := range testData {
@@ -176,7 +176,7 @@ func TestJWSValidatorInvalidJWT(t *testing.T) {
 func TestJWSValidatorNoProtectedHeader(t *testing.T) {
 	assert := assert.New(t)
 
-	for _, empty := range []jose.Protected{nil, jose.Protected{}} {
+	for _, empty := range []jose.Protected{nil, {}} {
 		t.Logf("empty Protected header: %v", empty)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 		mockResolver := &key.MockResolver{}
@@ -526,10 +526,10 @@ func TestJWSValidatorValidate(t *testing.T) {
 		expectedValidateError error
 		expectedJWTValidators []*jwt.Validator
 	}{
-		{true, nil, []*jwt.Validator{&jwt.Validator{}}},
-		{true, nil, []*jwt.Validator{&jwt.Validator{}, &jwt.Validator{}}},
-		{false, errors.New("expected Validate error 1"), []*jwt.Validator{&jwt.Validator{}}},
-		{false, errors.New("expected Validate error 2"), []*jwt.Validator{&jwt.Validator{}, &jwt.Validator{}}},
+		{true, nil, []*jwt.Validator{{}}},
+		{true, nil, []*jwt.Validator{{}, {}}},
+		{false, errors.New("expected Validate error 1"), []*jwt.Validator{{}}},
+		{false, errors.New("expected Validate error 2"), []*jwt.Validator{{}, {}}},
 	}
 
 	for _, record := range testData {

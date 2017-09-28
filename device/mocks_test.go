@@ -100,14 +100,14 @@ func (s deviceSet) registryCapture() func(*device) {
 }
 
 func (s deviceSet) assertSameID(assert *assert.Assertions, expected ID) {
-	for d, _ := range s {
+	for d := range s {
 		assert.Equal(expected, d.ID())
 	}
 }
 
 func (s deviceSet) assertDistributionOfIDs(assert *assert.Assertions, expected map[ID]int) {
 	actual := make(map[ID]int, len(expected))
-	for d, _ := range s {
+	for d := range s {
 		actual[d.ID()] += 1
 	}
 

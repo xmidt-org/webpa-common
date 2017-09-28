@@ -29,12 +29,12 @@ func TestClientDefaults(t *testing.T) {
 
 	// all these clients should use default values
 	var testData = []Client{
-		Client{},
-		Client{
+		{},
+		{
 			QueueSize: -1,
 			Workers:   -1,
 		},
-		Client{
+		{
 			QueueSize: -34582,
 			Workers:   -4582,
 			Period:    400 * time.Second,
@@ -60,14 +60,14 @@ func TestClientNonDefaults(t *testing.T) {
 
 	// none of these clients should use default values
 	var testData = []Client{
-		Client{
+		{
 			Name:      expectedName,
 			Handler:   expectedHandler,
 			Logger:    expectedLogger,
 			Workers:   1234,
 			QueueSize: 7983481,
 		},
-		Client{
+		{
 			Name:      expectedName,
 			Handler:   expectedHandler,
 			Logger:    expectedLogger,
@@ -92,19 +92,19 @@ func TestClientDispatcherUsingSend(t *testing.T) {
 	logger := logging.NewTestLogger(nil, t)
 
 	var testData = []Client{
-		Client{
+		{
 			Logger: logger,
 		},
-		Client{
+		{
 			Logger:    logger,
 			Workers:   1,
 			QueueSize: 5,
 		},
-		Client{
+		{
 			Logger: logger,
 			Period: 100 * time.Millisecond,
 		},
-		Client{
+		{
 			Logger:    logger,
 			Workers:   12,
 			QueueSize: 200,

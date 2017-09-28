@@ -350,7 +350,7 @@ func (ss *SNSServer) ListSubscriptionsByMatchingEndpoint() (*list.List, error) {
 	timeStr = strings.TrimPrefix(timeStr, "/")
 	currentTimestamp, err = strconv.ParseInt(timeStr, 10, 64)
 	if nil != err {
-		ss.errorLog.Log(logging.MessageKey(), "SNS List Subscriptions timestamp parse error", 
+		ss.errorLog.Log(logging.MessageKey(), "SNS List Subscriptions timestamp parse error",
 			"selfUrl", ss.SelfUrl.String(), logging.ErrorKey(), err)
 		return nil, err
 	}

@@ -274,8 +274,8 @@ func testEncodeResponseNoPoolAndNoContents(t *testing.T) {
 
 func TestEncodeResponse(t *testing.T) {
 	testData := []wrp.Message{
-		wrp.Message{},
-		wrp.Message{
+		{},
+		{
 			Type:        wrp.SimpleEventMessageType,
 			ContentType: "text/plain",
 			Payload:     []byte("here is a payload"),

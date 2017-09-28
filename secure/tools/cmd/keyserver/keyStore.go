@@ -58,7 +58,7 @@ func NewKeyStore(infoLogger *log.Logger, c *Configuration) (*KeyStore, error) {
 	}
 
 	keyIDs := make([]string, 0, len(privateKeys))
-	for keyID, _ := range privateKeys {
+	for keyID := range privateKeys {
 		keyIDs = append(keyIDs, keyID)
 	}
 

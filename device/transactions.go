@@ -177,7 +177,7 @@ func (t *Transactions) Keys() []string {
 		position int
 	)
 
-	for key, _ := range t.pending {
+	for key := range t.pending {
 		keys[position] = key
 		position++
 	}

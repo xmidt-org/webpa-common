@@ -59,7 +59,7 @@ func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, 
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }
 
@@ -74,18 +74,18 @@ type JWSValidator struct {
 // capabilityValidation determines if a claim's capability is valid
 func capabilityValidation(ctx context.Context, capability string) (valid_capabilities bool) {
 	pieces := strings.Split(capability, ":")
-	
-	if len(pieces) == 5     &&
-	   pieces[0] == "x1"    && 
-	   pieces[1] == "webpa" {
-		
+
+	if len(pieces) == 5 &&
+		pieces[0] == "x1" &&
+		pieces[1] == "webpa" {
+
 		method_value, ok := ctx.Value("method").(string)
 		if ok && (pieces[4] == "all" || strings.EqualFold(pieces[4], method_value)) {
-			claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
+			claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2], pieces[3])
 			valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
 		}
 	}
-	
+
 	return
 }
 
@@ -126,7 +126,7 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	if err != nil {
 		return
 	}
-	
+
 	// validate the signature
 	if len(v.JWTValidators) > 0 {
 		// all JWS implementations also implement jwt.JWT
@@ -141,27 +141,27 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 
 	// validate jwt token claims capabilities
 	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
-	
-/*  commenting out for now
-    1. remove code in use below
-    2. make sure to bring a back tests for this as well.
-        - TestJWSValidatorCapabilities()
-	
-		for c := 0; c < len(caps); c++ {
-			if cap_value, ok := caps[c].(string); ok {
-				if valid = capabilityValidation(ctx, cap_value); valid {
-					return
+
+		/*  commenting out for now
+		    1. remove code in use below
+		    2. make sure to bring a back tests for this as well.
+		        - TestJWSValidatorCapabilities()
+
+				for c := 0; c < len(caps); c++ {
+					if cap_value, ok := caps[c].(string); ok {
+						if valid = capabilityValidation(ctx, cap_value); valid {
+							return
+						}
+					}
 				}
-			}
-		}
-*/
+		*/
 		// *****  REMOVE THIS CODE AFTER BRING BACK THE COMMENTED CODE ABOVE *****
 		// ***** vvvvvvvvvvvvvvv *****
 		return true, nil
 		// ***** ^^^^^^^^^^^^^^^ *****
-		
+
 	}
-	
+
 	// This fail
 	return
 }
