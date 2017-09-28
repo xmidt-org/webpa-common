@@ -10,7 +10,7 @@ import (
 func testOptionsLoggerFactory(t *testing.T) {
 	assert := assert.New(t)
 
-	for _, o := range []*Options{nil, new(Options), &Options{JSON: true}, &Options{JSON: false}} {
+	for _, o := range []*Options{nil, new(Options), {JSON: true}, {JSON: false}} {
 		assert.NotNil(o.loggerFactory())
 	}
 }
@@ -18,7 +18,7 @@ func testOptionsLoggerFactory(t *testing.T) {
 func testOptionsOutput(t *testing.T) {
 	assert := assert.New(t)
 
-	for _, o := range []*Options{nil, &Options{File: StdoutFile}} {
+	for _, o := range []*Options{nil, {File: StdoutFile}} {
 		output := o.output()
 		assert.NotNil(output)
 		assert.NotPanics(func() {

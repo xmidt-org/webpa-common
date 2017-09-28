@@ -13,5 +13,5 @@ install:
     - glide install --strip-vendor
 
 script:
-    - $TRAVIS_BUILD_DIR/test.sh ./codecov.sh
+    - $TRAVIS_BUILD_DIR/.travis.gofmt.sh && $TRAVIS_BUILD_DIR/test.sh ./codecov.sh
 

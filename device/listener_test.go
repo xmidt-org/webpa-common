@@ -55,35 +55,35 @@ func TestEvent(t *testing.T) {
 	var (
 		device = new(mockDevice)
 		events = []Event{
-			Event{},
-			Event{
+			{},
+			{
 				Type:   Connect,
 				Device: device,
 			},
-			Event{
+			{
 				Type:   Disconnect,
 				Device: device,
 			},
-			Event{
+			{
 				Type:     MessageFailed,
 				Device:   device,
 				Message:  new(wrp.Message),
 				Contents: []byte("contents"),
 			},
-			Event{
+			{
 				Type:     MessageFailed,
 				Device:   device,
 				Message:  new(wrp.Message),
 				Contents: []byte("contents"),
 				Error:    errors.New("some random I/O problem"),
 			},
-			Event{
+			{
 				Type:     MessageReceived,
 				Device:   device,
 				Message:  new(wrp.Message),
 				Contents: []byte("contents"),
 			},
-			Event{
+			{
 				Type:   Pong,
 				Device: device,
 				Data:   "some pong data",

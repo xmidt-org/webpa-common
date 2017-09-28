@@ -29,7 +29,7 @@ func testFanoutNilSpanner(t *testing.T) {
 
 func testFanoutNoConfiguredEndpoints(t *testing.T) {
 	assert := assert.New(t)
-	for _, empty := range []map[string]endpoint.Endpoint{nil, map[string]endpoint.Endpoint{}} {
+	for _, empty := range []map[string]endpoint.Endpoint{nil, {}} {
 		assert.Panics(func() {
 			Fanout(tracing.NewSpanner(), empty)
 		})

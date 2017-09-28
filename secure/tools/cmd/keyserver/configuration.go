@@ -49,7 +49,7 @@ func (c *Configuration) Validate() error {
 		return ErrorNoKeys
 	}
 
-	for keyID, _ := range c.Keys {
+	for keyID := range c.Keys {
 		trimmedKeyId := strings.TrimSpace(keyID)
 		if len(trimmedKeyId) == 0 {
 			return ErrorBlankKeyId

@@ -28,11 +28,11 @@ func TestKeyValueEmpty(t *testing.T) {
 	)
 	testWaitGroup.Wait()
 
-	for _ = range <-keyValue.Keys() {
+	for range <-keyValue.Keys() {
 		t.Error("Should not have received any keys in an empty KeyValue")
 	}
 
-	for _ = range <-keyValue.Values() {
+	for range <-keyValue.Values() {
 		t.Error("Should not have received any values in an empty KeyValue")
 	}
 }

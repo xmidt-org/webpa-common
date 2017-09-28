@@ -115,18 +115,18 @@ func TestMessage(t *testing.T) {
 		expectedIncludeSpans            bool  = true
 
 		messages = []Message{
-			Message{},
-			Message{
+			{},
+			{
 				Type:   AuthorizationStatusMessageType,
 				Status: &expectedStatus,
 			},
-			Message{
+			{
 				Type:            SimpleEventMessageType,
 				Source:          "mac:121234345656",
 				Destination:     "foobar.com/service",
 				TransactionUUID: "a unique identifier",
 			},
-			Message{
+			{
 				Type:                    SimpleRequestResponseMessageType,
 				Source:                  "somewhere.comcast.net:9090/something",
 				Destination:             "serial:1234/blergh",
@@ -135,17 +135,17 @@ func TestMessage(t *testing.T) {
 				RequestDeliveryResponse: &expectedRequestDeliveryResponse,
 				IncludeSpans:            &expectedIncludeSpans,
 			},
-			Message{
+			{
 				Type:            SimpleRequestResponseMessageType,
 				Source:          "external.com",
 				Destination:     "mac:FFEEAADD44443333",
 				TransactionUUID: "DEADBEEF",
 				Headers:         []string{"Header1", "Header2"},
 				Metadata:        map[string]string{"name": "value"},
-				Spans:           [][]string{[]string{"1", "2"}, []string{"3"}},
+				Spans:           [][]string{{"1", "2"}, {"3"}},
 				Payload:         []byte{1, 2, 3, 4, 0xff, 0xce},
 			},
-			Message{
+			{
 				Type:        CreateMessageType,
 				Source:      "wherever.webpa.comcast.net/glorious",
 				Destination: "uuid:1111-11-111111-11111",
@@ -302,13 +302,13 @@ func TestSimpleRequestResponse(t *testing.T) {
 		expectedIncludeSpans            bool  = true
 
 		messages = []SimpleRequestResponse{
-			SimpleRequestResponse{},
-			SimpleRequestResponse{
+			{},
+			{
 				Source:          "mac:121234345656",
 				Destination:     "foobar.com/service",
 				TransactionUUID: "a unique identifier",
 			},
-			SimpleRequestResponse{
+			{
 				Source:                  "somewhere.comcast.net:9090/something",
 				Destination:             "serial:1234/blergh",
 				TransactionUUID:         "123-123-123",
@@ -316,13 +316,13 @@ func TestSimpleRequestResponse(t *testing.T) {
 				RequestDeliveryResponse: &expectedRequestDeliveryResponse,
 				IncludeSpans:            &expectedIncludeSpans,
 			},
-			SimpleRequestResponse{
+			{
 				Source:          "external.com",
 				Destination:     "mac:FFEEAADD44443333",
 				TransactionUUID: "DEADBEEF",
 				Headers:         []string{"Header1", "Header2"},
 				Metadata:        map[string]string{"name": "value"},
-				Spans:           [][]string{[]string{"1", "2"}, []string{"3"}},
+				Spans:           [][]string{{"1", "2"}, {"3"}},
 				Payload:         []byte{1, 2, 3, 4, 0xff, 0xce},
 			},
 		}
@@ -386,13 +386,13 @@ func testSimpleEventEncode(t *testing.T, f Format, original SimpleEvent) {
 
 func TestSimpleEvent(t *testing.T) {
 	var messages = []SimpleEvent{
-		SimpleEvent{},
-		SimpleEvent{
+		{},
+		{
 			Source:      "simple.com/foo",
 			Destination: "uuid:111111111111111",
 			Payload:     []byte("this is a lovely payloed"),
 		},
-		SimpleEvent{
+		{
 			Source:      "mac:123123123123123123",
 			Destination: "something.webpa.comcast.net:9090/here/is/a/path",
 			ContentType: "text/plain",
@@ -517,15 +517,15 @@ func TestCRUD(t *testing.T) {
 		expectedIncludeSpans            bool  = true
 
 		messages = []CRUD{
-			CRUD{},
-			CRUD{
+			{},
+			{
 				Type:            DeleteMessageType,
 				Source:          "mac:121234345656",
 				Destination:     "foobar.com/service",
 				TransactionUUID: "a unique identifier",
 				Path:            "/a/b/c/d",
 			},
-			CRUD{
+			{
 				Type:                    CreateMessageType,
 				Source:                  "somewhere.comcast.net:9090/something",
 				Destination:             "serial:1234/blergh",
@@ -536,14 +536,14 @@ func TestCRUD(t *testing.T) {
 				Path:                    "/somewhere/over/rainbow",
 				Objects:                 "asldkfja;sdkjfas;ldkjfasdkfj",
 			},
-			CRUD{
+			{
 				Type:            UpdateMessageType,
 				Source:          "external.com",
 				Destination:     "mac:FFEEAADD44443333",
 				TransactionUUID: "DEADBEEF",
 				Headers:         []string{"Header1", "Header2"},
 				Metadata:        map[string]string{"name": "value"},
-				Spans:           [][]string{[]string{"1", "2"}, []string{"3"}},
+				Spans:           [][]string{{"1", "2"}, {"3"}},
 			},
 		}
 	)
@@ -582,11 +582,11 @@ func testServiceRegistrationEncode(t *testing.T, f Format, original ServiceRegis
 
 func TestServiceRegistration(t *testing.T) {
 	var messages = []ServiceRegistration{
-		ServiceRegistration{},
-		ServiceRegistration{
+		{},
+		{
 			ServiceName: "systemd",
 		},
-		ServiceRegistration{
+		{
 			ServiceName: "systemd",
 			URL:         "local:/location/here",
 		},
