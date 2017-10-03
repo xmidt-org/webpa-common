@@ -1,8 +1,10 @@
 package wrphttp
 
 import (
+	"context"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/Comcast/webpa-common/httperror"
@@ -13,8 +15,6 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	gokithttp "github.com/go-kit/kit/transport/http"
-	"strings"
-	"context"
 )
 
 const (
@@ -226,12 +226,11 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		customHeader.Set("Authorization", "Basic "+authorization)
 	}
 
-
-	var FollowRedirect = func (url *url.URL) gokithttp.ClientResponseFunc {
+	var FollowRedirect = func(url *url.URL) gokithttp.ClientResponseFunc {
 		return func(ctx context.Context, response *http.Response) context.Context {
 			if response != nil && response.StatusCode == http.StatusTemporaryRedirect {
 				redirectTarget := response.Header.Get("location") + strings.TrimSuffix(url.Path, "/")
-				if redirectedReq, err := http.NewRequest(o.Method,redirectTarget,nil); err == nil {
+				if redirectedReq, err := http.NewRequest(o.Method, redirectTarget, nil); err == nil {
 					if actualResponse, err := http.DefaultClient.Do(redirectedReq); err == nil {
 						response.Header = actualResponse.Header
 						response.StatusCode = actualResponse.StatusCode
