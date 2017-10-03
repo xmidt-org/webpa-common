@@ -1,6 +1,7 @@
 package wrphttp
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"net/http"
@@ -197,4 +198,46 @@ func testNewFanoutEndpointBadURL(t *testing.T) {
 func TestNewFanoutEndpoint(t *testing.T) {
 	t.Run("SendReceive", testNewFanoutEndpointSendReceive)
 	t.Run("BadURL", testNewFanoutEndpointBadURL)
+}
+
+func TestSetGetBodyFunc(t *testing.T) {
+	assert := assert.New(t)
+	var (
+		expectedBytes = []byte(`{"minions":"bananas"}`)
+		inputBody     = bytes.NewBuffer(expectedBytes)
+		inputRequest  = httptest.NewRequest(http.MethodPost, "http://minionsland.com", inputBody)
+	)
+
+	t.Run("IdealCase", func(t *testing.T) {
+		SetGetBodyFunc(nil, inputRequest)
+		AssertRequestBodyContent(inputRequest, expectedBytes, assert)
+
+		//test that request's body is readable multiple times
+		AssertRequestBodyContent(inputRequest, expectedBytes, assert)
+	})
+
+	t.Run("NilCases", func(t *testing.T) {
+		//Nil Body: no failures, getBody should NOT be set
+		inputRequest = httptest.NewRequest(http.MethodPost, "http://minionsland.com", nil)
+		inputRequest.Body = nil
+
+		assert.Nil(SetGetBodyFunc(nil, inputRequest))
+		assert.Nil(inputRequest.GetBody)
+
+		//Nil request: no failures, the given context is return
+		assert.Nil(SetGetBodyFunc(nil, nil))
+	})
+}
+
+//AssertRequestBodyContent takes in a request, reads all of the content in its body (which it gets through the
+// GetBody() function) and asserts that such content equals the expected given value
+func AssertRequestBodyContent(request *http.Request, expected []byte, assert *assert.Assertions) {
+	assert.NotNil(request.GetBody) //test needed function is defined
+
+	body, err := request.GetBody()
+	assert.Nil(err)
+
+	actualBytes, err := ioutil.ReadAll(body)
+	assert.Nil(err)
+	assert.EqualValues(expected, actualBytes) //test correctness
 }
