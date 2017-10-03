@@ -13,6 +13,8 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	gokithttp "github.com/go-kit/kit/transport/http"
+	"strings"
+	"context"
 )
 
 const (
@@ -224,14 +226,36 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		customHeader.Set("Authorization", "Basic "+authorization)
 	}
 
+
+	var FollowRedirect = func (url *url.URL) gokithttp.ClientResponseFunc {
+		return func(ctx context.Context, response *http.Response) context.Context {
+			if response != nil && response.StatusCode == http.StatusTemporaryRedirect {
+				redirectTarget := response.Header.Get("location") + strings.TrimSuffix(url.Path, "/")
+				if redirectedReq, err := http.NewRequest(o.Method,redirectTarget,nil); err == nil {
+					if actualResponse, err := http.DefaultClient.Do(redirectedReq); err == nil {
+						response.Header = actualResponse.Header
+						response.StatusCode = actualResponse.StatusCode
+						response.Body = actualResponse.Body
+						response.Status = actualResponse.Status
+						//TODO: need to copy all other fields
+						//TODO: considering using https://github.com/ulule/deepcopier
+						//TODO: searching for a better way to handle redirects
+					}
+				}
+			}
+			return ctx
+		}
+	}
+
 	for _, url := range urls {
+
 		fanoutEndpoints[url.String()] =
 			gokithttp.NewClient(
 				o.method(),
 				url,
 				ClientEncodeRequestBody(encoderPool, customHeader),
 				ClientDecodeResponseBody(decoderPool),
-				gokithttp.SetClient(httpClient),
+				gokithttp.SetClient(httpClient), gokithttp.ClientAfter(FollowRedirect(url)),
 			).Endpoint()
 	}
 
