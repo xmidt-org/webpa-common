@@ -1,6 +1,10 @@
 package wrphttp
 
 import (
+	"bytes"
+	"context"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -231,7 +235,7 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 				url,
 				ClientEncodeRequestBody(encoderPool, customHeader),
 				ClientDecodeResponseBody(decoderPool),
-				gokithttp.SetClient(httpClient),
+				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(SetGetBodyFunc),
 			).Endpoint()
 	}
 
@@ -252,4 +256,20 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 			middlewareChain[1:]...,
 		)(middleware.Fanout(tracing.NewSpanner(), fanoutEndpoints)),
 		nil
+}
+
+func SetGetBodyFunc(context context.Context, request *http.Request) context.Context {
+	if request == nil || request.Body == nil {
+		return context
+	}
+	request.GetBody = func() (send io.ReadCloser, err error) {
+		var keepBuffer, sendBuffer bytes.Buffer
+		bodyBytes, err := ioutil.ReadAll(request.Body)
+		keepBuffer.Write(bodyBytes)
+		sendBuffer.Write(bodyBytes)
+		send = ioutil.NopCloser(&sendBuffer)
+		request.Body = ioutil.NopCloser(&keepBuffer)
+		return
+	}
+	return context
 }
