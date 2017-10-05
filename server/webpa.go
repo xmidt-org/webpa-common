@@ -1,7 +1,10 @@
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
@@ -37,6 +40,7 @@ type Secure interface {
 func ListenAndServe(logger log.Logger, s Secure, e executor) {
 	certificateFile, keyFile := s.Certificate()
 	if len(certificateFile) > 0 && len(keyFile) > 0 {
+
 		go func() {
 			logging.Error(logger).Log(
 				logging.ErrorKey(), e.ListenAndServeTLS(certificateFile, keyFile),
@@ -58,6 +62,7 @@ type Basic struct {
 	Address            string
 	CertificateFile    string
 	KeyFile            string
+	ClientCACertFile   string
 	LogConnectionState bool
 }
 
@@ -76,10 +81,29 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 		return nil
 	}
 
+	var tlsConfig *tls.Config
+	certificateFile, keyFile := b.Certificate()
+	if len(certificateFile) > 0 && len(keyFile) > 0 && len(b.ClientCACertFile) > 0 {
+
+		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
+		if err != nil {
+			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
+				logging.ErrorKey(), err)
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig = &tls.Config{
+			ClientCAs:  caCertPool,
+			ClientAuth: tls.RequireAndVerifyClientCert,
+		}
+		tlsConfig.BuildNameToCertificate()
+	}
+
 	server := &http.Server{
-		Addr:     b.Address,
-		Handler:  handler,
-		ErrorLog: NewErrorLog(b.Name, logger),
+		Addr:      b.Address,
+		Handler:   handler,
+		ErrorLog:  NewErrorLog(b.Name, logger),
+		TLSConfig: tlsConfig,
 	}
 
 	if b.LogConnectionState {
