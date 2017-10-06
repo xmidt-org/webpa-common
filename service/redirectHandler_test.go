@@ -96,12 +96,13 @@ func testRedirectHandlerSuccessWithPath(t *testing.T) {
 
 		expectedKey         = []byte("asdfqwer")
 		expectedInstance    = "https://ahost123.com:324"
-		expectedRedirectURL = expectedInstance + "/this/awesome/path"
+		requestURI          = "/this/awesome/path"
+		expectedRedirectURL = expectedInstance + requestURI
 		keyFunc             = func(*http.Request) ([]byte, error) { return expectedKey, nil }
 		accessor            = new(mockAccessor)
 
 		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("GET", "https://someIrrelevantHost.com/this/awesome/path//", nil)
+		request  = httptest.NewRequest("GET", "https://someIrrelevantHost.com" + requestURI, nil)
 
 		handler = RedirectHandler{
 			Logger:       logging.NewTestLogger(nil, t),
@@ -110,6 +111,9 @@ func testRedirectHandlerSuccessWithPath(t *testing.T) {
 			RedirectCode: http.StatusTemporaryRedirect,
 		}
 	)
+
+	//setting this manually as we assume the net client would provide it
+	request.RequestURI = requestURI
 
 	accessor.On("Get", expectedKey).Return(expectedInstance, error(nil)).Once()
 	handler.ServeHTTP(response, request)

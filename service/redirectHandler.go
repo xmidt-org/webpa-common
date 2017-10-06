@@ -47,7 +47,7 @@ func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http
 		return
 	}
 
-	instance += strings.TrimRight(request.URL.Path, "/") //keep original path with trailing '/' chars removed
+	instance += strings.TrimRight(request.RequestURI, "/") //keep original path with trailing '/' chars removed
 
 	rh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
 	http.Redirect(response, request, instance, rh.RedirectCode)
