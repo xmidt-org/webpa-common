@@ -102,7 +102,7 @@ func testRedirectHandlerSuccessWithPath(t *testing.T) {
 		accessor            = new(mockAccessor)
 
 		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("GET", "https://someIrrelevantHost.com" + requestURI, nil)
+		request  = httptest.NewRequest("GET", "https://someIrrelevantHost.com"+requestURI, nil)
 
 		handler = RedirectHandler{
 			Logger:       logging.NewTestLogger(nil, t),
