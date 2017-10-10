@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
@@ -45,6 +46,8 @@ func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	instance += strings.TrimRight(request.RequestURI, "/") //keep original path with trailing '/' chars removed
 
 	rh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
 	http.Redirect(response, request, instance, rh.RedirectCode)
