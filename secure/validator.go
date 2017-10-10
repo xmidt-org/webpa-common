@@ -24,13 +24,13 @@ type Validator interface {
 	// any problems during validation, such as the inability to access a network resource.
 	// In general, the contract of this method is that a Token passes validation
 	// if and only if it returns BOTH true and a nil error.
-	Validate(context.Context, *Token) (bool, error)
+	Validate(context.Context, *Token) (bool, error, interface{})
 }
 
 // ValidatorFunc is a function type that implements Validator
-type ValidatorFunc func(context.Context, *Token) (bool, error)
+type ValidatorFunc func(context.Context, *Token) (bool, error, interface{})
 
-func (v ValidatorFunc) Validate(ctx context.Context, token *Token) (bool, error) {
+func (v ValidatorFunc) Validate(ctx context.Context, token *Token) (bool, error, interface{}) {
 	return v(ctx, token)
 }
 
@@ -39,9 +39,9 @@ func (v ValidatorFunc) Validate(ctx context.Context, token *Token) (bool, error)
 // all tokens.
 type Validators []Validator
 
-func (v Validators) Validate(ctx context.Context, token *Token) (valid bool, err error) {
+func (v Validators) Validate(ctx context.Context, token *Token) (valid bool, err error, i interface{}) {
 	for _, validator := range v {
-		if valid, err = validator.Validate(ctx, token); valid && err == nil {
+		if valid, err, i = validator.Validate(ctx, token); valid && err == nil {
 			return
 		}
 	}
@@ -53,14 +53,15 @@ func (v Validators) Validate(ctx context.Context, token *Token) (valid bool, err
 // to a string.
 type ExactMatchValidator string
 
-func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, error) {
+func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, error, interface{}) {
+	var i interface{}
 	for _, value := range strings.Split(string(v), ",") {
 		if value == token.value {
-			return true, nil
+			return true, nil, i
 		}
 	}
-	
-	return false, nil
+
+	return false, nil, i
 }
 
 // JWSValidator provides validation for JWT tokens encoded as JWS.
@@ -74,22 +75,22 @@ type JWSValidator struct {
 // capabilityValidation determines if a claim's capability is valid
 func capabilityValidation(ctx context.Context, capability string) (valid_capabilities bool) {
 	pieces := strings.Split(capability, ":")
-	
-	if len(pieces) == 5     &&
-	   pieces[0] == "x1"    && 
-	   pieces[1] == "webpa" {
-		
+
+	if len(pieces) == 5 &&
+		pieces[0] == "x1" &&
+		pieces[1] == "webpa" {
+
 		method_value, ok := ctx.Value("method").(string)
 		if ok && (pieces[4] == "all" || strings.EqualFold(pieces[4], method_value)) {
-			claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2],pieces[3])
+			claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2], pieces[3])
 			valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
 		}
 	}
-	
+
 	return
 }
 
-func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, err error) {
+func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, err error, pyld interface{}) {
 	if token.Type() != Bearer {
 		return
 	}
@@ -126,7 +127,7 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	if err != nil {
 		return
 	}
-	
+
 	// validate the signature
 	if len(v.JWTValidators) > 0 {
 		// all JWS implementations also implement jwt.JWT
@@ -141,27 +142,27 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 
 	// validate jwt token claims capabilities
 	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
-	
-/*  commenting out for now
-    1. remove code in use below
-    2. make sure to bring a back tests for this as well.
-        - TestJWSValidatorCapabilities()
-	
-		for c := 0; c < len(caps); c++ {
-			if cap_value, ok := caps[c].(string); ok {
-				if valid = capabilityValidation(ctx, cap_value); valid {
-					return
+
+		/*  commenting out for now
+		    1. remove code in use below
+		    2. make sure to bring a back tests for this as well.
+		        - TestJWSValidatorCapabilities()
+
+				for c := 0; c < len(caps); c++ {
+					if cap_value, ok := caps[c].(string); ok {
+						if valid = capabilityValidation(ctx, cap_value); valid {
+							return
+						}
+					}
 				}
-			}
-		}
-*/
+		*/
 		// *****  REMOVE THIS CODE AFTER BRING BACK THE COMMENTED CODE ABOVE *****
 		// ***** vvvvvvvvvvvvvvv *****
-		return true, nil
+		return true, nil, jwsToken.Payload()
 		// ***** ^^^^^^^^^^^^^^^ *****
-		
+
 	}
-	
+
 	// This fail
 	return
 }

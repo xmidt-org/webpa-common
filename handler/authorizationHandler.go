@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/SermoDigital/jose/jws"
 	"net/http"
 	"os"
 )
@@ -47,6 +48,16 @@ func (a AuthorizationHandler) logger() logging.Logger {
 	return &logging.LoggerWriter{os.Stdout}
 }
 
+func obtainJwtSub(token interface{}) (sub string, ok bool) {
+	if nil != token {
+		if sub, ok = token.(jws.Claims).Subject(); ok {
+			return
+		}
+	}
+
+	return
+}
+
 // Decorate provides an Alice-compatible constructor that validates requests
 // using the configuration specified.
 func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
@@ -80,7 +91,12 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 
-		valid, err := a.Validator.Validate(ctx, token)
+		valid, err, pyld := a.Validator.Validate(ctx, token)
+
+		if sub, subOk := obtainJwtSub(pyld); subOk {
+			request.Header.Set("X-Webpa-Sat-Client-Id", sub)
+		}
+
 		if err != nil {
 			logger.Error("Validation error: %s", err.Error())
 		} else if valid {
@@ -90,8 +106,8 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		}
 
 		reqLogMsg := fmt.Sprintf("Request {Method: %s, URL: %s, User-Agent: %s, ContentLength: %d, RemoteAddr: %s}",
-		                         request.Method, request.URL.String(), request.Header.Get("User-Agent"), 
-		                         request.ContentLength, request.RemoteAddr)
+			request.Method, request.URL.String(), request.Header.Get("User-Agent"),
+			request.ContentLength, request.RemoteAddr)
 
 		logger.Error("Request denied: %s", reqLogMsg)
 		response.WriteHeader(forbiddenStatusCode)
