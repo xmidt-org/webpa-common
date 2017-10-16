@@ -258,18 +258,25 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		nil
 }
 
+//SetGetBodyFunc allows reading a request's body multiple times. 307 POST redirects are part of the specific cases
+//where this becomes useful
 func SetGetBodyFunc(context context.Context, request *http.Request) context.Context {
 	if request == nil || request.Body == nil {
 		return context
 	}
-	request.GetBody = func() (send io.ReadCloser, err error) {
-		var keepBuffer, sendBuffer bytes.Buffer
-		bodyBytes, err := ioutil.ReadAll(request.Body)
-		keepBuffer.Write(bodyBytes)
-		sendBuffer.Write(bodyBytes)
-		send = ioutil.NopCloser(&sendBuffer)
-		request.Body = ioutil.NopCloser(&keepBuffer)
-		return
+
+	if freshBodyCopy, err := ioutil.ReadAll(request.Body); err == nil { //read it once and keep a copy
+		var keepBuffer bytes.Buffer
+		keepBuffer.Write(freshBodyCopy)
+		request.Body = ioutil.NopCloser(&keepBuffer) //Extra: Also make request.Body re-readable
+
+		//set up function used by clients such as net/http/client
+		request.GetBody = func() (send io.ReadCloser, err error) {
+			var sendBuffer bytes.Buffer
+			sendBuffer.Write(freshBodyCopy)
+			send = ioutil.NopCloser(&sendBuffer)
+			return
+		}
 	}
 	return context
 }
