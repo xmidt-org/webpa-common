@@ -49,9 +49,8 @@ func ParseID(deviceName string) (ID, error) {
 	}
 
 	var (
-		prefix  = strings.ToLower(match[1])
-		idPart  = match[2]
-		service = match[3]
+		prefix = strings.ToLower(match[1])
+		idPart = match[2]
 	)
 
 	if prefix == macPrefix {
@@ -74,10 +73,6 @@ func ParseID(deviceName string) (ID, error) {
 		if invalidCharacter != -1 || len(idPart) != macLength {
 			return invalidID, ErrorInvalidDeviceName
 		}
-	}
-
-	if len(service) > 0 {
-		return ID(fmt.Sprintf("%s:%s%s/", prefix, idPart, service)), nil
 	}
 
 	return ID(fmt.Sprintf("%s:%s", prefix, idPart)), nil
