@@ -81,22 +81,25 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 		return nil
 	}
 
+	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
 	certificateFile, keyFile := b.Certificate()
+	// Only when HTTPS i.e. cert & key present, check for client CA and set TLS config for MTLS
 	if len(certificateFile) > 0 && len(keyFile) > 0 && len(b.ClientCACertFile) > 0 {
 
 		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
 		if err != nil {
 			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
 				logging.ErrorKey(), err)
+		} else {
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			tlsConfig = &tls.Config{
+				ClientCAs:  caCertPool,
+				ClientAuth: tls.RequireAndVerifyClientCert,
+			}
+			tlsConfig.BuildNameToCertificate()
 		}
-		caCertPool := x509.NewCertPool()
-		caCertPool.AppendCertsFromPEM(caCert)
-		tlsConfig = &tls.Config{
-			ClientCAs:  caCertPool,
-			ClientAuth: tls.RequireAndVerifyClientCert,
-		}
-		tlsConfig.BuildNameToCertificate()
 	}
 
 	server := &http.Server{
