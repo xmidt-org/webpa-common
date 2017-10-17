@@ -233,12 +233,14 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 				return nil, expectedLastError
 			}
 		} else {
-			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				defer otherEndpointsDone.Done()
-				assert.Equal(expectedCtx, ctx)
-				assert.Equal(expectedRequest, request)
-				return nil, fmt.Errorf("failure#%d", i)
-			}
+			endpoints[fmt.Sprintf("failure#%d", i)] = func(index int) endpoint.Endpoint {
+				return func(ctx context.Context, request interface{}) (interface{}, error) {
+					defer otherEndpointsDone.Done()
+					assert.Equal(expectedCtx, ctx)
+					assert.Equal(expectedRequest, request)
+					return nil, fmt.Errorf("failure#%d", index)
+				}
+			}(i)
 		}
 	}
 
