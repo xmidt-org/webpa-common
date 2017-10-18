@@ -3,6 +3,7 @@
 		"address": "localhost:10010",
 		"certificateFile": "file.cert",
 		"keyFile": "file.key",
+		"clientCACertFile": "cacert.pem",
 		"logConnectionState": true
 	},
 

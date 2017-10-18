@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	//	"github.com/Comcast/webpa-common/health"
+	"crypto/tls"
 	"net/http"
 	"sync"
 	"testing"
@@ -379,4 +380,69 @@ func TestWebPA(t *testing.T) {
 	close(shutdown)
 	waitGroup.Wait() // the http.Server instances will still be running after this returns
 	handler.AssertExpectations(t)
+}
+
+func TestBasicNewWithClientCACert(t *testing.T) {
+	const expectedName = "TestBasicNewClientCA"
+
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		testData = []struct {
+			address            string
+			certificateFile    string
+			keyFile            string
+			clientCACertFile   string
+			handler            *mockHandler
+			logConnectionState bool
+		}{
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true},
+			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true},
+			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true},
+			{":8081", "", "", "", new(mockHandler), false},
+		}
+	)
+
+	for index, record := range testData {
+		t.Logf("%#v", record)
+
+		var (
+			verify, logger = newTestLogger()
+			basic          = Basic{
+				Name:               expectedName,
+				Address:            record.address,
+				CertificateFile:    record.certificateFile,
+				KeyFile:            record.keyFile,
+				ClientCACertFile:   record.clientCACertFile,
+				LogConnectionState: record.logConnectionState,
+			}
+
+			server = basic.New(logger, record.handler)
+		)
+
+		t.Logf("%#v", server)
+
+		require.NotNil(server)
+		assert.Equal(record.address, server.Addr)
+		assert.Equal(record.handler, server.Handler)
+		assertErrorLog(assert, verify, expectedName, server.ErrorLog)
+
+		switch index {
+		case 0:
+			tlsConfig := server.TLSConfig
+			require.NotNil(tlsConfig)
+			assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
+			require.NotNil(tlsConfig.ClientCAs)
+		case 1:
+			require.Nil(server.TLSConfig)
+		case 2:
+			require.Nil(server.TLSConfig)
+		case 3:
+			require.Nil(server.TLSConfig)
+		}
+
+		if record.handler != nil {
+			record.handler.AssertExpectations(t)
+		}
+	}
 }
