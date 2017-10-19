@@ -79,7 +79,7 @@ type Interface interface {
 	Statistics() Statistics
 
 	// MarshalJSONTo writes a JSON representation to the given output io.Writer
-	MarshalJSONTo(io.Writer) (int, error)
+	MarshalJSONTo(func(time.Time) time.Duration, io.Writer) (int, error)
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -101,13 +101,13 @@ type device struct {
 }
 
 // newDevice is an internal factory function for devices
-func newDevice(id ID, queueSize int, logger log.Logger) *device {
+func newDevice(id ID, queueSize int, connectedAt time.Time, logger log.Logger) *device {
 	return &device{
 		id:           id,
 		errorLog:     logging.Error(logger, "id", id),
 		infoLog:      logging.Info(logger, "id", id),
 		debugLog:     logging.Debug(logger, "id", id),
-		statistics:   NewStatistics(time.Now().UTC()),
+		statistics:   NewStatistics(connectedAt),
 		state:        stateOpen,
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, queueSize),
@@ -115,25 +115,29 @@ func newDevice(id ID, queueSize int, logger log.Logger) *device {
 	}
 }
 
-func (d *device) MarshalJSONTo(output io.Writer) (int, error) {
+// String returns the JSON representation of this device
+func (d *device) String() string {
+	return string(d.id)
+}
+
+func (d *device) MarshalJSONTo(since func(time.Time) time.Duration, output io.Writer) (int, error) {
 	return fmt.Fprintf(
 		output,
-		`{"id": "%s", "closed": %t}`,
+		`{"id": "%s", "closed": %t, "bytesReceived": %d, "bytesSent": %d, "messagesSent": %d, "connectedAt": "%s", "upTime": "%s"}`,
 		d.id,
 		d.Closed(),
+		d.statistics.BytesReceived(),
+		d.statistics.BytesSent(),
+		d.statistics.MessagesSent(),
+		d.statistics.ConnectedAt().Format(time.RFC3339),
+		since(d.statistics.ConnectedAt()),
 	)
 }
 
 func (d *device) MarshalJSON() ([]byte, error) {
 	var output bytes.Buffer
-	_, err := d.MarshalJSONTo(&output)
+	_, err := d.MarshalJSONTo(time.Since, &output)
 	return output.Bytes(), err
-}
-
-// String returns the JSON representation of this device
-func (d *device) String() string {
-	data, _ := d.MarshalJSON()
-	return string(data)
 }
 
 func (d *device) requestClose() {

@@ -2,28 +2,30 @@ package device
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
+	connectedAt  = time.Now()
 	nosuchID     = ID("nosuch ID")
-	nosuchDevice = newDevice(nosuchID, 1, logging.DefaultLogger())
+	nosuchDevice = newDevice(nosuchID, 1, connectedAt, logging.DefaultLogger())
 
 	singleID     = ID("single")
-	singleDevice = newDevice(singleID, 1, logging.DefaultLogger())
+	singleDevice = newDevice(singleID, 1, connectedAt, logging.DefaultLogger())
 
 	doubleID      = ID("double")
-	doubleDevice1 = newDevice(doubleID, 1, logging.DefaultLogger())
-	doubleDevice2 = newDevice(doubleID, 1, logging.DefaultLogger())
+	doubleDevice1 = newDevice(doubleID, 1, connectedAt, logging.DefaultLogger())
+	doubleDevice2 = newDevice(doubleID, 1, connectedAt, logging.DefaultLogger())
 
 	manyID      = ID("many")
-	manyDevice1 = newDevice(manyID, 1, logging.DefaultLogger())
-	manyDevice2 = newDevice(manyID, 1, logging.DefaultLogger())
-	manyDevice3 = newDevice(manyID, 1, logging.DefaultLogger())
-	manyDevice4 = newDevice(manyID, 1, logging.DefaultLogger())
-	manyDevice5 = newDevice(manyID, 1, logging.DefaultLogger())
+	manyDevice1 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
+	manyDevice2 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
+	manyDevice3 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
+	manyDevice4 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
+	manyDevice5 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
 )
 
 func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
@@ -48,7 +50,7 @@ func TestRegistryDuplicateDevice(t *testing.T) {
 	assert := assert.New(t)
 	registry := testRegistry(t, assert)
 
-	duplicateDevice := newDevice(ID("duplicate device"), 1, logging.DefaultLogger())
+	duplicateDevice := newDevice(ID("duplicate device"), 1, time.Now(), logging.DefaultLogger())
 	assert.Nil(registry.add(duplicateDevice))
 	assert.Equal(ErrorDuplicateDevice, registry.add(duplicateDevice))
 }

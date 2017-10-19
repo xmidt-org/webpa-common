@@ -1,8 +1,10 @@
 package device
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,8 +16,13 @@ import (
 
 func TestDevice(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
+		assert              = assert.New(t)
+		require             = require.New(t)
+		expectedConnectedAt = time.Now().UTC()
+		expectedUpTime      = 15 * time.Hour
+		since               = func(time.Time) time.Duration {
+			return expectedUpTime
+		}
 
 		testData = []struct {
 			expectedID        ID
@@ -44,36 +51,47 @@ func TestDevice(t *testing.T) {
 		t.Logf("%v", record)
 
 		var (
-			ctx, cancel        = context.WithCancel(context.Background())
-			testMessage        = new(wrp.Message)
-			minimumConnectedAt = time.Now()
-			device             = newDevice(
+			ctx, cancel = context.WithCancel(context.Background())
+			testMessage = new(wrp.Message)
+			device      = newDevice(
 				record.expectedID,
 				record.expectedQueueSize,
+				expectedConnectedAt,
 				logging.NewTestLogger(nil, t),
 			)
 		)
 
 		require.NotNil(device)
 
-		t.Log("connection timestamp")
+		assert.Equal(string(record.expectedID), device.String())
 		actualConnectedAt := device.Statistics().ConnectedAt()
-		assert.True(minimumConnectedAt.Equal(actualConnectedAt) || minimumConnectedAt.Before(actualConnectedAt))
+		assert.Equal(expectedConnectedAt, actualConnectedAt)
 
-		t.Log("initial state")
 		assert.Equal(record.expectedID, device.ID())
 		assert.False(device.Closed())
 		if data, err := json.Marshal(device); assert.Nil(err) {
-			assert.JSONEq(string(data), device.String())
+			// just make sure it's valid JSON
+			var unmarshaled map[string]interface{}
+			assert.NoError(json.Unmarshal(data, &unmarshaled))
 		}
 
-		t.Log("updateKey should hold other state immutable")
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
 		assert.False(device.Closed())
-		if data, err := json.Marshal(device); assert.Nil(err) {
-			assert.JSONEq(string(data), device.String())
-		}
+
+		var actualJSON bytes.Buffer
+		count, err := device.MarshalJSONTo(since, &actualJSON)
+		require.True(count > 0)
+		require.NoError(err)
+		assert.JSONEq(
+			fmt.Sprintf(
+				`{"id": "%s", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"}`,
+				record.expectedID,
+				expectedConnectedAt.Format(time.RFC3339),
+				expectedUpTime.String(),
+			),
+			actualJSON.String(),
+		)
 
 		for repeat := 0; repeat < record.expectedQueueSize; repeat++ {
 			go func() {
@@ -84,21 +102,12 @@ func TestDevice(t *testing.T) {
 
 		cancel()
 
-		t.Log("requestClose should be idempotent")
 		assert.False(device.Closed())
 		device.requestClose()
 		assert.True(device.Closed())
 		device.requestClose()
 		assert.True(device.Closed())
 
-		t.Log("closed state")
-		assert.Equal(record.expectedID, device.ID())
-		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
-		if data, err := json.Marshal(device); assert.Nil(err) {
-			assert.JSONEq(string(data), device.String())
-		}
-
-		t.Log("Send should fail when device is closed")
 		response, err := device.Send(&Request{Message: testMessage})
 		assert.Nil(response)
 		assert.Error(err)

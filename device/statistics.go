@@ -44,7 +44,7 @@ type Statistics interface {
 // NewStatistics creates a Statistics instance with the given connection time
 func NewStatistics(connectedAt time.Time) Statistics {
 	return &statistics{
-		connectedAt: connectedAt,
+		connectedAt: connectedAt.UTC(),
 	}
 }
 

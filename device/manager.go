@@ -150,7 +150,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, err
 	}
 
-	d := newDevice(id, m.deviceMessageQueueSize, m.logger)
+	d := newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
@@ -178,6 +178,8 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	} else {
 		d.debugLog.Log(logging.MessageKey(), "pump close")
 	}
+
+	m.registry.removeOne(d)
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
