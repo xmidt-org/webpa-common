@@ -30,6 +30,28 @@ func (r *registry) add(d *device) error {
 	return nil
 }
 
+func (r *registry) removeOne(d *device) {
+	defer r.lock.Unlock()
+	r.lock.Lock()
+
+	duplicates := r.devices[d.id]
+	for i, candidate := range duplicates {
+		if candidate == d {
+			duplicates[i] = duplicates[len(duplicates)-1]
+			duplicates[len(duplicates)-1] = nil
+			duplicates = duplicates[0 : len(duplicates)-1]
+
+			if len(duplicates) > 0 {
+				r.devices[d.id] = duplicates
+			} else {
+				delete(r.devices, d.id)
+			}
+
+			break
+		}
+	}
+}
+
 func (r *registry) removeAll(id ID) []*device {
 	defer r.lock.Unlock()
 	r.lock.Lock()

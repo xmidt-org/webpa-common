@@ -3,6 +3,7 @@ package device
 import (
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -25,8 +26,8 @@ func (m *mockDevice) String() string {
 	return m.Called().String(0)
 }
 
-func (m *mockDevice) MarshalJSONTo(output io.Writer) (int, error) {
-	arguments := m.Called(output)
+func (m *mockDevice) MarshalJSONTo(since func(time.Time) time.Duration, output io.Writer) (int, error) {
+	arguments := m.Called(since, output)
 	return arguments.Int(0), arguments.Error(1)
 }
 

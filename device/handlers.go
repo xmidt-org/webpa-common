@@ -220,6 +220,9 @@ type ListHandler struct {
 	cacheExpiry time.Time
 	cache       bytes.Buffer
 	cacheBytes  []byte
+
+	now   func() time.Time
+	since func(time.Time) time.Duration
 }
 
 func (lh *ListHandler) refresh() time.Duration {
@@ -228,6 +231,14 @@ func (lh *ListHandler) refresh() time.Duration {
 	}
 
 	return lh.Refresh
+}
+
+func (lh *ListHandler) _now() time.Time {
+	if lh.now != nil {
+		return lh.now()
+	}
+
+	return time.Now()
 }
 
 // tryCache returns the currently cache JSON bytes along with a flag indicating expiry.
@@ -243,7 +254,12 @@ func (lh *ListHandler) updateCache() []byte {
 	defer lh.lock.Unlock()
 	lh.lock.Lock()
 
-	if lh.cacheExpiry.Before(time.Now()) {
+	since := lh.since
+	if since == nil {
+		since = time.Since
+	}
+
+	if lh.cacheExpiry.Before(lh._now()) {
 		lh.cache.Reset()
 		lh.cache.WriteString(`{"devices":[`)
 
@@ -253,13 +269,13 @@ func (lh *ListHandler) updateCache() []byte {
 				lh.cache.WriteString(`,`)
 			}
 
-			d.MarshalJSONTo(&lh.cache)
+			d.MarshalJSONTo(since, &lh.cache)
 			needsSeparator = true
 		})
 
 		lh.cache.WriteString(`]}`)
 		lh.cacheBytes = lh.cache.Bytes()
-		lh.cacheExpiry = time.Now().Add(lh.refresh())
+		lh.cacheExpiry = lh._now().Add(lh.refresh())
 	}
 
 	return lh.cacheBytes

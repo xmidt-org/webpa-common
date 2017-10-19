@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -608,13 +609,16 @@ func testListHandlerRefresh(t *testing.T) {
 
 func testListHandlerServeHTTP(t *testing.T) {
 	var (
-		assert   = assert.New(t)
-		require  = require.New(t)
-		registry = new(mockRegistry)
+		assert              = assert.New(t)
+		require             = require.New(t)
+		expectedConnectedAt = time.Now().UTC()
+		expectedUpTime      = 47913 * time.Minute
+		registry            = new(mockRegistry)
 
 		handler = ListHandler{
 			Logger:   logging.NewTestLogger(nil, t),
 			Registry: registry,
+			since:    func(time.Time) time.Duration { return expectedUpTime },
 		}
 	)
 
@@ -622,8 +626,8 @@ func testListHandlerServeHTTP(t *testing.T) {
 	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).
 		Run(func(arguments mock.Arguments) {
 			visitor := arguments.Get(0).(func(Interface))
-			visitor(newDevice(ID("first"), 1, nil))
-			visitor(newDevice(ID("second"), 1, nil))
+			visitor(newDevice(ID("first"), 1, expectedConnectedAt, nil))
+			visitor(newDevice(ID("second"), 1, expectedConnectedAt, nil))
 		}).
 		Return(0).Once()
 
@@ -656,7 +660,16 @@ func testListHandlerServeHTTP(t *testing.T) {
 
 		data, err := ioutil.ReadAll(response.Body)
 		require.NoError(err)
-		assert.JSONEq(`{"devices":[{"id": "first", "closed": false},{"id": "second", "closed": false}]}`, string(data))
+		assert.JSONEq(
+			fmt.Sprintf(
+				`{"devices": [{"id": "first", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"},{"id": "second", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"}]}`,
+				expectedConnectedAt.Format(time.RFC3339),
+				expectedUpTime.String(),
+				expectedConnectedAt.Format(time.RFC3339),
+				expectedUpTime.String(),
+			),
+			string(data),
+		)
 
 		cacheDuration := handler.cacheExpiry.Sub(time.Now())
 		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
@@ -674,7 +687,16 @@ func testListHandlerServeHTTP(t *testing.T) {
 
 		data, err := ioutil.ReadAll(response.Body)
 		require.NoError(err)
-		assert.JSONEq(`{"devices":[{"id": "first", "closed": false},{"id": "second", "closed": false}]}`, string(data))
+		assert.JSONEq(
+			fmt.Sprintf(
+				`{"devices": [{"id": "first", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"},{"id": "second", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"}]}`,
+				expectedConnectedAt.Format(time.RFC3339),
+				expectedUpTime.String(),
+				expectedConnectedAt.Format(time.RFC3339),
+				expectedUpTime.String(),
+			),
+			string(data),
+		)
 
 		cacheDuration := handler.cacheExpiry.Sub(time.Now())
 		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
