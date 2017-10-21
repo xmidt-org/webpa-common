@@ -151,8 +151,8 @@ func (m *mockConnector) Connect(response http.ResponseWriter, request *http.Requ
 	return first, arguments.Error(1)
 }
 
-func (m *mockConnector) Disconnect(id ID) int {
-	return m.Called().Int(0)
+func (m *mockConnector) Disconnect(id ID) bool {
+	return m.Called().Bool(0)
 }
 
 func (m *mockConnector) DisconnectIf(predicate func(ID) bool) int {

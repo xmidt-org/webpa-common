@@ -6,59 +6,37 @@ import (
 
 type registry struct {
 	lock    sync.RWMutex
-	devices map[ID][]*device
+	devices map[ID]*device
 }
 
 func newRegistry(initialCapacity uint32) *registry {
 	return &registry{
-		devices: make(map[ID][]*device, initialCapacity),
+		devices: make(map[ID]*device, initialCapacity),
 	}
 }
 
-func (r *registry) add(d *device) error {
-	defer r.lock.Unlock()
+func (r *registry) add(d *device) *device {
 	r.lock.Lock()
+	existing := r.devices[d.id]
+	r.devices[d.id] = d
+	r.lock.Unlock()
 
-	duplicates := r.devices[d.id]
-	for _, candidate := range duplicates {
-		if d == candidate {
-			return ErrorDuplicateDevice
-		}
-	}
-
-	r.devices[d.id] = append(duplicates, d)
-	return nil
+	return existing
 }
 
-func (r *registry) removeOne(d *device) {
-	defer r.lock.Unlock()
+func (r *registry) remove(d *device) {
 	r.lock.Lock()
-
-	duplicates := r.devices[d.id]
-	for i, candidate := range duplicates {
-		if candidate == d {
-			duplicates[i] = duplicates[len(duplicates)-1]
-			duplicates[len(duplicates)-1] = nil
-			duplicates = duplicates[0 : len(duplicates)-1]
-
-			if len(duplicates) > 0 {
-				r.devices[d.id] = duplicates
-			} else {
-				delete(r.devices, d.id)
-			}
-
-			break
-		}
-	}
+	delete(r.devices, d.id)
+	r.lock.Unlock()
 }
 
-func (r *registry) removeAll(id ID) []*device {
-	defer r.lock.Unlock()
+func (r *registry) removeID(id ID) (*device, bool) {
 	r.lock.Lock()
-
-	removedDevices := r.devices[id]
+	existing, ok := r.devices[id]
 	delete(r.devices, id)
-	return removedDevices
+	r.lock.Unlock()
+
+	return existing, ok
 }
 
 func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) int {
@@ -66,31 +44,12 @@ func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) int {
 	r.lock.Lock()
 
 	count := 0
-	for id, duplicates := range r.devices {
+	for id, candidate := range r.devices {
 		if filter(id) {
-			count += len(duplicates)
+			count++
 			delete(r.devices, id)
-
-			for _, d := range duplicates {
-				visitor(d)
-			}
+			visitor(candidate)
 		}
-	}
-
-	return count
-}
-
-func (r *registry) visitID(id ID, visitor func(*device)) int {
-	defer r.lock.RUnlock()
-	r.lock.RLock()
-
-	var (
-		duplicates = r.devices[id]
-		count      = len(duplicates)
-	)
-
-	for _, d := range duplicates {
-		visitor(d)
 	}
 
 	return count
@@ -100,15 +59,11 @@ func (r *registry) visitAll(visitor func(*device)) int {
 	defer r.lock.RUnlock()
 	r.lock.RLock()
 
-	count := 0
-	for _, duplicates := range r.devices {
-		count += len(duplicates)
-		for _, d := range duplicates {
-			visitor(d)
-		}
+	for _, d := range r.devices {
+		visitor(d)
 	}
 
-	return count
+	return len(r.devices)
 }
 
 func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) int {
@@ -116,29 +71,20 @@ func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) int {
 	r.lock.RLock()
 
 	count := 0
-	for id, duplicates := range r.devices {
+	for id, candidate := range r.devices {
 		if filter(id) {
-			count += len(duplicates)
-			for _, d := range duplicates {
-				visitor(d)
-			}
+			count++
+			visitor(candidate)
 		}
 	}
 
 	return count
 }
 
-func (r *registry) getOne(id ID) (*device, error) {
-	defer r.lock.RUnlock()
+func (r *registry) get(id ID) (*device, bool) {
 	r.lock.RLock()
+	existing, ok := r.devices[id]
+	r.lock.RUnlock()
 
-	duplicates := r.devices[id]
-	switch len(duplicates) {
-	case 0:
-		return nil, ErrorDeviceNotFound
-	case 1:
-		return duplicates[0], nil
-	default:
-		return nil, ErrorNonUniqueID
-	}
+	return existing, ok
 }

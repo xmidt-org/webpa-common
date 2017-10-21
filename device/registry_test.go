@@ -1,164 +1,163 @@
 package device
 
 import (
+	"sync"
 	"testing"
-	"time"
 
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	connectedAt  = time.Now()
-	nosuchID     = ID("nosuch ID")
-	nosuchDevice = newDevice(nosuchID, 1, connectedAt, logging.DefaultLogger())
-
-	singleID     = ID("single")
-	singleDevice = newDevice(singleID, 1, connectedAt, logging.DefaultLogger())
-
-	doubleID      = ID("double")
-	doubleDevice1 = newDevice(doubleID, 1, connectedAt, logging.DefaultLogger())
-	doubleDevice2 = newDevice(doubleID, 1, connectedAt, logging.DefaultLogger())
-
-	manyID      = ID("many")
-	manyDevice1 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
-	manyDevice2 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
-	manyDevice3 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
-	manyDevice4 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
-	manyDevice5 = newDevice(manyID, 1, connectedAt, logging.DefaultLogger())
-)
-
-func testRegistry(t *testing.T, assert *assert.Assertions) *registry {
-	registry := newRegistry(1000)
-	if !assert.NotNil(registry) {
-		t.FailNow()
-	}
-
-	assert.Nil(registry.add(singleDevice))
-	assert.Nil(registry.add(doubleDevice1))
-	assert.Nil(registry.add(doubleDevice2))
-	assert.Nil(registry.add(manyDevice1))
-	assert.Nil(registry.add(manyDevice2))
-	assert.Nil(registry.add(manyDevice3))
-	assert.Nil(registry.add(manyDevice4))
-	assert.Nil(registry.add(manyDevice5))
-
-	return registry
-}
-
-func TestRegistryDuplicateDevice(t *testing.T) {
-	assert := assert.New(t)
-	registry := testRegistry(t, assert)
-
-	duplicateDevice := newDevice(ID("duplicate device"), 1, time.Now(), logging.DefaultLogger())
-	assert.Nil(registry.add(duplicateDevice))
-	assert.Equal(ErrorDuplicateDevice, registry.add(duplicateDevice))
-}
-
-func TestRegistryVisitID(t *testing.T) {
-	assert := assert.New(t)
-	testData := []struct {
-		expectedID    ID
-		expectVisited deviceSet
-	}{
-		{nosuchID, expectsDevices()},
-		{singleID, expectsDevices(singleDevice)},
-		{doubleID, expectsDevices(doubleDevice1, doubleDevice2)},
-		{manyID, expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)},
-	}
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		registry := testRegistry(t, assert)
-		actualVisited := deviceSet{}
-
-		assert.Equal(
-			len(record.expectVisited),
-			registry.visitID(record.expectedID, actualVisited.registryCapture()),
-		)
-
-		assert.Equal(record.expectVisited, actualVisited)
-	}
-}
-
-func TestRegistryVisitIf(t *testing.T) {
-	assert := assert.New(t)
-	testData := []struct {
-		filter        func(ID) bool
-		expectVisited deviceSet
-	}{
-		{func(ID) bool { return false }, expectsDevices()},
-		{func(id ID) bool { return id == singleID }, expectsDevices(singleDevice)},
-		{func(id ID) bool { return id == doubleID }, expectsDevices(doubleDevice1, doubleDevice2)},
-		{func(id ID) bool { return id == manyID }, expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)},
-	}
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		registry := testRegistry(t, assert)
-		actualVisited := deviceSet{}
-
-		assert.Equal(
-			len(record.expectVisited),
-			registry.visitIf(record.filter, actualVisited.registryCapture()),
-		)
-
-		assert.Equal(record.expectVisited, actualVisited)
-	}
-}
-
-func TestRegistryVisitAll(t *testing.T) {
-	assert := assert.New(t)
-	registry := testRegistry(t, assert)
-
-	expectVisited := expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5)
-
-	actualVisited := deviceSet{}
-	assert.Equal(len(expectVisited), registry.visitAll(actualVisited.registryCapture()))
-	assert.Equal(expectVisited, actualVisited)
-}
-
-func TestRegistryRemoveAll(t *testing.T) {
-	assert := assert.New(t)
-	testData := []struct {
-		idToRemove     ID
-		expectRemoved  deviceSet
-		expectVisitAll deviceSet
-	}{
-		{
-			nosuchID,
-			expectsDevices(),
-			expectsDevices(singleDevice, doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-		},
-		{
-			singleID,
-			expectsDevices(singleDevice),
-			expectsDevices(doubleDevice1, doubleDevice2, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-		},
-		{
-			doubleID,
-			expectsDevices(doubleDevice1, doubleDevice2),
-			expectsDevices(singleDevice, manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-		},
-		{
-			manyID,
-			expectsDevices(manyDevice1, manyDevice2, manyDevice3, manyDevice4, manyDevice5),
-			expectsDevices(singleDevice, doubleDevice1, doubleDevice2),
-		},
-	}
-
-	for _, record := range testData {
-		t.Logf("%v", record)
-		registry := testRegistry(t, assert)
-
-		removed := registry.removeAll(record.idToRemove)
-		assert.Equal(len(record.expectRemoved), len(removed))
-		for _, d := range removed {
-			assert.True(record.expectRemoved[d])
+func testRegistryConcurrentAddAndVisit(t *testing.T, r *registry) {
+	var (
+		assert      = assert.New(t)
+		addGate     = new(sync.WaitGroup)
+		addWait     = new(sync.WaitGroup)
+		expectedIDs = map[ID]bool{
+			ID("1"): true,
+			ID("2"): true,
+			ID("3"): true,
+			ID("4"): true,
+			ID("5"): true,
 		}
+	)
 
-		actualVisitAll := make(deviceSet)
-		registry.visitAll(actualVisitAll.registryCapture())
-		assert.Equal(record.expectVisitAll, actualVisitAll)
+	addGate.Add(1)
+	addWait.Add(len(expectedIDs))
+	for id := range expectedIDs {
+		go func(id ID) {
+			defer addWait.Done()
+			addGate.Wait()
+
+			var (
+				first  = &device{id: id}
+				second = &device{id: id}
+			)
+
+			assert.Nil(r.add(first))
+			existing, ok := r.get(id)
+			assert.True(first == existing)
+			assert.Equal(id, existing.id)
+			assert.True(ok)
+
+			assert.True(first == r.add(second))
+			existing, ok = r.get(id)
+			assert.True(second == existing)
+			assert.Equal(id, existing.id)
+			assert.True(ok)
+		}(id)
 	}
+
+	addGate.Done()
+	addWait.Wait()
+
+	var (
+		visitGate = new(sync.WaitGroup)
+		visitWait = new(sync.WaitGroup)
+	)
+
+	visitGate.Add(1)
+	visitWait.Add(len(expectedIDs) + 1) // the extra goroutine is for visitAll
+	for id := range expectedIDs {
+		go func(expected ID) {
+			defer visitWait.Done()
+			visitGate.Wait()
+
+			assert.Equal(
+				1,
+				r.visitIf(
+					func(actual ID) bool { return actual == expected },
+					func(actual *device) {
+						assert.NotNil(actual)
+						assert.Equal(expected, actual.id)
+					},
+				),
+			)
+		}(id)
+	}
+
+	go func() {
+		defer visitWait.Done()
+		visitGate.Wait()
+
+		visitedIDs := make(map[ID]bool, len(expectedIDs))
+		assert.Equal(
+			len(expectedIDs),
+			r.visitAll(func(actual *device) {
+				assert.NotNil(actual)
+				visitedIDs[actual.id] = true
+			}),
+		)
+
+		assert.Equal(expectedIDs, visitedIDs)
+	}()
+
+	visitGate.Done()
+	visitWait.Wait()
+}
+
+func testRegistryConcurrentAddAndRemove(t *testing.T, r *registry) {
+	var (
+		assert           = assert.New(t)
+		addAndRemoveGate = new(sync.WaitGroup)
+		addAndRemoveWait = new(sync.WaitGroup)
+		expectedIDs      = map[ID]bool{
+			ID("1"): true,
+			ID("2"): true,
+			ID("3"): true,
+			ID("4"): true,
+			ID("5"): true,
+		}
+	)
+
+	addAndRemoveGate.Add(1)
+	addAndRemoveWait.Add(len(expectedIDs))
+	for id := range expectedIDs {
+		go func(id ID) {
+			defer addAndRemoveWait.Done()
+			addAndRemoveGate.Wait()
+
+			d := &device{id: id}
+			assert.Nil(r.add(d))
+			r.remove(d)
+
+			existing, ok := r.get(id)
+			assert.Nil(existing)
+			assert.False(ok)
+
+			assert.Nil(r.add(d))
+			removed, ok := r.removeID(id)
+			assert.True(d == removed)
+			assert.True(ok)
+
+			existing, ok = r.get(id)
+			assert.Nil(existing)
+			assert.False(ok)
+
+			assert.Nil(r.add(d))
+
+			assert.Equal(
+				1,
+				r.removeIf(
+					func(actual ID) bool { return actual == id },
+					func(actual *device) {
+						assert.True(d == actual)
+					},
+				),
+			)
+		}(id)
+	}
+}
+
+func TestRegistry(t *testing.T) {
+	t.Run("ConcurrentAddAndVisit", func(t *testing.T) {
+		testRegistryConcurrentAddAndVisit(t, newRegistry(0))
+		testRegistryConcurrentAddAndVisit(t, newRegistry(1))
+		testRegistryConcurrentAddAndVisit(t, newRegistry(100))
+	})
+
+	t.Run("ConcurrentAddAndRemove", func(t *testing.T) {
+		testRegistryConcurrentAddAndRemove(t, newRegistry(0))
+		testRegistryConcurrentAddAndRemove(t, newRegistry(1))
+		testRegistryConcurrentAddAndRemove(t, newRegistry(100))
+	})
 }
