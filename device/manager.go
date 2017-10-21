@@ -36,11 +36,9 @@ type Connector interface {
 	// managment of the device.
 	Connect(http.ResponseWriter, *http.Request, http.Header) (Interface, error)
 
-	// Disconnect disconnects all devices (including duplicates) which connected
-	// with the given ID.  This method returns the number of devices disconnected,
-	// which can be zero or a positive integer.  Multiple devices are permitted with
-	// the same ID, and this method disconnects all duplicate devices associated with that ID.
-	Disconnect(ID) int
+	// Disconnect disconnects the device associated with the given id.
+	// If the id was found, this method returns true.
+	Disconnect(ID) bool
 
 	// DisconnectIf iterates over all devices known to this manager, applying the
 	// given predicate.  For any devices that result in true, this method disconnects them.
@@ -150,11 +148,17 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, err
 	}
 
-	d := newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
-	closeOnce := new(sync.Once)
+	var (
+		d         = newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
+		closeOnce = new(sync.Once)
+	)
+
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
-	m.registry.add(d)
+	if existing := m.registry.add(d); existing != nil {
+		existing.errorLog.Log(logging.MessageKey(), "disconnecting duplicate device")
+		existing.requestClose()
+	}
 
 	return d, nil
 }
@@ -179,7 +183,7 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 		d.debugLog.Log(logging.MessageKey(), "pump close")
 	}
 
-	m.registry.removeOne(d)
+	m.registry.remove(d)
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
@@ -295,6 +299,14 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		pingData    = fmt.Sprintf("ping[%s]", d.id)
 		pingMessage = []byte(pingData)
 		pingTicker  = time.NewTicker(m.pingPeriod)
+
+		// wait for the delay, then send an auth status request to the device
+		authStatusTimer = time.AfterFunc(m.authDelay, func() {
+			// TODO: This will keep the device from being garbage collected until the timer
+			// triggers.  This is only a problem if a device connects then disconnects faster
+			// than the authDelay setting.
+			d.Send(&authStatusRequest)
+		})
 	)
 
 	m.dispatch(&event)
@@ -304,6 +316,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	// the configured listener
 	defer func() {
 		pingTicker.Stop()
+		authStatusTimer.Stop()
 		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
 
 		// notify listener of any message that just now failed
@@ -329,14 +342,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			}
 		}
 	}()
-
-	// wait for the delay, then send an auth status request to the device
-	time.AfterFunc(m.authDelay, func() {
-		// TODO: This will keep the device from being garbage collected until the timer
-		// triggers.  This is only a problem if a device connects then disconnects faster
-		// than the authDelay setting.
-		d.Send(&authStatusRequest)
-	})
 
 	for writeError == nil {
 		envelope = nil
@@ -397,13 +402,13 @@ func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
 	}
 }
 
-func (m *manager) Disconnect(id ID) int {
-	removedDevices := m.registry.removeAll(id)
-	for _, d := range removedDevices {
-		d.requestClose()
+func (m *manager) Disconnect(id ID) bool {
+	if existing, ok := m.registry.removeID(id); ok {
+		existing.requestClose()
+		return true
 	}
 
-	return len(removedDevices)
+	return false
 }
 
 func (m *manager) DisconnectIf(filter func(ID) bool) int {
@@ -412,18 +417,12 @@ func (m *manager) DisconnectIf(filter func(ID) bool) int {
 	})
 }
 
-func (m *manager) Statistics(id ID) (result Statistics, err error) {
-	count := m.registry.visitID(id, func(d *device) {
-		result = d.Statistics()
-	})
-
-	if count > 1 {
-		err = ErrorNonUniqueID
-	} else if count < 1 {
-		err = ErrorDeviceNotFound
+func (m *manager) Statistics(id ID) (Statistics, error) {
+	if existing, ok := m.registry.get(id); ok {
+		return existing.Statistics(), nil
+	} else {
+		return nil, ErrorDeviceNotFound
 	}
-
-	return
 }
 
 func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {
@@ -437,9 +436,9 @@ func (m *manager) VisitAll(visitor func(Interface)) int {
 func (m *manager) Route(request *Request) (*Response, error) {
 	if destination, err := request.ID(); err != nil {
 		return nil, err
-	} else if d, err := m.registry.getOne(destination); err != nil {
-		return nil, err
-	} else {
+	} else if d, ok := m.registry.get(destination); ok {
 		return d.Send(request)
+	} else {
+		return nil, ErrorDeviceNotFound
 	}
 }
