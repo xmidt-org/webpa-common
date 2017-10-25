@@ -2,6 +2,7 @@ package wrp
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
@@ -10,6 +11,31 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestStringOrBinary(t *testing.T) {
+	var (
+		require  = require.New(t)
+		original = Message{
+			Payload: []byte("this is clearly a UTF8 string"),
+		}
+
+		decoded Message
+
+		output  bytes.Buffer
+		encoder = NewEncoder(nil, Msgpack)
+		decoder = NewDecoder(nil, Msgpack)
+	)
+
+	encoder.Reset(&output)
+	require.NoError(encoder.Encode(&original))
+	t.Log(hex.Dump(output.Bytes()))
+
+	decoder.Reset(&output)
+	require.NoError(decoder.Decode(&decoded))
+
+	t.Logf("original.Payload=%s", original.Payload)
+	t.Logf("decoded.Payload=%s", decoded.Payload)
+}
 
 func TestSampleMsgpack(t *testing.T) {
 	var (
