@@ -2,8 +2,8 @@ package device
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"sync/atomic"
 	"time"
 
@@ -46,6 +46,7 @@ type envelope struct {
 // of this device.
 type Interface interface {
 	fmt.Stringer
+	json.Marshaler
 
 	// ID returns the canonicalized identifer for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
@@ -77,9 +78,6 @@ type Interface interface {
 
 	// Statistics returns the current, tracked Statistics instance for this device
 	Statistics() Statistics
-
-	// MarshalJSONTo writes a JSON representation to the given output io.Writer
-	MarshalJSONTo(func(time.Time) time.Duration, io.Writer) (int, error)
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -107,7 +105,7 @@ func newDevice(id ID, queueSize int, connectedAt time.Time, logger log.Logger) *
 		errorLog:     logging.Error(logger, "id", id),
 		infoLog:      logging.Info(logger, "id", id),
 		debugLog:     logging.Debug(logger, "id", id),
-		statistics:   NewStatistics(connectedAt),
+		statistics:   NewStatistics(nil, connectedAt),
 		state:        stateOpen,
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, queueSize),
@@ -120,23 +118,15 @@ func (d *device) String() string {
 	return string(d.id)
 }
 
-func (d *device) MarshalJSONTo(since func(time.Time) time.Duration, output io.Writer) (int, error) {
-	return fmt.Fprintf(
-		output,
-		`{"id": "%s", "closed": %t, "bytesReceived": %d, "bytesSent": %d, "messagesSent": %d, "connectedAt": "%s", "upTime": "%s"}`,
-		d.id,
-		d.Closed(),
-		d.statistics.BytesReceived(),
-		d.statistics.BytesSent(),
-		d.statistics.MessagesSent(),
-		d.statistics.ConnectedAt().Format(time.RFC3339),
-		since(d.statistics.ConnectedAt()),
-	)
-}
-
 func (d *device) MarshalJSON() ([]byte, error) {
 	var output bytes.Buffer
-	_, err := d.MarshalJSONTo(time.Since, &output)
+	_, err := fmt.Fprintf(
+		&output,
+		`{"id": "%s", "statistics": %s}`,
+		d.id,
+		d.statistics,
+	)
+
 	return output.Bytes(), err
 }
 

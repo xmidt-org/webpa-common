@@ -20,9 +20,6 @@ func TestDevice(t *testing.T) {
 		require             = require.New(t)
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 15 * time.Hour
-		since               = func(time.Time) time.Duration {
-			return expectedUpTime
-		}
 
 		testData = []struct {
 			expectedID        ID
@@ -62,6 +59,7 @@ func TestDevice(t *testing.T) {
 		)
 
 		require.NotNil(device)
+		device.statistics = NewStatistics(func() time.Time { return expectedConnectedAt.Add(expectedUpTime) }, expectedConnectedAt)
 
 		assert.Equal(string(record.expectedID), device.String())
 		actualConnectedAt := device.Statistics().ConnectedAt()
@@ -80,8 +78,8 @@ func TestDevice(t *testing.T) {
 		assert.False(device.Closed())
 
 		var actualJSON bytes.Buffer
-		count, err := device.MarshalJSONTo(since, &actualJSON)
-		require.True(count > 0)
+		data, err := device.MarshalJSON()
+		require.NotEmpty(data)
 		require.NoError(err)
 		assert.JSONEq(
 			fmt.Sprintf(

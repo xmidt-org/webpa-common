@@ -3,6 +3,7 @@ package device
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -221,8 +222,7 @@ type ListHandler struct {
 	cache       bytes.Buffer
 	cacheBytes  []byte
 
-	now   func() time.Time
-	since func(time.Time) time.Duration
+	now func() time.Time
 }
 
 func (lh *ListHandler) refresh() time.Duration {
@@ -247,17 +247,12 @@ func (lh *ListHandler) tryCache() ([]byte, bool) {
 	defer lh.lock.RUnlock()
 	lh.lock.RLock()
 
-	return lh.cacheBytes, lh.cacheExpiry.Before(time.Now())
+	return lh.cacheBytes, lh.cacheExpiry.Before(lh._now())
 }
 
 func (lh *ListHandler) updateCache() []byte {
 	defer lh.lock.Unlock()
 	lh.lock.Lock()
-
-	since := lh.since
-	if since == nil {
-		since = time.Since
-	}
 
 	if lh.cacheExpiry.Before(lh._now()) {
 		lh.cache.Reset()
@@ -269,7 +264,14 @@ func (lh *ListHandler) updateCache() []byte {
 				lh.cache.WriteString(`,`)
 			}
 
-			d.MarshalJSONTo(since, &lh.cache)
+			if data, err := d.MarshalJSON(); err != nil {
+				lh.cache.WriteString(
+					fmt.Sprintf(`{"id": "%s", "error": "%s"}`, d.ID(), err),
+				)
+			} else {
+				lh.cache.Write(data)
+			}
+
 			needsSeparator = true
 		})
 
@@ -281,17 +283,13 @@ func (lh *ListHandler) updateCache() []byte {
 	return lh.cacheBytes
 }
 
-func (lh *ListHandler) getJSON() []byte {
-	cacheBytes, expired := lh.tryCache()
-	if !expired {
-		return cacheBytes
-	}
-
-	return lh.updateCache()
-}
-
 func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	lh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "ServeHTTP")
 	response.Header().Set("Content-Type", "application/json")
-	response.Write(lh.getJSON())
+
+	if cacheBytes, expired := lh.tryCache(); expired {
+		response.Write(lh.updateCache())
+	} else {
+		response.Write(cacheBytes)
+	}
 }

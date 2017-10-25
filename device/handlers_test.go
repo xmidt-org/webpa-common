@@ -618,7 +618,9 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler = ListHandler{
 			Logger:   logging.NewTestLogger(nil, t),
 			Registry: registry,
-			since:    func(time.Time) time.Duration { return expectedUpTime },
+			now: func() time.Time {
+				return expectedConnectedAt.Add(expectedUpTime)
+			},
 		}
 	)
 
