@@ -35,6 +35,9 @@ var (
 		IntegerAsString: 'L',
 	}
 
+	// msgpackHandle uses the configuration required for the updated msgpack spec.
+	// this is what's required to ensure that the Payload field is encoded and decoded properly.
+	// See: http://ugorji.net/blog/go-codec-primer#format-specific-runtime-configuration
 	msgpackHandle = codec.MsgpackHandle{
 		WriteExt:    true,
 		RawToString: true,
