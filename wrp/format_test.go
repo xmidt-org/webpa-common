@@ -28,7 +28,7 @@ func testPayload(t *testing.T, payload []byte) {
 
 	encoder.Reset(&output)
 	require.NoError(encoder.Encode(&original))
-	t.Log(hex.Dump(output.Bytes()))
+	fmt.Println(hex.Dump(output.Bytes()))
 
 	decoder.Reset(&output)
 	require.NoError(decoder.Decode(&decoded))
