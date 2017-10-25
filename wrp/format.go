@@ -36,6 +36,8 @@ var (
 	}
 
 	msgpackHandle = codec.MsgpackHandle{
+		WriteExt:    true,
+		RawToString: true,
 		BasicHandle: codec.BasicHandle{
 			TypeInfos: codec.NewTypeInfos([]string{"wrp"}),
 		},

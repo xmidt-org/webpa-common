@@ -28,7 +28,10 @@ func testPayload(t *testing.T, payload []byte) {
 
 	encoder.Reset(&output)
 	require.NoError(encoder.Encode(&original))
-	fmt.Println(hex.Dump(output.Bytes()))
+
+	if testing.Verbose() {
+		fmt.Println(hex.Dump(output.Bytes()))
+	}
 
 	decoder.Reset(&output)
 	require.NoError(decoder.Decode(&decoded))
