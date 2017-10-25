@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStringOrBinary(t *testing.T) {
+func testPayload(t *testing.T, payload []byte) {
 	var (
 		require  = require.New(t)
 		original = Message{
-			Payload: []byte("this is clearly a UTF8 string"),
+			Payload: payload,
 		}
 
 		decoded Message
@@ -35,6 +35,17 @@ func TestStringOrBinary(t *testing.T) {
 
 	t.Logf("original.Payload=%s", original.Payload)
 	t.Logf("decoded.Payload=%s", decoded.Payload)
+	assert.Equal(t, payload, decoded.Payload)
+}
+
+func TestPayload(t *testing.T) {
+	t.Run("UTF8", func(t *testing.T) {
+		testPayload(t, []byte("this is clearly a UTF8 string"))
+	})
+
+	t.Run("Binary", func(t *testing.T) {
+		testPayload(t, []byte{0x00, 0x06, 0xFF, 0xF0})
+	})
 }
 
 func TestSampleMsgpack(t *testing.T) {
