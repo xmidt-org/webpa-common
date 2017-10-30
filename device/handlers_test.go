@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -615,23 +614,32 @@ func testListHandlerServeHTTP(t *testing.T) {
 		expectedUpTime      = 47913 * time.Minute
 		registry            = new(mockRegistry)
 
+		now = func() time.Time {
+			return expectedConnectedAt.Add(expectedUpTime)
+		}
+
+		firstDevice  = newDevice(ID("firat"), 1, expectedConnectedAt, nil)
+		secondDevice = newDevice(ID("second"), 1, expectedConnectedAt, nil)
+
 		handler = ListHandler{
 			Logger:   logging.NewTestLogger(nil, t),
 			Registry: registry,
-			now: func() time.Time {
-				return expectedConnectedAt.Add(expectedUpTime)
-			},
 		}
 	)
+
+	firstDevice.statistics = NewStatistics(now, expectedConnectedAt)
+	secondDevice.statistics = NewStatistics(now, expectedConnectedAt)
 
 	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).Return(0).Once()
 	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).
 		Run(func(arguments mock.Arguments) {
 			visitor := arguments.Get(0).(func(Interface))
-			visitor(newDevice(ID("first"), 1, expectedConnectedAt, nil))
-			visitor(newDevice(ID("second"), 1, expectedConnectedAt, nil))
+			visitor(firstDevice)
+			visitor(secondDevice)
 		}).
 		Return(0).Once()
+
+	assert.True(handler.cacheExpiry.IsZero())
 
 	{
 		var (
@@ -646,9 +654,24 @@ func testListHandlerServeHTTP(t *testing.T) {
 		require.NoError(err)
 		assert.JSONEq(`{"devices":[]}`, string(data))
 
+		assert.False(handler.cacheExpiry.IsZero())
 		cacheDuration := handler.cacheExpiry.Sub(time.Now())
-		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
+		assert.True(cacheDuration > 0)
+		assert.True(cacheDuration <= handler.refresh(), "The cache duration %s should be less than the refresh interval %s", cacheDuration, handler.refresh())
 	}
+
+	expectedJSON := bytes.NewBufferString(`{"devices":[`)
+	data, err := firstDevice.MarshalJSON()
+	require.NotEmpty(data)
+	require.NoError(err)
+	expectedJSON.Write(data)
+
+	data, err = secondDevice.MarshalJSON()
+	require.NotEmpty(data)
+	require.NoError(err)
+	expectedJSON.WriteRune(',')
+	expectedJSON.Write(data)
+	expectedJSON.WriteString(`]}`)
 
 	{
 		var (
@@ -660,22 +683,17 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err := ioutil.ReadAll(response.Body)
+		data, err = ioutil.ReadAll(response.Body)
 		require.NoError(err)
-		assert.JSONEq(
-			fmt.Sprintf(
-				`{"devices": [{"id": "first", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"},{"id": "second", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"}]}`,
-				expectedConnectedAt.Format(time.RFC3339),
-				expectedUpTime.String(),
-				expectedConnectedAt.Format(time.RFC3339),
-				expectedUpTime.String(),
-			),
-			string(data),
-		)
+		assert.JSONEq(expectedJSON.String(), string(data))
 
+		assert.False(handler.cacheExpiry.IsZero())
 		cacheDuration := handler.cacheExpiry.Sub(time.Now())
-		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
+		assert.True(cacheDuration > 0)
+		assert.True(cacheDuration <= handler.refresh(), "The cache duration %s should be less than the refresh interval %s", cacheDuration, handler.refresh())
 	}
+
+	lastCacheExpiry := handler.cacheExpiry
 
 	{
 		var (
@@ -689,19 +707,8 @@ func testListHandlerServeHTTP(t *testing.T) {
 
 		data, err := ioutil.ReadAll(response.Body)
 		require.NoError(err)
-		assert.JSONEq(
-			fmt.Sprintf(
-				`{"devices": [{"id": "first", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"},{"id": "second", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"}]}`,
-				expectedConnectedAt.Format(time.RFC3339),
-				expectedUpTime.String(),
-				expectedConnectedAt.Format(time.RFC3339),
-				expectedUpTime.String(),
-			),
-			string(data),
-		)
-
-		cacheDuration := handler.cacheExpiry.Sub(time.Now())
-		assert.True(cacheDuration > 0 && cacheDuration <= handler.refresh())
+		assert.JSONEq(expectedJSON.String(), string(data))
+		assert.Equal(lastCacheExpiry, handler.cacheExpiry)
 	}
 
 	registry.AssertExpectations(t)
