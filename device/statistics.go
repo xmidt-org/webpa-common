@@ -14,39 +14,35 @@ type Statistics interface {
 	json.Marshaler
 
 	// BytesReceived returns the total bytes received since this instance was created
-	BytesReceived() uint32
+	BytesReceived() int
 
-	// AddBytesReceived adds a certain number of bytes to the BytesReceived count.
-	// Implementations will always be safe for concurrent access.
-	AddBytesReceived(uint32)
+	// AddBytesReceived increments the BytesReceived count
+	AddBytesReceived(int)
 
 	// MessagesReceived returns the total messages received since this instance was created
-	MessagesReceived() uint32
+	MessagesReceived() int
 
-	// AddMessagesReceived adds a certain number of messages to the MessagesReceived count.
-	// Implementations will always be safe for concurrent access.
-	AddMessagesReceived(uint32)
+	// AddMessagesReceived increments the MessagesReceived count
+	AddMessagesReceived(int)
 
 	// BytesSent returns the total bytes sent since this instance was created
-	BytesSent() uint32
+	BytesSent() int
 
-	// AddBytesSent adds a certain number of bytes to the BytesSent count.
-	// Implementations will always be safe for concurrent access.
-	AddBytesSent(uint32)
+	// AddBytesSent increments the BytesSent count
+	AddBytesSent(int)
 
 	// MessagesSent returns the total messages sent since this instance was created
-	MessagesSent() uint32
+	MessagesSent() int
 
-	// AddMessagesSent adds a certain number of messages to the MessagesSent count.
-	// Implementations will always be safe for concurrent access.
-	AddMessagesSent(uint32)
+	// AddMessagesSent increments the MessagesSent count
+	AddMessagesSent(int)
 
 	// Duplications returns the number of times this device has had a duplicate connected, i.e.
 	// a device with the same device ID.
-	Duplications() uint32
+	Duplications() int
 
 	// AddDuplications increments the count of duplications
-	AddDuplications(uint32)
+	AddDuplications(int)
 
 	// ConnectedAt returns the connection time at which this statistics began tracking
 	ConnectedAt() time.Time
@@ -66,7 +62,7 @@ func NewStatistics(now func() time.Time, connectedAt time.Time) Statistics {
 	return &statistics{
 		now:                  now,
 		connectedAt:          connectedAt,
-		formattedConnectedAt: connectedAt.Format(time.RFC3339),
+		formattedConnectedAt: connectedAt.Format(time.RFC3339Nano),
 	}
 }
 
@@ -74,18 +70,18 @@ func NewStatistics(now func() time.Time, connectedAt time.Time) Statistics {
 type statistics struct {
 	lock sync.RWMutex
 
-	bytesReceived    uint32
-	bytesSent        uint32
-	messagesReceived uint32
-	messagesSent     uint32
-	duplications     uint32
+	bytesReceived    int
+	bytesSent        int
+	messagesReceived int
+	messagesSent     int
+	duplications     int
 
 	now                  func() time.Time
 	connectedAt          time.Time
 	formattedConnectedAt string
 }
 
-func (s *statistics) BytesReceived() uint32 {
+func (s *statistics) BytesReceived() int {
 	s.lock.RLock()
 	var result = s.bytesReceived
 	s.lock.RUnlock()
@@ -93,13 +89,13 @@ func (s *statistics) BytesReceived() uint32 {
 	return result
 }
 
-func (s *statistics) AddBytesReceived(delta uint32) {
+func (s *statistics) AddBytesReceived(delta int) {
 	s.lock.Lock()
 	s.bytesReceived += delta
 	s.lock.Unlock()
 }
 
-func (s *statistics) BytesSent() uint32 {
+func (s *statistics) BytesSent() int {
 	s.lock.RLock()
 	var result = s.bytesSent
 	s.lock.RUnlock()
@@ -107,13 +103,13 @@ func (s *statistics) BytesSent() uint32 {
 	return result
 }
 
-func (s *statistics) AddBytesSent(delta uint32) {
+func (s *statistics) AddBytesSent(delta int) {
 	s.lock.Lock()
 	s.bytesSent += delta
 	s.lock.Unlock()
 }
 
-func (s *statistics) MessagesReceived() uint32 {
+func (s *statistics) MessagesReceived() int {
 	s.lock.RLock()
 	var result = s.messagesReceived
 	s.lock.RUnlock()
@@ -121,13 +117,13 @@ func (s *statistics) MessagesReceived() uint32 {
 	return result
 }
 
-func (s *statistics) AddMessagesReceived(delta uint32) {
+func (s *statistics) AddMessagesReceived(delta int) {
 	s.lock.Lock()
 	s.messagesReceived += delta
 	s.lock.Unlock()
 }
 
-func (s *statistics) MessagesSent() uint32 {
+func (s *statistics) MessagesSent() int {
 	s.lock.RLock()
 	var result = s.messagesSent
 	s.lock.RUnlock()
@@ -135,13 +131,13 @@ func (s *statistics) MessagesSent() uint32 {
 	return result
 }
 
-func (s *statistics) AddMessagesSent(delta uint32) {
+func (s *statistics) AddMessagesSent(delta int) {
 	s.lock.Lock()
 	s.messagesSent += delta
 	s.lock.Unlock()
 }
 
-func (s *statistics) Duplications() uint32 {
+func (s *statistics) Duplications() int {
 	s.lock.RLock()
 	var result = s.duplications
 	s.lock.RUnlock()
@@ -149,7 +145,7 @@ func (s *statistics) Duplications() uint32 {
 	return result
 }
 
-func (s *statistics) AddDuplications(delta uint32) {
+func (s *statistics) AddDuplications(delta int) {
 	s.lock.Lock()
 	s.duplications += delta
 	s.lock.Unlock()
@@ -164,14 +160,17 @@ func (s *statistics) UpTime() time.Duration {
 }
 
 func (s *statistics) String() string {
-	data, _ := s.MarshalJSON()
-	return string(data)
+	if data, err := s.MarshalJSON(); err == nil {
+		return string(data)
+	} else {
+		return err.Error()
+	}
 }
 
 func (s *statistics) MarshalJSON() ([]byte, error) {
 	output := bytes.NewBuffer(make([]byte, 0, 150))
 	s.lock.RLock()
-	fmt.Fprintf(
+	_, err := fmt.Fprintf(
 		output,
 		`{"bytesSent": %d, "messagesSent": %d, "bytesReceived": %d, "messagesReceived": %d, "duplications": %d, "connectedAt": "%s", "upTime": "%s"}`,
 		s.bytesSent,
@@ -184,5 +183,5 @@ func (s *statistics) MarshalJSON() ([]byte, error) {
 	)
 
 	s.lock.RUnlock()
-	return output.Bytes(), nil
+	return output.Bytes(), err
 }
