@@ -1,9 +1,7 @@
 package device
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -20,9 +18,6 @@ func TestDevice(t *testing.T) {
 		require             = require.New(t)
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 15 * time.Hour
-		since               = func(time.Time) time.Duration {
-			return expectedUpTime
-		}
 
 		testData = []struct {
 			expectedID        ID
@@ -62,6 +57,7 @@ func TestDevice(t *testing.T) {
 		)
 
 		require.NotNil(device)
+		device.statistics = NewStatistics(func() time.Time { return expectedConnectedAt.Add(expectedUpTime) }, expectedConnectedAt)
 
 		assert.Equal(string(record.expectedID), device.String())
 		actualConnectedAt := device.Statistics().ConnectedAt()
@@ -69,28 +65,23 @@ func TestDevice(t *testing.T) {
 
 		assert.Equal(record.expectedID, device.ID())
 		assert.False(device.Closed())
-		if data, err := json.Marshal(device); assert.Nil(err) {
-			// just make sure it's valid JSON
-			var unmarshaled map[string]interface{}
-			assert.NoError(json.Unmarshal(data, &unmarshaled))
-		}
 
 		assert.Equal(record.expectedID, device.ID())
 		assert.Equal(actualConnectedAt, device.Statistics().ConnectedAt())
 		assert.False(device.Closed())
 
-		var actualJSON bytes.Buffer
-		count, err := device.MarshalJSONTo(since, &actualJSON)
-		require.True(count > 0)
+		data, err := device.MarshalJSON()
+		require.NotEmpty(data)
 		require.NoError(err)
+
 		assert.JSONEq(
 			fmt.Sprintf(
-				`{"id": "%s", "closed": false, "bytesReceived": 0, "bytesSent": 0, "messagesSent": 0, "connectedAt": "%s", "upTime": "%s"}`,
+				`{"id": "%s", "pending": 0, "statistics": {"duplications": 0, "bytesSent": 0, "messagesSent": 0, "bytesReceived": 0, "messagesReceived": 0, "connectedAt": "%s", "upTime": "%s"}}`,
 				record.expectedID,
-				expectedConnectedAt.Format(time.RFC3339),
-				expectedUpTime.String(),
+				expectedConnectedAt.UTC().Format(time.RFC3339Nano),
+				expectedUpTime,
 			),
-			actualJSON.String(),
+			string(data),
 		)
 
 		for repeat := 0; repeat < record.expectedQueueSize; repeat++ {

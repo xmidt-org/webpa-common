@@ -2,113 +2,186 @@ package device
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
 // Statistics represents a set of device statistics.
 type Statistics interface {
-	// BytesReceived returns the total bytes received since this instance was created
-	BytesReceived() uint32
+	fmt.Stringer
+	json.Marshaler
 
-	// AddBytesReceived adds a certain number of bytes to the BytesReceived count.
-	// Implementations will always be safe for concurrent access.
-	AddBytesReceived(uint32)
+	// BytesReceived returns the total bytes received since this instance was created
+	BytesReceived() int
+
+	// AddBytesReceived increments the BytesReceived count
+	AddBytesReceived(int)
 
 	// MessagesReceived returns the total messages received since this instance was created
-	MessagesReceived() uint32
+	MessagesReceived() int
 
-	// AddMessagesReceived adds a certain number of messages to the MessagesReceived count.
-	// Implementations will always be safe for concurrent access.
-	AddMessagesReceived(uint32)
+	// AddMessagesReceived increments the MessagesReceived count
+	AddMessagesReceived(int)
 
 	// BytesSent returns the total bytes sent since this instance was created
-	BytesSent() uint32
+	BytesSent() int
 
-	// AddBytesSent adds a certain number of bytes to the BytesSent count.
-	// Implementations will always be safe for concurrent access.
-	AddBytesSent(uint32)
+	// AddBytesSent increments the BytesSent count
+	AddBytesSent(int)
 
 	// MessagesSent returns the total messages sent since this instance was created
-	MessagesSent() uint32
+	MessagesSent() int
 
-	// AddMessagesSent adds a certain number of messages to the MessagesSent count.
-	// Implementations will always be safe for concurrent access.
-	AddMessagesSent(uint32)
+	// AddMessagesSent increments the MessagesSent count
+	AddMessagesSent(int)
+
+	// Duplications returns the number of times this device has had a duplicate connected, i.e.
+	// a device with the same device ID.
+	Duplications() int
+
+	// AddDuplications increments the count of duplications
+	AddDuplications(int)
 
 	// ConnectedAt returns the connection time at which this statistics began tracking
 	ConnectedAt() time.Time
+
+	// UpTime computes the duration for which the device has been connected
+	UpTime() time.Duration
 }
 
 // NewStatistics creates a Statistics instance with the given connection time
-func NewStatistics(connectedAt time.Time) Statistics {
+// If now is nil, this method uses time.Now.
+func NewStatistics(now func() time.Time, connectedAt time.Time) Statistics {
+	if now == nil {
+		now = time.Now
+	}
+
+	connectedAt = connectedAt.UTC()
 	return &statistics{
-		connectedAt: connectedAt.UTC(),
+		now:                  now,
+		connectedAt:          connectedAt,
+		formattedConnectedAt: connectedAt.Format(time.RFC3339Nano),
 	}
 }
 
 // statistics is the internal Statistics implementation
 type statistics struct {
-	bytesReceived    uint32
-	bytesSent        uint32
-	messagesReceived uint32
-	messagesSent     uint32
-	connectedAt      time.Time
+	lock sync.RWMutex
+
+	bytesReceived    int
+	bytesSent        int
+	messagesReceived int
+	messagesSent     int
+	duplications     int
+
+	now                  func() time.Time
+	connectedAt          time.Time
+	formattedConnectedAt string
 }
 
-func (s *statistics) BytesReceived() uint32 {
-	return atomic.LoadUint32(&s.bytesReceived)
+func (s *statistics) BytesReceived() int {
+	s.lock.RLock()
+	var result = s.bytesReceived
+	s.lock.RUnlock()
+
+	return result
 }
 
-func (s *statistics) AddBytesReceived(delta uint32) {
-	atomic.AddUint32(&s.bytesReceived, delta)
+func (s *statistics) AddBytesReceived(delta int) {
+	s.lock.Lock()
+	s.bytesReceived += delta
+	s.lock.Unlock()
 }
 
-func (s *statistics) MessagesReceived() uint32 {
-	return atomic.LoadUint32(&s.messagesReceived)
+func (s *statistics) BytesSent() int {
+	s.lock.RLock()
+	var result = s.bytesSent
+	s.lock.RUnlock()
+
+	return result
 }
 
-func (s *statistics) AddMessagesReceived(delta uint32) {
-	atomic.AddUint32(&s.messagesReceived, delta)
+func (s *statistics) AddBytesSent(delta int) {
+	s.lock.Lock()
+	s.bytesSent += delta
+	s.lock.Unlock()
 }
 
-func (s *statistics) BytesSent() uint32 {
-	return atomic.LoadUint32(&s.bytesSent)
+func (s *statistics) MessagesReceived() int {
+	s.lock.RLock()
+	var result = s.messagesReceived
+	s.lock.RUnlock()
+
+	return result
 }
 
-func (s *statistics) AddBytesSent(delta uint32) {
-	atomic.AddUint32(&s.bytesSent, delta)
+func (s *statistics) AddMessagesReceived(delta int) {
+	s.lock.Lock()
+	s.messagesReceived += delta
+	s.lock.Unlock()
 }
 
-func (s *statistics) MessagesSent() uint32 {
-	return atomic.LoadUint32(&s.messagesSent)
+func (s *statistics) MessagesSent() int {
+	s.lock.RLock()
+	var result = s.messagesSent
+	s.lock.RUnlock()
+
+	return result
 }
 
-func (s *statistics) AddMessagesSent(delta uint32) {
-	atomic.AddUint32(&s.messagesSent, delta)
+func (s *statistics) AddMessagesSent(delta int) {
+	s.lock.Lock()
+	s.messagesSent += delta
+	s.lock.Unlock()
+}
+
+func (s *statistics) Duplications() int {
+	s.lock.RLock()
+	var result = s.duplications
+	s.lock.RUnlock()
+
+	return result
+}
+
+func (s *statistics) AddDuplications(delta int) {
+	s.lock.Lock()
+	s.duplications += delta
+	s.lock.Unlock()
 }
 
 func (s *statistics) ConnectedAt() time.Time {
 	return s.connectedAt
 }
 
+func (s *statistics) UpTime() time.Duration {
+	return s.now().Sub(s.connectedAt)
+}
+
 func (s *statistics) String() string {
-	data, _ := s.MarshalJSON()
-	return string(data)
+	if data, err := s.MarshalJSON(); err == nil {
+		return string(data)
+	} else {
+		return err.Error()
+	}
 }
 
 func (s *statistics) MarshalJSON() ([]byte, error) {
 	output := bytes.NewBuffer(make([]byte, 0, 150))
-	fmt.Fprintf(
+	s.lock.RLock()
+	_, err := fmt.Fprintf(
 		output,
-		`{"bytesSent": %d, "messagesSent": %d, "bytesReceived": %d, "messagesReceived": %d, "connectedAt": "%s"}`,
-		s.BytesSent(),
-		s.MessagesSent(),
-		s.BytesReceived(),
-		s.MessagesReceived(),
-		s.ConnectedAt().Format(time.RFC3339),
+		`{"bytesSent": %d, "messagesSent": %d, "bytesReceived": %d, "messagesReceived": %d, "duplications": %d, "connectedAt": "%s", "upTime": "%s"}`,
+		s.bytesSent,
+		s.messagesSent,
+		s.bytesReceived,
+		s.messagesReceived,
+		s.duplications,
+		s.formattedConnectedAt,
+		s.UpTime(),
 	)
 
-	return output.Bytes(), nil
+	s.lock.RUnlock()
+	return output.Bytes(), err
 }
