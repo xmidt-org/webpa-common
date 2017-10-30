@@ -122,8 +122,9 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	var output bytes.Buffer
 	_, err := fmt.Fprintf(
 		&output,
-		`{"id": "%s", "statistics": %s}`,
+		`{"id": "%s", "pending": %d, "statistics": %s}`,
 		d.id,
+		len(d.messages),
 		d.statistics,
 	)
 

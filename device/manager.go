@@ -241,7 +241,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			rawFrame = frameBuffer.Bytes()
 		)
 
-		d.statistics.AddBytesReceived(uint32(len(rawFrame)))
+		d.statistics.AddBytesReceived(len(rawFrame))
 		decoder.ResetBytes(rawFrame)
 		if decodeError := decoder.Decode(message); decodeError != nil {
 			// malformed WRP messages are allowed: the read pump will keep on chugging
@@ -361,7 +361,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 				if writeError == nil {
 					var bytesSent int
 					if bytesSent, writeError = frame.Write(frameContents); writeError == nil {
-						d.statistics.AddBytesSent(uint32(bytesSent))
+						d.statistics.AddBytesSent(bytesSent)
 						d.statistics.AddMessagesSent(1)
 						writeError = frame.Close()
 					} else {
