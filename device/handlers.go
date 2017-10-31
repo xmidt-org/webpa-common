@@ -284,7 +284,7 @@ func (lh *ListHandler) updateCache() []byte {
 }
 
 func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	lh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "ServeHTTP")
+	lh.Logger.Log(level.Key(), level.DebugValue(), "handler", "ListHandler", logging.MessageKey(), "ServeHTTP")
 	response.Header().Set("Content-Type", "application/json")
 
 	if cacheBytes, expired := lh.tryCache(); expired {
@@ -292,4 +292,52 @@ func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 	} else {
 		response.Write(cacheBytes)
 	}
+}
+
+// StatHandler is an http.Handler that returns device statistics.  The device name is specified
+// as a gorilla path variable.
+type StatHandler struct {
+	Logger   log.Logger
+	Registry Registry
+	Variable string
+}
+
+func (sh *StatHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	sh.Logger.Log(level.Key(), level.DebugValue(), "handler", "StatHandler", logging.MessageKey(), "ServeHTTP")
+	vars := mux.Vars(request)
+	if len(vars) == 0 {
+		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no path variables present for request")
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	name, ok := vars[sh.Variable]
+	if !ok {
+		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "missing path variable", "variable", sh.Variable)
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	id, err := ParseID(name)
+	if err != nil {
+		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to parse identifier", "deviceName", name, logging.ErrorKey(), err)
+		response.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	d, ok := sh.Registry.Get(id)
+	if !ok {
+		response.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	data, err := d.MarshalJSON()
+	if err != nil {
+		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to marshal device as JSON", "deviceName", name, logging.ErrorKey(), err)
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(data)
 }

@@ -718,3 +718,155 @@ func TestListHandler(t *testing.T) {
 	t.Run("Refresh", testListHandlerRefresh)
 	t.Run("ServeHTTP", testListHandlerServeHTTP)
 }
+
+func testStatHandlerNoPathVariables(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		registry = new(mockRegistry)
+
+		handler = StatHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+		}
+
+		request  = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+	)
+
+	handler.ServeHTTP(response, request)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+	registry.AssertExpectations(t)
+}
+
+func testStatHandlerNoDeviceName(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		registry = new(mockRegistry)
+
+		handler = StatHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+			Variable: "deviceID",
+		}
+
+		router   = mux.NewRouter()
+		request  = httptest.NewRequest("GET", "/foobar", nil)
+		response = httptest.NewRecorder()
+	)
+
+	router.Handle("/{doesNotMatter}", &handler)
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+	registry.AssertExpectations(t)
+}
+
+func testStatHandlerInvalidDeviceName(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		registry = new(mockRegistry)
+
+		handler = StatHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+			Variable: "deviceID",
+		}
+
+		router   = mux.NewRouter()
+		request  = httptest.NewRequest("GET", "/asdfqwer:thisisnotvalidasdfasdf", nil)
+		response = httptest.NewRecorder()
+	)
+
+	router.Handle("/{deviceID}", &handler)
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+	registry.AssertExpectations(t)
+}
+
+func testStatHandlerMissingDevice(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		registry = new(mockRegistry)
+
+		handler = StatHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+			Variable: "deviceID",
+		}
+
+		router   = mux.NewRouter()
+		request  = httptest.NewRequest("GET", "/mac:112233445566", nil)
+		response = httptest.NewRecorder()
+	)
+
+	router.Handle("/{deviceID}", &handler)
+	registry.On("Get", ID("mac:112233445566")).Return(nil, false).Once()
+
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusNotFound, response.Code)
+	registry.AssertExpectations(t)
+}
+
+func testStatHandlerMarshalJSONFailed(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		registry = new(mockRegistry)
+		device   = new(mockDevice)
+
+		handler = StatHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+			Variable: "deviceID",
+		}
+
+		router   = mux.NewRouter()
+		request  = httptest.NewRequest("GET", "/mac:112233445566", nil)
+		response = httptest.NewRecorder()
+	)
+
+	router.Handle("/{deviceID}", &handler)
+	registry.On("Get", ID("mac:112233445566")).Return(device, true).Once()
+	device.On("MarshalJSON").Return([]byte{}, errors.New("expected")).Once()
+
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusInternalServerError, response.Code)
+	registry.AssertExpectations(t)
+	device.AssertExpectations(t)
+}
+
+func testStatHandlerSuccess(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		registry = new(mockRegistry)
+		device   = new(mockDevice)
+
+		handler = StatHandler{
+			Logger:   logging.NewTestLogger(nil, t),
+			Registry: registry,
+			Variable: "deviceID",
+		}
+
+		router   = mux.NewRouter()
+		request  = httptest.NewRequest("GET", "/mac:112233445566", nil)
+		response = httptest.NewRecorder()
+	)
+
+	router.Handle("/{deviceID}", &handler)
+	registry.On("Get", ID("mac:112233445566")).Return(device, true).Once()
+	device.On("MarshalJSON").Return([]byte(`{"foo": "bar"}`), (error)(nil)).Once()
+
+	router.ServeHTTP(response, request)
+	assert.Equal(http.StatusOK, response.Code)
+	assert.Equal("application/json", response.Header().Get("Content-Type"))
+	assert.Equal(`{"foo": "bar"}`, response.Body.String())
+	registry.AssertExpectations(t)
+	device.AssertExpectations(t)
+}
+
+func TestStatHandler(t *testing.T) {
+	t.Run("NoPathVariables", testStatHandlerNoPathVariables)
+	t.Run("NoDeviceName", testStatHandlerNoDeviceName)
+	t.Run("InvalidDeviceName", testStatHandlerInvalidDeviceName)
+	t.Run("MissingDevice", testStatHandlerMissingDevice)
+	t.Run("MarshalJSONFailed", testStatHandlerMarshalJSONFailed)
+	t.Run("Success", testStatHandlerSuccess)
+}

@@ -163,7 +163,8 @@ type mockRegistry struct {
 
 func (m *mockRegistry) Get(id ID) (Interface, bool) {
 	arguments := m.Called(id)
-	return arguments.Get(0).(Interface), arguments.Bool(1)
+	first, _ := arguments.Get(0).(Interface)
+	return first, arguments.Bool(1)
 }
 
 func (m *mockRegistry) VisitIf(predicate func(ID) bool, visitor func(Interface)) int {
