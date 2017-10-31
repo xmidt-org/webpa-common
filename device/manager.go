@@ -64,8 +64,8 @@ type Router interface {
 // Registry is the strategy interface for querying the set of connected devices.  Methods
 // in this interface follow the Visitor pattern and are typically executed under a read lock.
 type Registry interface {
-	// Statistics returns the tracked statistics for a given device.
-	Statistics(ID) (Statistics, error)
+	// Get returns the device associated with the given ID, if any
+	Get(ID) (Interface, bool)
 
 	// VisitIf applies a visitor to any device matching the ID predicate.
 	//
@@ -417,12 +417,8 @@ func (m *manager) DisconnectIf(filter func(ID) bool) int {
 	})
 }
 
-func (m *manager) Statistics(id ID) (Statistics, error) {
-	if existing, ok := m.registry.get(id); ok {
-		return existing.Statistics(), nil
-	} else {
-		return nil, ErrorDeviceNotFound
-	}
+func (m *manager) Get(id ID) (Interface, bool) {
+	return m.registry.get(id)
 }
 
 func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {

@@ -161,9 +161,9 @@ type mockRegistry struct {
 	mock.Mock
 }
 
-func (m *mockRegistry) Statistics(id ID) (Statistics, error) {
+func (m *mockRegistry) Get(id ID) (Interface, bool) {
 	arguments := m.Called(id)
-	return arguments.Get(0).(Statistics), arguments.Error(1)
+	return arguments.Get(0).(Interface), arguments.Bool(1)
 }
 
 func (m *mockRegistry) VisitIf(predicate func(ID) bool, visitor func(Interface)) int {
