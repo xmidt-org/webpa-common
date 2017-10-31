@@ -158,6 +158,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	if existing := m.registry.add(d); existing != nil {
 		existing.errorLog.Log(logging.MessageKey(), "disconnecting duplicate device")
 		existing.requestClose()
+		d.statistics.AddDuplications(existing.statistics.Duplications())
 	}
 
 	return d, nil
