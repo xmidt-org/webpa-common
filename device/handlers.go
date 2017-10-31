@@ -311,11 +311,17 @@ func (sh *StatHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 		return
 	}
 
-	name := vars[sh.Variable]
+	name, ok := vars[sh.Variable]
+	if !ok {
+		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "missing path variable", "variable", sh.Variable)
+		response.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	id, err := ParseID(name)
 	if err != nil {
 		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to parse identifier", "deviceName", name, logging.ErrorKey(), err)
-		response.WriteHeader(http.StatusInternalServerError)
+		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
