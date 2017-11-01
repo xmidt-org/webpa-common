@@ -150,7 +150,7 @@ func TestMessage(t *testing.T) {
 				Source:      "wherever.webpa.comcast.net/glorious",
 				Destination: "uuid:1111-11-111111-11111",
 				Path:        "/some/where/over/the/rainbow",
-				Objects:     "*",
+				Payload:     []byte{1, 2, 3, 4, 0xff, 0xce},
 			},
 		}
 	)
@@ -530,11 +530,12 @@ func TestCRUD(t *testing.T) {
 				Source:                  "somewhere.comcast.net:9090/something",
 				Destination:             "serial:1234/blergh",
 				TransactionUUID:         "123-123-123",
+				ContentType:             "text/plain",
 				Status:                  &expectedStatus,
 				RequestDeliveryResponse: &expectedRequestDeliveryResponse,
 				IncludeSpans:            &expectedIncludeSpans,
 				Path:                    "/somewhere/over/rainbow",
-				Objects:                 "asldkfja;sdkjfas;ldkjfasdkfj",
+				Payload:                 []byte{1, 2, 3, 4, 0xff, 0xce},
 			},
 			{
 				Type:            UpdateMessageType,
