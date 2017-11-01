@@ -76,7 +76,6 @@ type Message struct {
 	Spans                   [][]string        `wrp:"spans,omitempty"`
 	IncludeSpans            *bool             `wrp:"include_spans,omitempty"`
 	Path                    string            `wrp:"path,omitempty"`
-	Objects                 string            `wrp:"objects,omitempty"`
 	Payload                 []byte            `wrp:"payload,omitempty"`
 	ServiceName             string            `wrp:"service_name,omitempty"`
 	URL                     string            `wrp:"url,omitempty"`
@@ -286,6 +285,7 @@ type CRUD struct {
 	Source                  string            `wrp:"source"`
 	Destination             string            `wrp:"dest"`
 	TransactionUUID         string            `wrp:"transaction_uuid,omitempty"`
+	ContentType             string            `wrp:"content_type,omitempty"`
 	Headers                 []string          `wrp:"headers,omitempty"`
 	Metadata                map[string]string `wrp:"metadata,omitempty"`
 	Spans                   [][]string        `wrp:"spans,omitempty"`
@@ -293,7 +293,7 @@ type CRUD struct {
 	Status                  *int64            `wrp:"status,omitempty"`
 	RequestDeliveryResponse *int64            `wrp:"rdr,omitempty"`
 	Path                    string            `wrp:"path"`
-	Objects                 string            `wrp:"objects,omitempty"`
+	Payload                 []byte            `wrp:"payload,omitempty"`
 }
 
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
