@@ -28,7 +28,12 @@ type C map[string]interface{}
 // Translator provides translation between the on-the-wire representation of a convey map
 // and its runtime representation.  Instances of Translator are safe for concurrent usage.
 type Translator interface {
+	// ReadFrom extracts base64-encoded JSON from the supplied reader and produces a convey map.
+	// Any error in either base64 decoding or JSON unmarshaling results in an error.
 	ReadFrom(io.Reader) (C, error)
+
+	// WriteTo encodes the given convey map into its on-the-wire repesentation, which is base64-encoded
+	// JSON.  Any error in either base64 encoding or JSON marhsaling results in an error.
 	WriteTo(io.Writer, C) error
 }
 
