@@ -160,6 +160,12 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
 		code := http.StatusInternalServerError
 		switch err {
+		case context.Canceled:
+			code = http.StatusGatewayTimeout
+		case context.DeadlineExceeded:
+			code = http.StatusGatewayTimeout
+		case ErrorTransactionCancelled:
+			code = http.StatusGatewayTimeout
 		case ErrorInvalidDeviceName:
 			code = http.StatusBadRequest
 		case ErrorDeviceNotFound:
