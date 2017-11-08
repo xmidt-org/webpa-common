@@ -3,10 +3,13 @@ package convey
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"io"
+	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,7 +25,22 @@ func testTranslatorReadFrom(t *testing.T, encoding *base64.Encoding, source io.R
 	assert.Equal(expected, actual)
 }
 
-func testTranslatorWriteTo(t *testing.T, encoding *base64.Encoding, source C, expected string) {
+func testTranslatorWriteTo(t *testing.T, translatorEncoding, expectedEncoding *base64.Encoding, source C, expected string) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		output     bytes.Buffer
+		translator = NewTranslator(translatorEncoding)
+	)
+
+	require.NoError(translator.WriteTo(&output, source))
+
+	decoder := base64.NewDecoder(expectedEncoding, &output)
+	actual, err := ioutil.ReadAll(decoder)
+	require.NoError(err)
+	assert.NotEmpty(actual)
+	assert.JSONEq(expected, string(actual))
 }
 
 func TestTranslator(t *testing.T) {
@@ -46,6 +64,10 @@ func TestTranslator(t *testing.T) {
 			`{"foo": "bar"}`,
 			C{"foo": "bar"},
 		},
+		{
+			`{"foo": "bar", "nested": {"value": 57234, "name": "syzygy"}}`,
+			C{"foo": "bar", "nested": C{"value": uint64(57234), "name": "syzygy"}},
+		},
 	}
 
 	for encoding, label := range encodingLabels {
@@ -67,6 +89,43 @@ func TestTranslator(t *testing.T) {
 					)
 				}
 			})
+
+			t.Run("WriteTo", func(t *testing.T) {
+				for _, record := range testData {
+					testTranslatorWriteTo(
+						t,
+						encoding,
+						expectedEncoding,
+						record.convey,
+						record.json,
+					)
+				}
+			})
 		})
 	}
+}
+
+func TestReadString(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedError = errors.New("expected")
+
+		translator = new(mockTranslator)
+	)
+
+	translator.On("ReadFrom", mock.MatchedBy(func(io.Reader) bool { return true })).
+		Return(C{"key": "value"}, expectedError).
+		Run(func(arguments mock.Arguments) {
+			reader := arguments.Get(0).(io.Reader)
+			actual, err := ioutil.ReadAll(reader)
+			assert.Equal("expected", string(actual))
+			assert.NoError(err)
+		}).
+		Once()
+
+	actual, actualError := ReadString(translator, "expected")
+	assert.Equal(C{"key": "value"}, actual)
+	assert.Equal(expectedError, actualError)
+
+	translator.AssertExpectations(t)
 }
