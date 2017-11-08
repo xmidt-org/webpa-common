@@ -74,10 +74,7 @@ func (t *translator) WriteTo(destination io.Writer, source C) error {
 		conveyHandle,
 	).Encode(source)
 
-	if closeErr := encoder.Close(); closeErr != nil && err == nil {
-		return closeErr
-	}
-
+	encoder.Close()
 	return err
 }
 

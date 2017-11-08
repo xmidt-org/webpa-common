@@ -129,3 +129,74 @@ func TestReadString(t *testing.T) {
 
 	translator.AssertExpectations(t)
 }
+
+func TestReadBytes(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedError = errors.New("expected")
+
+		translator = new(mockTranslator)
+	)
+
+	translator.On("ReadFrom", mock.MatchedBy(func(io.Reader) bool { return true })).
+		Return(C{"key": "value"}, expectedError).
+		Run(func(arguments mock.Arguments) {
+			reader := arguments.Get(0).(io.Reader)
+			actual, err := ioutil.ReadAll(reader)
+			assert.Equal("expected", string(actual))
+			assert.NoError(err)
+		}).
+		Once()
+
+	actual, actualError := ReadBytes(translator, []byte("expected"))
+	assert.Equal(C{"key": "value"}, actual)
+	assert.Equal(expectedError, actualError)
+
+	translator.AssertExpectations(t)
+}
+
+func TestWriteString(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedC     = C{"test": true}
+		expectedError = errors.New("expected")
+
+		translator = new(mockTranslator)
+	)
+
+	translator.On("WriteTo", mock.MatchedBy(func(io.Writer) bool { return true }), expectedC).
+		Return(expectedError).
+		Run(func(arguments mock.Arguments) {
+			arguments.Get(0).(io.Writer).Write([]byte("expected"))
+		}).
+		Once()
+
+	actual, actualError := WriteString(translator, expectedC)
+	assert.Equal("expected", actual)
+	assert.Equal(expectedError, actualError)
+
+	translator.AssertExpectations(t)
+}
+
+func TestWriteBytes(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedC     = C{"test": true}
+		expectedError = errors.New("expected")
+
+		translator = new(mockTranslator)
+	)
+
+	translator.On("WriteTo", mock.MatchedBy(func(io.Writer) bool { return true }), expectedC).
+		Return(expectedError).
+		Run(func(arguments mock.Arguments) {
+			arguments.Get(0).(io.Writer).Write([]byte("expected"))
+		}).
+		Once()
+
+	actual, actualError := WriteBytes(translator, expectedC)
+	assert.Equal("expected", string(actual))
+	assert.Equal(expectedError, actualError)
+
+	translator.AssertExpectations(t)
+}
