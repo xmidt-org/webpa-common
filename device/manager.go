@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Comcast/webpa-common/convey/conveyhttp"
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
@@ -102,6 +103,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		debugLog: logging.Debug(logger),
 
 		connectionFactory:      cf,
+		conveyTranslator:       conveyhttp.NewHeaderTranslator("", nil),
 		registry:               newRegistry(o.initialCapacity()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
@@ -120,6 +122,7 @@ type manager struct {
 	debugLog log.Logger
 
 	connectionFactory ConnectionFactory
+	conveyTranslator  conveyhttp.HeaderTranslator
 
 	registry *registry
 
@@ -152,6 +155,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d         = newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
 		closeOnce = new(sync.Once)
 	)
+
+	if c, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
+		m.debugLog.Log("convey", c)
+	} else if err != conveyhttp.ErrMissingHeader {
+		m.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
+	}
 
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
