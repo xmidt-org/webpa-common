@@ -40,7 +40,7 @@ import:
 - package: github.com/samuel/go-zookeeper
   version: e6b59f6144beb8570562539c1898a0b1fea34b41
 - package: github.com/ugorji/go
-  version: d23841a297e5489e787e72fceffabf9d2994b52a
+  version: 00a57e09e383d445aeef6c6cd642969dc4360231
   subpackages:
   - codec
 - package: github.com/c9s/goprocinfo

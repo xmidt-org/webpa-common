@@ -1,5 +1,5 @@
-hash: fce081a5f113549f077690517ab76e696eeb384eb0663a0d73bab342bd65f994
-updated: 2017-09-18T11:16:59.434592558-07:00
+hash: 50808e7f7fc10195cdb8bdf585dc358a566a2ea2487b6633860333a9e0d0dff8
+updated: 2017-11-07T16:57:38.269374938-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -36,7 +36,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/cenk/backoff
-  version: 80e08cb804a3eb3e576876c777e957e874609a9a
+  version: 309aa717adbf351e92864cbedf9cca0b769a4b5a
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:
@@ -46,7 +46,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/go-ini/ini
-  version: c787282c39ac1fc618827141a1f762240def08a3
+  version: f280b3ba517bf5fc98922624f21fb0e7a92adaec
 - name: github.com/go-kit/kit
   version: a9ca6725cbbea455e61c6bc8a1ed28e81eb3493b
   subpackages:
@@ -66,7 +66,7 @@ imports:
 - name: github.com/gorilla/mux
   version: 392c28fe23e1c45ddba891b0320b3b5df220beea
 - name: github.com/gorilla/schema
-  version: 8b1100835db5bbdae88541510f70d114b91a7e4d
+  version: e6c82218a8b3ed3cbeb5407429849c0b0b597d40
 - name: github.com/gorilla/websocket
   version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
 - name: github.com/hashicorp/hcl
@@ -138,11 +138,11 @@ imports:
   subpackages:
   - msgp
 - name: github.com/ugorji/go
-  version: d23841a297e5489e787e72fceffabf9d2994b52a
+  version: 00a57e09e383d445aeef6c6cd642969dc4360231
   subpackages:
   - codec
 - name: golang.org/x/net
-  version: 8351a756f30f1297fe94bbf4b767ec589c6ea6d0
+  version: a337091b0525af65de94df2eb7e98bd9962dcbe2
   subpackages:
   - context
 - name: golang.org/x/sys
