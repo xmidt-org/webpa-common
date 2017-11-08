@@ -15,10 +15,14 @@ var ErrMissingHeader = errors.New("No convey header present")
 
 // HeaderTranslator is an analog to convey.Translator, except that this type works with http.Header.
 type HeaderTranslator interface {
+	// FromHeader extracts the configued header and attempts to parse it as a convey map
 	FromHeader(http.Header) (convey.C, error)
+
+	// ToHeader takes the given convey map, converts it to a string, and sets that string into the supplied header
 	ToHeader(http.Header, convey.C) error
 }
 
+// headerTranslator is the internal HeaderTranslator implementation
 type headerTranslator struct {
 	headerName string
 	translator convey.Translator
