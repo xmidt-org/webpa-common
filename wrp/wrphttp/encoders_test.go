@@ -344,7 +344,7 @@ func TestServerErrorEncoder(t *testing.T) {
 			{tracing.NewSpanError(nil), http.StatusInternalServerError, http.Header{}},
 			{tracing.NewSpanError(errors.New("random error")), http.StatusInternalServerError, http.Header{}},
 			{tracing.NewSpanError(context.DeadlineExceeded), http.StatusGatewayTimeout, http.Header{}},
-			{tracing.NewSpanError(&httperror.E{Code: 512, Header: http.Header{"Foo": []string{"Bar"}}}), 512, http.Header{"Foo": []string{"Bar"}}},
+			{tracing.NewSpanError(&httperror.E{Code: 512, Header: http.Header{"Foo": []string{"Bar"}}}), http.StatusServiceUnavailable, http.Header{"Foo": []string{"Bar"}}},
 		}
 	)
 
@@ -387,7 +387,9 @@ func TestHeadersForError(t *testing.T) {
 
 func TestStatusCodeForError(t *testing.T) {
 	var (
-		assert   = assert.New(t)
+		assert  = assert.New(t)
+		spanner = tracing.NewSpanner()
+
 		testData = []struct {
 			err                error
 			expectedStatusCode int
@@ -400,6 +402,74 @@ func TestStatusCodeForError(t *testing.T) {
 			{tracing.NewSpanError(errors.New("random error")), http.StatusInternalServerError},
 			{tracing.NewSpanError(context.DeadlineExceeded), http.StatusGatewayTimeout},
 			{tracing.NewSpanError(&httperror.E{Code: 403}), 403},
+			{tracing.NewSpanError(nil), http.StatusInternalServerError},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(context.DeadlineExceeded),
+				),
+				http.StatusServiceUnavailable,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(context.DeadlineExceeded),
+					spanner.Start("2")(&httperror.E{Code: http.StatusGatewayTimeout}),
+					spanner.Start("3")(&httperror.E{Code: http.StatusInternalServerError}),
+				),
+				http.StatusServiceUnavailable,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(&httperror.E{Code: http.StatusGatewayTimeout}),
+				),
+				http.StatusServiceUnavailable,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(&httperror.E{Code: http.StatusGatewayTimeout}),
+					spanner.Start("2")(&httperror.E{Code: http.StatusGatewayTimeout}),
+					spanner.Start("3")(&httperror.E{Code: http.StatusGatewayTimeout}),
+				),
+				http.StatusServiceUnavailable,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(context.DeadlineExceeded),
+					spanner.Start("2")(&httperror.E{Code: http.StatusNotFound}),
+				),
+				http.StatusNotFound,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(&httperror.E{Code: http.StatusNotFound}),
+					spanner.Start("2")(&httperror.E{Code: http.StatusGatewayTimeout}),
+					spanner.Start("3")(&httperror.E{Code: http.StatusInternalServerError}),
+				),
+				http.StatusNotFound,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(&httperror.E{Code: http.StatusGatewayTimeout}),
+					spanner.Start("2")(&httperror.E{Code: http.StatusNotFound}),
+					spanner.Start("3")(&httperror.E{Code: http.StatusInternalServerError}),
+				),
+				http.StatusNotFound,
+			},
+
+			{
+				tracing.NewSpanError(errors.New("random error"),
+					spanner.Start("1")(&httperror.E{Code: http.StatusInternalServerError}),
+					spanner.Start("2")(&httperror.E{Code: http.StatusGatewayTimeout}),
+					spanner.Start("3")(&httperror.E{Code: http.StatusNotFound}),
+				),
+				http.StatusNotFound,
+			},
 		}
 	)
 
