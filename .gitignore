@@ -1,4 +1,6 @@
 *.swp
 *.out
 vendor
+pkg
+src
 coverage*

@@ -34,7 +34,7 @@ var (
 // for explicit disconnection.
 type Connector interface {
 	// Connect upgrade an HTTP connection to a websocket and begins concurrent
-	// managment of the device.
+	// management of the device.
 	Connect(http.ResponseWriter, *http.Request, http.Header) (Interface, error)
 
 	// Disconnect disconnects the device associated with the given id.

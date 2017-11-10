@@ -12,7 +12,7 @@ type Spanned interface {
 type Mergeable interface {
 	Spanned
 
-	// WithSpans returns an instance of this object with the new Spans, possiblly
+	// WithSpans returns an instance of this object with the new Spans, possibly
 	// merged into those returned by Spans.  This method should generally return
 	// a shallow copy of itself with the new spans, to preserve immutability.
 	WithSpans(...Span) interface{}

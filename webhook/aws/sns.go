@@ -159,7 +159,7 @@ func (ss *SNSServer) PrepareAndStart() {
 	ss.Subscribe()
 }
 
-// Go routine that continuosly listens on SubscriptionData channel for updates to SubscriptionArn
+// Go routine that continuously listens on SubscriptionData channel for updates to SubscriptionArn
 // And stores it to thread safe atomic.Value
 // Also checks if its value is NOT "" or "pending confirmation" => SNS Ready
 // If SNS ready => ready to receive notification thus starts the listenAndPublishMessage go routine
