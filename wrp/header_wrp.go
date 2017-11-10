@@ -9,7 +9,7 @@ const (
 	MsgTypeHeader         = "X-Midt-Msg-Type"
 	TransactionUuidHeader = "X-Midt-Transaction-Uuid"
 	StatusHeader          = "X-Midt-Status"
-	RDRHeader             = "X-Midt-Request-Delivery-Reponse"
+	RDRHeader             = "X-Midt-Request-Delivery-Response"
 	HeadersArrHeader      = "X-Midt-Headers"
 	IncludeSpansHeader    = "X-Midt-Include-Spans"
 	SpansHeader           = "X-Midt-Spans"

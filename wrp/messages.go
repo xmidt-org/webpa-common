@@ -52,7 +52,7 @@ type Routable interface {
 
 // Message is the union of all WRP fields, made optional (except for Type).  This type is
 // useful for transcoding streams, since deserializing from non-msgpack formats like JSON
-// has some undesireable side effects.
+// has some undesirable side effects.
 //
 // IMPORTANT: Anytime a new WRP field is added to any message, or a new message with new fields,
 // those new fields must be added to this struct for transcoding to work properly.  And of course:
