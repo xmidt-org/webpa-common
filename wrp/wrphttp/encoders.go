@@ -135,22 +135,51 @@ func HeadersForError(err error, timeLayout string, h http.Header) {
 // from an error:
 //
 // (a) If err provides a StatusCode method, that value is returned
-// (b) If err is a tracing.SpanError, the causal error is passed to this function recursively
+// (b) If err is a tracing.SpanError with more than 1 span, the individual component spans are examined to produce the code
 // (c) If err is equal to context.DeadlineExceeded, http.StatusGatewayTimeout is returned
 // (d) http.StatusInternalServerError is returned if no other case applies
 func StatusCodeForError(err error) int {
 	switch v := err.(type) {
 	case gokithttp.StatusCoder:
-		return v.StatusCode()
+		code := v.StatusCode()
+		if code >= 500 {
+			return http.StatusServiceUnavailable
+		}
+
+		return code
 
 	case tracing.SpanError:
-		return StatusCodeForError(v.Err())
+		cause := v.Err()
+		if cause == context.DeadlineExceeded || cause == context.Canceled {
+			return http.StatusGatewayTimeout
+		}
+
+		if spans := v.Spans(); len(spans) > 0 {
+			for _, s := range spans {
+				if e := s.Error(); e != nil {
+					// recurse over the nested errors for each span
+					// if any of these are in turn span errors, they'll be translated into
+					// service unavailable for any timeouts
+					code := StatusCodeForError(e)
+					if code < 500 {
+						return code
+					}
+				}
+			}
+
+			// if all spans indicate a 5XX error, then return service unavailable
+			return http.StatusServiceUnavailable
+		} else {
+			// if the cause is not a context cancellation and there are no spans,
+			// just recurse over the cause
+			return StatusCodeForError(cause)
+		}
 
 	default:
-		if err == context.DeadlineExceeded {
+		if err == context.DeadlineExceeded || err == context.Canceled {
 			return http.StatusGatewayTimeout
-		} else {
-			return http.StatusInternalServerError
 		}
 	}
+
+	return http.StatusInternalServerError
 }
