@@ -2,6 +2,7 @@ package wrp
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 
 func testPayload(t *testing.T, payload []byte) {
 	var (
+		assert   = assert.New(t)
 		require  = require.New(t)
 		original = Message{
 			Payload: payload,
@@ -29,16 +31,17 @@ func testPayload(t *testing.T, payload []byte) {
 	encoder.Reset(&output)
 	require.NoError(encoder.Encode(&original))
 
-	if testing.Verbose() {
-		fmt.Println(hex.Dump(output.Bytes()))
-	}
-
 	decoder.Reset(&output)
 	require.NoError(decoder.Decode(&decoded))
 
-	t.Logf("original.Payload=%s", original.Payload)
-	t.Logf("decoded.Payload=%s", decoded.Payload)
-	assert.Equal(t, payload, decoded.Payload)
+	// don't output the payload if it's a ridiculous size
+	if testing.Verbose() && len(payload) < 1024 {
+		fmt.Println(hex.Dump(output.Bytes()))
+		t.Logf("original.Payload=%s", original.Payload)
+		t.Logf("decoded.Payload=%s", decoded.Payload)
+	}
+
+	assert.Equal(payload, decoded.Payload)
 }
 
 func TestPayload(t *testing.T) {
@@ -48,6 +51,13 @@ func TestPayload(t *testing.T) {
 
 	t.Run("Binary", func(t *testing.T) {
 		testPayload(t, []byte{0x00, 0x06, 0xFF, 0xF0})
+	})
+
+	t.Run("LargePayload", func(t *testing.T) {
+		// generate a very large random payload
+		payload := make([]byte, 70*1024)
+		rand.Read(payload)
+		testPayload(t, payload)
 	})
 }
 
