@@ -52,23 +52,6 @@ func CopyHeaders(headers ...string) gokithttp.RequestFunc {
 	}
 }
 
-// ExtraHeaders is a component client RequestFunc for setting extra headers for each component request.
-func ExtraHeaders(extra http.Header) gokithttp.RequestFunc {
-	normalizedExtra := make(http.Header, len(extra))
-	for name, values := range extra {
-		normalizedExtra[textproto.CanonicalMIMEHeaderKey(name)] = values
-	}
-
-	extra = normalizedExtra
-	return func(ctx context.Context, r *http.Request) context.Context {
-		for name, values := range extra {
-			r.Header[name] = values
-		}
-
-		return ctx
-	}
-}
-
 // decodeFanoutRequest is executed once per original request to turn an HTTP request into a fanoutRequest.
 // The entityDecoder is used to perform one-time parsing on the original request to produce a custom entity object.
 // If entityDecoder is nil, a decoder that simply returns the []byte contents of the HTTP entity is used instead.
