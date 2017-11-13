@@ -1,4 +1,4 @@
-package middlewarehttp
+package fanouthttp
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Comcast/webpa-common/middleware"
+	"github.com/Comcast/webpa-common/middleware/fanout"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/go-kit/kit/endpoint"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -45,7 +45,7 @@ func CopyHeaders(headers ...string) gokithttp.RequestFunc {
 
 	headers = normalizedHeaders
 	return func(ctx context.Context, r *http.Request) context.Context {
-		if fr, ok := middleware.FanoutRequestFromContext(ctx).(*fanoutRequest); ok {
+		if fr, ok := fanout.FromContext(ctx).(*fanoutRequest); ok {
 			for _, name := range headers {
 				if values, ok := fr.original.Header[name]; ok {
 					r.Header[name] = values
@@ -121,16 +121,13 @@ func encodeComponentRequest(enc gokithttp.EncodeRequestFunc) gokithttp.EncodeReq
 	}
 }
 
-// NewComponentEndpoints producces a mapped set of go-kit endpoints, one for each supplied URL.  Each endpoint is expected to accept
+// NewComponents producces a mapped set of go-kit endpoints, one for each supplied URL.  Each endpoint is expected to accept
 // a fanoutRequest.  However, the encoder function is only expected to decode the HTTP entity.  The fanoutRequest is never passed
 // to the supplied encoder function.
 //
 // This factory function is the approximate equivalent of go-kit's transport/http.NewClient.  In effect, it creates a multi-client.
-func NewComponentEndpoints(urls []string, enc gokithttp.EncodeRequestFunc, dec gokithttp.DecodeResponseFunc, options ...gokithttp.ClientOption) (middleware.ComponentEndpoints, error) {
-	var (
-		fanoutEndpoints = make(middleware.ComponentEndpoints, len(urls))
-	)
-
+func NewComponents(urls []string, enc gokithttp.EncodeRequestFunc, dec gokithttp.DecodeResponseFunc, options ...gokithttp.ClientOption) (fanout.Components, error) {
+	components := make(fanout.Components, len(urls))
 	for _, raw := range urls {
 		target, err := url.Parse(raw)
 		if err != nil {
@@ -147,7 +144,7 @@ func NewComponentEndpoints(urls []string, enc gokithttp.EncodeRequestFunc, dec g
 
 		// the method and target don't really matter, since they'll be replaced on each
 		// request with the appropriate information from the original HTTP request.
-		fanoutEndpoints[raw] = gokithttp.NewClient(
+		components[raw] = gokithttp.NewClient(
 			"GET",
 			target,
 			encodeComponentRequest(enc),
@@ -156,24 +153,24 @@ func NewComponentEndpoints(urls []string, enc gokithttp.EncodeRequestFunc, dec g
 		).Endpoint()
 	}
 
-	return fanoutEndpoints, nil
+	return components, nil
 }
 
-// NewFanoutEndpoint returns an HTTP endpoint capable of fanning out to the supplied component endpoints.
+// NewEndpoint returns an HTTP endpoint capable of fanning out to the supplied component endpoints.
 // The result of this function can be decorated with middleware before using it to call NewFanoutHandler.
-func NewFanoutEndpoint(endpoints middleware.ComponentEndpoints) endpoint.Endpoint {
-	return middleware.Fanout(
+func NewEndpoint(components fanout.Components) endpoint.Endpoint {
+	return fanout.New(
 		tracing.NewSpanner(),
-		endpoints,
+		components,
 	)
 }
 
-// NewFanoutHandler creates an http.Handler (via go-kit's NewServer) that fans out requests
+// NewHandler creates an http.Handler (via go-kit's NewServer) that fans out requests
 // to the configured endpoints.
 //
 // Note that the encode response function is used to encode the response from the first successful
 // component request.
-func NewFanoutHandler(endpoint endpoint.Endpoint, dec gokithttp.DecodeRequestFunc, enc gokithttp.EncodeResponseFunc, options ...gokithttp.ServerOption) http.Handler {
+func NewHandler(endpoint endpoint.Endpoint, dec gokithttp.DecodeRequestFunc, enc gokithttp.EncodeResponseFunc, options ...gokithttp.ServerOption) http.Handler {
 	return gokithttp.NewServer(
 		endpoint,
 		decodeFanoutRequest(dec),

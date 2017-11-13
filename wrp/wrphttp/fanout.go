@@ -12,6 +12,7 @@ import (
 	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/middleware"
+	"github.com/Comcast/webpa-common/middleware/fanout"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/endpoint"
@@ -31,7 +32,7 @@ const (
 	DefaultDecoderPoolSize                   = 100
 )
 
-// FanoutOptions describe the options available for a go-kit HTTP server that does fanout via middleware.Fanout.
+// FanoutOptions describe the options available for a go-kit HTTP server that does fanout via fanout.New.
 type FanoutOptions struct {
 	// Logger is the go-kit logger to use when creating the service fanout.  If not set, logging.DefaultLogger is used.
 	Logger log.Logger `json:"-"`
@@ -254,7 +255,7 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 	return endpoint.Chain(
 			middlewareChain[0],
 			middlewareChain[1:]...,
-		)(middleware.Fanout(tracing.NewSpanner(), fanoutEndpoints)),
+		)(fanout.New(tracing.NewSpanner(), fanoutEndpoints)),
 		nil
 }
 

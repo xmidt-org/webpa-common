@@ -1,4 +1,4 @@
-package middleware
+package fanout
 
 import (
 	"context"
@@ -18,35 +18,13 @@ type fanoutResponse struct {
 	err      error
 }
 
-type fanoutRequestKey struct{}
-
-// FanoutRequestFromContext produces the originally decoded request object applied to all component fanouts.
-// This will be the object returned by the fanout's associated DecodeRequestFunc.
-func FanoutRequestFromContext(ctx context.Context) interface{} {
-	return ctx.Value(fanoutRequestKey{})
-}
-
-// ComponentEndpoints holds the component endpoint objects which will be concurrently invoked by a fanout.
-type ComponentEndpoints map[string]endpoint.Endpoint
-
-// Apply produces a new ComponentEndpoints with each endpoint decorated by the given middleware.  To apply
-// multiple middleware in one shot, pass the result of endpoint.Chain to this method.
-func (c ComponentEndpoints) Apply(m endpoint.Middleware) ComponentEndpoints {
-	decorated := make(ComponentEndpoints, len(c))
-	for k, v := range c {
-		decorated[k] = m(v)
-	}
-
-	return decorated
-}
-
-// Fanout produces a go-kit Endpoint which tries all of a set of endpoints concurrently.  The first endpoint
+// New produces a go-kit Endpoint which tries all of a set of component endpoints concurrently.  The first component
 // to respond successfully causes this endpoint to return with that response immediately, without waiting
 // on subsequent endpoints.  If the context is canceled for any reason, ctx.Err() is returned.  Finally,
 // if all endpoints fail, an error is returned with a span for each endpoint.
 //
 // If spanner is nil or endpoints is empty, this function panics.
-func Fanout(spanner tracing.Spanner, endpoints ComponentEndpoints) endpoint.Endpoint {
+func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 	if spanner == nil {
 		panic("No spanner supplied")
 	}
@@ -63,7 +41,7 @@ func Fanout(spanner tracing.Spanner, endpoints ComponentEndpoints) endpoint.Endp
 
 	endpoints = copyOf
 	return func(ctx context.Context, fanoutRequest interface{}) (interface{}, error) {
-		ctx = context.WithValue(ctx, fanoutRequestKey{}, fanoutRequest)
+		ctx = newContext(ctx, fanoutRequest)
 
 		var (
 			logger  = logging.Logger(ctx)
