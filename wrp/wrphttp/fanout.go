@@ -1,10 +1,6 @@
 package wrphttp
 
 import (
-	"bytes"
-	"context"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -14,6 +10,7 @@ import (
 	"github.com/Comcast/webpa-common/middleware"
 	"github.com/Comcast/webpa-common/middleware/fanout"
 	"github.com/Comcast/webpa-common/tracing"
+	"github.com/Comcast/webpa-common/transport/transporthttp"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
@@ -236,7 +233,7 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 				url,
 				ClientEncodeRequestBody(encoderPool, customHeader),
 				ClientDecodeResponseBody(decoderPool),
-				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(SetGetBodyFunc),
+				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(transporthttp.GetBody),
 			).Endpoint()
 	}
 
@@ -257,27 +254,4 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 			middlewareChain[1:]...,
 		)(fanout.New(tracing.NewSpanner(), fanoutEndpoints)),
 		nil
-}
-
-//SetGetBodyFunc allows reading a request's body multiple times. 307 POST redirects are part of the specific cases
-//where this becomes useful
-func SetGetBodyFunc(context context.Context, request *http.Request) context.Context {
-	if request == nil || request.Body == nil {
-		return context
-	}
-
-	if freshBodyCopy, err := ioutil.ReadAll(request.Body); err == nil { //read it once and keep a copy
-		var keepBuffer bytes.Buffer
-		keepBuffer.Write(freshBodyCopy)
-		request.Body = ioutil.NopCloser(&keepBuffer) //Extra: Also make request.Body re-readable
-
-		//set up function used by clients such as net/http/client
-		request.GetBody = func() (send io.ReadCloser, err error) {
-			var sendBuffer bytes.Buffer
-			sendBuffer.Write(freshBodyCopy)
-			send = ioutil.NopCloser(&sendBuffer)
-			return
-		}
-	}
-	return context
 }
