@@ -7,16 +7,11 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
-	"time"
 
 	"github.com/Comcast/webpa-common/middleware/fanout"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/go-kit/kit/endpoint"
 	gokithttp "github.com/go-kit/kit/transport/http"
-)
-
-const (
-	DefaultTimeout time.Duration = 30 * time.Second
 )
 
 // fanoutRequest is the internal type used to pass information to component requests.
