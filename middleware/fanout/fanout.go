@@ -41,7 +41,7 @@ func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 
 	endpoints = copyOf
 	return func(ctx context.Context, fanoutRequest interface{}) (interface{}, error) {
-		ctx = newContext(ctx, fanoutRequest)
+		ctx = NewContext(ctx, fanoutRequest)
 
 		var (
 			logger  = logging.Logger(ctx)

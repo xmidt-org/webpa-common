@@ -4,9 +4,10 @@ import "context"
 
 type fanoutRequestKey struct{}
 
-// newContext returns a new Context with the given fanoutRequest.  This function is not
-// exported as only the fanout endpoint itself should use it.
-func newContext(ctx context.Context, fanoutRequest interface{}) context.Context {
+// NewContext returns a new Context with the given fanoutRequest.  This function is primarily used by the endpoint
+// returned by New to inject the decoded fanout request into the context so that downstream code, such as request functions,
+// can access it.
+func NewContext(ctx context.Context, fanoutRequest interface{}) context.Context {
 	return context.WithValue(ctx, fanoutRequestKey{}, fanoutRequest)
 }
 
