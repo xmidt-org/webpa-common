@@ -40,8 +40,9 @@ func testFanoutSuccessFirst(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest  = "expectedRequest"
@@ -55,14 +56,16 @@ func testFanoutSuccessFirst(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints["success"] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				success <- "success"
 				return expectedResponse, nil
 			}
 		} else {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-failureGate
 				return nil, fmt.Errorf("expected failure #%d", i)
@@ -90,8 +93,9 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest  = "expectedRequest"
@@ -107,7 +111,8 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints["success"] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-successGate
 				success <- "success"
@@ -116,7 +121,8 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 		} else {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
 				defer failuresDone.Done()
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				return nil, fmt.Errorf("expected failure #%d", i)
 			}
@@ -161,8 +167,9 @@ func testFanoutTimeout(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest  = "expectedRequest"
@@ -176,7 +183,8 @@ func testFanoutTimeout(t *testing.T, serviceCount int) {
 	endpointsWaiting.Add(serviceCount)
 	for i := 0; i < serviceCount; i++ {
 		endpoints[fmt.Sprintf("slow#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-			assert.Equal(expectedCtx, ctx)
+			assert.Equal(logger, logging.Logger(ctx))
+			assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 			assert.Equal(expectedRequest, request)
 			endpointsWaiting.Done()
 			<-endpointGate
@@ -211,8 +219,9 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest   = "expectedRequest"
@@ -227,7 +236,8 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-lastEndpointGate
 				return nil, expectedLastError
@@ -236,7 +246,8 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(index int) endpoint.Endpoint {
 				return func(ctx context.Context, request interface{}) (interface{}, error) {
 					defer otherEndpointsDone.Done()
-					assert.Equal(expectedCtx, ctx)
+					assert.Equal(logger, logging.Logger(ctx))
+					assert.Equal(expectedRequest, FanoutRequestFromContext(ctx))
 					assert.Equal(expectedRequest, request)
 					return nil, fmt.Errorf("failure#%d", index)
 				}

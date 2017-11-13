@@ -1,183 +1,183 @@
 package middlewarehttp
 
 import (
-	"bytes"
 	"context"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/textproto"
+	"net/url"
 	"time"
 
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/middleware"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/go-kit/kit/endpoint"
-	"github.com/go-kit/kit/log"
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
 const (
-	DefaultMethod                            = "POST"
-	DefaultMaxIdleConnsPerHost               = 20
-	DefaultTimeout             time.Duration = 30 * time.Second
-	DefaultMaxClients          int64         = 10000
-	DefaultConcurrency                       = 1000
-	DefaultEncoderPoolSize                   = 100
-	DefaultDecoderPoolSize                   = 100
+	DefaultTimeout time.Duration = 30 * time.Second
 )
 
-// FanoutOptions describe the options available for a go-kit HTTP server that does fanout via middleware.Fanout.
-type FanoutOptions struct {
-	// Logger is the go-kit logger to use when creating the service fanout.  If not set, logging.DefaultLogger is used.
-	Logger log.Logger `json:"-"`
+// fanoutRequest is the internal type used to pass information to component requests.
+// This type carries the original request so that downstream components can look at things
+// like the header, the URL, etc.
+type fanoutRequest struct {
+	// original is the unmodified, original HTTP request passed to the fanout handler
+	original *http.Request
 
-	// Method is the HTTP method to use for all endpoints.  If not set, DefaultMethod is used.
-	Method string `json:"method,omitempty"`
+	// relative is the original URL with absolute fields removed, i.e. Scheme, Host, and User.
+	relative *url.URL
 
-	// Endpoints are the URLs for each endpoint to fan out to.  Each URL may be a URI template, in which case it will
-	// be made available to request encoders.
-	Endpoints []string `json:"endpoints,omitempty"`
-
-	// Authorization is the Basic Auth token.  There is no default for this field.
-	Authorization string `json:"authorization"`
-
-	// Timeout is the http.Client Timeout.  If not set, DefaultTimeout is used.
-	ClientTimeout time.Duration `json:"timeout"`
-
-	// EncodeRequest is the go-kit transport/http request encoder.  This field is required, and there is no default.
-	EncodeRequest gokithttp.EncodeRequestFunc `json:"-"`
-
-	// DecodeResponse is the go-kit transport/http response decoder.  This field is required, and there is no default.
-	DecodeResponse gokithttp.DecodeResponseFunc `json:"-"`
-
-	ClientOptions []gokithttp.ClientOption
+	// entity is the parsed HTTP entity returned by the configured DecodeRequestFunc
+	entity interface{}
 }
 
-func (f *FanoutOptions) logger() log.Logger {
-	if f != nil && f.Logger != nil {
-		return f.Logger
-	}
-
-	return logging.DefaultLogger()
-}
-
-func (f *FanoutOptions) method() string {
-	if f != nil && len(f.Method) > 0 {
-		return f.Method
-	}
-
-	return DefaultMethod
-}
-
-func (f *FanoutOptions) endpoints() []string {
-	if f != nil && len(f.Endpoints) > 0 {
-		return f.Endpoints
-	}
-
-	return nil
-}
-
-func (f *FanoutOptions) authorization() string {
-	if f != nil && len(f.Authorization) > 0 {
-		return f.Authorization
-	}
-
-	return ""
-}
-
-func (f *FanoutOptions) timeout() time.Duration {
-	if f != nil && f.Timeout > 0 {
-		return f.Timeout
-	}
-
-	return DefaultTimeout
-}
-
-func (f *FanoutOptions) middleware() []endpoint.Middleware {
-	if f != nil {
-		return f.Middleware
-	}
-
-	return nil
-}
-
-// NewFanoutEndpoint uses the supplied options to produce a go-kit HTTP server endpoint which
-// fans out to the HTTP endpoints specified in the options.  The endpoint returned from this
-// can be used to build one or more go-kit transport/http.Server objects.
+// CopyHeaders is a component client RequestFunc for transferring certain headers from the original
+// request into each component request of a fanout.
 //
-// The FanoutOptions can be nil, in which case a set of defaults is used.
-func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
-	urls, err := o.urls()
-	if err != nil {
-		return nil, err
+// THe returned RequestFunc requires that the fanoutRequest is available in the context.
+func CopyHeaders(headers ...string) gokithttp.RequestFunc {
+	normalizedHeaders := make([]string, len(headers))
+	for i, v := range headers {
+		normalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(v)
 	}
 
-	var (
-		httpClient = &http.Client{
-			Transport: o.transport(),
-			Timeout:   o.clientTimeout(),
+	headers = normalizedHeaders
+	return func(ctx context.Context, r *http.Request) context.Context {
+		if fr, ok := middleware.FanoutRequestFromContext(ctx).(*fanoutRequest); ok {
+			for _, name := range headers {
+				if values, ok := fr.original.Header[name]; ok {
+					r.Header[name] = values
+				}
+			}
 		}
 
-		fanoutEndpoints = make(map[string]endpoint.Endpoint, len(urls))
-		customHeader    = http.Header{
-			"Accept": []string{"application/msgpack"},
-		}
-	)
-
-	if authorization := o.authorization(); len(authorization) > 0 {
-		customHeader.Set("Authorization", "Basic "+authorization)
+		return ctx
 	}
-
-	for _, url := range urls {
-		fanoutEndpoints[url.String()] =
-			gokithttp.NewClient(
-				o.method(),
-				url,
-				ClientEncodeRequestBody(encoderPool, customHeader),
-				ClientDecodeResponseBody(decoderPool),
-				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(SetGetBodyFunc),
-			).Endpoint()
-	}
-
-	var (
-		middlewareChain = append(
-			[]endpoint.Middleware{
-				middleware.Logging,
-				middleware.Busy(o.maxClients(), &httperror.E{Code: http.StatusServiceUnavailable, Text: "Server Busy"}),
-				middleware.Timeout(o.fanoutTimeout()),
-				middleware.Concurrent(o.concurrency(), &httperror.E{Code: http.StatusTooManyRequests, Text: "Too Many Requests"}),
-			},
-			o.middleware()...,
-		)
-	)
-
-	return endpoint.Chain(
-			middlewareChain[0],
-			middlewareChain[1:]...,
-		)(middleware.Fanout(tracing.NewSpanner(), fanoutEndpoints)),
-		nil
 }
 
-//SetGetBodyFunc allows reading a request's body multiple times. 307 POST redirects are part of the specific cases
-//where this becomes useful
-func SetGetBodyFunc(context context.Context, request *http.Request) context.Context {
-	if request == nil || request.Body == nil {
-		return context
+// ExtraHeaders is a component client RequestFunc for setting extra headers for each component request.
+func ExtraHeaders(extra http.Header) gokithttp.RequestFunc {
+	normalizedExtra := make(http.Header, len(extra))
+	for name, values := range extra {
+		normalizedExtra[textproto.CanonicalMIMEHeaderKey(name)] = values
 	}
 
-	if freshBodyCopy, err := ioutil.ReadAll(request.Body); err == nil { //read it once and keep a copy
-		var keepBuffer bytes.Buffer
-		keepBuffer.Write(freshBodyCopy)
-		request.Body = ioutil.NopCloser(&keepBuffer) //Extra: Also make request.Body re-readable
+	extra = normalizedExtra
+	return func(ctx context.Context, r *http.Request) context.Context {
+		for name, values := range extra {
+			r.Header[name] = values
+		}
 
-		//set up function used by clients such as net/http/client
-		request.GetBody = func() (send io.ReadCloser, err error) {
-			var sendBuffer bytes.Buffer
-			sendBuffer.Write(freshBodyCopy)
-			send = ioutil.NopCloser(&sendBuffer)
-			return
+		return ctx
+	}
+}
+
+// decodeFanoutRequest is executed once per original request to turn an HTTP request into a fanoutRequest.
+// The entityDecoder is used to perform one-time parsing on the original request to produce a custom entity object.
+// If entityDecoder is nil, a decoder that simply returns the []byte contents of the HTTP entity is used instead.
+func decodeFanoutRequest(dec gokithttp.DecodeRequestFunc) gokithttp.DecodeRequestFunc {
+	if dec == nil {
+		dec = func(_ context.Context, original *http.Request) (interface{}, error) {
+			return ioutil.ReadAll(original.Body)
 		}
 	}
-	return context
+
+	return func(ctx context.Context, original *http.Request) (interface{}, error) {
+		entity, err := dec(ctx, original)
+		if err != nil {
+			return nil, err
+		}
+
+		relative := *original.URL
+		relative.Scheme = ""
+		relative.Host = ""
+		relative.User = nil
+
+		return &fanoutRequest{
+			original: original,
+			relative: &relative,
+			entity:   entity,
+		}, nil
+	}
+
+}
+
+// encodeComponentRequest creates the EncodeRequestFunc invoked for each component endpoint of a fanout.  Input to the
+// return function is always a *fanoutRequest.
+func encodeComponentRequest(enc gokithttp.EncodeRequestFunc) gokithttp.EncodeRequestFunc {
+	return func(ctx context.Context, component *http.Request, v interface{}) error {
+		fanoutRequest := v.(*fanoutRequest)
+
+		component.Method = fanoutRequest.original.Method
+		component.URL = component.URL.ResolveReference(fanoutRequest.relative)
+
+		if enc != nil {
+			return enc(ctx, component, fanoutRequest.entity)
+		}
+
+		return nil
+	}
+}
+
+// NewComponentEndpoints producces a mapped set of go-kit endpoints, one for each supplied URL.  Each endpoint is expected to accept
+// a fanoutRequest.  However, the encoder function is only expected to decode the HTTP entity.  The fanoutRequest is never passed
+// to the supplied encoder function.
+//
+// This factory function is the approximate equivalent of go-kit's transport/http.NewClient.  In effect, it creates a multi-client.
+func NewComponentEndpoints(urls []string, enc gokithttp.EncodeRequestFunc, dec gokithttp.DecodeResponseFunc, options ...gokithttp.ClientOption) (middleware.ComponentEndpoints, error) {
+	var (
+		fanoutEndpoints = make(middleware.ComponentEndpoints, len(urls))
+	)
+
+	for _, raw := range urls {
+		target, err := url.Parse(raw)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(target.Scheme) == 0 {
+			return nil, fmt.Errorf("Endpoint '%s' does not specify a scheme", raw)
+		}
+
+		if len(target.RawQuery) > 0 {
+			return nil, fmt.Errorf("Endpoint '%s' specifies a query string", raw)
+		}
+
+		// the method and target don't really matter, since they'll be replaced on each
+		// request with the appropriate information from the original HTTP request.
+		fanoutEndpoints[raw] = gokithttp.NewClient(
+			"GET",
+			target,
+			encodeComponentRequest(enc),
+			dec,
+			options...,
+		).Endpoint()
+	}
+
+	return fanoutEndpoints, nil
+}
+
+// NewFanoutEndpoint returns an HTTP endpoint capable of fanning out to the supplied component endpoints.
+// The result of this function can be decorated with middleware before using it to call NewFanoutHandler.
+func NewFanoutEndpoint(endpoints middleware.ComponentEndpoints) endpoint.Endpoint {
+	return middleware.Fanout(
+		tracing.NewSpanner(),
+		endpoints,
+	)
+}
+
+// NewFanoutHandler creates an http.Handler (via go-kit's NewServer) that fans out requests
+// to the configured endpoints.
+//
+// Note that the encode response function is used to encode the response from the first successful
+// component request.
+func NewFanoutHandler(endpoint endpoint.Endpoint, dec gokithttp.DecodeRequestFunc, enc gokithttp.EncodeResponseFunc, options ...gokithttp.ServerOption) http.Handler {
+	return gokithttp.NewServer(
+		endpoint,
+		decodeFanoutRequest(dec),
+		enc,
+		options...,
+	)
 }
