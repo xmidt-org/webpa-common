@@ -133,6 +133,7 @@ func (ss *SNSServer) Subscribe() {
 			resp, err = ss.SVC.Subscribe(params)
 			if err != nil {
 				ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
+				ss.debugLog.Log("params", params)
 			} else {
 				break
 			}
