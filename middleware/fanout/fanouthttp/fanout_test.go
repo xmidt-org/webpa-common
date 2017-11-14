@@ -8,8 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/middleware/fanout"
+	"github.com/Comcast/webpa-common/tracing"
+	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -256,7 +261,7 @@ func TestNewComponents(t *testing.T) {
 	})
 }
 
-func TestNewHandler(t *testing.T) {
+func testNewHandlerServeHTTP(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -287,4 +292,103 @@ func TestNewHandler(t *testing.T) {
 	require.NotNil(handler)
 	handler.ServeHTTP(response, request)
 	assert.Equal(response.Header().Get("X-Processed"), "true")
+}
+
+func testNewHandlerIntegration(t *testing.T, componentCount int) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
+		urls    = make([]string, componentCount)
+	)
+
+	for repeat := 0; repeat < componentCount; repeat++ {
+		index := repeat
+		server := httptest.NewServer(
+			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				assert.Equal("true", request.Header.Get("X-Expected"))
+				entity, err := ioutil.ReadAll(request.Body)
+				assert.Equal("component entity", string(entity))
+				assert.NoError(err)
+
+				if index > 0 {
+					// only the first endpoint will succeed for this scenario
+					response.WriteHeader(http.StatusInternalServerError)
+					response.Write([]byte("failed"))
+					return
+				}
+
+				response.Write([]byte("success"))
+			}),
+		)
+
+		defer server.Close()
+		urls[repeat] = server.URL
+	}
+
+	components, err := NewComponents(
+		urls,
+		func(_ context.Context, component *http.Request, v interface{}) error {
+			assert.Equal("original", v)
+			component.Body = ioutil.NopCloser(strings.NewReader("component entity"))
+			return nil
+		},
+		func(_ context.Context, response *http.Response) (interface{}, error) {
+			entity, err := ioutil.ReadAll(response.Body)
+			assert.NoError(err)
+
+			if response.StatusCode == http.StatusOK {
+				assert.Equal("success", string(entity))
+				return string(entity), nil
+			}
+
+			assert.Equal("failed", string(entity))
+			return string(entity), errors.New("failed")
+		},
+		gokithttp.ClientBefore(gokithttp.SetRequestHeader("X-Expected", "true")),
+	)
+
+	require.Len(components, componentCount)
+	require.NoError(err)
+
+	handler := NewHandler(
+		fanout.New(tracing.NewSpanner(), components),
+		func(_ context.Context, request *http.Request) (interface{}, error) {
+			body, err := ioutil.ReadAll(request.Body)
+			assert.NotEmpty(body)
+			assert.NoError(err)
+			return string(body), nil
+		},
+		func(_ context.Context, response http.ResponseWriter, v interface{}) error {
+			assert.Equal("success", v)
+			response.Write([]byte("success"))
+			return nil
+		},
+		gokithttp.ServerBefore(
+			func(ctx context.Context, _ *http.Request) context.Context {
+				return logging.WithLogger(ctx, logger)
+			},
+		),
+	)
+
+	require.NotNil(handler)
+
+	request := httptest.NewRequest("GET", "/", strings.NewReader("original"))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	assert.Equal(http.StatusOK, response.Code)
+}
+
+func TestNewHandler(t *testing.T) {
+	t.Run("ServeHTTP", testNewHandlerServeHTTP)
+	t.Run("Integration", func(t *testing.T) {
+		t.Run("Components-1", func(t *testing.T) {
+			testNewHandlerIntegration(t, 1)
+		})
+
+		t.Run("Components-3", func(t *testing.T) {
+			testNewHandlerIntegration(t, 3)
+		})
+	})
 }
