@@ -19,8 +19,8 @@ type fanoutRequest struct {
 	// original is the unmodified, original HTTP request passed to the fanout handler
 	original *http.Request
 
-	// relative is the original URL with absolute fields removed, i.e. Scheme, Host, and User.
-	relative *url.URL
+	// relativeURL is the original URL with absolute fields removed, i.e. Scheme, Host, and User.
+	relativeURL *url.URL
 
 	// entity is the parsed HTTP entity returned by the configured DecodeRequestFunc
 	entity interface{}
@@ -42,15 +42,15 @@ func decodeFanoutRequest(dec gokithttp.DecodeRequestFunc) gokithttp.DecodeReques
 			return nil, err
 		}
 
-		relative := *original.URL
-		relative.Scheme = ""
-		relative.Host = ""
-		relative.User = nil
+		relativeURL := *original.URL
+		relativeURL.Scheme = ""
+		relativeURL.Host = ""
+		relativeURL.User = nil
 
 		return &fanoutRequest{
-			original: original,
-			relative: &relative,
-			entity:   entity,
+			original:    original,
+			relativeURL: &relativeURL,
+			entity:      entity,
 		}, nil
 	}
 
@@ -63,7 +63,7 @@ func encodeComponentRequest(enc gokithttp.EncodeRequestFunc) gokithttp.EncodeReq
 		fanoutRequest := v.(*fanoutRequest)
 
 		component.Method = fanoutRequest.original.Method
-		component.URL = component.URL.ResolveReference(fanoutRequest.relative)
+		component.URL = component.URL.ResolveReference(fanoutRequest.relativeURL)
 
 		if enc != nil {
 			return enc(ctx, component, fanoutRequest.entity)
