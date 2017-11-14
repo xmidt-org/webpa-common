@@ -26,6 +26,12 @@ type fanoutRequest struct {
 	entity interface{}
 }
 
+// Entity implements the fanout.Request interface.  This method allows access to the decoded HTTP entity that
+// was parsed by the fanout's decoder.
+func (fr *fanoutRequest) Entity() interface{} {
+	return fr.entity
+}
+
 // decodeFanoutRequest is executed once per original request to turn an HTTP request into a fanoutRequest.
 // The entityDecoder is used to perform one-time parsing on the original request to produce a custom entity object.
 // If entityDecoder is nil, a decoder that simply returns the []byte contents of the HTTP entity is used instead.
