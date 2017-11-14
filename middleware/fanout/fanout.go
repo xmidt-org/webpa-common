@@ -9,13 +9,13 @@ import (
 	"github.com/go-kit/kit/log/level"
 )
 
-// fanoutResponse is the internal tuple used to communicate the results of an asynchronously
+// response is the internal tuple used to communicate the results of an asynchronously
 // invoked endpoint
-type fanoutResponse struct {
-	name     string
-	span     tracing.Span
-	response interface{}
-	err      error
+type response struct {
+	name              string
+	span              tracing.Span
+	componentResponse interface{}
+	err               error
 }
 
 // New produces a go-kit Endpoint which tries all of a set of component endpoints concurrently.  The first component
@@ -40,26 +40,26 @@ func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 	}
 
 	endpoints = copyOf
-	return func(ctx context.Context, fanoutRequest interface{}) (interface{}, error) {
-		ctx = NewContext(ctx, fanoutRequest)
+	return func(ctx context.Context, v interface{}) (interface{}, error) {
+		ctx = NewContext(ctx, v)
 
 		var (
 			logger  = logging.Logger(ctx)
-			results = make(chan fanoutResponse, len(endpoints))
+			results = make(chan response, len(endpoints))
 		)
 
 		for name, e := range endpoints {
 			go func(name string, e endpoint.Endpoint) {
 				var (
-					finisher      = spanner.Start(name)
-					response, err = e(ctx, fanoutRequest)
+					finisher               = spanner.Start(name)
+					componentResponse, err = e(ctx, v)
 				)
 
-				results <- fanoutResponse{
-					name:     name,
-					span:     finisher(err),
-					response: response,
-					err:      err,
+				results <- response{
+					name:              name,
+					span:              finisher(err),
+					componentResponse: componentResponse,
+					err:               err,
 				}
 			}(name, e)
 		}
@@ -81,8 +81,8 @@ func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 					logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
 				} else {
 					logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
-					response, _ := tracing.MergeSpans(fr.response, spans)
-					return response, nil
+					fanoutResponse, _ := tracing.MergeSpans(fr.componentResponse, spans)
+					return fanoutResponse, nil
 				}
 			}
 		}
