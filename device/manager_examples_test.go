@@ -30,16 +30,14 @@ func expectMessage(c Connection) (*wrp.Message, error) {
 }
 
 func writeMessage(m *wrp.Message, c Connection) error {
-	if frame, err := c.NextWriter(); err != nil {
+	var buffer []byte
+	encoder := wrp.NewEncoderBytes(&buffer, wrp.Msgpack)
+	if err := encoder.Encode(m); err != nil {
 		return err
-	} else {
-		encoder := wrp.NewEncoder(frame, wrp.Msgpack)
-		if err := encoder.Encode(m); err != nil {
-			return err
-		}
-
-		return frame.Close()
 	}
+
+	_, err := c.Write(buffer)
+	return err
 }
 
 func ExampleManagerTransaction() {

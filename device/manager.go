@@ -3,7 +3,6 @@ package device
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -302,7 +301,6 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		event = Event{Type: Connect, Device: d}
 
 		envelope   *envelope
-		frame      io.WriteCloser
 		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
 
@@ -362,27 +360,21 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			return
 
 		case envelope = <-d.messages:
-			if frame, writeError = c.NextWriter(); writeError == nil {
-				var frameContents []byte
-				if envelope.request.Format == wrp.Msgpack && len(envelope.request.Contents) > 0 {
-					frameContents = envelope.request.Contents
-				} else {
-					// if the request was in a format other than Msgpack, or if the caller did not pass
-					// Contents, then do the encoding here.
-					encoder.ResetBytes(&frameContents)
-					writeError = encoder.Encode(envelope.request.Message)
-				}
+			var frameContents []byte
+			if envelope.request.Format == wrp.Msgpack && len(envelope.request.Contents) > 0 {
+				frameContents = envelope.request.Contents
+			} else {
+				// if the request was in a format other than Msgpack, or if the caller did not pass
+				// Contents, then do the encoding here.
+				encoder.ResetBytes(&frameContents)
+				writeError = encoder.Encode(envelope.request.Message)
+			}
 
-				if writeError == nil {
-					var bytesSent int
-					if bytesSent, writeError = frame.Write(frameContents); writeError == nil {
-						d.statistics.AddBytesSent(bytesSent)
-						d.statistics.AddMessagesSent(1)
-						writeError = frame.Close()
-					} else {
-						// don't mask the original error, but ensure the frame is closed
-						frame.Close()
-					}
+			if writeError == nil {
+				var bytesSent int
+				if bytesSent, writeError = c.Write(frameContents); writeError == nil {
+					d.statistics.AddBytesSent(bytesSent)
+					d.statistics.AddMessagesSent(1)
 				}
 			}
 
