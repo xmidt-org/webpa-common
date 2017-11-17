@@ -333,9 +333,13 @@ func testNewHandlerIntegration(t *testing.T, componentCount int) {
 			component.Body = ioutil.NopCloser(strings.NewReader("component entity"))
 			return nil
 		},
-		func(_ context.Context, response *http.Response) (interface{}, error) {
+		func(ctx context.Context, response *http.Response) (interface{}, error) {
 			entity, err := ioutil.ReadAll(response.Body)
 			assert.NoError(err)
+
+			v, ok := fanout.FromContextEntity(ctx)
+			assert.True(ok)
+			assert.Equal("original", v)
 
 			if response.StatusCode == http.StatusOK {
 				assert.Equal("success", string(entity))
@@ -343,6 +347,7 @@ func testNewHandlerIntegration(t *testing.T, componentCount int) {
 			}
 
 			assert.Equal("failed", string(entity))
+
 			return string(entity), errors.New("failed")
 		},
 		gokithttp.ClientBefore(gokithttp.SetRequestHeader("X-Expected", "true")),

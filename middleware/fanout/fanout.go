@@ -41,13 +41,13 @@ func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 
 	endpoints = copyOf
 	return func(ctx context.Context, v interface{}) (interface{}, error) {
-		ctx = NewContext(ctx, v)
 
 		var (
 			logger  = logging.Logger(ctx)
 			results = make(chan response, len(endpoints))
 		)
 
+		ctx = NewContext(ctx, v)
 		for name, e := range endpoints {
 			go func(name string, e endpoint.Endpoint) {
 				var (
