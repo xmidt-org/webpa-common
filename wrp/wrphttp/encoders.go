@@ -22,7 +22,7 @@ func EncodeRequest(format wrp.Format) gokithttp.EncodeRequestFunc {
 		if format == entity.Format && len(entity.Contents) > 0 {
 			// the entity is already formatted properly, so just write its contents out
 			component.Body = ioutil.NopCloser(bytes.NewReader(entity.Contents))
-			component.ContentLength = len(entity.Contents)
+			component.ContentLength = int64(len(entity.Contents))
 		} else {
 			var transcoded []byte
 			if err := wrp.NewEncoderBytes(&transcoded, format).Encode(&entity.Message); err != nil {
@@ -30,7 +30,7 @@ func EncodeRequest(format wrp.Format) gokithttp.EncodeRequestFunc {
 			}
 
 			component.Body = ioutil.NopCloser(bytes.NewReader(transcoded))
-			component.ContentLength = len(transcoded)
+			component.ContentLength = int64(len(transcoded))
 		}
 
 		component.Header.Set("Content-Type", format.ContentType())
