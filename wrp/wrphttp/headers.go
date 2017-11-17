@@ -132,20 +132,42 @@ func NewMessageFromHeaders(h http.Header, p io.Reader) (message *wrp.Message, er
 	}()
 
 	payload, contentType := readPayload(h, p)
-	message = &wrp.Message{
-		Type:                    getMessageType(h),
-		Source:                  h.Get(SourceHeader),
-		Destination:             h.Get(DestinationHeader),
-		TransactionUUID:         h.Get(TransactionUuidHeader),
-		Status:                  getIntHeader(h, StatusHeader),
-		RequestDeliveryResponse: getIntHeader(h, RequestDeliveryResponseHeader),
-		IncludeSpans:            getBoolHeader(h, IncludeSpansHeader),
-		Spans:                   getSpans(h),
-		Payload:                 payload,
-		ContentType:             contentType,
-		Accept:                  h.Get(AcceptHeader),
-		Path:                    h.Get(PathHeader),
+	message = new(wrp.Message)
+	err = SetMessageFromHeaders(h, message)
+	if err != nil {
+		message = nil
 	}
+
+	message.Payload = payload
+	message.ContentType = contentType
+	return
+}
+
+// SetMessageFromHeaders transfers header fields onto the given WRP message.  The payload is not
+// handled by this method.
+func SetMessageFromHeaders(h http.Header, m *wrp.Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch v := r.(type) {
+			case error:
+				err = v
+			default:
+				err = fmt.Errorf("Unable to create WRP message: %s", v)
+			}
+		}
+	}()
+
+	m.Type = getMessageType(h)
+	m.Source = h.Get(SourceHeader)
+	m.Destination = h.Get(DestinationHeader)
+	m.TransactionUUID = h.Get(TransactionUuidHeader)
+	m.Status = getIntHeader(h, StatusHeader)
+	m.RequestDeliveryResponse = getIntHeader(h, RequestDeliveryResponseHeader)
+	m.IncludeSpans = getBoolHeader(h, IncludeSpansHeader)
+	m.Spans = getSpans(h)
+	m.ContentType = h.Get("Content-Type")
+	m.Accept = h.Get(AcceptHeader)
+	m.Path = h.Get(PathHeader)
 
 	return
 }

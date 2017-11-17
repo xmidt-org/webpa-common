@@ -1,4 +1,4 @@
-package middleware
+package fanout
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testFanoutNilSpanner(t *testing.T) {
+func testNewNilSpanner(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		dummy  = func(context.Context, interface{}) (interface{}, error) {
@@ -23,25 +23,26 @@ func testFanoutNilSpanner(t *testing.T) {
 	)
 
 	assert.Panics(func() {
-		Fanout(nil, map[string]endpoint.Endpoint{"test": dummy})
+		New(nil, map[string]endpoint.Endpoint{"test": dummy})
 	})
 }
 
-func testFanoutNoConfiguredEndpoints(t *testing.T) {
+func testNewNoConfiguredEndpoints(t *testing.T) {
 	assert := assert.New(t)
 	for _, empty := range []map[string]endpoint.Endpoint{nil, {}} {
 		assert.Panics(func() {
-			Fanout(tracing.NewSpanner(), empty)
+			New(tracing.NewSpanner(), empty)
 		})
 	}
 }
 
-func testFanoutSuccessFirst(t *testing.T, serviceCount int) {
+func testNewSuccessFirst(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest  = "expectedRequest"
@@ -55,14 +56,16 @@ func testFanoutSuccessFirst(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints["success"] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				success <- "success"
 				return expectedResponse, nil
 			}
 		} else {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-failureGate
 				return nil, fmt.Errorf("expected failure #%d", i)
@@ -71,7 +74,7 @@ func testFanoutSuccessFirst(t *testing.T, serviceCount int) {
 	}
 
 	defer cancel()
-	fanout := Fanout(tracing.NewSpanner(), endpoints)
+	fanout := New(tracing.NewSpanner(), endpoints)
 	require.NotNil(fanout)
 
 	response, err := fanout(expectedCtx, expectedRequest)
@@ -86,12 +89,13 @@ func testFanoutSuccessFirst(t *testing.T, serviceCount int) {
 	assert.NoError(spans[0].Error())
 }
 
-func testFanoutSuccessLast(t *testing.T, serviceCount int) {
+func testNewSuccessLast(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest  = "expectedRequest"
@@ -107,7 +111,8 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints["success"] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-successGate
 				success <- "success"
@@ -116,7 +121,8 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 		} else {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
 				defer failuresDone.Done()
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				return nil, fmt.Errorf("expected failure #%d", i)
 			}
@@ -124,7 +130,7 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 	}
 
 	defer cancel()
-	fanout := Fanout(tracing.NewSpanner(), endpoints)
+	fanout := New(tracing.NewSpanner(), endpoints)
 	require.NotNil(fanout)
 
 	// to force the success to be last, we spawn a goroutine to wait until
@@ -157,12 +163,13 @@ func testFanoutSuccessLast(t *testing.T, serviceCount int) {
 	assert.True(successSpanFound)
 }
 
-func testFanoutTimeout(t *testing.T, serviceCount int) {
+func testNewTimeout(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest  = "expectedRequest"
@@ -176,7 +183,8 @@ func testFanoutTimeout(t *testing.T, serviceCount int) {
 	endpointsWaiting.Add(serviceCount)
 	for i := 0; i < serviceCount; i++ {
 		endpoints[fmt.Sprintf("slow#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-			assert.Equal(expectedCtx, ctx)
+			assert.Equal(logger, logging.Logger(ctx))
+			assert.Equal(expectedRequest, FromContext(ctx))
 			assert.Equal(expectedRequest, request)
 			endpointsWaiting.Done()
 			<-endpointGate
@@ -187,7 +195,7 @@ func testFanoutTimeout(t *testing.T, serviceCount int) {
 	// release the endpoint goroutines when this test exits, to clean things up
 	defer close(endpointGate)
 
-	fanout := Fanout(tracing.NewSpanner(), endpoints)
+	fanout := New(tracing.NewSpanner(), endpoints)
 	require.NotNil(fanout)
 
 	// in order to force a timeout in the select, we spawn a goroutine that waits until
@@ -207,12 +215,13 @@ func testFanoutTimeout(t *testing.T, serviceCount int) {
 	assert.Empty(spanError.Spans())
 }
 
-func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
+func testNewAllEndpointsFail(t *testing.T, serviceCount int) {
 	var (
 		require             = require.New(t)
 		assert              = assert.New(t)
+		logger              = logging.NewTestLogger(nil, t)
 		expectedCtx, cancel = context.WithCancel(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logger),
 		)
 
 		expectedRequest   = "expectedRequest"
@@ -227,7 +236,8 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(expectedCtx, ctx)
+				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-lastEndpointGate
 				return nil, expectedLastError
@@ -236,7 +246,8 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(index int) endpoint.Endpoint {
 				return func(ctx context.Context, request interface{}) (interface{}, error) {
 					defer otherEndpointsDone.Done()
-					assert.Equal(expectedCtx, ctx)
+					assert.Equal(logger, logging.Logger(ctx))
+					assert.Equal(expectedRequest, FromContext(ctx))
 					assert.Equal(expectedRequest, request)
 					return nil, fmt.Errorf("failure#%d", index)
 				}
@@ -245,7 +256,7 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 	}
 
 	defer cancel()
-	fanout := Fanout(tracing.NewSpanner(), endpoints)
+	fanout := New(tracing.NewSpanner(), endpoints)
 	require.NotNil(fanout)
 
 	// in order to force a known endpoint to be last, we spawn a goroutine and wait
@@ -268,14 +279,14 @@ func testFanoutAllEndpointsFail(t *testing.T, serviceCount int) {
 	}
 }
 
-func TestFanout(t *testing.T) {
-	t.Run("NoConfiguredEndpoints", testFanoutNoConfiguredEndpoints)
-	t.Run("NilSpanner", testFanoutNilSpanner)
+func TestNew(t *testing.T) {
+	t.Run("NoConfiguredEndpoints", testNewNoConfiguredEndpoints)
+	t.Run("NilSpanner", testNewNilSpanner)
 
 	t.Run("SuccessFirst", func(t *testing.T) {
 		for c := 1; c <= 5; c++ {
 			t.Run(fmt.Sprintf("EndpointCount=%d", c), func(t *testing.T) {
-				testFanoutSuccessFirst(t, c)
+				testNewSuccessFirst(t, c)
 			})
 		}
 	})
@@ -283,7 +294,7 @@ func TestFanout(t *testing.T) {
 	t.Run("SuccessLast", func(t *testing.T) {
 		for c := 1; c <= 5; c++ {
 			t.Run(fmt.Sprintf("EndpointCount=%d", c), func(t *testing.T) {
-				testFanoutSuccessLast(t, c)
+				testNewSuccessLast(t, c)
 			})
 		}
 	})
@@ -291,7 +302,7 @@ func TestFanout(t *testing.T) {
 	t.Run("Timeout", func(t *testing.T) {
 		for c := 1; c <= 5; c++ {
 			t.Run(fmt.Sprintf("EndpointCount=%d", c), func(t *testing.T) {
-				testFanoutTimeout(t, c)
+				testNewTimeout(t, c)
 			})
 		}
 	})
@@ -299,7 +310,7 @@ func TestFanout(t *testing.T) {
 	t.Run("AllEndpointsFail", func(t *testing.T) {
 		for c := 1; c <= 5; c++ {
 			t.Run(fmt.Sprintf("EndpointCount=%d", c), func(t *testing.T) {
-				testFanoutAllEndpointsFail(t, c)
+				testNewAllEndpointsFail(t, c)
 			})
 		}
 	})

@@ -1,4 +1,4 @@
-package middleware
+package fanout
 
 import (
 	"context"
@@ -9,22 +9,22 @@ import (
 	"github.com/go-kit/kit/log/level"
 )
 
-// fanoutResponse is the internal tuple used to communicate the results of an asynchronously
+// response is the internal tuple used to communicate the results of an asynchronously
 // invoked endpoint
-type fanoutResponse struct {
-	name     string
-	span     tracing.Span
-	response interface{}
-	err      error
+type response struct {
+	name              string
+	span              tracing.Span
+	componentResponse interface{}
+	err               error
 }
 
-// Fanout produces a go-kit Endpoint which tries all of a set of endpoints concurrently.  The first endpoint
+// New produces a go-kit Endpoint which tries all of a set of component endpoints concurrently.  The first component
 // to respond successfully causes this endpoint to return with that response immediately, without waiting
 // on subsequent endpoints.  If the context is canceled for any reason, ctx.Err() is returned.  Finally,
 // if all endpoints fail, an error is returned with a span for each endpoint.
 //
 // If spanner is nil or endpoints is empty, this function panics.
-func Fanout(spanner tracing.Spanner, endpoints map[string]endpoint.Endpoint) endpoint.Endpoint {
+func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 	if spanner == nil {
 		panic("No spanner supplied")
 	}
@@ -40,24 +40,26 @@ func Fanout(spanner tracing.Spanner, endpoints map[string]endpoint.Endpoint) end
 	}
 
 	endpoints = copyOf
-	return func(ctx context.Context, request interface{}) (interface{}, error) {
+	return func(ctx context.Context, v interface{}) (interface{}, error) {
+
 		var (
 			logger  = logging.Logger(ctx)
-			results = make(chan fanoutResponse, len(endpoints))
+			results = make(chan response, len(endpoints))
 		)
 
+		ctx = NewContext(ctx, v)
 		for name, e := range endpoints {
 			go func(name string, e endpoint.Endpoint) {
 				var (
-					finisher      = spanner.Start(name)
-					response, err = e(ctx, request)
+					finisher               = spanner.Start(name)
+					componentResponse, err = e(ctx, v)
 				)
 
-				results <- fanoutResponse{
-					name:     name,
-					span:     finisher(err),
-					response: response,
-					err:      err,
+				results <- response{
+					name:              name,
+					span:              finisher(err),
+					componentResponse: componentResponse,
+					err:               err,
 				}
 			}(name, e)
 		}
@@ -79,8 +81,8 @@ func Fanout(spanner tracing.Spanner, endpoints map[string]endpoint.Endpoint) end
 					logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.ErrorKey(), fr.err, logging.MessageKey(), "failed")
 				} else {
 					logger.Log(level.Key(), level.DebugValue(), "service", fr.name, logging.MessageKey(), "success")
-					response, _ := tracing.MergeSpans(fr.response, spans)
-					return response, nil
+					fanoutResponse, _ := tracing.MergeSpans(fr.componentResponse, spans)
+					return fanoutResponse, nil
 				}
 			}
 		}

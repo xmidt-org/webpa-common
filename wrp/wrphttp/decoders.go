@@ -15,6 +15,62 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
+// Entity is the fanout entity produced by the decoders in this package
+type Entity struct {
+	Format   wrp.Format
+	Contents []byte
+	Message  wrp.Message
+}
+
+// DecodeRequest is a go-kit DecodeRequestFunc that produces an Entity from the given HTTP request.
+// The Content-Type header is used to determine the format, and if not specified wrp.Msgpack is used.
+func DecodeRequest(ctx context.Context, original *http.Request) (interface{}, error) {
+	contents, err := ioutil.ReadAll(original.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var format wrp.Format
+	contentType := original.Header.Get("Content-Type")
+	if len(contentType) == 0 {
+		format = wrp.Msgpack
+	} else {
+		format, err = wrp.FormatFromContentType(contentType)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	entity := &Entity{
+		Format:   format,
+		Contents: contents,
+	}
+
+	err = wrp.NewDecoderBytes(contents, format).Decode(&entity.Message)
+	return entity, err
+}
+
+// DecodeRequestHeaders is a go-kit DecodeRequestFunc that uses the HTTP headers as fields of a WRP message.
+// The HTTP entity, if specified, is used as the payload of the WRP message.
+func DecodeRequestHeaders(ctx context.Context, original *http.Request) (interface{}, error) {
+	payload, err := ioutil.ReadAll(original.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	entity := Entity{
+		Format: wrp.Msgpack,
+	}
+
+	err = SetMessageFromHeaders(original.Header, &entity.Message)
+	if err != nil {
+		return nil, err
+	}
+
+	entity.Message.Payload = payload
+	return entity, nil
+}
+
 // ClientDecodeResponseBody produces a go-kit transport/http.DecodeResponseFunc that turns an HTTP response
 // into a WRP response.
 func ClientDecodeResponseBody(pool *wrp.DecoderPool) gokithttp.DecodeResponseFunc {

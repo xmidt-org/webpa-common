@@ -13,6 +13,32 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
+// EncodeRequest returns a go-kit EncodeRequestFunc that encodes a decoded Entity as an HTTP request,
+// often as the component of a fanout (though not required).  The given WRP format is used as the HTTP entity format.
+func EncodeRequest(format wrp.Format) gokithttp.EncodeRequestFunc {
+	return func(ctx context.Context, component *http.Request, v interface{}) error {
+		entity := v.(*Entity)
+
+		if format == entity.Format && len(entity.Contents) > 0 {
+			// the entity is already formatted properly, so just write its contents out
+			component.Body = ioutil.NopCloser(bytes.NewReader(entity.Contents))
+			component.ContentLength = len(entity.Contents)
+		} else {
+			var transcoded []byte
+			if err := wrp.NewEncoderBytes(&transcoded, format).Encode(&entity.Message); err != nil {
+				return err
+			}
+
+			component.Body = ioutil.NopCloser(bytes.NewReader(transcoded))
+			component.ContentLength = len(transcoded)
+		}
+
+		component.Header.Set("Content-Type", format.ContentType())
+		component.Header.Set(DestinationHeader, entity.Message.Destination)
+		return nil
+	}
+}
+
 // ClientEncodeRequestBody produces a go-kit transport/http.EncodeRequestFunc for use when sending WRP requests
 // to HTTP clients.  The returned decoder will set the appropriate headers and set the body to the encoded
 // WRP message in the request.
