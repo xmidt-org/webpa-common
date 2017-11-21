@@ -89,10 +89,6 @@ func TestLifecycle(t *testing.T) {
 		t.Errorf("Failed to verify final state within the timeout")
 		close(done)
 	}
-
-	if _, ok := <-h.events; ok {
-		t.Errorf("Close() did not close the event channel")
-	}
 }
 
 func TestServeHTTP(t *testing.T) {
