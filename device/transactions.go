@@ -156,7 +156,7 @@ type Transactions struct {
 
 func NewTransactions() *Transactions {
 	return &Transactions{
-		pending: make(map[string]chan *Response, 1000),
+		pending: make(map[string]chan *Response),
 	}
 }
 
