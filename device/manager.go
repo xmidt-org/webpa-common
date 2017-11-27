@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 )
+
+const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 
 var (
 	authStatus = &wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized}
@@ -103,7 +106,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 
 		connectionFactory:      cf,
 		conveyTranslator:       conveyhttp.NewHeaderTranslator("", nil),
-		registry:               newRegistry(o.initialCapacity()),
+		registry:               newRegistry(o.initialCapacity(), o.maxDevices()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 		authDelay:              o.authDelay(),
@@ -156,18 +159,31 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	)
 
 	if c, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
-		m.debugLog.Log("convey", c)
+		d.debugLog.Log("convey", c)
 	} else if err != conveyhttp.ErrMissingHeader {
-		m.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
+		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
 	}
 
-	go m.readPump(d, c, closeOnce)
-	go m.writePump(d, c, closeOnce)
-	if existing := m.registry.add(d); existing != nil {
+	existing, err := m.registry.add(d)
+	if err != nil {
+		d.errorLog.Log(logging.MessageKey(), "unable to connect device", logging.ErrorKey(), err)
+		response.Header().Set(MaxDevicesHeader, strconv.FormatUint(uint64(m.registry.maxDevices()), 10))
+
+		httperror.Format(
+			response,
+			http.StatusServiceUnavailable,
+			err,
+		)
+
+		return nil, err
+	} else if existing != nil {
 		existing.errorLog.Log(logging.MessageKey(), "disconnecting duplicate device")
 		existing.requestClose()
 		d.statistics.AddDuplications(existing.statistics.Duplications() + 1)
 	}
+
+	go m.readPump(d, c, closeOnce)
+	go m.writePump(d, c, closeOnce)
 
 	return d, nil
 }

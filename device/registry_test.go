@@ -1,6 +1,7 @@
 package device
 
 import (
+	"math"
 	"sync"
 	"testing"
 
@@ -33,13 +34,17 @@ func testRegistryConcurrentAddAndVisit(t *testing.T, r *registry) {
 				second = &device{id: id}
 			)
 
-			assert.Nil(r.add(first))
+			existing, err := r.add(first)
+			assert.Nil(existing)
+			assert.NoError(err)
 			existing, ok := r.get(id)
 			assert.True(first == existing)
 			assert.Equal(id, existing.id)
 			assert.True(ok)
 
-			assert.True(first == r.add(second))
+			existing, err = r.add(second)
+			assert.True(first == existing)
+			assert.NoError(err)
 			existing, ok = r.get(id)
 			assert.True(second == existing)
 			assert.Equal(id, existing.id)
@@ -148,16 +153,53 @@ func testRegistryConcurrentAddAndRemove(t *testing.T, r *registry) {
 	}
 }
 
+func testRegistryMaxDevices(t *testing.T) {
+	var (
+		assert    = assert.New(t)
+		first     = &device{id: ID("123")}
+		duplicate = &device{id: ID("123")}
+		second    = &device{id: ID("345")}
+		registry  = newRegistry(0, 1)
+	)
+
+	assert.Equal(uint32(1), registry.maxDevices())
+
+	existing, err := registry.add(first)
+	assert.Nil(existing)
+	assert.NoError(err)
+
+	existing, err = registry.add(duplicate)
+	assert.True(first == existing)
+	assert.NoError(err)
+
+	existing, err = registry.add(second)
+	assert.Nil(existing)
+	assert.Error(err)
+
+	existing, ok := registry.removeID(first.id)
+	assert.True(duplicate == existing)
+	assert.True(ok)
+
+	existing, err = registry.add(second)
+	assert.Nil(existing)
+	assert.NoError(err)
+
+	registry = newRegistry(0, 0)
+	assert.Equal(uint32(math.MaxUint32), registry.maxDevices())
+}
+
 func TestRegistry(t *testing.T) {
 	t.Run("ConcurrentAddAndVisit", func(t *testing.T) {
-		testRegistryConcurrentAddAndVisit(t, newRegistry(0))
-		testRegistryConcurrentAddAndVisit(t, newRegistry(1))
-		testRegistryConcurrentAddAndVisit(t, newRegistry(100))
+		testRegistryConcurrentAddAndVisit(t, newRegistry(0, 100))
+		testRegistryConcurrentAddAndVisit(t, newRegistry(1, 100))
+		testRegistryConcurrentAddAndVisit(t, newRegistry(100, 100))
 	})
 
 	t.Run("ConcurrentAddAndRemove", func(t *testing.T) {
-		testRegistryConcurrentAddAndRemove(t, newRegistry(0))
-		testRegistryConcurrentAddAndRemove(t, newRegistry(1))
-		testRegistryConcurrentAddAndRemove(t, newRegistry(100))
+		testRegistryConcurrentAddAndRemove(t, newRegistry(0, 100))
+		testRegistryConcurrentAddAndRemove(t, newRegistry(1, 100))
+		testRegistryConcurrentAddAndRemove(t, newRegistry(100, 100))
 	})
+
+	t.Run("MaxDevices", testRegistryMaxDevices)
 }
