@@ -1,27 +1,48 @@
 package device
 
 import (
+	"fmt"
+	"math"
 	"sync"
 )
 
+// registry is the internal lookup map for devices.  it is bounded by an optional maximum number
+// of connected devices.
 type registry struct {
 	lock    sync.RWMutex
+	limit   uint32
 	devices map[ID]*device
 }
 
-func newRegistry(initialCapacity uint32) *registry {
+func newRegistry(initialCapacity, maxDevices uint32) *registry {
+	if maxDevices == 0 {
+		maxDevices = math.MaxUint32
+	}
+
 	return &registry{
 		devices: make(map[ID]*device, initialCapacity),
+		limit:   maxDevices,
 	}
 }
 
-func (r *registry) add(d *device) *device {
-	r.lock.Lock()
-	existing := r.devices[d.id]
-	r.devices[d.id] = d
-	r.lock.Unlock()
+func (r *registry) maxDevices() uint32 {
+	return r.limit
+}
 
-	return existing
+func (r *registry) add(d *device) (existing *device, err error) {
+	r.lock.Lock()
+	existing = r.devices[d.id]
+
+	if existing == nil && uint32(len(r.devices)+1) > r.limit {
+		err = fmt.Errorf("Maximum count of devices exceeded [%d]", r.limit)
+	} else {
+		// if there is an existing device, there's no reason to check the device limit
+		// since we're replacing a device
+		r.devices[d.id] = d
+	}
+
+	r.lock.Unlock()
+	return
 }
 
 func (r *registry) remove(d *device) {

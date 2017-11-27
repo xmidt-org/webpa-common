@@ -1,6 +1,7 @@
 package device
 
 import (
+	"math"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
@@ -48,6 +49,10 @@ type Options struct {
 	// InitialCapacity is used as the starting capacity of the internal map of
 	// registered devices.  If not supplied, DefaultInitialCapacity is used.
 	InitialCapacity uint32
+
+	// MaxDevices is the maximum number of devices allowed to connect to any one Manager.
+	// If unset (i.e. zero), math.MaxUint32 is used as the maximum.
+	MaxDevices uint32
 
 	// ReadBufferSize is the optional size of websocket read buffers.  If not supplied,
 	// the internal gorilla default is used.
@@ -127,6 +132,14 @@ func (o *Options) initialCapacity() uint32 {
 	}
 
 	return DefaultInitialCapacity
+}
+
+func (o *Options) maxDevices() uint32 {
+	if o != nil && o.MaxDevices > 0 {
+		return o.MaxDevices
+	}
+
+	return math.MaxUint32
 }
 
 func (o *Options) idlePeriod() time.Duration {

@@ -1,6 +1,7 @@
 package device
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(DefaultDecoderPoolSize, o.decoderPoolSize())
 		assert.Equal(DefaultEncoderPoolSize, o.encoderPoolSize())
 		assert.Equal(uint32(DefaultInitialCapacity), o.initialCapacity())
+		assert.Equal(uint32(math.MaxUint32), o.maxDevices())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
 		assert.Equal(DefaultPingPeriod, o.pingPeriod())
 		assert.Equal(DefaultAuthDelay, o.authDelay())
@@ -41,6 +43,7 @@ func TestOptions(t *testing.T) {
 			DecoderPoolSize:        672393,
 			EncoderPoolSize:        1034571,
 			InitialCapacity:        DefaultInitialCapacity + 4719,
+			MaxDevices:             20000,
 			ReadBufferSize:         DefaultReadBufferSize + 48729,
 			WriteBufferSize:        DefaultWriteBufferSize + 926,
 			Subprotocols:           []string{"foobar"},
@@ -59,6 +62,7 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.DecoderPoolSize, o.decoderPoolSize())
 	assert.Equal(o.EncoderPoolSize, o.encoderPoolSize())
 	assert.Equal(o.InitialCapacity, o.initialCapacity())
+	assert.Equal(uint32(20000), o.maxDevices())
 	assert.Equal(o.IdlePeriod, o.idlePeriod())
 	assert.Equal(o.PingPeriod, o.pingPeriod())
 	assert.Equal(o.AuthDelay, o.authDelay())
