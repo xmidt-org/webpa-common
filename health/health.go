@@ -148,15 +148,17 @@ func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error 
 }
 
 func (h *Health) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	var servedStats Stats
+	var (
+		data []byte
+		err  error
+	)
+
 	h.SendEvent(func(stats Stats) {
 		stats.UpdateMemory(h.memInfoReader)
-		servedStats = stats
+		data, err = json.Marshal(stats)
 	})
 
 	response.Header().Set("Content-Type", "application/json")
-	data, err := json.Marshal(servedStats)
-
 	if err != nil {
 		h.errorLog.Log(logging.MessageKey(), "Could not marshal stats", logging.ErrorKey(), err)
 		response.WriteHeader(http.StatusInternalServerError)
