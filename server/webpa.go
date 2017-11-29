@@ -13,6 +13,9 @@ import (
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_model/go"
 )
 
 var (
@@ -208,6 +211,9 @@ type WebPA struct {
 	// is empty, no pprof server is started.
 	Pprof Basic
 
+	//Metrics describes the metrics provider server for this application
+	Metrics Basic
+
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 }
@@ -257,6 +263,18 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
+		if metricsServer := w.Metrics.New(logger, getMetricsHandler()); metricsServer != nil {
+			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metrics.Name, "address", w.Metrics.Address)
+			ListenAndServe(logger, &w.Metrics, metricsServer)
+		}
+
 		return nil
 	})
+}
+
+func getMetricsHandler() http.Handler{
+	//todo: need to add security layer decoration
+	mu := http.NewServeMux()
+	mu.Handle("/metrics", promhttp.Handler())
+	return mu
 }
