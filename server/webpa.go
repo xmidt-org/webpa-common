@@ -14,8 +14,6 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_model/go"
 )
 
 var (
@@ -272,7 +270,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 	})
 }
 
-func getMetricsHandler() http.Handler{
+func getMetricsHandler() http.Handler {
 	//todo: need to add security layer decoration
 	mu := http.NewServeMux()
 	mu.Handle("/metrics", promhttp.Handler())
