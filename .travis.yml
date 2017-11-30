@@ -10,7 +10,6 @@ before_install:
     - chmod 755 ./codecov.sh
 
 install:
-    - $TRAVIS_BUILD_DIR/.travis.gofmt.sh
     - glide install --strip-vendor
 
 script:
