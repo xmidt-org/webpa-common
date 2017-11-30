@@ -14,7 +14,11 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/prometheus"
+
+	stdprometheus "github.com/prometheus/client_golang/prometheus"
+
 )
 
 var (
@@ -274,12 +278,23 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 }
 
 //getMetricsHandler returns the handler for metrics given a gatherer. If none is provided, the default is used
-func getMetricsHandler(gatherer prometheus.Gatherer) http.Handler {
+func getMetricsHandler(gatherer stdprometheus.Gatherer) http.Handler {
 	if gatherer == nil {
-		gatherer = prometheus.DefaultGatherer
+		gatherer = stdprometheus.DefaultGatherer
 	}
 	//todo: need to add security layer decoration
 	mu := http.NewServeMux()
 	mu.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
 	return mu
 }
+
+//todo maybe this webpa server arm for metrics does not belong here
+type MetricsTool struct {
+
+}
+
+func (*MetricsTool) GetCounter(name, help string) (counter metrics.Counter) {
+	counter = prometheus.NewCounterFrom(stdprometheus.CounterOpts{Name: name, Help: help}, []string{})
+	return
+}
+
