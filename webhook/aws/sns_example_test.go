@@ -27,7 +27,6 @@ func TestSNSReadyAndPublishSuccess(t *testing.T) {
 }
 
 func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
-	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
 	ss, m, mv, _ := SetUpTestSNSServer(t)
@@ -39,15 +38,14 @@ func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
 	// mocking SNS subscribe response
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
-	// Subscribe again to change SNS to not ready
+	// Subscribe again will not change the ready state
+	// as the subArn value stored locally and in AWS are still the same
 	ss.Subscribe()
 
-	time.Sleep(1 * time.Second)
+	assert.Equal(t, ss.subscriptionArn.Load().(string), "testSubscriptionArn")
 
-	assert.Equal(ss.subscriptionArn.Load().(string), expectedSubArn)
-
-	// listenAndPublishMessage is terminated hence no mock need for PublishInput
-	ss.PublishMessage(TEST_HOOK)
+	// Test Publish
+	testPublish(t, m, ss)
 
 	// SNS Ready and Publish again
 	testSubConf(t, m, mv, ss)
@@ -57,18 +55,13 @@ func TestSNSReadyToNotReadySwitchAndBack(t *testing.T) {
 }
 
 func testSubscribe(t *testing.T, m *MockSVC, ss *SNSServer) {
-	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
 	// mocking SNS subscribe response
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 	ss.PrepareAndStart()
-
-	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
-	time.Sleep(1 * time.Second)
-
-	assert.Equal(ss.subscriptionArn.Load().(string), expectedSubArn)
+	assert.Nil(t, ss.subscriptionArn.Load())
 }
 
 func testSubConf(t *testing.T, m *MockSVC, mv *MockValidator, ss *SNSServer) {
@@ -94,10 +87,7 @@ func testSubConf(t *testing.T, m *MockSVC, mv *MockValidator, ss *SNSServer) {
 	resp := w.Result()
 
 	assert.Equal(http.StatusOK, resp.StatusCode)
-
-	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
 	time.Sleep(1 * time.Second)
-
 	assert.Equal(ss.subscriptionArn.Load().(string), confSubArn)
 
 }
@@ -110,6 +100,7 @@ func testPublish(t *testing.T, m *MockSVC, ss *SNSServer) {
 
 	// wait such that listenAndPublishMessage go routine will publish message
 	time.Sleep(1 * time.Second)
+
 }
 
 func TestSNSSubConfValidateErr(t *testing.T) {
@@ -140,9 +131,7 @@ func TestSNSSubConfValidateErr(t *testing.T) {
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
-
-	assert.Equal(ss.subscriptionArn.Load().(string), "pending confirmation")
-
+	assert.Nil(t, ss.subscriptionArn.Load())
 }
 
 func TestSNSReadyUnsubscribeOldSubscriptions(t *testing.T) {
