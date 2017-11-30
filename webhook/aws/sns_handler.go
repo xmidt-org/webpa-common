@@ -141,10 +141,7 @@ func (ss *SNSServer) Subscribe() {
 		}
 	}
 
-	ss.debugLog.Log("subscribeResponse", resp)
-
-	// Add SubscriptionArn to subscription data channel
-	ss.subscriptionData <- *resp.SubscriptionArn
+	ss.debugLog.Log("subscribeResponse", resp, logging.MessageKey(), "SNS is not yet ready", "subscriptionArn", *resp.SubscriptionArn)
 }
 
 // POST handler to receive SNS Confirmation Message
@@ -198,8 +195,14 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	ss.debugLog.Log(logging.MessageKey(), "SNS confirm response", "response", resp)
 
-	// Add SubscriptionArn to subscription data channel
-	ss.subscriptionData <- *resp.SubscriptionArn
+	ss.subscriptionArn.Store(*resp.SubscriptionArn)
+	ss.debugLog.Log(logging.MessageKey(), "SNS is ready", "subscriptionArn", *resp.SubscriptionArn)
+
+	// start listenAndPublishMessage go routine
+	go ss.listenAndPublishMessage()
+
+	// As SNS is ready, unsubscribe old subscriptions
+	go ss.UnsubscribeOldSubscriptions()
 
 }
 
@@ -270,9 +273,9 @@ func (ss *SNSServer) PublishMessage(message string) {
 }
 
 // listenAndPublishMessage go routine listens for data on notificationData channel
-// NS publishes it to SNS
-// This go Routine is started when SNS Ready and stopped when SNS is not Ready
-func (ss *SNSServer) listenAndPublishMessage(quit <-chan struct{}) {
+// and publishes it to SNS
+// This go Routine is started when SNS Ready
+func (ss *SNSServer) listenAndPublishMessage() {
 	for {
 		select {
 		case message := <-ss.notificationData:
@@ -294,11 +297,8 @@ func (ss *SNSServer) listenAndPublishMessage(quit <-chan struct{}) {
 				ss.errorLog.Log(logging.MessageKey(), "SNS send message error", logging.ErrorKey(), err)
 			}
 			ss.debugLog.Log(logging.MessageKey(), "SNS send message", "response", resp)
-		// TODO : health.SendEvent(HTH.Set("TotalDataPayloadSent", int(len([]byte(resp.GoString()))) ))
+			// TODO : health.SendEvent(HTH.Set("TotalDataPayloadSent", int(len([]byte(resp.GoString()))) ))
 
-		// To terminate the go routine when SNS is not ready, so dont allow publish message
-		case <-quit:
-			return
 		}
 	}
 }

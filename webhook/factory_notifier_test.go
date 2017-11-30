@@ -50,11 +50,10 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 
 	f.PrepareAndStart()
 
-	time.Sleep(1 * time.Second)
 
-	subValid := f.ValidateSubscriptionArn(expectedSubArn)
+	subValid := f.ValidateSubscriptionArn("")
 
-	assert.Equal(subValid, true)
+	assert.Equal(subValid, false)
 
 	req.RequestURI = ""
 	res, err := http.DefaultClient.Do(req)
@@ -116,11 +115,9 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 
 	f.PrepareAndStart()
 
-	time.Sleep(1 * time.Second)
+	subValid := f.ValidateSubscriptionArn("")
 
-	subValid := f.ValidateSubscriptionArn(expectedSubArn)
-
-	assert.Equal(true, subValid)
+	assert.Equal(false, subValid)
 
 	req.RequestURI = ""
 	res, err := http.DefaultClient.Do(req)

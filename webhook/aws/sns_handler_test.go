@@ -100,7 +100,6 @@ func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mu
 func TestSubscribeSuccess(t *testing.T) {
 	fmt.Println("\n\nTestSubscribeSuccess")
 
-	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
 	ss, m, _, _ := SetUpTestSNSServer(t)
@@ -110,10 +109,7 @@ func TestSubscribeSuccess(t *testing.T) {
 
 	m.AssertExpectations(t)
 
-	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
-	time.Sleep(1 * time.Second)
-
-	assert.Equal(ss.subscriptionArn.Load().(string), expectedSubArn)
+	assert.Nil(t, ss.subscriptionArn.Load())
 }
 
 func TestSubscribeError(t *testing.T) {
@@ -128,12 +124,7 @@ func TestSubscribeError(t *testing.T) {
 	ss.PrepareAndStart()
 
 	m.AssertExpectations(t)
-
-	// wait such that listenSubscriptionData will update the SubscriptionArn value
-	time.Sleep(1 * time.Second)
-
 	assert.Nil(ss.subscriptionArn.Load())
-
 }
 
 func TestUnsubscribeSuccess(t *testing.T) {
@@ -147,9 +138,6 @@ func TestUnsubscribeSuccess(t *testing.T) {
 		SubscriptionArn: aws.String("testSubscriptionArn"), // Required
 	}
 	m.On("Unsubscribe", expectedInput).Return(&sns.UnsubscribeOutput{}, nil)
-
-	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
-	time.Sleep(1 * time.Second)
 
 	ss.Unsubscribe("")
 
@@ -166,9 +154,6 @@ func TestUnsubscribeWithSubArn(t *testing.T) {
 		SubscriptionArn: aws.String("subArn"), // Required
 	}
 	m.On("Unsubscribe", expectedInput).Return(&sns.UnsubscribeOutput{}, nil)
-
-	// wait such that listenSubscriptionData go routine will update the SubscriptionArn value
-	time.Sleep(1 * time.Second)
 
 	ss.Unsubscribe("subArn")
 
