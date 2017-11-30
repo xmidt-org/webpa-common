@@ -131,7 +131,6 @@ func TestSNSSubConfValidateErr(t *testing.T) {
 
 	m.AssertExpectations(t)
 	mv.AssertExpectations(t)
-	assert.Nil(t, ss.subscriptionArn.Load())
 }
 
 func TestSNSReadyUnsubscribeOldSubscriptions(t *testing.T) {
