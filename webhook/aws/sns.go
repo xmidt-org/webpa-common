@@ -35,11 +35,10 @@ type SNSConfig struct {
 }
 
 type SNSServer struct {
-	Config           AWSConfig
-	subscriptionArn  atomic.Value
-	subscriptionData chan string
-	SVC              snsiface.SNSAPI
-	SelfUrl          *url.URL
+	Config          AWSConfig
+	subscriptionArn atomic.Value
+	SVC     snsiface.SNSAPI
+	SelfUrl *url.URL
 	SNSValidator
 	notificationData chan string
 
@@ -130,7 +129,6 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 			Path:   urlPath,
 		}
 	}
-	ss.subscriptionData = make(chan string, 5)
 	ss.notificationData = make(chan string, 10)
 
 	// set up logger
@@ -154,44 +152,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 // subscribe to the SNS topic
 func (ss *SNSServer) PrepareAndStart() {
 
-	go ss.listenSubscriptionData()
-
 	ss.Subscribe()
-}
-
-// Go routine that continuously listens on SubscriptionData channel for updates to SubscriptionArn
-// And stores it to thread safe atomic.Value
-// Also checks if its value is NOT "" or "pending confirmation" => SNS Ready
-// If SNS ready => ready to receive notification thus starts the listenAndPublishMessage go routine
-// to receive notification messages and publish it
-// If SNS not ready => stops the listenAndPublishMessage go routine by closing channel
-func (ss *SNSServer) listenSubscriptionData() {
-	var quit chan struct{}
-
-	for {
-		select {
-		case data := <-ss.subscriptionData:
-			ss.debugLog.Log("listenSubscriptionData", data)
-			ss.subscriptionArn.Store(data)
-			if !strings.EqualFold("", data) && !strings.EqualFold("pending confirmation", data) {
-				ss.debugLog.Log(logging.MessageKey(), "SNS is ready", "subscriptionArn", data)
-
-				// start listenAndPublishMessage go routine
-				quit = make(chan struct{})
-				go ss.listenAndPublishMessage(quit)
-
-				// As SNS is ready, unsubscribe old subscriptions
-				go ss.UnsubscribeOldSubscriptions()
-			} else {
-				// stop the listenAndPublishMessage go routine
-				// if already running by closing the quit channel
-				if nil != quit {
-					ss.errorLog.Log(logging.MessageKey(), "SNS is not ready now as subscription arn is changed", "subscriptionArn", data)
-					close(quit)
-				}
-			}
-		}
-	}
 }
 
 // Validate that SubscriptionArn received in AWS request matches the cached config data
