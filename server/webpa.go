@@ -14,6 +14,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -224,11 +225,13 @@ type WebPA struct {
 // create one using Health.NewHealth.  In either case, if Health.Address is not supplied, no health server
 // will be instantiated.
 //
+// The caller may also pass a gatherer type. If it is not provided, the default provided by prometheus is used.
+//
 // The supplied http.Handler is used for the primary server.  If the alternate server has an address,
-// it will also be used for that server.  The health server uses an internally create handler, while the pprof
-// server uses http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
+// it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
+// servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler http.Handler, gatherer prometheus.Gatherer) (health.Monitor, concurrent.Runnable) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	healthHandler, healthServer := w.Health.New(logger, health)
@@ -261,7 +264,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		if metricsServer := w.Metrics.New(logger, getMetricsHandler()); metricsServer != nil {
+		if metricsServer := w.Metrics.New(logger, getMetricsHandler(gatherer)); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metrics.Name, "address", w.Metrics.Address)
 			ListenAndServe(logger, &w.Metrics, metricsServer)
 		}
@@ -270,9 +273,13 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 	})
 }
 
-func getMetricsHandler() http.Handler {
+//getMetricsHandler returns the handler for metrics given a gatherer. If none is provided, the default is used
+func getMetricsHandler(gatherer prometheus.Gatherer) http.Handler {
+	if gatherer == nil {
+		gatherer = prometheus.DefaultGatherer
+	}
 	//todo: need to add security layer decoration
 	mu := http.NewServeMux()
-	mu.Handle("/metrics", promhttp.Handler())
+	mu.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{}))
 	return mu
 }
