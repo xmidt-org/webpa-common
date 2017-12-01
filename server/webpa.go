@@ -12,12 +12,10 @@ import (
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/metrics"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/metrics/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -221,10 +219,12 @@ type WebPA struct {
 	Gatherer stdprometheus.Gatherer
 
 	//Opts constitutes prometheus handling options.
-	Opts *promhttp.HandlerOpts
+	Opts promhttp.HandlerOpts
 
 	// Log is the logging configuration for this application.
 	Log *logging.Options
+
+	MetricsTool metrics.MetricsTool
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -274,7 +274,9 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		if metricsServer := w.Metrics.New(logger, getMetricsHandler(w.Gatherer, w.Opts)); metricsServer != nil {
+		w.MetricsTool = metrics.MetricsTool{}
+
+		if metricsServer := w.Metrics.New(logger, w.MetricsTool.GetMetricsHandler(w.Gatherer, w.Opts)); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metrics.Name, "address", w.Metrics.Address)
 			ListenAndServe(logger, &w.Metrics, metricsServer)
 		}
@@ -285,26 +287,13 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 
 //getMetricsHandler returns the handler for metrics given a gatherer and prometheus handler options. Zero value
 // arguments are ok in which case prometheus-defined defaults are used.
-func getMetricsHandler(gatherer stdprometheus.Gatherer, opts *promhttp.HandlerOpts) http.Handler {
+func getMetricsHandler(m *metrics.MetricsTool, gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
 	if gatherer == nil {
 		gatherer = stdprometheus.DefaultGatherer
+		m.DefaultGathererInUse = true
 	}
 
-	if opts == nil {
-		opts = &promhttp.HandlerOpts{}
-	}
-
-	//todo: need to add security layer decoration
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(gatherer, *opts))
+	mux.Handle("/metrics", promhttp.HandlerFor(gatherer, opts))
 	return mux
-}
-
-//todo maybe this webpa server arm for metrics does not belong here
-type MetricsTool struct {
-}
-
-func (*MetricsTool) GetCounter(name, help string) (counter metrics.Counter) {
-	counter = prometheus.NewCounterFrom(stdprometheus.CounterOpts{Name: name, Help: help}, []string{})
-	return
 }
