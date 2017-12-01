@@ -218,13 +218,14 @@ type WebPA struct {
 	//Gatherer defines the metrics gathering behavior.
 	Gatherer stdprometheus.Gatherer
 
-	//Opts constitutes prometheus handling options.
+	//Opts describes prometheus handling options.
 	Opts promhttp.HandlerOpts
 
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 
-	MetricsTool metrics.MetricsTool
+	// MetricsProvider is the metric collectors provider for WebPa server
+	MetricsProvider *metrics.Provider
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -274,9 +275,9 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		w.MetricsTool = metrics.MetricsTool{}
+		w.MetricsProvider = &metrics.Provider{}
 
-		if metricsServer := w.Metrics.New(logger, w.MetricsTool.GetMetricsHandler(w.Gatherer, w.Opts)); metricsServer != nil {
+		if metricsServer := w.Metrics.New(logger, getMetricsHandler(w.MetricsProvider, w.Gatherer, w.Opts)); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metrics.Name, "address", w.Metrics.Address)
 			ListenAndServe(logger, &w.Metrics, metricsServer)
 		}
@@ -285,9 +286,9 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 	})
 }
 
-//getMetricsHandler returns the handler for metrics given a gatherer and prometheus handler options. Zero value
-// arguments are ok in which case prometheus-defined defaults are used.
-func getMetricsHandler(m *metrics.MetricsTool, gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
+//getMetricsHandler returns the handler for metrics given a gatherer and prometheus handler options. Zero value for the gatherer
+//is ok in which case the prometheus defaultGatherer is used.
+func getMetricsHandler(m *metrics.Provider, gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
 	if gatherer == nil {
 		gatherer = stdprometheus.DefaultGatherer
 		m.DefaultGathererInUse = true

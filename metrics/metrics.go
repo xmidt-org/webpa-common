@@ -6,16 +6,20 @@ import (
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 )
 
-type MetricsTool struct {
+//Provider is intended to be a metrics API for webpa servers.
+type Provider struct {
 	DefaultGathererInUse bool
 }
 
-func (m *MetricsTool) GetCounter(name, help string) (counter metrics.Counter) {
-	//todo need to account for
+//GetCounter returns a Counter metrics Collector
+//If MetricsTool.DefaultGathererInUse is true, it will go ahead and do the registration for such metric
+//with the prometheus defaultGatherer
+func (m *Provider) GetCounter(name, help string, labelValues []string) (counter metrics.Counter) {
+	opts := stdprometheus.CounterOpts{Name: name, Help: help}
 	if m.DefaultGathererInUse {
-		counter = prometheus.NewCounterFrom(stdprometheus.CounterOpts{Name: name, Help: help}, []string{})
+		counter = prometheus.NewCounterFrom(opts, labelValues) // registers with defaultGatherer
 	} else {
-		//todo
+		counter = prometheus.NewCounter(stdprometheus.NewCounterVec(opts, labelValues))
 	}
 	return
 }
