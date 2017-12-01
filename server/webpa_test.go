@@ -362,6 +362,11 @@ func TestWebPA(t *testing.T) {
 				Name:    "test.pprof",
 				Address: ":0",
 			},
+
+			Metrics: Basic{
+				Name:    "test.metrics",
+				Address: ":0",
+			},
 		}
 
 		_, logger         = newTestLogger()
