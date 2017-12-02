@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-kit/kit/metrics/provider"
+
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/metrics"
 	"github.com/go-kit/kit/log"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -225,7 +226,7 @@ type WebPA struct {
 	Log *logging.Options
 
 	// MetricsProvider is the metric collectors provider for WebPa server
-	MetricsProvider *metrics.Provider
+	GoKitMetricsProvider provider.NewPrometheusProvider
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -275,9 +276,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		w.MetricsProvider = &metrics.Provider{}
-
-		if metricsServer := w.Metrics.New(logger, getMetricsHandler(w.MetricsProvider, w.Gatherer, w.Opts)); metricsServer != nil {
+		if metricsServer := w.Metrics.New(logger, getMetricsHandler(w.Gatherer, w.Opts)); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metrics.Name, "address", w.Metrics.Address)
 			ListenAndServe(logger, &w.Metrics, metricsServer)
 		}
@@ -288,10 +287,9 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 
 //getMetricsHandler returns the handler for metrics given a gatherer and prometheus handler options. Zero value for the gatherer
 //is ok in which case the prometheus defaultGatherer is used.
-func getMetricsHandler(m *metrics.Provider, gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
+func getMetricsHandler(gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
 	if gatherer == nil {
 		gatherer = stdprometheus.DefaultGatherer
-		m.DefaultGathererInUse = true
 	}
 
 	mux := http.NewServeMux()
