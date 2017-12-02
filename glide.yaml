@@ -1,7 +1,7 @@
 package: github.com/Comcast/webpa-common
 import:
 - package: github.com/justinas/alice
-  version: "1.0.0"
+  version: 1.0.0
 - package: github.com/SermoDigital/jose
   version: "1.1"
   subpackages:
@@ -45,7 +45,6 @@ import:
   - codec
 - package: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
-  subpackages:
 - package: github.com/stretchr/testify
   version: 890a5c3458b43e6104ff5da8dfa139d013d77544
   subpackages:
@@ -55,6 +54,10 @@ import:
   - linux
 - package: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
-  subpackages: 
+  subpackages:
   - aws
   - service
+- package: github.com/prometheus/client_golang
+  version: v0.9.0-pre1
+  subpackages:
+  - prometheus

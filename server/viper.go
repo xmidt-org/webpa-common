@@ -17,6 +17,9 @@ const (
 	// DefaultHealthAddress is the bind address of the health check server
 	DefaultHealthAddress = ":8081"
 
+	// DefaultMetricsAddress is the bind address of the metrics server
+	DefaultMetricsAddress = ":8082"
+
 	// DefaultHealthLogInterval is the interval at which health statistics are emitted
 	// when a non-positive log interval is specified
 	DefaultHealthLogInterval time.Duration = time.Duration(60 * time.Second)
@@ -36,6 +39,10 @@ const (
 	// PprofSuffix is the suffix appended to the server name, along with a period (.), for
 	// logging information pertinent to the pprof server.
 	PprofSuffix = "pprof"
+
+	// MetricsSuffix is the suffix appended to the server name, along with a period (.), for
+	// logging information pertinent to the metrics server.
+	MetricsSuffix = "metrics"
 
 	// FileFlagName is the name of the command-line flag for specifying an alternate
 	// configuration file for Viper to hunt for.
@@ -79,6 +86,9 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 
 	v.SetDefault("pprof.name", fmt.Sprintf("%s.%s", applicationName, PprofSuffix))
 	v.SetDefault("pprof.logConnectionState", DefaultLogConnectionState)
+
+	v.SetDefault("metrics.name", fmt.Sprintf("%s.%s", applicationName, MetricsSuffix))
+	v.SetDefault("metrics.address", DefaultMetricsAddress)
 
 	configName := applicationName
 	if f != nil {
