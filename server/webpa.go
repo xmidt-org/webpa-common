@@ -225,8 +225,8 @@ type WebPA struct {
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 
-	// MetricsProvider is the metric collectors provider for WebPa server
-	GoKitMetricsProvider provider.NewPrometheusProvider
+	// MetricsProvider is the metric collectors provider for WebPa server. Server assumes client defines such provider
+	GoKitMetricsProvider provider.Provider
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned

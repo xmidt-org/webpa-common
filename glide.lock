@@ -1,5 +1,5 @@
 hash: 9dad6434f68499c4d1e61c5919e2c18334409a998f74498022277744919d21a6
-updated: 2017-12-01T14:17:25.652784-08:00
+updated: 2017-12-01T18:21:40.801676-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -58,12 +58,22 @@ imports:
   - log
   - log/level
   - metrics
+  - metrics/discard
+  - metrics/dogstatsd
+  - metrics/expvar
+  - metrics/generic
+  - metrics/graphite
+  - metrics/influx
   - metrics/internal/lv
+  - metrics/internal/ratemap
   - metrics/prometheus
+  - metrics/provider
+  - metrics/statsd
   - sd
   - sd/internal/instance
   - sd/zk
   - transport/http
+  - util/conn
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-stack/stack
@@ -91,6 +101,12 @@ imports:
   - json/parser
   - json/scanner
   - json/token
+- name: github.com/influxdata/influxdb
+  version: fd11e200c8b2e4d23c31945e330b2768b83d46f5
+  subpackages:
+  - client/v2
+  - models
+  - pkg/escape
 - name: github.com/jmespath/go-jmespath
   version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
 - name: github.com/jtacoma/uritemplates
@@ -175,6 +191,8 @@ imports:
   version: 00a57e09e383d445aeef6c6cd642969dc4360231
   subpackages:
   - codec
+- name: github.com/VividCortex/gohistogram
+  version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
 - name: golang.org/x/net
   version: a337091b0525af65de94df2eb7e98bd9962dcbe2
   subpackages:
