@@ -9,16 +9,42 @@ import (
 	"net/http"
 
 	"github.com/Comcast/webpa-common/httperror"
+	"github.com/Comcast/webpa-common/tracing"
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
 // PassThrough holds the raw contents of an original fanout request.  This is useful
 // when the fanout doesn't need to do any thing to the original request except pass it on.
 type PassThrough struct {
-	StatusCode  int
+	// StatusCode is the original status code from an http.Response.  This field doesn't apply to requests,
+	// and is generally set to a negative value for requests.
+	StatusCode int
+
+	// ContentType is the original content type of the request or response entity
 	ContentType string
-	CopyHeader  http.Header
-	Entity      []byte
+
+	// CopyHeader is an optional set of HTTP headers which was copied from the source request or response.  Encoding
+	// should generally transfer the contents of this header onto the resulting request or response.
+	CopyHeader http.Header
+
+	// Entity is the optional original entity of the request or response.
+	Entity []byte
+
+	spans []tracing.Span
+}
+
+func (pt *PassThrough) Spans() []tracing.Span {
+	return pt.spans
+}
+
+func (pt *PassThrough) WithSpans(s ...tracing.Span) interface{} {
+	copyOf := *pt
+	copyOf.spans = s
+	return &copyOf
+}
+
+func (pt *PassThrough) Headers() http.Header {
+	return pt.CopyHeader
 }
 
 // ReadCloser returns a distinct io.ReadCloser which can read the Entity bytes
