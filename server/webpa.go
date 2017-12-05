@@ -212,14 +212,14 @@ type WebPA struct {
 	// is empty, no pprof server is started.
 	Pprof Basic
 
-	//Metrics describes the metrics provider server for this application
+	// Metrics describes the metrics provider server for this application
 	Metrics Basic
 
 	//The following two fields are expected to be defined by client. Zero value is ok.
 	//Gatherer defines the metrics gathering behavior.
 	Gatherer stdprometheus.Gatherer
 
-	//Opts describes prometheus handling options.
+	// Opts describes prometheus handling options.
 	Opts promhttp.HandlerOpts
 
 	// Log is the logging configuration for this application.
@@ -227,6 +227,10 @@ type WebPA struct {
 
 	// MetricsProvider is the metric collectors provider for WebPa server. Server assumes client defines such provider
 	GoKitMetricsProvider provider.Provider
+
+	// Project is the cluster/group this server belongs to (i.e WebPA, XMidt, etc.). It is used as
+	// namespace for metrics
+	Project string
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -264,6 +268,9 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Pprof, pprofServer)
 		}
 
+		//wrap common metrics around both server handler
+		primaryHandler = w.decorateWithBasicMetrics(primaryHandler)
+
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
 			ListenAndServe(logger, &w.Primary, primaryServer)
@@ -295,4 +302,82 @@ func getMetricsHandler(gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpt
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(gatherer, opts))
 	return mux
+}
+
+//decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
+func (w *WebPA) decorateWithBasicMetrics(next http.Handler) http.Handler {
+	requestCounterVec := stdprometheus.NewCounterVec(stdprometheus.CounterOpts{
+		Namespace: w.Project,
+		Subsystem: w.Primary.Name,
+		Name:      "api_requests_total",
+		Help:      "A counter for requests to the handler",
+	}, []string{"code", "method"})
+
+	inFlightGauge := stdprometheus.NewGauge(stdprometheus.GaugeOpts{
+		Namespace: w.Project,
+		Subsystem: w.Primary.Name,
+		Name:      "in_flight_requests",
+		Help:      "A gauge of requests currently being served by the handler.",
+	})
+
+	requestDurationVec := stdprometheus.NewHistogramVec(
+		stdprometheus.HistogramOpts{
+			Namespace: w.Project,
+			Subsystem: w.Primary.Name,
+			Name:      "request_duration_seconds",
+			Help:      "A histogram of latencies for requests.",
+			Buckets:   []float64{.25, .5, 1, 2.5, 5, 10},
+		},
+		[]string{},
+	)
+
+	requestSizeVec := stdprometheus.NewHistogramVec(
+		stdprometheus.HistogramOpts{
+			Namespace: w.Project,
+			Subsystem: w.Primary.Name,
+			Name:      "request_size_bytes",
+			Help:      "A histogram of request sizes for requests.",
+			Buckets:   []float64{200, 500, 900, 1500},
+		},
+		[]string{},
+	)
+
+	responseSizeVec := stdprometheus.NewHistogramVec(
+		stdprometheus.HistogramOpts{
+			Namespace: w.Project,
+			Subsystem: w.Primary.Name,
+			Name:      "response_size_bytes",
+			Help:      "A histogram of response sizes for requests.",
+			Buckets:   []float64{200, 500, 900, 1500},
+		},
+		[]string{},
+	)
+
+	timeToWriteHeaderVec := stdprometheus.NewHistogramVec(
+		stdprometheus.HistogramOpts{
+			Namespace: w.Project,
+			Subsystem: w.Primary.Name,
+			Name:      "time_writing_header_seconds",
+			Help:      "A histogram of latencies for writing HTTP headers.",
+			Buckets:   []float64{0, 1, 2, 3},
+		},
+		[]string{},
+	)
+
+	stdprometheus.MustRegister(requestCounterVec, inFlightGauge, requestDurationVec, requestSizeVec,
+		responseSizeVec, timeToWriteHeaderVec)
+
+	//todo: Example documentation does something interesting with /pull vs. /push endpoints
+	//https://godoc.org/github.com/prometheus/client_golang/prometheus/promhttp#InstrumentHandlerDuration
+	//for now, let's keep it simple so /metrics only
+
+	return promhttp.InstrumentHandlerInFlight(inFlightGauge,
+		promhttp.InstrumentHandlerCounter(requestCounterVec,
+			promhttp.InstrumentHandlerDuration(requestDurationVec,
+				promhttp.InstrumentHandlerResponseSize(responseSizeVec,
+					promhttp.InstrumentHandlerRequestSize(requestSizeVec,
+						promhttp.InstrumentHandlerTimeToWriteHeader(timeToWriteHeaderVec, next))),
+			),
+		),
+	)
 }
