@@ -324,9 +324,12 @@ func (w *WebPA) decorateWithBasicMetrics(next http.Handler) http.Handler {
 		stdprometheus.HistogramOpts{
 			Namespace: w.Project,
 			Subsystem: w.Primary.Name,
-			Name:      "api_requests_total",
-			Help:      "A histogram of latencies for requests",
-		}, []string{"code", "method"})
+			Name:      "request_duration_seconds",
+			Help:      "A histogram of latencies for requests.",
+			Buckets:   []float64{.25, .5, 1, 2.5, 5, 10},
+		},
+		[]string{},
+	)
 
 	requestSizeVec := stdprometheus.NewHistogramVec(
 		stdprometheus.HistogramOpts{
