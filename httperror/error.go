@@ -11,6 +11,7 @@ type E struct {
 	Code   int
 	Header http.Header
 	Text   string
+	Entity []byte
 }
 
 func (e *E) StatusCode() int {
