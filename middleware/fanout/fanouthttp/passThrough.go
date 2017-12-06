@@ -57,39 +57,6 @@ func (pt *PassThrough) GetBody() (io.ReadCloser, error) {
 	return pt.ReadCloser(), nil
 }
 
-// EncodeRequest handles transferring the information from this PassThrough onto the given request.
-func (pt *PassThrough) EncodeRequest(r *http.Request) {
-	r.Body = pt.ReadCloser()
-	r.GetBody = pt.GetBody
-
-	for n, v := range pt.CopyHeader {
-		r.Header[n] = append(r.Header[n], v...)
-	}
-
-	if len(pt.ContentType) > 0 {
-		r.Header.Set("Content-Type", pt.ContentType)
-	}
-}
-
-// EncodeResponse handles transferring the information from this PassThrough onto the given response writer.
-func (pt *PassThrough) EncodeResponse(r http.ResponseWriter) error {
-	header := r.Header()
-	for n, v := range pt.CopyHeader {
-		header[n] = append(header[n], v...)
-	}
-
-	if len(pt.ContentType) > 0 {
-		header.Set("Content-Type", pt.ContentType)
-	}
-
-	if pt.StatusCode > 0 {
-		r.WriteHeader(pt.StatusCode)
-	}
-
-	_, err := r.Write(pt.Entity)
-	return err
-}
-
 // DecodePassThroughRequest returns a fanout entity decoder which returns a *PassThrough with the original request's contents.
 // If supplied, the headers contains the set of original headers that are copied as is from the original HTTP request.
 func DecodePassThroughRequest(hs HeaderSet) gokithttp.DecodeRequestFunc {
@@ -140,7 +107,17 @@ func DecodePassThroughResponse(hs HeaderSet) gokithttp.DecodeResponseFunc {
 // so that redirects are handled appropriately.
 func EncodePassThroughRequest(_ context.Context, component *http.Request, v interface{}) error {
 	pt := v.(*PassThrough)
-	pt.EncodeRequest(component)
+	component.Body = pt.ReadCloser()
+	component.GetBody = pt.GetBody
+
+	for n, v := range pt.CopyHeader {
+		component.Header[n] = v
+	}
+
+	if len(pt.ContentType) > 0 {
+		component.Header.Set("Content-Type", pt.ContentType)
+	}
+
 	return nil
 }
 
@@ -148,5 +125,19 @@ func EncodePassThroughRequest(_ context.Context, component *http.Request, v inte
 // and writing it to the fanout's original response.
 func EncodePassThroughResponse(_ context.Context, original http.ResponseWriter, v interface{}) error {
 	pt := v.(*PassThrough)
-	return pt.EncodeResponse(original)
+	header := original.Header()
+	for n, v := range pt.CopyHeader {
+		header[n] = append(header[n], v...)
+	}
+
+	if len(pt.ContentType) > 0 {
+		header.Set("Content-Type", pt.ContentType)
+	}
+
+	if pt.StatusCode > 0 {
+		original.WriteHeader(pt.StatusCode)
+	}
+
+	_, err := original.Write(pt.Entity)
+	return err
 }
