@@ -3,7 +3,6 @@ package fanouthttp
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 
@@ -33,13 +32,11 @@ func (fr *fanoutRequest) Entity() interface{} {
 }
 
 // decodeFanoutRequest is executed once per original request to turn an HTTP request into a fanoutRequest.
-// The entityDecoder is used to perform one-time parsing on the original request to produce a custom entity object.
-// If entityDecoder is nil, a decoder that simply returns the []byte contents of the HTTP entity is used instead.
+// The dec is used to perform one-time parsing on the original request to produce a custom entity object.
+// If the dec function is nil, this function panics.
 func decodeFanoutRequest(dec gokithttp.DecodeRequestFunc) gokithttp.DecodeRequestFunc {
 	if dec == nil {
-		dec = func(_ context.Context, original *http.Request) (interface{}, error) {
-			return ioutil.ReadAll(original.Body)
-		}
+		panic("The entity decoder cannot be nil")
 	}
 
 	return func(ctx context.Context, original *http.Request) (interface{}, error) {
@@ -63,19 +60,19 @@ func decodeFanoutRequest(dec gokithttp.DecodeRequestFunc) gokithttp.DecodeReques
 }
 
 // encodeComponentRequest creates the EncodeRequestFunc invoked for each component endpoint of a fanout.  Input to the
-// return function is always a *fanoutRequest.
+// return function is always a *fanoutRequest.  If the enc function is nil, this function panics.
 func encodeComponentRequest(enc gokithttp.EncodeRequestFunc) gokithttp.EncodeRequestFunc {
+	if enc == nil {
+		panic("The entity encoder cannot be nil")
+	}
+
 	return func(ctx context.Context, component *http.Request, v interface{}) error {
 		fanoutRequest := v.(*fanoutRequest)
 
 		component.Method = fanoutRequest.original.Method
 		component.URL = component.URL.ResolveReference(fanoutRequest.relativeURL)
 
-		if enc != nil {
-			return enc(ctx, component, fanoutRequest.entity)
-		}
-
-		return nil
+		return enc(ctx, component, fanoutRequest.entity)
 	}
 }
 

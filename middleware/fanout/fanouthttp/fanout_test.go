@@ -20,23 +20,10 @@ import (
 )
 
 func testDecodeFanoutRequestNilDecoder(t *testing.T, originalURL, relativeURL string) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		original = httptest.NewRequest("GET", originalURL, bytes.NewReader([]byte("expected")))
-		decoder  = decodeFanoutRequest(nil)
-	)
-
-	require.NotNil(decoder)
-	v, err := decoder(context.Background(), original)
-	require.NotNil(v)
-	require.NoError(err)
-
-	fanoutRequest := v.(*fanoutRequest)
-	assert.True(original == fanoutRequest.original)
-	assert.Equal(relativeURL, fanoutRequest.relativeURL.String())
-	assert.Equal([]byte("expected"), fanoutRequest.entity)
+	assert := assert.New(t)
+	assert.Panics(func() {
+		decodeFanoutRequest(nil)
+	})
 }
 
 func testDecodeFanoutRequestCustomDecoder(t *testing.T, originalURL, relativeURL string) {
@@ -123,25 +110,10 @@ func TestDecodeFanoutRequest(t *testing.T) {
 }
 
 func testEncodeComponentRequestNilEncoder(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		original      = httptest.NewRequest("PATCH", "/foo/bar", nil)
-		fanoutRequest = &fanoutRequest{
-			original:    original,
-			relativeURL: &url.URL{Path: "/foo/bar"},
-			entity:      "decoded entity",
-		}
-
-		component = httptest.NewRequest("POST", "http://localhost:1234", nil)
-		encoder   = encodeComponentRequest(nil)
-	)
-
-	require.NotNil(encoder)
-	assert.NoError(encoder(context.Background(), component, fanoutRequest))
-	assert.Equal(original.Method, component.Method)
-	assert.Equal("http://localhost:1234/foo/bar", component.URL.String())
+	assert := assert.New(t)
+	assert.Panics(func() {
+		encodeComponentRequest(nil)
+	})
 }
 
 func testEncodeComponentRequestCustomEncoder(t *testing.T) {

@@ -13,7 +13,7 @@ import (
 func TestE(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		err    = &E{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar"}
+		err    = &E{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar", Entity: []byte(`error!`)}
 	)
 
 	assert.Equal(503, err.StatusCode())
