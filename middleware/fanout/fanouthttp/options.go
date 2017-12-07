@@ -25,7 +25,7 @@ type Options struct {
 	// Logger is the go-kit logger to use when creating the service fanout.  If not set, logging.DefaultLogger is used.
 	Logger log.Logger `json:"-"`
 
-	// Endpoints are the URLs for each endpoint to fan out to.  If not set, DefaultEndpoint is used.
+	// Endpoints are the URLs for each endpoint to fan out to
 	Endpoints []string `json:"endpoints,omitempty"`
 
 	// Authorization is the Basic Auth token.  There is no default for this field.
