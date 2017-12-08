@@ -17,12 +17,22 @@ const (
 	SummaryType   = "summary"
 )
 
+// PrometheusProvider is a Prometheus-specific version of go-kit's metrics.Provider.  Use this interface
+// when interacting directly with Prometheus.
+type PrometheusProvider interface {
+	NewCounterVec(string) *prometheus.CounterVec
+	NewGaugeVec(string) *prometheus.GaugeVec
+	NewHistogramVec(string) *prometheus.HistogramVec
+	NewSummaryVec(string) *prometheus.SummaryVec
+}
+
 // Registry is the core abstraction for this package.  It is a Prometheus registry and a go-kit metrics.Provider all in one.
 //
 // The Provider implementation works slightly differently than the go-kit implementation.  For any metric that is already defined
 // the provider returns a new go-kit wrapper for that metric.  Additionally, new metrics (including ad hoc metrics) are cached
 // and returned by subsequent calles to the Provider methods.
 type Registry interface {
+	PrometheusProvider
 	provider.Provider
 	prometheus.Gatherer
 	prometheus.Registerer
@@ -37,7 +47,7 @@ type registry struct {
 	cache     map[string]prometheus.Collector
 }
 
-func (r *registry) NewCounter(name string) metrics.Counter {
+func (r *registry) NewCounterVec(name string) *prometheus.CounterVec {
 	var counterVec *prometheus.CounterVec
 
 	if existing, ok := r.cache[name]; ok {
@@ -63,10 +73,14 @@ func (r *registry) NewCounter(name string) metrics.Counter {
 		r.cache[name] = counterVec
 	}
 
-	return gokitprometheus.NewCounter(counterVec)
+	return counterVec
 }
 
-func (r *registry) NewGauge(name string) metrics.Gauge {
+func (r *registry) NewCounter(name string) metrics.Counter {
+	return gokitprometheus.NewCounter(r.NewCounterVec(name))
+}
+
+func (r *registry) NewGaugeVec(name string) *prometheus.GaugeVec {
 	var gaugeVec *prometheus.GaugeVec
 
 	if existing, ok := r.cache[name]; ok {
@@ -92,12 +106,75 @@ func (r *registry) NewGauge(name string) metrics.Gauge {
 		r.cache[name] = gaugeVec
 	}
 
-	return gokitprometheus.NewGauge(gaugeVec)
+	return gaugeVec
+}
+
+func (r *registry) NewGauge(name string) metrics.Gauge {
+	return gokitprometheus.NewGauge(r.NewGaugeVec(name))
+}
+
+func (r *registry) NewHistogramVec(name string) *prometheus.HistogramVec {
+	var histogramVec *prometheus.HistogramVec
+
+	if existing, ok := r.cache[name]; ok {
+		if histogramVec, ok = existing.(*prometheus.HistogramVec); !ok {
+			panic(fmt.Errorf("The metric %s is not a histogram", name))
+		}
+	} else {
+		histogramVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: r.namespace,
+			Subsystem: r.subsystem,
+			Name:      name,
+			Help:      name,
+		}, []string{})
+
+		if err := r.Registry.Register(histogramVec); err != nil {
+			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+				histogramVec = already.ExistingCollector.(*prometheus.HistogramVec)
+			} else {
+				panic(err)
+			}
+		}
+
+		r.cache[name] = histogramVec
+	}
+
+	return histogramVec
+}
+
+func (r *registry) NewSummaryVec(name string) *prometheus.SummaryVec {
+	var summaryVec *prometheus.SummaryVec
+
+	if existing, ok := r.cache[name]; ok {
+		if summaryVec, ok = existing.(*prometheus.SummaryVec); !ok {
+			panic(fmt.Errorf("The metric %s is not a histogram", name))
+		}
+	} else {
+		summaryVec := prometheus.NewSummaryVec(prometheus.SummaryOpts{
+			Namespace: r.namespace,
+			Subsystem: r.subsystem,
+			Name:      name,
+			Help:      name,
+		}, []string{})
+
+		if err := r.Registry.Register(summaryVec); err != nil {
+			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+				summaryVec = already.ExistingCollector.(*prometheus.SummaryVec)
+			} else {
+				panic(err)
+			}
+		}
+
+		r.cache[name] = summaryVec
+	}
+
+	return summaryVec
 }
 
 // NewHistogram will return a Histogram for either a Summary or Histogram.  This is different
 // behavior from metrics.Provider.
-func (r *registry) NewHistogram(name string, buckets int) metrics.Histogram {
+func (r *registry) NewHistogram(name string, _ int) metrics.Histogram {
+	// we allow either a summary or a histogram to be wrapped as a go-kit Histogram
 	if existing, ok := r.cache[name]; ok {
 		switch vec := existing.(type) {
 		case *prometheus.HistogramVec:
@@ -109,23 +186,7 @@ func (r *registry) NewHistogram(name string, buckets int) metrics.Histogram {
 		}
 	}
 
-	histogramVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: r.namespace,
-		Subsystem: r.subsystem,
-		Name:      name,
-		Help:      name,
-	}, []string{})
-
-	if err := r.Registry.Register(histogramVec); err != nil {
-		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
-			histogramVec = already.ExistingCollector.(*prometheus.HistogramVec)
-		} else {
-			panic(err)
-		}
-	}
-
-	r.cache[name] = histogramVec
-	return gokitprometheus.NewHistogram(histogramVec)
+	return gokitprometheus.NewHistogram(r.NewHistogramVec(name))
 }
 
 func (r *registry) Stop() {
