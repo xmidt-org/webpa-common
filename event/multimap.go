@@ -47,7 +47,7 @@ func (m MultiMap) Get(eventType string, fallback ...string) ([]string, bool) {
 // when unmarshalling from libraries that impose some meaning on a separator, like viper does with periods.  Essentially,
 // this function returns a MultiMap that is the result of "flattening" the given raw map.
 //
-// The separator string must be nonempty.  It is used to as the separator for nested map keys, e.g. "foo.bar".
+// The separator string must be nonempty.  It is used as the separator for nested map keys, e.g. "foo.bar".
 func NestedToMultiMap(separator string, raw map[string]interface{}) (MultiMap, error) {
 	if len(separator) == 0 {
 		return nil, fmt.Errorf("The separator cannot be empty")
