@@ -1,6 +1,11 @@
 package xmetrics
 
-import "time"
+import (
+	"os"
+	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+)
 
 const (
 	DefaultNamespace = "global"
@@ -62,6 +67,14 @@ type Options struct {
 	// to true for testing or development.
 	Pedantic bool
 
+	// DisableGoCollector controls whether the Go Collector is registered with the Registry.  By default this is false,
+	// meaning that a GoCollector is registered.
+	DisableGoCollector bool
+
+	// DisableProcessCollector controls whether the Process Collector is registered with the Registry.  By default this is false,
+	// meaning that a ProcessCollector is registered.
+	DisableProcessCollector bool
+
 	// Metrics defines the map of predefined metrics.  These metrics will be defined immediately by an Registry
 	// created using this Options instance.  This field is optional.
 	Metrics map[string]Metric
@@ -86,6 +99,42 @@ func (o *Options) subsystem() string {
 func (o *Options) pedantic() bool {
 	if o != nil {
 		return o.Pedantic
+	}
+
+	return false
+}
+
+func (o *Options) registry() *prometheus.Registry {
+	var pr *prometheus.Registry
+
+	if o.pedantic() {
+		pr = prometheus.NewPedanticRegistry()
+	} else {
+		pr = prometheus.NewRegistry()
+	}
+
+	if !o.disableGoCollector() {
+		pr.MustRegister(prometheus.NewGoCollector())
+	}
+
+	if !o.disableProcessCollector() {
+		pr.MustRegister(prometheus.NewProcessCollector(os.Getpid(), o.namespace()))
+	}
+
+	return pr
+}
+
+func (o *Options) disableGoCollector() bool {
+	if o != nil {
+		return o.DisableGoCollector
+	}
+
+	return false
+}
+
+func (o *Options) disableProcessCollector() bool {
+	if o != nil {
+		return o.DisableProcessCollector
 	}
 
 	return false

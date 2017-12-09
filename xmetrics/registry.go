@@ -285,14 +285,8 @@ func NewRegistry(o *Options) (Registry, error) {
 	var (
 		defaultNamespace = o.namespace()
 		defaultSubsystem = o.subsystem()
-		pr               *prometheus.Registry
+		pr               = o.registry()
 	)
-
-	if o.pedantic() {
-		pr = prometheus.NewPedanticRegistry()
-	} else {
-		pr = prometheus.NewRegistry()
-	}
 
 	r := &registry{
 		Registry:      pr,
