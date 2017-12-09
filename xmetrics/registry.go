@@ -53,6 +53,15 @@ type Registry interface {
 	prometheus.Registerer
 }
 
+// registration holds the preregistered information about a metric.
+// this is primarily necessary to enforce Prometheus uniqueness constraints
+// on the preregistered metrics.
+type registration struct {
+	collector  prometheus.Collector
+	help       string
+	labelNames string
+}
+
 // registry is the internal Registry implementation
 type registry struct {
 	prometheus.Gatherer
@@ -60,12 +69,7 @@ type registry struct {
 
 	namespace     string
 	subsystem     string
-	preregistered map[string]prometheus.Collector
-}
-
-// keyFor computes the unique key for a metric using the same logic as Prometheus.
-func keyFor(namespace, subsystem, name string) string {
-	return namespace + "_" + subsystem + "_" + name
+	preregistered map[string]registration
 }
 
 func (r *registry) NewCounterVec(opts prometheus.CounterOpts, labelNames []string) *prometheus.CounterVec {
@@ -87,11 +91,11 @@ func (r *registry) NewCounterVec(opts prometheus.CounterOpts, labelNames []strin
 
 	var (
 		counterVec *prometheus.CounterVec
-		key        = keyFor(opts.Namespace, opts.Subsystem, opts.Name)
+		key        = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
 	)
 
 	if existing, ok := r.preregistered[key]; ok {
-		if counterVec, ok = existing.(*prometheus.CounterVec); !ok {
+		if counterVec, ok = existing.collector.(*prometheus.CounterVec); !ok {
 			panic(fmt.Errorf("The preregistered metric %s is not a counter", key))
 		}
 	} else {
@@ -139,11 +143,11 @@ func (r *registry) NewGaugeVec(opts prometheus.GaugeOpts, labelNames []string) *
 
 	var (
 		gaugeVec *prometheus.GaugeVec
-		key      = keyFor(opts.Namespace, opts.Subsystem, opts.Name)
+		key      = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
 	)
 
 	if existing, ok := r.preregistered[key]; ok {
-		if gaugeVec, ok = existing.(*prometheus.GaugeVec); !ok {
+		if gaugeVec, ok = existing.collector.(*prometheus.GaugeVec); !ok {
 			panic(fmt.Errorf("The preregistered metric %s is not a gauge", key))
 		}
 	} else {
@@ -191,11 +195,11 @@ func (r *registry) NewHistogramVec(opts prometheus.HistogramOpts, labelNames []s
 
 	var (
 		histogramVec *prometheus.HistogramVec
-		key          = keyFor(opts.Namespace, opts.Subsystem, opts.Name)
+		key          = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
 	)
 
 	if existing, ok := r.preregistered[key]; ok {
-		if histogramVec, ok = existing.(*prometheus.HistogramVec); !ok {
+		if histogramVec, ok = existing.collector.(*prometheus.HistogramVec); !ok {
 			panic(fmt.Errorf("The preregistered metric %s is not a histogram", key))
 		}
 	} else {
@@ -231,11 +235,11 @@ func (r *registry) NewSummaryVec(opts prometheus.SummaryOpts, labelNames []strin
 
 	var (
 		summaryVec *prometheus.SummaryVec
-		key        = keyFor(opts.Namespace, opts.Subsystem, opts.Name)
+		key        = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
 	)
 
 	if existing, ok := r.preregistered[key]; ok {
-		if summaryVec, ok = existing.(*prometheus.SummaryVec); !ok {
+		if summaryVec, ok = existing.collector.(*prometheus.SummaryVec); !ok {
 			panic(fmt.Errorf("The preregistered metric %s is not a histogram", key))
 		}
 	} else {
@@ -256,9 +260,9 @@ func (r *registry) NewSummaryVec(opts prometheus.SummaryOpts, labelNames []strin
 // behavior from metrics.Provider.
 func (r *registry) NewHistogram(name string, _ int) metrics.Histogram {
 	// we allow either a summary or a histogram to be wrapped as a go-kit Histogram
-	key := keyFor(r.namespace, r.subsystem, name)
+	key := prometheus.BuildFQName(r.namespace, r.subsystem, name)
 	if existing, ok := r.preregistered[key]; ok {
-		switch vec := existing.(type) {
+		switch vec := existing.collector.(type) {
 		case *prometheus.HistogramVec:
 			return gokitprometheus.NewHistogram(vec)
 		case *prometheus.SummaryVec:
@@ -294,7 +298,7 @@ func NewRegistry(o *Options) (Registry, error) {
 		Gatherer:      pr,
 		namespace:     defaultNamespace,
 		subsystem:     defaultSubsystem,
-		preregistered: make(map[string]prometheus.Collector),
+		preregistered: make(map[string]registration),
 	}
 
 	for name, m := range o.metrics() {
@@ -320,7 +324,7 @@ func NewRegistry(o *Options) (Registry, error) {
 			help = name
 		}
 
-		key := keyFor(namespace, subsystem, name)
+		key := prometheus.BuildFQName(namespace, subsystem, name)
 
 		switch m.Type {
 		case CounterType:
@@ -336,7 +340,10 @@ func NewRegistry(o *Options) (Registry, error) {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
-			r.preregistered[key] = counterVec
+			r.preregistered[key] = registration{
+				collector: counterVec,
+				help:      "",
+			}
 
 		case GaugeType:
 			gaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -351,7 +358,10 @@ func NewRegistry(o *Options) (Registry, error) {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
-			r.preregistered[key] = gaugeVec
+			r.preregistered[key] = registration{
+				collector: gaugeVec,
+				help:      help,
+			}
 
 		case HistogramType:
 			histogramVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -367,7 +377,10 @@ func NewRegistry(o *Options) (Registry, error) {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
-			r.preregistered[key] = histogramVec
+			r.preregistered[key] = registration{
+				collector: histogramVec,
+				help:      help,
+			}
 
 		case SummaryType:
 			summaryVec := prometheus.NewSummaryVec(prometheus.SummaryOpts{
@@ -386,7 +399,10 @@ func NewRegistry(o *Options) (Registry, error) {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
-			r.preregistered[key] = summaryVec
+			r.preregistered[key] = registration{
+				collector: summaryVec,
+				help:      help,
+			}
 
 		default:
 			return nil, fmt.Errorf("Unsupported metric type: %s", m.Type)
