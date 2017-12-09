@@ -55,7 +55,8 @@ type Registry interface {
 
 // registry is the internal Registry implementation
 type registry struct {
-	*prometheus.Registry
+	prometheus.Gatherer
+	prometheus.Registerer
 
 	namespace     string
 	subsystem     string
@@ -95,7 +96,7 @@ func (r *registry) NewCounterVec(opts prometheus.CounterOpts, labelNames []strin
 		}
 	} else {
 		counterVec = prometheus.NewCounterVec(opts, labelNames)
-		if err := r.Registry.Register(counterVec); err != nil {
+		if err := r.Register(counterVec); err != nil {
 			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
 				counterVec = already.ExistingCollector.(*prometheus.CounterVec)
 			} else {
@@ -147,7 +148,7 @@ func (r *registry) NewGaugeVec(opts prometheus.GaugeOpts, labelNames []string) *
 		}
 	} else {
 		gaugeVec = prometheus.NewGaugeVec(opts, labelNames)
-		if err := r.Registry.Register(gaugeVec); err != nil {
+		if err := r.Register(gaugeVec); err != nil {
 			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
 				gaugeVec = already.ExistingCollector.(*prometheus.GaugeVec)
 			} else {
@@ -199,7 +200,7 @@ func (r *registry) NewHistogramVec(opts prometheus.HistogramOpts, labelNames []s
 		}
 	} else {
 		histogramVec = prometheus.NewHistogramVec(opts, labelNames)
-		if err := r.Registry.Register(histogramVec); err != nil {
+		if err := r.Register(histogramVec); err != nil {
 			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
 				histogramVec = already.ExistingCollector.(*prometheus.HistogramVec)
 			} else {
@@ -239,7 +240,7 @@ func (r *registry) NewSummaryVec(opts prometheus.SummaryOpts, labelNames []strin
 		}
 	} else {
 		summaryVec = prometheus.NewSummaryVec(opts, labelNames)
-		if err := r.Registry.Register(summaryVec); err != nil {
+		if err := r.Register(summaryVec); err != nil {
 			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
 				summaryVec = already.ExistingCollector.(*prometheus.SummaryVec)
 			} else {
@@ -289,7 +290,8 @@ func NewRegistry(o *Options) (Registry, error) {
 	)
 
 	r := &registry{
-		Registry:      pr,
+		Registerer:    pr,
+		Gatherer:      pr,
 		namespace:     defaultNamespace,
 		subsystem:     defaultSubsystem,
 		preregistered: make(map[string]prometheus.Collector),
@@ -330,7 +332,7 @@ func NewRegistry(o *Options) (Registry, error) {
 				ConstLabels: prometheus.Labels(m.Labels),
 			}, []string{})
 
-			if err := r.Registry.Register(counterVec); err != nil {
+			if err := r.Register(counterVec); err != nil {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
@@ -345,7 +347,7 @@ func NewRegistry(o *Options) (Registry, error) {
 				ConstLabels: prometheus.Labels(m.Labels),
 			}, []string{})
 
-			if err := r.Registry.Register(gaugeVec); err != nil {
+			if err := r.Register(gaugeVec); err != nil {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
@@ -361,7 +363,7 @@ func NewRegistry(o *Options) (Registry, error) {
 				ConstLabels: prometheus.Labels(m.Labels),
 			}, []string{})
 
-			if err := r.Registry.Register(histogramVec); err != nil {
+			if err := r.Register(histogramVec); err != nil {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
@@ -380,7 +382,7 @@ func NewRegistry(o *Options) (Registry, error) {
 				ConstLabels: prometheus.Labels(m.Labels),
 			}, []string{})
 
-			if err := r.Registry.Register(summaryVec); err != nil {
+			if err := r.Register(summaryVec); err != nil {
 				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
 			}
 
