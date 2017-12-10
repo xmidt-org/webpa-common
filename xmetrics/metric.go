@@ -63,15 +63,6 @@ type Metric struct {
 	BufCap uint32
 }
 
-// Key returns a unique key for this Metric, as defined by Prometheus
-func (m *Metric) Key() string {
-	return prometheus.BuildFQName(
-		m.Namespace,
-		m.Subsystem,
-		m.Name,
-	)
-}
-
 // NewCollector creates a Prometheus metric from a Metric descriptor.  The name must not be empty.
 // If not supplied in the metric, namespace, subsystem, and help all take on defaults.
 func NewCollector(m Metric) (prometheus.Collector, error) {
