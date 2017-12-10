@@ -8,6 +8,111 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testRegistryAsPrometheusProvider(t *testing.T) {
+	var (
+		require = require.New(t)
+
+		o = &Options{
+			Namespace: "test",
+			Subsystem: "basic",
+			Metrics: []Metric{
+				Metric{
+					Name: "counter",
+					Type: "counter",
+					Help: "a test counter",
+				},
+				Metric{
+					Name: "gauge",
+					Type: "gauge",
+					Help: "a test gauge",
+				},
+				Metric{
+					Name:    "histogram",
+					Type:    "histogram",
+					Buckets: []float64{0.5, 1.0, 1.5},
+				},
+				Metric{
+					Name:   "summary",
+					Type:   "summary",
+					MaxAge: 15 * time.Hour,
+				},
+			},
+		}
+	)
+
+	r, err := NewRegistry(o)
+	require.NoError(err)
+	require.NotNil(r)
+
+	t.Run("NewCounterVec", func(t *testing.T) {
+		assert := assert.New(t)
+		preregistered := r.NewCounterVec("counter")
+		assert.NotNil(preregistered)
+		assert.Equal(preregistered, r.NewCounterVec("counter"))
+
+		adHoc := r.NewCounterVec("new_counter")
+		assert.NotNil(adHoc)
+		assert.NotEqual(preregistered, adHoc)
+		assert.Equal(adHoc, r.NewCounterVec("new_counter"))
+
+		assert.Panics(func() { r.NewCounterVec("") })
+		assert.Panics(func() { r.NewGaugeVec("counter") })
+		assert.Panics(func() { r.NewHistogramVec("counter") })
+		assert.Panics(func() { r.NewSummaryVec("counter") })
+	})
+
+	t.Run("NewGaugeVec", func(t *testing.T) {
+		assert := assert.New(t)
+		preregistered := r.NewGaugeVec("gauge")
+		assert.NotNil(preregistered)
+		assert.Equal(preregistered, r.NewGaugeVec("gauge"))
+
+		adHoc := r.NewGaugeVec("new_gauge")
+		assert.NotNil(adHoc)
+		assert.NotEqual(preregistered, adHoc)
+		assert.Equal(adHoc, r.NewGaugeVec("new_gauge"))
+
+		assert.Panics(func() { r.NewGaugeVec("") })
+		assert.Panics(func() { r.NewCounterVec("gauge") })
+		assert.Panics(func() { r.NewHistogramVec("gauge") })
+		assert.Panics(func() { r.NewSummaryVec("gauge") })
+	})
+
+	t.Run("NewHistogramVec", func(t *testing.T) {
+		assert := assert.New(t)
+		preregistered := r.NewHistogramVec("histogram")
+		assert.NotNil(preregistered)
+		assert.Equal(preregistered, r.NewHistogramVec("histogram"))
+
+		adHoc := r.NewHistogramVec("new_histogram")
+		assert.NotNil(adHoc)
+		assert.NotEqual(preregistered, adHoc)
+		assert.Equal(adHoc, r.NewHistogramVec("new_histogram"))
+
+		assert.Panics(func() { r.NewHistogramVec("") })
+		assert.Panics(func() { r.NewCounterVec("histogram") })
+		assert.Panics(func() { r.NewGaugeVec("histogram") })
+		assert.Panics(func() { r.NewSummaryVec("histogram") })
+	})
+
+	t.Run("NewSummaryVec", func(t *testing.T) {
+		assert := assert.New(t)
+		preregistered := r.NewSummaryVec("summary")
+		assert.NotNil(preregistered)
+		assert.Equal(preregistered, r.NewSummaryVec("summary"))
+
+		adHoc := r.NewSummaryVec("new_summary")
+		assert.NotNil(adHoc)
+		assert.NotEqual(preregistered, adHoc)
+		assert.Equal(adHoc, r.NewSummaryVec("new_summary"))
+
+		assert.Panics(func() { r.NewSummaryVec("") })
+		assert.Panics(func() { r.NewCounterVec("summary") })
+		assert.Panics(func() { r.NewGaugeVec("summary") })
+		assert.Panics(func() { r.NewHistogramVec("summary") })
+	})
+}
+
 func testRegistryAsGoKitProvider(t *testing.T) {
 	var (
 		require = require.New(t)
@@ -101,7 +206,7 @@ func testRegistryAsGoKitProvider(t *testing.T) {
 	})
 }
 
-func testRegistryEmptyMetricName(t *testing.T) {
+func testRegistryMissingName(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		r, err = NewRegistry(&Options{
@@ -117,7 +222,7 @@ func testRegistryEmptyMetricName(t *testing.T) {
 	assert.Error(err)
 }
 
-func testRegistryInvalidType(t *testing.T) {
+func testRegistryUnsupportedType(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		r, err = NewRegistry(&Options{
@@ -135,7 +240,8 @@ func testRegistryInvalidType(t *testing.T) {
 }
 
 func TestRegistry(t *testing.T) {
+	t.Run("AsPrometheusProvider", testRegistryAsPrometheusProvider)
 	t.Run("AsGoKitProvider", testRegistryAsGoKitProvider)
-	t.Run("EmptyMetricName", testRegistryEmptyMetricName)
-	t.Run("InvalidType", testRegistryInvalidType)
+	t.Run("MissingName", testRegistryMissingName)
+	t.Run("UnsupportedType", testRegistryUnsupportedType)
 }
