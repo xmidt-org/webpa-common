@@ -10,38 +10,23 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const (
-	CounterType   = "counter"
-	GaugeType     = "gauge"
-	HistogramType = "histogram"
-	SummaryType   = "summary"
-)
-
 // PrometheusProvider is a Prometheus-specific version of go-kit's metrics.Provider.  Use this interface
 // when interacting directly with Prometheus.
 type PrometheusProvider interface {
-	// NewCounterVec creates a new Prometheus CounterVec with the extra functionality of supplying default
-	// namespace, subsystem, and help using this instance's configuration.  If the options refer to a preregistered
-	// counter, the label names are ignored and that counter is returned.
-	NewCounterVec(prometheus.CounterOpts, []string) *prometheus.CounterVec
+	NewCounterVec(name string) *prometheus.CounterVec
+	NewCounterVecEx(namespace, subsystem, name string) *prometheus.CounterVec
 
-	// NewGaugeVec creates a new Prometheus GaugeVec with the extra functionality of supplying default
-	// namespace, subsystem, and help using this instance's configuration.  If the options refer to a preregistered
-	// gauge, the label names are ignored and that gauge is returned.
-	NewGaugeVec(prometheus.GaugeOpts, []string) *prometheus.GaugeVec
+	NewGaugeVec(name string) *prometheus.GaugeVec
+	NewGaugeVecEx(namespace, subsystem, name string) *prometheus.GaugeVec
 
-	// NewHistogramVec creates a new Prometheus HistogramVec with the extra functionality of supplying default
-	// namespace, subsystem, and help using this instance's configuration.  If the options refer to a preregistered
-	// histogram, the label names are ignored and that histogram is returned.
-	NewHistogramVec(prometheus.HistogramOpts, []string) *prometheus.HistogramVec
+	NewHistogramVec(name string) *prometheus.HistogramVec
+	NewHistogramVecEx(namespace, subsystem, name string) *prometheus.HistogramVec
 
-	// NewSummaryVec creates a new Prometheus SummaryVec with the extra functionality of supplying default
-	// namespace, subsystem, and help using this instance's configuration.  If the options refer to a preregistered
-	// summary, the label names are ignored and that summary is returned.
-	NewSummaryVec(prometheus.SummaryOpts, []string) *prometheus.SummaryVec
+	NewSummaryVec(name string) *prometheus.SummaryVec
+	NewSummaryVecEx(namespace, subsystem, name string) *prometheus.SummaryVec
 }
 
-// Registry is the core abstraction for this package.  It is a Prometheus registry and a go-kit metrics.Provider all in one.
+// Registry is the core abstraction for this package.  It is a Prometheus gatherer and a go-kit metrics.Provider all in one.
 //
 // The Provider implementation works slightly differently than the go-kit implementation.  For any metric that is already defined
 // the provider returns a new go-kit wrapper for that metric.  Additionally, new metrics (including ad hoc metrics) are cached
@@ -50,16 +35,6 @@ type Registry interface {
 	PrometheusProvider
 	provider.Provider
 	prometheus.Gatherer
-	prometheus.Registerer
-}
-
-// registration holds the preregistered information about a metric.
-// this is primarily necessary to enforce Prometheus uniqueness constraints
-// on the preregistered metrics.
-type registration struct {
-	collector  prometheus.Collector
-	help       string
-	labelNames string
 }
 
 // registry is the internal Registry implementation
@@ -69,43 +44,38 @@ type registry struct {
 
 	namespace     string
 	subsystem     string
-	preregistered map[string]registration
+	preregistered map[string]prometheus.Collector
 }
 
-func (r *registry) NewCounterVec(opts prometheus.CounterOpts, labelNames []string) *prometheus.CounterVec {
-	if len(opts.Name) == 0 {
-		panic("A name is required")
+func (r *registry) NewCounterVec(name string) *prometheus.CounterVec {
+	return r.NewCounterVecEx(r.namespace, r.subsystem, name)
+}
+
+func (r *registry) NewCounterVecEx(namespace, subsystem, name string) *prometheus.CounterVec {
+	key := prometheus.BuildFQName(namespace, subsystem, name)
+	if existing, ok := r.preregistered[key]; ok {
+		if counterVec, ok := existing.(*prometheus.CounterVec); ok {
+			return counterVec
+		}
+
+		panic(fmt.Errorf("The preregistered metric %s is not a counter", key))
 	}
 
-	if len(opts.Help) == 0 {
-		opts.Help = opts.Name
-	}
-
-	if len(opts.Namespace) == 0 {
-		opts.Namespace = r.namespace
-	}
-
-	if len(opts.Subsystem) == 0 {
-		opts.Subsystem = r.subsystem
-	}
-
-	var (
-		counterVec *prometheus.CounterVec
-		key        = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
+	counterVec := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      name,
+			Help:      name,
+		},
+		[]string{},
 	)
 
-	if existing, ok := r.preregistered[key]; ok {
-		if counterVec, ok = existing.collector.(*prometheus.CounterVec); !ok {
-			panic(fmt.Errorf("The preregistered metric %s is not a counter", key))
-		}
-	} else {
-		counterVec = prometheus.NewCounterVec(opts, labelNames)
-		if err := r.Register(counterVec); err != nil {
-			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				counterVec = already.ExistingCollector.(*prometheus.CounterVec)
-			} else {
-				panic(err)
-			}
+	if err := r.Register(counterVec); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(*prometheus.CounterVec)
+		} else {
+			panic(err)
 		}
 	}
 
@@ -113,51 +83,38 @@ func (r *registry) NewCounterVec(opts prometheus.CounterOpts, labelNames []strin
 }
 
 func (r *registry) NewCounter(name string) metrics.Counter {
-	return gokitprometheus.NewCounter(r.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: r.namespace,
-			Subsystem: r.subsystem,
+	return gokitprometheus.NewCounter(r.NewCounterVec(name))
+}
+
+func (r *registry) NewGaugeVec(name string) *prometheus.GaugeVec {
+	return r.NewGaugeVecEx(r.namespace, r.subsystem, name)
+}
+
+func (r *registry) NewGaugeVecEx(namespace, subsystem, name string) *prometheus.GaugeVec {
+	key := prometheus.BuildFQName(namespace, subsystem, name)
+	if existing, ok := r.preregistered[key]; ok {
+		if gaugeVec, ok := existing.(*prometheus.GaugeVec); ok {
+			return gaugeVec
+		}
+
+		panic(fmt.Errorf("The preregistered metric %s is not a gauge", key))
+	}
+
+	gaugeVec := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
 			Name:      name,
 			Help:      name,
 		},
 		[]string{},
-	))
-}
-
-func (r *registry) NewGaugeVec(opts prometheus.GaugeOpts, labelNames []string) *prometheus.GaugeVec {
-	if len(opts.Name) == 0 {
-		panic("A name is required")
-	}
-
-	if len(opts.Help) == 0 {
-		opts.Help = opts.Name
-	}
-
-	if len(opts.Namespace) == 0 {
-		opts.Namespace = r.namespace
-	}
-
-	if len(opts.Subsystem) == 0 {
-		opts.Subsystem = r.subsystem
-	}
-
-	var (
-		gaugeVec *prometheus.GaugeVec
-		key      = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
 	)
 
-	if existing, ok := r.preregistered[key]; ok {
-		if gaugeVec, ok = existing.collector.(*prometheus.GaugeVec); !ok {
-			panic(fmt.Errorf("The preregistered metric %s is not a gauge", key))
-		}
-	} else {
-		gaugeVec = prometheus.NewGaugeVec(opts, labelNames)
-		if err := r.Register(gaugeVec); err != nil {
-			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				gaugeVec = already.ExistingCollector.(*prometheus.GaugeVec)
-			} else {
-				panic(err)
-			}
+	if err := r.Register(gaugeVec); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(*prometheus.GaugeVec)
+		} else {
+			panic(err)
 		}
 	}
 
@@ -165,247 +122,185 @@ func (r *registry) NewGaugeVec(opts prometheus.GaugeOpts, labelNames []string) *
 }
 
 func (r *registry) NewGauge(name string) metrics.Gauge {
-	return gokitprometheus.NewGauge(r.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Namespace: r.namespace,
-			Subsystem: r.subsystem,
+	return gokitprometheus.NewGauge(r.NewGaugeVec(name))
+}
+
+func (r *registry) NewHistogramVec(name string) *prometheus.HistogramVec {
+	return r.NewHistogramVecEx(r.namespace, r.subsystem, name)
+}
+
+func (r *registry) NewHistogramVecEx(namespace, subsystem, name string) *prometheus.HistogramVec {
+	key := prometheus.BuildFQName(namespace, subsystem, name)
+	if existing, ok := r.preregistered[key]; ok {
+		if histogramVec, ok := existing.(*prometheus.HistogramVec); ok {
+			return histogramVec
+		}
+
+		panic(fmt.Errorf("The preregistered metric %s is not a histogram", key))
+	}
+
+	histogramVec := prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
 			Name:      name,
 			Help:      name,
 		},
 		[]string{},
-	))
-}
-
-func (r *registry) NewHistogramVec(opts prometheus.HistogramOpts, labelNames []string) *prometheus.HistogramVec {
-	if len(opts.Name) == 0 {
-		panic("A name is required")
-	}
-
-	if len(opts.Help) == 0 {
-		opts.Help = opts.Name
-	}
-
-	if len(opts.Namespace) == 0 {
-		opts.Namespace = r.namespace
-	}
-
-	if len(opts.Subsystem) == 0 {
-		opts.Subsystem = r.subsystem
-	}
-
-	var (
-		histogramVec *prometheus.HistogramVec
-		key          = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
 	)
 
-	if existing, ok := r.preregistered[key]; ok {
-		if histogramVec, ok = existing.collector.(*prometheus.HistogramVec); !ok {
-			panic(fmt.Errorf("The preregistered metric %s is not a histogram", key))
-		}
-	} else {
-		histogramVec = prometheus.NewHistogramVec(opts, labelNames)
-		if err := r.Register(histogramVec); err != nil {
-			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				histogramVec = already.ExistingCollector.(*prometheus.HistogramVec)
-			} else {
-				panic(err)
-			}
+	if err := r.Register(histogramVec); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(*prometheus.HistogramVec)
+		} else {
+			panic(err)
 		}
 	}
 
 	return histogramVec
 }
 
-func (r *registry) NewSummaryVec(opts prometheus.SummaryOpts, labelNames []string) *prometheus.SummaryVec {
-	if len(opts.Name) == 0 {
-		panic("A name is required")
+// NewHistogram has some special logic over and above the go-kit implementations.  This method allows a summary or
+// a histogram as the underlying metric for the go-kit metrics.Histogram.
+func (r *registry) NewHistogram(name string, _ int) metrics.Histogram {
+	key := prometheus.BuildFQName(r.namespace, r.subsystem, name)
+	if existing, ok := r.preregistered[key]; ok {
+		switch e := existing.(type) {
+		case *prometheus.HistogramVec:
+			return gokitprometheus.NewHistogram(e)
+		case *prometheus.SummaryVec:
+			return gokitprometheus.NewSummary(e)
+		default:
+			panic(fmt.Errorf("The preregistered metric %s is not a histogram or a summary", key))
+		}
 	}
 
-	if len(opts.Help) == 0 {
-		opts.Help = opts.Name
+	return gokitprometheus.NewHistogram(r.NewHistogramVec(name))
+}
+
+func (r *registry) NewSummaryVec(name string) *prometheus.SummaryVec {
+	return r.NewSummaryVecEx(r.namespace, r.subsystem, name)
+}
+
+func (r *registry) NewSummaryVecEx(namespace, subsystem, name string) *prometheus.SummaryVec {
+	key := prometheus.BuildFQName(namespace, subsystem, name)
+	if existing, ok := r.preregistered[key]; ok {
+		if summaryVec, ok := existing.(*prometheus.SummaryVec); ok {
+			return summaryVec
+		}
+
+		panic(fmt.Errorf("The preregistered metric %s is not a histogram", key))
 	}
 
-	if len(opts.Namespace) == 0 {
-		opts.Namespace = r.namespace
-	}
-
-	if len(opts.Subsystem) == 0 {
-		opts.Subsystem = r.subsystem
-	}
-
-	var (
-		summaryVec *prometheus.SummaryVec
-		key        = prometheus.BuildFQName(opts.Namespace, opts.Subsystem, opts.Name)
+	summaryVec := prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Namespace: namespace,
+			Subsystem: subsystem,
+			Name:      name,
+			Help:      name,
+		},
+		[]string{},
 	)
 
-	if existing, ok := r.preregistered[key]; ok {
-		if summaryVec, ok = existing.collector.(*prometheus.SummaryVec); !ok {
-			panic(fmt.Errorf("The preregistered metric %s is not a histogram", key))
-		}
-	} else {
-		summaryVec = prometheus.NewSummaryVec(opts, labelNames)
-		if err := r.Register(summaryVec); err != nil {
-			if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
-				summaryVec = already.ExistingCollector.(*prometheus.SummaryVec)
-			} else {
-				panic(err)
-			}
+	if err := r.Register(summaryVec); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(*prometheus.SummaryVec)
+		} else {
+			panic(err)
 		}
 	}
 
 	return summaryVec
 }
 
-// NewHistogram will return a Histogram for either a Summary or Histogram.  This is different
-// behavior from metrics.Provider.
-func (r *registry) NewHistogram(name string, _ int) metrics.Histogram {
-	// we allow either a summary or a histogram to be wrapped as a go-kit Histogram
-	key := prometheus.BuildFQName(r.namespace, r.subsystem, name)
-	if existing, ok := r.preregistered[key]; ok {
-		switch vec := existing.collector.(type) {
-		case *prometheus.HistogramVec:
-			return gokitprometheus.NewHistogram(vec)
-		case *prometheus.SummaryVec:
-			return gokitprometheus.NewSummary(vec)
-		default:
-			panic(fmt.Errorf("The preregistered metric %s is not a histogram or summary", name))
-		}
-	}
-
-	return gokitprometheus.NewHistogram(r.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: r.namespace,
-			Subsystem: r.subsystem,
-			Name:      name,
-			Help:      name,
-		},
-		[]string{},
-	))
-}
-
+// Stop is just here to implement metrics.Provider.  This method is a noop.
 func (r *registry) Stop() {
 }
 
-func NewRegistry(o *Options) (Registry, error) {
+func (r *registry) newCollector(m Metric) (string, prometheus.Collector, error) {
+	if len(m.Name) == 0 {
+		return "", nil, errors.New("Metric names cannot be empty")
+	}
+
+	if len(m.Namespace) == 0 {
+		m.Namespace = r.namespace
+	}
+
+	if len(m.Subsystem) == 0 {
+		m.Subsystem = r.subsystem
+	}
+
+	if len(m.Help) == 0 {
+		m.Help = m.Name
+	}
+
+	key := prometheus.BuildFQName(m.Namespace, m.Subsystem, m.Name)
+	collector, err := NewCollector(m)
+	return key, collector, err
+}
+
+func (r *registry) insertMetric(m Metric, collectors map[string]prometheus.Collector) error {
+	key, collector, err := r.newCollector(m)
+	if err != nil {
+		return err
+	}
+
+	if _, duplicate := collectors[key]; duplicate {
+		return fmt.Errorf("Duplicate metric: %s", key)
+	}
+
+	collectors[key] = collector
+	return nil
+}
+
+// NewRegistry creates an xmetrics.Registry from an externally supplied set of Options and a set
+// of modules, which are functions that just return Metrics to register.  The module functions are
+// expected to come from application or library code, and are to define any built-in metrics.  Metrics
+// present in the options will override any corresponding metric from modules.
+func NewRegistry(o *Options, modules ...func() []Metric) (Registry, error) {
 	var (
 		defaultNamespace = o.namespace()
 		defaultSubsystem = o.subsystem()
-		pr               = o.registry()
+
+		pr = o.registry()
+		r  = &registry{
+			Registerer:    pr,
+			Gatherer:      pr,
+			namespace:     defaultNamespace,
+			subsystem:     defaultSubsystem,
+			preregistered: make(map[string]prometheus.Collector),
+		}
 	)
 
-	r := &registry{
-		Registerer:    pr,
-		Gatherer:      pr,
-		namespace:     defaultNamespace,
-		subsystem:     defaultSubsystem,
-		preregistered: make(map[string]registration),
+	// the configured metrics to preregister, from external configuration
+	for _, m := range o.metrics() {
+		if err := r.insertMetric(m, r.preregistered); err != nil {
+			return nil, err
+		}
 	}
 
-	for name, m := range o.metrics() {
-		if len(name) == 0 {
-			return nil, errors.New("Metric names cannot be empty")
+	// next, the module metrics, which cannot have duplicates among themselves
+	// but *can* be overridden by the externally configured metrics
+	fromModules := make(map[string]prometheus.Collector)
+	for _, f := range modules {
+		for _, m := range f() {
+			if err := r.insertMetric(m, fromModules); err != nil {
+				return nil, err
+			}
 		}
+	}
 
-		var (
-			namespace = m.Namespace
-			subsystem = m.Subsystem
-			help      = m.Help
-		)
-
-		if len(namespace) == 0 {
-			namespace = defaultNamespace
+	// for any module metric that was not externally configured, add it
+	for k, c := range fromModules {
+		if _, externallyConfigured := r.preregistered[k]; !externallyConfigured {
+			r.preregistered[k] = c
 		}
+	}
 
-		if len(subsystem) == 0 {
-			subsystem = defaultSubsystem
-		}
-
-		if len(help) == 0 {
-			help = name
-		}
-
-		key := prometheus.BuildFQName(namespace, subsystem, name)
-
-		switch m.Type {
-		case CounterType:
-			counterVec := prometheus.NewCounterVec(prometheus.CounterOpts{
-				Namespace:   namespace,
-				Subsystem:   subsystem,
-				Name:        name,
-				Help:        help,
-				ConstLabels: prometheus.Labels(m.Labels),
-			}, []string{})
-
-			if err := r.Register(counterVec); err != nil {
-				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
-			}
-
-			r.preregistered[key] = registration{
-				collector: counterVec,
-				help:      "",
-			}
-
-		case GaugeType:
-			gaugeVec := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-				Namespace:   namespace,
-				Subsystem:   subsystem,
-				Name:        name,
-				Help:        help,
-				ConstLabels: prometheus.Labels(m.Labels),
-			}, []string{})
-
-			if err := r.Register(gaugeVec); err != nil {
-				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
-			}
-
-			r.preregistered[key] = registration{
-				collector: gaugeVec,
-				help:      help,
-			}
-
-		case HistogramType:
-			histogramVec := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-				Namespace:   namespace,
-				Subsystem:   subsystem,
-				Name:        name,
-				Help:        help,
-				Buckets:     m.Buckets,
-				ConstLabels: prometheus.Labels(m.Labels),
-			}, []string{})
-
-			if err := r.Register(histogramVec); err != nil {
-				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
-			}
-
-			r.preregistered[key] = registration{
-				collector: histogramVec,
-				help:      help,
-			}
-
-		case SummaryType:
-			summaryVec := prometheus.NewSummaryVec(prometheus.SummaryOpts{
-				Namespace:   namespace,
-				Subsystem:   subsystem,
-				Name:        name,
-				Help:        help,
-				Objectives:  m.Objectives,
-				MaxAge:      m.MaxAge,
-				AgeBuckets:  m.AgeBuckets,
-				BufCap:      m.BufCap,
-				ConstLabels: prometheus.Labels(m.Labels),
-			}, []string{})
-
-			if err := r.Register(summaryVec); err != nil {
-				return nil, fmt.Errorf("Error while preregistering metric %s: %s", name, err)
-			}
-
-			r.preregistered[key] = registration{
-				collector: summaryVec,
-				help:      help,
-			}
-
-		default:
-			return nil, fmt.Errorf("Unsupported metric type: %s", m.Type)
+	// now register all metrics in the final map
+	for _, c := range r.preregistered {
+		if err := pr.Register(c); err != nil {
+			return nil, err
 		}
 	}
 

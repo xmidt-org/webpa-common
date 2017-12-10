@@ -15,20 +15,24 @@ func testRegistryAsGoKitProvider(t *testing.T) {
 		o = &Options{
 			Namespace: "test",
 			Subsystem: "basic",
-			Metrics: map[string]Metric{
-				"counter": Metric{
+			Metrics: []Metric{
+				Metric{
+					Name: "counter",
 					Type: "counter",
 					Help: "a test counter",
 				},
-				"gauge": Metric{
+				Metric{
+					Name: "gauge",
 					Type: "gauge",
 					Help: "a test gauge",
 				},
-				"histogram": Metric{
+				Metric{
+					Name:    "histogram",
 					Type:    "histogram",
 					Buckets: []float64{0.5, 1.0, 1.5},
 				},
-				"summary": Metric{
+				Metric{
+					Name:   "summary",
 					Type:   "summary",
 					MaxAge: 15 * time.Hour,
 				},
@@ -101,8 +105,8 @@ func testRegistryEmptyMetricName(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		r, err = NewRegistry(&Options{
-			Metrics: map[string]Metric{
-				"": Metric{
+			Metrics: []Metric{
+				Metric{
 					Type: "counter",
 				},
 			},
@@ -117,8 +121,9 @@ func testRegistryInvalidType(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		r, err = NewRegistry(&Options{
-			Metrics: map[string]Metric{
-				"bad": Metric{
+			Metrics: []Metric{
+				Metric{
+					Name: "bad",
 					Type: "huh?",
 				},
 			},

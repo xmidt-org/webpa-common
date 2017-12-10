@@ -29,8 +29,9 @@ func testOptionsCustom(t *testing.T) {
 			Pedantic:                true,
 			DisableGoCollector:      true,
 			DisableProcessCollector: true,
-			Metrics: map[string]Metric{
-				"counter": Metric{
+			Metrics: []Metric{
+				Metric{
+					Name: "counter",
 					Type: "counter",
 				},
 			},
@@ -44,8 +45,9 @@ func testOptionsCustom(t *testing.T) {
 	assert.True(o.disableProcessCollector())
 	assert.NotNil(o.registry())
 	assert.Equal(
-		map[string]Metric{
-			"counter": Metric{
+		[]Metric{
+			Metric{
+				Name: "counter",
 				Type: "counter",
 			},
 		},
