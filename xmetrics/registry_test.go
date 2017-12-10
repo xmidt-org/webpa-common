@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -222,6 +223,122 @@ func testRegistryMissingName(t *testing.T) {
 	assert.Error(err)
 }
 
+func testRegistryModules(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		module1 = func() []Metric {
+			return []Metric{
+				Metric{
+					Name: "counter",
+					Type: "counter",
+				},
+			}
+		}
+
+		module2 = func() []Metric {
+			return []Metric{
+				Metric{
+					Namespace: "module2",
+					Subsystem: "module2",
+					Name:      "summary",
+					Type:      "summary",
+				},
+			}
+		}
+
+		o = &Options{
+			Namespace: "test",
+			Subsystem: "basic",
+			Metrics: []Metric{
+				Metric{
+					Name: "gauge",
+					Type: "gauge",
+				},
+			},
+		}
+	)
+
+	r, err := NewRegistry(o, module1, module2)
+	require.NotNil(r)
+	require.NoError(err)
+
+	var preregistered prometheus.Collector = r.NewCounterVec("counter")
+	assert.NotNil(preregistered)
+	assert.Equal(preregistered, r.NewCounterVec("counter"))
+
+	preregistered = r.NewSummaryVecEx("module2", "module2", "summary")
+	assert.NotNil(preregistered)
+	assert.Equal(preregistered, r.NewSummaryVecEx("module2", "module2", "summary"))
+
+	preregistered = r.NewGaugeVecEx("test", "basic", "gauge")
+	assert.NotNil(preregistered)
+	assert.Equal(preregistered, r.NewGaugeVecEx("test", "basic", "gauge"))
+}
+
+func testRegistryDuplicate(t *testing.T) {
+	t.Run("Configuration", func(t *testing.T) {
+		var (
+			assert = assert.New(t)
+
+			o = &Options{
+				Metrics: []Metric{
+					Metric{
+						Name: "duplicate",
+						Type: "counter",
+					},
+					Metric{
+						Name: "duplicate",
+						Type: "counter",
+					},
+				},
+			}
+		)
+
+		r, err := NewRegistry(o)
+		assert.Nil(r)
+		assert.Error(err)
+	})
+
+	t.Run("Modules", func(t *testing.T) {
+		var (
+			assert = assert.New(t)
+
+			module1 = func() []Metric {
+				return []Metric{
+					Metric{
+						Name: "duplicate",
+						Type: "gauge",
+					},
+				}
+			}
+
+			module2 = func() []Metric {
+				return []Metric{
+					Metric{
+						Name: "duplicate",
+						Type: "gauge",
+					},
+				}
+			}
+
+			o = &Options{
+				Metrics: []Metric{
+					Metric{
+						Name: "counter",
+						Type: "counter",
+					},
+				},
+			}
+		)
+
+		r, err := NewRegistry(o, module1, module2)
+		assert.Nil(r)
+		assert.Error(err)
+	})
+}
+
 func testRegistryUnsupportedType(t *testing.T) {
 	var (
 		assert = assert.New(t)
@@ -242,6 +359,8 @@ func testRegistryUnsupportedType(t *testing.T) {
 func TestRegistry(t *testing.T) {
 	t.Run("AsPrometheusProvider", testRegistryAsPrometheusProvider)
 	t.Run("AsGoKitProvider", testRegistryAsGoKitProvider)
+	t.Run("Modules", testRegistryModules)
 	t.Run("MissingName", testRegistryMissingName)
+	t.Run("Duplicate", testRegistryDuplicate)
 	t.Run("UnsupportedType", testRegistryUnsupportedType)
 }
