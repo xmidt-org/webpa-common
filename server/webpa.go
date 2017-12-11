@@ -119,6 +119,48 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	return server
 }
 
+// Metric is the configurable factory for a metrics server.
+type Metric struct {
+	Name               string
+	Address            string
+	CertificateFile    string
+	KeyFile            string
+	LogConnectionState bool
+	HandlerOptions     promhttp.HandlerOpts
+	MetricsOptions     xmetrics.Options
+}
+
+func (m *Metric) Certificate() (certificateFile, keyFile string) {
+	return m.CertificateFile, m.KeyFile
+}
+
+func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, error) {
+	// always append the builtin server metrics, which can be overridden in configuration
+	modules = append(modules, Metrics)
+	return xmetrics.NewRegistry(&m.MetricsOptions, modules...)
+}
+
+func (m *Metric) New(logger log.Logger, gatherer stdprometheus.Gatherer) *http.Server {
+	if len(m.Address) == 0 {
+		return nil
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.HandlerFor(gatherer, m.HandlerOptions))
+
+	server := &http.Server{
+		Addr:     m.Address,
+		Handler:  mux,
+		ErrorLog: NewErrorLog(m.Name, logger),
+	}
+
+	if m.LogConnectionState {
+		server.ConnState = NewConnectionStateLogger(m.Name, logger)
+	}
+
+	return server
+}
+
 // Health represents a configurable factory for a Health server.  As with the Basic type,
 // if the Address is not specified, health is considered to be disabled.
 //
@@ -211,25 +253,11 @@ type WebPA struct {
 	// is empty, no pprof server is started.
 	Pprof Basic
 
-	// Metrics describes the metrics provider server for this application
-	Metrics Basic
-
-	//The following two fields are expected to be defined by client. Zero value is ok.
-	//Gatherer defines the metrics gathering behavior.
-	Gatherer stdprometheus.Gatherer
-
-	// Opts describes prometheus handling options.
-	Opts promhttp.HandlerOpts
+	// Metric describes the metrics provider server for this application
+	Metric Metric
 
 	// Log is the logging configuration for this application.
 	Log *logging.Options
-
-	// Provider is the Prometheus-specific provider for metrics
-	Provider xmetrics.PrometheusProvider
-
-	// Project is the cluster/group this server belongs to (i.e WebPA, XMidt, etc.). It is used as
-	// namespace for metrics
-	Project string
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -246,13 +274,19 @@ type WebPA struct {
 // it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
 // servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler http.Handler, modules ...xmetrics.Module) (health.Monitor, xmetrics.Registry, concurrent.Runnable) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	healthHandler, healthServer := w.Health.New(logger, health)
 	infoLog := logging.Info(logger)
 
-	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+	// create the metrics registry up front
+	registry, err := w.Metric.NewRegistry(modules...)
+	if err != nil {
+		panic(err)
+	}
+
+	return healthHandler, registry, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		if healthHandler != nil && healthServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Health.Name, "address", w.Health.Address)
 			ListenAndServe(logger, &w.Health, healthServer)
@@ -268,7 +302,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 		}
 
 		//wrap common metrics around both server handler
-		primaryHandler = w.decorateWithBasicMetrics(primaryHandler)
+		primaryHandler = w.decorateWithBasicMetrics(registry, primaryHandler)
 
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
@@ -282,36 +316,24 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		if metricsServer := w.Metrics.New(logger, getMetricsHandler(w.Gatherer, w.Opts)); metricsServer != nil {
-			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metrics.Name, "address", w.Metrics.Address)
-			ListenAndServe(logger, &w.Metrics, metricsServer)
+		if metricsServer := w.Metric.New(logger, registry); metricsServer != nil {
+			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metric.Name, "address", w.Metric.Address)
+			ListenAndServe(logger, &w.Metric, metricsServer)
 		}
 
 		return nil
 	})
 }
 
-//getMetricsHandler returns the handler for metrics given a gatherer and prometheus handler options. Zero value for the gatherer
-//is ok in which case the prometheus defaultGatherer is used.
-func getMetricsHandler(gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpts) http.Handler {
-	if gatherer == nil {
-		gatherer = stdprometheus.DefaultGatherer
-	}
-
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(gatherer, opts))
-	return mux
-}
-
 //decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
-func (w *WebPA) decorateWithBasicMetrics(next http.Handler) http.Handler {
+func (w *WebPA) decorateWithBasicMetrics(p xmetrics.PrometheusProvider, next http.Handler) http.Handler {
 	var (
-		requestCounterVec    = w.Provider.NewCounterVec("api_requests_total")
-		inFlightGauge        = w.Provider.NewGaugeVec("in_flight_requests").WithLabelValues()
-		requestDurationVec   = w.Provider.NewHistogramVec("request_duration_seconds")
-		requestSizeVec       = w.Provider.NewHistogramVec("request_size_bytes")
-		responseSizeVec      = w.Provider.NewHistogramVec("response_size_bytes")
-		timeToWriteHeaderVec = w.Provider.NewHistogramVec("time_writing_header_seconds")
+		requestCounterVec    = p.NewCounterVec("api_requests_total")
+		inFlightGauge        = p.NewGaugeVec("in_flight_requests").WithLabelValues()
+		requestDurationVec   = p.NewHistogramVec("request_duration_seconds")
+		requestSizeVec       = p.NewHistogramVec("request_size_bytes")
+		responseSizeVec      = p.NewHistogramVec("response_size_bytes")
+		timeToWriteHeaderVec = p.NewHistogramVec("time_writing_header_seconds")
 	)
 
 	//todo: Example documentation does something interesting with /pull vs. /push endpoints

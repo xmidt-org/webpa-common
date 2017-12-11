@@ -253,11 +253,14 @@ func (r *registry) insertMetric(m Metric, collectors map[string]prometheus.Colle
 	return nil
 }
 
+// Module is a function type that returns prebuilt metrics.
+type Module func() []Metric
+
 // NewRegistry creates an xmetrics.Registry from an externally supplied set of Options and a set
 // of modules, which are functions that just return Metrics to register.  The module functions are
 // expected to come from application or library code, and are to define any built-in metrics.  Metrics
 // present in the options will override any corresponding metric from modules.
-func NewRegistry(o *Options, modules ...func() []Metric) (Registry, error) {
+func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 	var (
 		defaultNamespace = o.namespace()
 		defaultSubsystem = o.subsystem()

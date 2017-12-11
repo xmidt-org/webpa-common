@@ -3,6 +3,8 @@ package server
 import "github.com/Comcast/webpa-common/xmetrics"
 
 // Metrics is the module function for this package that adds the default request handling metrics.
+// This module is exported for code that does not directly use this package to start a server.
+// Never pass this module when using the webpa functions to start a server.
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		xmetrics.Metric{
