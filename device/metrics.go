@@ -1,6 +1,10 @@
 package device
 
-import "github.com/Comcast/webpa-common/xmetrics"
+import (
+	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/provider"
+)
 
 const (
 	DeviceCounter          = "device_count"
@@ -38,5 +42,27 @@ func Metrics() []xmetrics.Metric {
 			Name: DisconnectCounter,
 			Type: "counter",
 		},
+	}
+}
+
+// Measures is a convenient struct that holds all the device-related metric objects for runtime consumption.
+type Measures struct {
+	Device          metrics.Counter
+	RequestResponse metrics.Counter
+	Ping            metrics.Counter
+	Pong            metrics.Counter
+	Connect         metrics.Counter
+	Disconnect      metrics.Counter
+}
+
+// NewMeasures constructs a Measures given a go-kit metrics Provider
+func NewMeasures(p provider.Provider) Measures {
+	return Measures{
+		Device:          p.NewCounter(DeviceCounter),
+		RequestResponse: p.NewCounter(RequestResponseCounter),
+		Ping:            p.NewCounter(PingCounter),
+		Pong:            p.NewCounter(PongCounter),
+		Connect:         p.NewCounter(ConnectCounter),
+		Disconnect:      p.NewCounter(DisconnectCounter),
 	}
 }
