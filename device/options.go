@@ -6,6 +6,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/provider"
 )
 
 const (
@@ -92,6 +93,9 @@ type Options struct {
 	// Logger is the output sink for log messages.  If not supplied, log output
 	// is sent to a NOP logger.
 	Logger log.Logger
+
+	// MetricsProvider is the go-kit factory for metrics
+	MetricsProvider provider.Provider
 }
 
 func (o *Options) deviceMessageQueueSize() int {
@@ -221,4 +225,12 @@ func (o *Options) listeners() []Listener {
 	}
 
 	return nil
+}
+
+func (o *Options) metricsProvider() provider.Provider {
+	if o != nil && o.MetricsProvider != nil {
+		return o.MetricsProvider
+	}
+
+	return provider.NewDiscardProvider()
 }
