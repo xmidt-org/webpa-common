@@ -274,19 +274,13 @@ type WebPA struct {
 // it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
 // servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, primaryHandler http.Handler, modules ...xmetrics.Module) (health.Monitor, xmetrics.Registry, concurrent.Runnable) {
+func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	healthHandler, healthServer := w.Health.New(logger, health)
 	infoLog := logging.Info(logger)
 
-	// create the metrics registry up front
-	registry, err := w.Metric.NewRegistry(modules...)
-	if err != nil {
-		panic(err)
-	}
-
-	return healthHandler, registry, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
+	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		if healthHandler != nil && healthServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Health.Name, "address", w.Health.Address)
 			ListenAndServe(logger, &w.Health, healthServer)

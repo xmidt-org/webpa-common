@@ -309,3 +309,13 @@ func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 
 	return r, nil
 }
+
+// MustNewRegistry is like NewRegistry, except that it panics when NewRegistry would return an error.
+func MustNewRegistry(o *Options, modules ...Module) Registry {
+	r, err := NewRegistry(o, modules...)
+	if err != nil {
+		panic(err)
+	}
+
+	return r
+}

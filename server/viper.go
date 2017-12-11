@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -154,7 +155,7 @@ needed to fully instantiate a WebPA server.  Typical usage:
       v = viper.New()
 
       // can customize both the FlagSet and the Viper before invoking New
-      logger, webPA, err = server.Initialize("petasos", os.Args, f, v)
+      logger, registry, webPA, err = server.Initialize("petasos", os.Args, f, v)
     )
 
     if err != nil {
@@ -168,7 +169,7 @@ This function always returns a logger, regardless of any errors.  This allows cl
 logger when reporting errors.  This function falls back to a logger that writes to os.Stdout if it cannot
 create a logger from the Viper environment.
 */
-func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper) (logger log.Logger, webPA *WebPA, err error) {
+func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper, modules ...xmetrics.Module) (logger log.Logger, registry xmetrics.Registry, webPA *WebPA, err error) {
 	defer func() {
 		if err != nil {
 			// never return a WebPA in the presence of an error, to
@@ -200,6 +201,11 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 
 	if len(webPA.Metric.MetricsOptions.Subsystem) == 0 {
 		webPA.Metric.MetricsOptions.Subsystem = applicationName
+	}
+
+	registry, err = webPA.Metric.NewRegistry(modules...)
+	if err != nil {
+		return
 	}
 
 	logger = logging.New(webPA.Log)

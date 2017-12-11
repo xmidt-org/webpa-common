@@ -10,7 +10,7 @@ import (
 )
 
 func ExampleInitialize() {
-	_, webPA, err := Initialize("example", nil, nil, viper.New())
+	_, _, webPA, err := Initialize("example", nil, nil, viper.New())
 	if err != nil {
 		panic(err)
 	}
@@ -47,7 +47,7 @@ func ExampleInitializeWithFlags() {
 		v = viper.New()
 
 		// simulates passing `-f example` on the command line
-		_, webPA, err = Initialize("applicationName", []string{"-f", "example"}, f, v)
+		_, _, webPA, err = Initialize("applicationName", []string{"-f", "example"}, f, v)
 	)
 
 	if err != nil {
@@ -99,10 +99,11 @@ func TestInitializeWhenConfigureError(t *testing.T) {
 		f = pflag.NewFlagSet("applicationName", pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, webPA, err = Initialize("applicationName", []string{"-unknown"}, f, v)
+		logger, registry, webPA, err = Initialize("applicationName", []string{"-unknown"}, f, v)
 	)
 
 	assert.NotNil(logger)
+	assert.Nil(registry)
 	assert.Nil(webPA)
 	assert.NotNil(err)
 }
@@ -114,10 +115,11 @@ func TestInitializeWhenReadInConfigError(t *testing.T) {
 		f = pflag.NewFlagSet("applicationName", pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, webPA, err = Initialize("applicationName", []string{"-f", "thisfiledoesnotexist"}, f, v)
+		logger, registry, webPA, err = Initialize("applicationName", []string{"-f", "thisfiledoesnotexist"}, f, v)
 	)
 
 	assert.NotNil(logger)
+	assert.Nil(registry)
 	assert.Nil(webPA)
 	assert.NotNil(err)
 }
@@ -129,10 +131,11 @@ func TestInitializeWhenWebPAUnmarshalError(t *testing.T) {
 		f = pflag.NewFlagSet("invalidWebPA", pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, webPA, err = Initialize("invalidWebPA", nil, f, v)
+		logger, registry, webPA, err = Initialize("invalidWebPA", nil, f, v)
 	)
 
 	assert.NotNil(logger)
+	assert.Nil(registry)
 	assert.Nil(webPA)
 	assert.NotNil(err)
 }
@@ -144,10 +147,11 @@ func TestInitializeWhenWebPANewLoggerError(t *testing.T) {
 		f = pflag.NewFlagSet("invalidLog", pflag.ContinueOnError)
 		v = viper.New()
 
-		logger, webPA, err = Initialize("invalidLog", nil, f, v)
+		logger, registry, webPA, err = Initialize("invalidLog", nil, f, v)
 	)
 
 	assert.NotNil(logger)
+	assert.NotNil(registry)
 	assert.NotNil(webPA)
 	assert.Nil(err)
 }
