@@ -112,6 +112,7 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		authDelay:              o.authDelay(),
 
 		listeners: o.listeners(),
+		measures:  NewMeasures(o.metricsProvider()),
 	}
 
 	return m
@@ -133,6 +134,7 @@ type manager struct {
 	authDelay              time.Duration
 
 	listeners []Listener
+	measures  Measures
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -208,6 +210,8 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 		d.debugLog.Log(logging.MessageKey(), "pump close")
 	}
 
+	m.measures.Disconnect.Add(1.0)
+	m.measures.Device.Add(-1.0)
 	m.registry.remove(d)
 
 	// always request a close, to ensure that the write goroutine is
@@ -233,6 +237,7 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 	event := new(Event)
 
 	return func(data string) {
+		m.measures.Pong.Add(1.0)
 		event.SetPong(d, data)
 		m.dispatch(event)
 	}
@@ -242,6 +247,8 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 // This goroutine exits when any error occurs on the connection.
 func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	d.debugLog.Log(logging.MessageKey(), "readPump starting")
+	m.measures.Connect.Add(1.0)
+	m.measures.Device.Add(1.0)
 
 	var (
 		frameRead bool
@@ -276,6 +283,10 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			// malformed WRP messages are allowed: the read pump will keep on chugging
 			d.errorLog.Log(logging.MessageKey(), "skipping malformed frame", logging.ErrorKey(), decodeError)
 			continue
+		}
+
+		if message.Type == wrp.SimpleRequestResponseMessageType {
+			m.measures.RequestResponse.Add(1.0)
 		}
 
 		d.statistics.AddMessagesReceived(1)
@@ -406,8 +417,11 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		case <-pingTicker.C:
 			writeError = c.Ping(pingMessage)
-			event.SetPing(d, pingData, writeError)
-			m.dispatch(&event)
+			if writeError == nil {
+				m.measures.Ping.Add(1.0)
+				event.SetPing(d, pingData, writeError)
+				m.dispatch(&event)
+			}
 		}
 	}
 }

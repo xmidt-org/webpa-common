@@ -18,8 +18,14 @@ func TestMetrics(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(r)
 
-	for _, name := range []string{DeviceCounter, RequestResponseCounter, PingCounter, PongCounter, ConnectCounter, DisconnectCounter} {
-		counter := r.NewCounter(name)
+	for _, gaugeName := range []string{DeviceCounter} {
+		gauge := r.NewGauge(gaugeName)
+		gauge.Add(1.0)
+		gauge.Add(-1.0)
+	}
+
+	for _, counterName := range []string{RequestResponseCounter, PingCounter, PongCounter, ConnectCounter, DisconnectCounter} {
+		counter := r.NewCounter(counterName)
 		counter.Add(1.0)
 	}
 }

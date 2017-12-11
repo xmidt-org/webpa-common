@@ -20,7 +20,7 @@ func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		xmetrics.Metric{
 			Name: DeviceCounter,
-			Type: "counter",
+			Type: "gauge",
 		},
 		xmetrics.Metric{
 			Name: RequestResponseCounter,
@@ -47,7 +47,7 @@ func Metrics() []xmetrics.Metric {
 
 // Measures is a convenient struct that holds all the device-related metric objects for runtime consumption.
 type Measures struct {
-	Device          metrics.Counter
+	Device          metrics.Gauge
 	RequestResponse metrics.Counter
 	Ping            metrics.Counter
 	Pong            metrics.Counter
@@ -58,7 +58,7 @@ type Measures struct {
 // NewMeasures constructs a Measures given a go-kit metrics Provider
 func NewMeasures(p provider.Provider) Measures {
 	return Measures{
-		Device:          p.NewCounter(DeviceCounter),
+		Device:          p.NewGauge(DeviceCounter),
 		RequestResponse: p.NewCounter(RequestResponseCounter),
 		Ping:            p.NewCounter(PingCounter),
 		Pong:            p.NewCounter(PongCounter),

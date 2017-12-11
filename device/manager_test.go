@@ -12,6 +12,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 )
@@ -201,6 +202,7 @@ func testManagerPongCallbackFor(t *testing.T) {
 				assert.Equal(expectedData, event.Data)
 			},
 		},
+		measures: NewMeasures(provider.NewDiscardProvider()),
 	}
 
 	pongCallback := manager.pongCallbackFor(expectedDevice)
