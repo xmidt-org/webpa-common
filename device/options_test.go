@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -30,13 +31,15 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Empty(o.subprotocols())
 		assert.NotNil(o.logger())
 		assert.Empty(o.listeners())
+		assert.Equal(provider.NewDiscardProvider(), o.metricsProvider())
 	}
 }
 
 func TestOptions(t *testing.T) {
 	var (
-		assert         = assert.New(t)
-		expectedLogger = logging.DefaultLogger()
+		assert                  = assert.New(t)
+		expectedLogger          = logging.DefaultLogger()
+		expectedMetricsProvider = provider.NewPrometheusProvider("test", "test")
 
 		o = Options{
 			HandshakeTimeout:       DefaultHandshakeTimeout + 12377123*time.Second,
@@ -54,6 +57,7 @@ func TestOptions(t *testing.T) {
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
 			Logger:                 expectedLogger,
 			Listeners:              []Listener{func(*Event) {}},
+			MetricsProvider:        expectedMetricsProvider,
 		}
 	)
 
@@ -72,4 +76,5 @@ func TestOptions(t *testing.T) {
 	assert.Equal(o.Subprotocols, o.subprotocols())
 	assert.Equal(expectedLogger, o.logger())
 	assert.Equal(o.Listeners, o.listeners())
+	assert.Equal(expectedMetricsProvider, o.metricsProvider())
 }
