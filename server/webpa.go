@@ -9,11 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/metrics/provider"
-
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -225,8 +224,8 @@ type WebPA struct {
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 
-	// MetricsProvider is the metric collectors provider for WebPa server. Server assumes client defines such provider
-	GoKitMetricsProvider provider.Provider
+	// Provider is the Prometheus-specific provider for metrics
+	Provider xmetrics.PrometheusProvider
 
 	// Project is the cluster/group this server belongs to (i.e WebPA, XMidt, etc.). It is used as
 	// namespace for metrics
@@ -306,66 +305,14 @@ func getMetricsHandler(gatherer stdprometheus.Gatherer, opts promhttp.HandlerOpt
 
 //decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
 func (w *WebPA) decorateWithBasicMetrics(next http.Handler) http.Handler {
-	requestCounterVec := stdprometheus.NewCounterVec(stdprometheus.CounterOpts{
-		Namespace: w.Project,
-		Subsystem: w.Primary.Name,
-		Name:      "api_requests_total",
-		Help:      "A counter for requests to the handler",
-	}, []string{"code", "method"})
-
-	inFlightGauge := stdprometheus.NewGauge(stdprometheus.GaugeOpts{
-		Namespace: w.Project,
-		Subsystem: w.Primary.Name,
-		Name:      "in_flight_requests",
-		Help:      "A gauge of requests currently being served by the handler.",
-	})
-
-	requestDurationVec := stdprometheus.NewHistogramVec(
-		stdprometheus.HistogramOpts{
-			Namespace: w.Project,
-			Subsystem: w.Primary.Name,
-			Name:      "request_duration_seconds",
-			Help:      "A histogram of latencies for requests.",
-			Buckets:   []float64{.25, .5, 1, 2.5, 5, 10},
-		},
-		[]string{},
+	var (
+		requestCounterVec    = w.Provider.NewCounterVec("api_requests_total")
+		inFlightGauge        = w.Provider.NewGaugeVec("in_flight_requests").WithLabelValues()
+		requestDurationVec   = w.Provider.NewHistogramVec("request_duration_seconds")
+		requestSizeVec       = w.Provider.NewHistogramVec("request_size_bytes")
+		responseSizeVec      = w.Provider.NewHistogramVec("response_size_bytes")
+		timeToWriteHeaderVec = w.Provider.NewHistogramVec("time_writing_header_seconds")
 	)
-
-	requestSizeVec := stdprometheus.NewHistogramVec(
-		stdprometheus.HistogramOpts{
-			Namespace: w.Project,
-			Subsystem: w.Primary.Name,
-			Name:      "request_size_bytes",
-			Help:      "A histogram of request sizes for requests.",
-			Buckets:   []float64{200, 500, 900, 1500},
-		},
-		[]string{},
-	)
-
-	responseSizeVec := stdprometheus.NewHistogramVec(
-		stdprometheus.HistogramOpts{
-			Namespace: w.Project,
-			Subsystem: w.Primary.Name,
-			Name:      "response_size_bytes",
-			Help:      "A histogram of response sizes for requests.",
-			Buckets:   []float64{200, 500, 900, 1500},
-		},
-		[]string{},
-	)
-
-	timeToWriteHeaderVec := stdprometheus.NewHistogramVec(
-		stdprometheus.HistogramOpts{
-			Namespace: w.Project,
-			Subsystem: w.Primary.Name,
-			Name:      "time_writing_header_seconds",
-			Help:      "A histogram of latencies for writing HTTP headers.",
-			Buckets:   []float64{0, 1, 2, 3},
-		},
-		[]string{},
-	)
-
-	stdprometheus.MustRegister(requestCounterVec, inFlightGauge, requestDurationVec, requestSizeVec,
-		responseSizeVec, timeToWriteHeaderVec)
 
 	//todo: Example documentation does something interesting with /pull vs. /push endpoints
 	//https://godoc.org/github.com/prometheus/client_golang/prometheus/promhttp#InstrumentHandlerDuration
