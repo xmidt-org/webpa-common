@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -314,8 +315,18 @@ func TestWebPANoPrimaryAddress(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
+	)
+
+	r, err := xmetrics.NewRegistry(nil, Metrics)
+	require.NoError(err)
+	require.NotNil(r)
+
+	var (
 		handler = new(mockHandler)
-		webPA   = WebPA{}
+
+		webPA = WebPA{
+			Provider: r,
+		}
 
 		_, logger         = newTestLogger()
 		monitor, runnable = webPA.Prepare(logger, nil, handler)
@@ -340,7 +351,13 @@ func TestWebPA(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 		handler = new(mockHandler)
+	)
 
+	r, err := xmetrics.NewRegistry(nil, Metrics)
+	require.NoError(err)
+	require.NotNil(r)
+
+	var (
 		// synthesize a WebPA instance that will start everything,
 		// close to how it would be unmarshalled from Viper.
 		webPA = WebPA{
@@ -367,6 +384,8 @@ func TestWebPA(t *testing.T) {
 				Name:    "test.metrics",
 				Address: ":0",
 			},
+
+			Provider: r,
 		}
 
 		_, logger         = newTestLogger()
