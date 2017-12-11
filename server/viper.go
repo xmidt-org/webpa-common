@@ -194,6 +194,14 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
+	if len(webPA.Metric.MetricsOptions.Namespace) == 0 {
+		webPA.Metric.MetricsOptions.Namespace = applicationName
+	}
+
+	if len(webPA.Metric.MetricsOptions.Subsystem) == 0 {
+		webPA.Metric.MetricsOptions.Subsystem = applicationName
+	}
+
 	logger = logging.New(webPA.Log)
 	return
 }
