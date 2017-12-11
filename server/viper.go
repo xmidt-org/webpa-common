@@ -91,8 +91,8 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 	v.SetDefault("pprof.name", fmt.Sprintf("%s.%s", applicationName, PprofSuffix))
 	v.SetDefault("pprof.logConnectionState", DefaultLogConnectionState)
 
-	v.SetDefault("metrics.name", fmt.Sprintf("%s.%s", applicationName, MetricsSuffix))
-	v.SetDefault("metrics.address", DefaultMetricsAddress)
+	v.SetDefault("metric.name", fmt.Sprintf("%s.%s", applicationName, MetricsSuffix))
+	v.SetDefault("metric.address", DefaultMetricsAddress)
 
 	v.SetDefault("project", DefaultProject)
 
