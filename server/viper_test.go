@@ -2,11 +2,13 @@ package server
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func ExampleInitialize() {
@@ -154,4 +156,31 @@ func TestInitializeWhenWebPANewLoggerError(t *testing.T) {
 	assert.NotNil(registry)
 	assert.NotNil(webPA)
 	assert.Nil(err)
+}
+
+func TestInitializeMetrics(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		v       = viper.New()
+		w       = new(WebPA)
+	)
+
+	v.SetConfigType("json")
+	require.NoError(v.ReadConfig(strings.NewReader(`
+		{
+			"metric": {
+				"address": ":8080",
+				"metricsOptions": {
+					"namespace": "foo",
+					"subsystem": "bar"
+				}
+			}
+		}
+	`)))
+
+	require.NoError(v.Unmarshal(w))
+
+	assert.Equal("foo", w.Metric.MetricsOptions.Namespace)
+	assert.Equal("bar", w.Metric.MetricsOptions.Subsystem)
 }
