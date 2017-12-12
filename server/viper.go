@@ -29,6 +29,9 @@ const (
 	// value is primarily used when a *WebPA value is nil.
 	DefaultLogConnectionState = false
 
+	// DefaultMetricsNamespace is the default prometheus namespace config value for any webpa machine
+	DefaultMetricsNamespace = "xmidt"
+
 	// AlternateSuffix is the suffix appended to the server name, along with a period (.), for
 	// logging information pertinent to the alternate server.
 	AlternateSuffix = "alternate"
@@ -90,6 +93,9 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 
 	v.SetDefault("metric.name", fmt.Sprintf("%s.%s", applicationName, MetricsSuffix))
 	v.SetDefault("metric.address", DefaultMetricsAddress)
+
+	v.SetDefault("metric.metricsoptions.subsystem", applicationName)
+	v.SetDefault("metric.metricsoptions.namespace", DefaultMetricsNamespace)
 
 	configName := applicationName
 	if f != nil {
