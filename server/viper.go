@@ -33,9 +33,6 @@ const (
 	// logging information pertinent to the alternate server.
 	AlternateSuffix = "alternate"
 
-	// DefaultProject is used as a metrics namespace when one is not defined.
-	DefaultProject = "xmidt"
-
 	// HealthSuffix is the suffix appended to the server name, along with a period (.), for
 	// logging information pertinent to the health server.
 	HealthSuffix = "health"
@@ -93,8 +90,6 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 
 	v.SetDefault("metric.name", fmt.Sprintf("%s.%s", applicationName, MetricsSuffix))
 	v.SetDefault("metric.address", DefaultMetricsAddress)
-
-	v.SetDefault("project", DefaultProject)
 
 	configName := applicationName
 	if f != nil {
