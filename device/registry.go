@@ -29,21 +29,31 @@ func (r *registry) maxDevices() uint32 {
 	return r.limit
 }
 
-func (r *registry) add(d *device) (existing *device, deviceCount int, err error) {
+func (r *registry) add(d *device) (*device, int, error) {
 	r.lock.Lock()
-	existing = r.devices[d.id]
+
+	var (
+		existing = r.devices[d.id]
+		failed   = false
+		err      error
+	)
 
 	// if there is an existing device, it will be replaced so the count won't go up
 	// if there is NOT an existing device, the count will go up by one and that must be within the limit
 	if existing != nil || uint32(len(r.devices)+1) <= r.limit {
 		r.devices[d.id] = d
 	} else {
+		failed = true
+	}
+
+	deviceCount := len(r.devices)
+	r.lock.Unlock()
+
+	if failed {
 		err = fmt.Errorf("Maximum count of devices exceeded [%d]", r.limit)
 	}
 
-	deviceCount = len(r.devices)
-	r.lock.Unlock()
-	return
+	return existing, deviceCount, err
 }
 
 func (r *registry) remove(d *device) int {
