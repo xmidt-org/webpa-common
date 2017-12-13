@@ -150,18 +150,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
-	if err != nil {
-		return nil, err
-	}
-
-	var (
-		d         = newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
-		closeOnce = new(sync.Once)
-	)
-
-	if c, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
-		d.debugLog.Log("convey", c)
+	d := newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
+	if convey, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
+		d.debugLog.Log("convey", convey)
 	} else if err != conveyhttp.ErrMissingHeader {
 		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
 	}
@@ -185,6 +176,14 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.statistics.AddDuplications(existing.statistics.Duplications() + 1)
 	}
 
+	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
+	if err != nil {
+		deviceCount := m.registry.remove(d)
+		m.measures.Device.Set(float64(deviceCount))
+		return nil, err
+	}
+
+	closeOnce := new(sync.Once)
 	go m.readPump(d, c, closeOnce)
 	go m.writePump(d, c, closeOnce)
 
