@@ -34,7 +34,7 @@ func testRegistryConcurrentAddAndVisit(t *testing.T, r *registry) {
 				second = &device{id: id}
 			)
 
-			existing, err := r.add(first)
+			existing, _, err := r.add(first)
 			assert.Nil(existing)
 			assert.NoError(err)
 			existing, ok := r.get(id)
@@ -42,7 +42,7 @@ func testRegistryConcurrentAddAndVisit(t *testing.T, r *registry) {
 			assert.Equal(id, existing.id)
 			assert.True(ok)
 
-			existing, err = r.add(second)
+			existing, _, err = r.add(second)
 			assert.True(first == existing)
 			assert.NoError(err)
 			existing, ok = r.get(id)
@@ -164,24 +164,28 @@ func testRegistryMaxDevices(t *testing.T) {
 
 	assert.Equal(uint32(1), registry.maxDevices())
 
-	existing, err := registry.add(first)
+	existing, count, err := registry.add(first)
 	assert.Nil(existing)
+	assert.Equal(1, count)
 	assert.NoError(err)
 
-	existing, err = registry.add(duplicate)
+	existing, count, err = registry.add(duplicate)
 	assert.True(first == existing)
+	assert.Equal(1, count)
 	assert.NoError(err)
 
-	existing, err = registry.add(second)
+	existing, count, err = registry.add(second)
 	assert.Nil(existing)
+	assert.Equal(1, count)
 	assert.Error(err)
 
 	existing, ok := registry.removeID(first.id)
 	assert.True(duplicate == existing)
 	assert.True(ok)
 
-	existing, err = registry.add(second)
+	existing, count, err = registry.add(second)
 	assert.Nil(existing)
+	assert.Equal(1, count)
 	assert.NoError(err)
 
 	registry = newRegistry(0, 0)
