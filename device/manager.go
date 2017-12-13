@@ -166,7 +166,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
 	}
 
-	existing, err := m.registry.add(d)
+	existing, deviceCount, err := m.registry.add(d)
+	m.measures.Device.Set(float64(deviceCount))
 	if err != nil {
 		d.errorLog.Log(logging.MessageKey(), "unable to connect device", logging.ErrorKey(), err)
 		response.Header().Set(MaxDevicesHeader, strconv.FormatUint(uint64(m.registry.maxDevices()), 10))
@@ -211,8 +212,8 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	}
 
 	m.measures.Disconnect.Add(1.0)
-	m.measures.Device.Add(-1.0)
-	m.registry.remove(d)
+	deviceCount := m.registry.remove(d)
+	m.measures.Device.Set(float64(deviceCount))
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
@@ -248,7 +249,6 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	d.debugLog.Log(logging.MessageKey(), "readPump starting")
 	m.measures.Connect.Add(1.0)
-	m.measures.Device.Add(1.0)
 
 	var (
 		frameRead bool
