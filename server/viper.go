@@ -7,6 +7,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -195,6 +196,9 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
+	logger = logging.New(webPA.Log)
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "initialized Viper environment", "configurationFile", v.ConfigFileUsed())
+
 	if len(webPA.Metric.MetricsOptions.Namespace) == 0 {
 		webPA.Metric.MetricsOptions.Namespace = applicationName
 	}
@@ -208,6 +212,5 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
-	logger = logging.New(webPA.Log)
 	return
 }

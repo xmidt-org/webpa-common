@@ -1,5 +1,6 @@
 *.swp
 *.out
+*.log
 vendor
 pkg
 src
