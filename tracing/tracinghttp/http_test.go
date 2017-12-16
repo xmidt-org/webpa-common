@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/tracing"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,7 +33,7 @@ func TestHeadersForSpans(t *testing.T) {
 				spans: []tracing.Span{
 					spanner.Start("first")(nil),
 					spanner.Start("second")(errors.New("second error")),
-					spanner.Start("third")(&httperror.E{Code: 503, Text: "fubar"}),
+					spanner.Start("third")(&xhttp.Error{Code: 503, Text: "fubar"}),
 				},
 				expectedHeader: http.Header{
 					SpanHeader: []string{

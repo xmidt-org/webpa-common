@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/tracing"
+	"github.com/Comcast/webpa-common/xhttp"
 )
 
 // PassThrough holds the raw contents of an original fanout request.  This is useful
@@ -72,7 +72,7 @@ func DecodePassThroughResponse(_ context.Context, component *http.Response) (int
 	}
 
 	if component.StatusCode > 399 {
-		return nil, &httperror.E{
+		return nil, &xhttp.Error{
 			Code:   component.StatusCode,
 			Text:   fmt.Sprintf("HTTP transaction failed with code: %d", component.StatusCode),
 			Entity: entity,

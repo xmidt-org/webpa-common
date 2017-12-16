@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
@@ -90,7 +90,7 @@ func useID(f IDFromRequest) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 			id, err := f(request)
 			if err != nil {
-				httperror.Formatf(
+				xhttp.WriteErrorf(
 					response,
 					http.StatusBadRequest,
 					"Could extract device id: %s",
@@ -146,7 +146,7 @@ func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceReques
 func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpRequest *http.Request) {
 	deviceRequest, err := mh.decodeRequest(httpRequest)
 	if err != nil {
-		httperror.Formatf(
+		xhttp.WriteErrorf(
 			httpResponse,
 			http.StatusBadRequest,
 			"Could not decode WRP message: %s",
@@ -178,7 +178,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			code = http.StatusBadRequest
 		}
 
-		httperror.Formatf(
+		xhttp.WriteErrorf(
 			httpResponse,
 			code,
 			"Could not process device request: %s",

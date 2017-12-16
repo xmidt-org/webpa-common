@@ -9,9 +9,9 @@ import (
 
 	"github.com/go-kit/kit/log"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
+	"github.com/Comcast/webpa-common/xhttp"
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 
@@ -87,20 +87,20 @@ func ClientDecodeResponseBody(pool *wrp.DecoderPool) gokithttp.DecodeResponseFun
 			)
 
 			if err != nil {
-				return nil, &httperror.E{Code: http.StatusBadRequest, Text: err.Error()}
+				return nil, &xhttp.Error{Code: http.StatusBadRequest, Text: err.Error()}
 			} else if responseFormat != pool.Format() {
-				return nil, &httperror.E{Code: http.StatusUnsupportedMediaType, Text: fmt.Sprintf("Unexpected response Content-Type: %s", contentType)}
+				return nil, &xhttp.Error{Code: http.StatusUnsupportedMediaType, Text: fmt.Sprintf("Unexpected response Content-Type: %s", contentType)}
 			}
 
 			response, err := wrpendpoint.DecodeResponseBytes(body, pool)
 			if err != nil {
-				return nil, &httperror.E{Code: http.StatusInternalServerError, Text: err.Error()}
+				return nil, &xhttp.Error{Code: http.StatusInternalServerError, Text: err.Error()}
 			}
 
 			return response, nil
 		}
 
-		return nil, &httperror.E{Code: httpResponse.StatusCode}
+		return nil, &xhttp.Error{Code: httpResponse.StatusCode}
 	}
 }
 
@@ -115,18 +115,18 @@ func ClientDecodeResponseHeaders(ctx context.Context, httpResponse *http.Respons
 	if httpResponse.StatusCode == http.StatusOK {
 		message, err := NewMessageFromHeaders(httpResponse.Header, bytes.NewReader(body))
 		if err != nil {
-			return nil, &httperror.E{Code: http.StatusBadRequest, Text: err.Error()}
+			return nil, &xhttp.Error{Code: http.StatusBadRequest, Text: err.Error()}
 		}
 
 		response, err := wrpendpoint.WrapAsResponse(message), nil
 		if err != nil {
-			return nil, &httperror.E{Code: http.StatusInternalServerError, Text: err.Error()}
+			return nil, &xhttp.Error{Code: http.StatusInternalServerError, Text: err.Error()}
 		}
 
 		return response, nil
 	}
 
-	return nil, &httperror.E{Code: httpResponse.StatusCode}
+	return nil, &xhttp.Error{Code: httpResponse.StatusCode}
 }
 
 // withLogger enriches the given logger with request-specific information
