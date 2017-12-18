@@ -47,6 +47,12 @@ type Options struct {
 	// Concurrency is the maximum number of concurrent fanouts allowed.  This is enforced via a Concurrent middleware.
 	// If this is not set, DefaultConcurrency is used.
 	Concurrency int `json:"concurrency"`
+
+	// MaxRedirects defines the maximum number of redirects each fanout will allow
+	MaxRedirects int `json:"maxRedirects"`
+
+	// RedirectExcludeHeaders are the headers that will *not* be copied on a redirect
+	RedirectExcludeHeaders []string `json:"redirectExcludeHeaders,omitempty"`
 }
 
 func (o *Options) logger() log.Logger {
@@ -119,11 +125,36 @@ func (o *Options) concurrency() int {
 	return DefaultConcurrency
 }
 
+func (o *Options) maxRedirects() int {
+	if o != nil {
+		return o.MaxRedirects
+	}
+
+	return 0
+}
+
+func (o *Options) redirectExcludeHeaders() []string {
+	if o != nil {
+		return o.RedirectExcludeHeaders
+	}
+
+	return nil
+}
+
+func (o *Options) checkRedirect() func(*http.Request, []*http.Request) error {
+	return xhttp.CheckRedirect(xhttp.RedirectPolicy{
+		Logger:         o.logger(),
+		MaxRedirects:   o.maxRedirects(),
+		ExcludeHeaders: o.redirectExcludeHeaders(),
+	})
+}
+
 // NewClient returns a distinct HTTP client synthesized from these options
 func (o *Options) NewClient() *http.Client {
 	return &http.Client{
-		Transport: o.transport(),
-		Timeout:   o.clientTimeout(),
+		CheckRedirect: o.checkRedirect(),
+		Transport:     o.transport(),
+		Timeout:       o.clientTimeout(),
 	}
 }
 
