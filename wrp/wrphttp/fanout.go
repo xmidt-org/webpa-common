@@ -212,6 +212,11 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		decoderPool = o.NewDecoderPool(wrp.Msgpack)
 
 		httpClient = &http.Client{
+			CheckRedirect: xhttp.CheckRedirect(
+				xhttp.RedirectPolicy{
+					Logger: o.logger(),
+				},
+			),
 			Transport: o.transport(),
 			Timeout:   o.clientTimeout(),
 		}
