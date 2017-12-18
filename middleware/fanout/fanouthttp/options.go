@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/middleware"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 )
@@ -141,8 +141,8 @@ func (o *Options) FanoutMiddleware() endpoint.Middleware {
 	return endpoint.Chain(
 		// logging is the outermost middleware, so everything downstream can log consistently
 		o.loggerMiddleware,
-		middleware.Busy(o.maxClients(), &httperror.E{Code: http.StatusTooManyRequests, Text: "Server Busy"}),
+		middleware.Busy(o.maxClients(), &xhttp.Error{Code: http.StatusTooManyRequests, Text: "Server Busy"}),
 		middleware.Timeout(o.fanoutTimeout()),
-		middleware.Concurrent(o.concurrency(), &httperror.E{Code: http.StatusServiceUnavailable, Text: "Server Busy"}),
+		middleware.Concurrent(o.concurrency(), &xhttp.Error{Code: http.StatusServiceUnavailable, Text: "Server Busy"}),
 	)
 }

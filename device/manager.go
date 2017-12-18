@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/convey/conveyhttp"
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 )
 
@@ -141,7 +141,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	m.debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
 	id, ok := GetID(request.Context())
 	if !ok {
-		httperror.Format(
+		xhttp.WriteError(
 			response,
 			http.StatusInternalServerError,
 			ErrorMissingDeviceNameContext,
@@ -163,7 +163,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.errorLog.Log(logging.MessageKey(), "unable to connect device", logging.ErrorKey(), err)
 		response.Header().Set(MaxDevicesHeader, strconv.FormatUint(uint64(m.registry.maxDevices()), 10))
 
-		httperror.Format(
+		xhttp.WriteError(
 			response,
 			http.StatusServiceUnavailable,
 			err,

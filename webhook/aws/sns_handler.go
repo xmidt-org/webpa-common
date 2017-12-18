@@ -3,15 +3,16 @@ package aws
 import (
 	"container/list"
 	"fmt"
-	"github.com/Comcast/webpa-common/httperror"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sns"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -152,7 +153,7 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 	raw, err := DecodeJSONMessage(req, msg)
 	if err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS read req body error", logging.ErrorKey(), err)
-		httperror.Format(rw, http.StatusBadRequest, "request body error")
+		xhttp.WriteError(rw, http.StatusBadRequest, "request body error")
 		return
 	}
 
@@ -160,7 +161,7 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 	valid, v_err := ss.Validate(msg)
 	if !valid || v_err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS signature validation error", logging.ErrorKey(), v_err)
-		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
+		xhttp.WriteError(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
 		return
 	}
 
@@ -170,7 +171,7 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 			logging.MessageKey(), "SNS subscription confirmation TopicArn mismatch",
 			"received", msg.TopicArn,
 			"expected", ss.Config.Sns.TopicArn)
-		httperror.Format(rw, http.StatusBadRequest, "TopicArn does not match")
+		xhttp.WriteError(rw, http.StatusBadRequest, "TopicArn does not match")
 		return
 	}
 
@@ -213,7 +214,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	subArn := req.Header.Get("X-Amz-Sns-Subscription-Arn")
 	if !ss.ValidateSubscriptionArn(subArn) {
 		// Returning HTTP 500 error such that AWS will retry and meanwhile subscriptionConfirmation will be received
-		httperror.Format(rw, http.StatusInternalServerError, "SubscriptionARN does not match")
+		xhttp.WriteError(rw, http.StatusInternalServerError, "SubscriptionARN does not match")
 		return nil
 	}
 
@@ -222,7 +223,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	raw, err := DecodeJSONMessage(req, msg)
 	if err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS read req body error", logging.ErrorKey(), err)
-		httperror.Format(rw, http.StatusBadRequest, "request body error")
+		xhttp.WriteError(rw, http.StatusBadRequest, "request body error")
 		return nil
 	}
 
@@ -230,7 +231,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	valid, v_err := ss.Validate(msg)
 	if !valid || v_err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS signature validation error", logging.ErrorKey(), v_err)
-		httperror.Format(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
+		xhttp.WriteError(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
 		return nil
 	}
 	// TODO: health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
@@ -247,7 +248,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 			logging.MessageKey(), "SNS notification TopicArn mismatch",
 			"received", msg.TopicArn,
 			"expected", ss.Config.Sns.TopicArn)
-		httperror.Format(rw, http.StatusBadRequest, "TopicArn does not match")
+		xhttp.WriteError(rw, http.StatusBadRequest, "TopicArn does not match")
 		return nil
 	}
 
@@ -256,7 +257,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	ss.debugLog.Log(logging.MessageKey(), "SNS notification", "envAttr", EnvAttr, "msgEnv", msgEnv)
 	if msgEnv != ss.Config.Env {
 		ss.errorLog.Log(logging.MessageKey(), "SNS environment mismatch", "msgEnv", msgEnv, "config", ss.Config.Env)
-		httperror.Format(rw, http.StatusBadRequest, "SNS Msg config env does not match")
+		xhttp.WriteError(rw, http.StatusBadRequest, "SNS Msg config env does not match")
 		return nil
 	}
 

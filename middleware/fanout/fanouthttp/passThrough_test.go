@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/tracing"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -204,7 +204,7 @@ func testDecodePassThroughResponseValid(t *testing.T) {
 				result, err := DecodePassThroughResponse(context.Background(), component)
 				assert.Nil(result)
 				require.Error(err)
-				httpError := err.(*httperror.E)
+				httpError := err.(*xhttp.Error)
 
 				assert.Equal(statusCode, httpError.Code)
 				assert.NotEmpty(httpError.Text)

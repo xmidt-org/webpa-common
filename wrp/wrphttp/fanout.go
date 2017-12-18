@@ -5,13 +5,13 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/middleware"
 	"github.com/Comcast/webpa-common/middleware/fanout"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/transport/transporthttp"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/log"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -241,9 +241,9 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		middlewareChain = append(
 			[]endpoint.Middleware{
 				middleware.Logging,
-				middleware.Busy(o.maxClients(), &httperror.E{Code: http.StatusServiceUnavailable, Text: "Server Busy"}),
+				middleware.Busy(o.maxClients(), &xhttp.Error{Code: http.StatusServiceUnavailable, Text: "Server Busy"}),
 				middleware.Timeout(o.fanoutTimeout()),
-				middleware.Concurrent(o.concurrency(), &httperror.E{Code: http.StatusTooManyRequests, Text: "Too Many Requests"}),
+				middleware.Concurrent(o.concurrency(), &xhttp.Error{Code: http.StatusTooManyRequests, Text: "Too Many Requests"}),
 			},
 			o.middleware()...,
 		)

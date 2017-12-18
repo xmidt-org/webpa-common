@@ -1,11 +1,12 @@
 package webhook
 
 import (
-	"github.com/Comcast/webpa-common/httperror"
-	AWS "github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/spf13/viper"
 	"net/http"
 	"time"
+
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -162,7 +163,7 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 		w, err = doOldHookConvert(message)
 	}
 	if nil != err {
-		httperror.Format(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
+		xhttp.WriteError(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
 		return
 	}
 	m.sendNewHooks([]W{*w})

@@ -1,4 +1,4 @@
-package httperror
+package xhttp
 
 import (
 	"io/ioutil"
@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestE(t *testing.T) {
+func TestError(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		err    = &E{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar", Entity: []byte(`error!`)}
+		err    = &Error{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar", Entity: []byte(`error!`)}
 	)
 
 	assert.Equal(503, err.StatusCode())
@@ -21,7 +21,7 @@ func TestE(t *testing.T) {
 	assert.Equal("fubar", err.Error())
 }
 
-func TestFormatf(t *testing.T) {
+func TestWriteErrorf(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -52,7 +52,7 @@ func TestFormatf(t *testing.T) {
 
 		var (
 			response   = httptest.NewRecorder()
-			count, err = Formatf(response, record.code, record.format, record.parameters...)
+			count, err = WriteErrorf(response, record.code, record.format, record.parameters...)
 		)
 
 		assert.True(count > 0)
@@ -67,7 +67,7 @@ func TestFormatf(t *testing.T) {
 	}
 }
 
-func TestFormat(t *testing.T) {
+func TestWriteError(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -95,7 +95,7 @@ func TestFormat(t *testing.T) {
 
 		var (
 			response   = httptest.NewRecorder()
-			count, err = Format(response, record.code, record.value)
+			count, err = WriteError(response, record.code, record.value)
 		)
 
 		assert.True(count > 0)

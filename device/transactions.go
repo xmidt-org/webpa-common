@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Comcast/webpa-common/httperror"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/webpa-common/xhttp"
 )
 
 // Request represents a single device Request, carrying routing information and message contents.
@@ -128,7 +128,7 @@ type Response struct {
 func EncodeResponse(output http.ResponseWriter, response *Response, pool *wrp.EncoderPool) (err error) {
 	if pool == nil || pool.Format() == response.Format {
 		if len(response.Contents) == 0 {
-			_, err = httperror.Format(
+			_, err = xhttp.WriteError(
 				output,
 				http.StatusInternalServerError,
 				"Transaction response had no content",
