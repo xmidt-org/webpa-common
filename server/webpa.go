@@ -12,8 +12,10 @@ import (
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
+	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -140,13 +142,13 @@ func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, err
 	return xmetrics.NewRegistry(&m.MetricsOptions, modules...)
 }
 
-func (m *Metric) New(logger log.Logger, gatherer stdprometheus.Gatherer) *http.Server {
+func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheus.Gatherer) *http.Server {
 	if len(m.Address) == 0 {
 		return nil
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.HandlerFor(gatherer, m.HandlerOptions))
+	mux.Handle("/metrics", chain.Then(promhttp.HandlerFor(gatherer, m.HandlerOptions)))
 
 	server := &http.Server{
 		Addr:     m.Address,
@@ -256,6 +258,10 @@ type WebPA struct {
 	// Metric describes the metrics provider server for this application
 	Metric Metric
 
+	// ResponseHeaders hold custom, static response headers that are emitted on every response.
+	// Version headers are a primary use case for this configuration options.
+	ResponseHeaders http.Header
+
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 }
@@ -277,8 +283,11 @@ type WebPA struct {
 func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
-	healthHandler, healthServer := w.Health.New(logger, health)
-	infoLog := logging.Info(logger)
+	var (
+		healthHandler, healthServer = w.Health.New(logger, health)
+		infoLog                     = logging.Info(logger)
+		staticHeaders               = xhttp.StaticHeaders(w.ResponseHeaders)
+	)
 
 	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		if healthHandler != nil && healthServer != nil {
@@ -296,7 +305,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		}
 
 		//wrap common metrics around both server handler
-		primaryHandler = w.decorateWithBasicMetrics(registry, primaryHandler)
+		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
 
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
@@ -310,7 +319,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		if metricsServer := w.Metric.New(logger, registry); metricsServer != nil {
+		if metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metric.Name, "address", w.Metric.Address)
 			ListenAndServe(logger, &w.Metric, metricsServer)
 		}
