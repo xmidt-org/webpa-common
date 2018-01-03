@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -15,8 +16,13 @@ import (
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
+	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+const (
+	DefaultBuild = "development"
 )
 
 var (
@@ -68,7 +74,6 @@ type Basic struct {
 	KeyFile            string
 	ClientCACertFile   string
 	LogConnectionState bool
-	ResponseHeaders    http.Header
 }
 
 func (b *Basic) Certificate() (certificateFile, keyFile string) {
@@ -85,8 +90,6 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	if len(b.Address) == 0 {
 		return nil
 	}
-
-	handler = xhttp.StaticHeaders(b.ResponseHeaders)(handler)
 
 	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
@@ -132,7 +135,6 @@ type Metric struct {
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
-	ResponseHeaders    http.Header
 }
 
 func (m *Metric) Certificate() (certificateFile, keyFile string) {
@@ -145,14 +147,14 @@ func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, err
 	return xmetrics.NewRegistry(&m.MetricsOptions, modules...)
 }
 
-func (m *Metric) New(logger log.Logger, gatherer stdprometheus.Gatherer) *http.Server {
+func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheus.Gatherer) *http.Server {
 	if len(m.Address) == 0 {
 		return nil
 	}
 
 	var (
 		mux     = http.NewServeMux()
-		handler = xhttp.StaticHeaders(m.ResponseHeaders)(promhttp.HandlerFor(gatherer, m.HandlerOptions))
+		handler = chain.Then(promhttp.HandlerFor(gatherer, m.HandlerOptions))
 	)
 
 	mux.Handle("/metrics", handler)
@@ -212,7 +214,7 @@ func (h *Health) NewHealth(logger log.Logger, options ...health.Option) *health.
 //
 // If the Address option is not supplied, the health module is considered to be disabled.  In that
 // case, this method simply returns the health parameter as the monitor and a nil server instance.
-func (h *Health) New(logger log.Logger, health *health.Health) (*health.Health, *http.Server) {
+func (h *Health) New(logger log.Logger, chain alice.Chain, health *health.Health) (*health.Health, *http.Server) {
 	if len(h.Address) == 0 {
 		// health is disabled
 		return nil, nil
@@ -227,7 +229,7 @@ func (h *Health) New(logger log.Logger, health *health.Health) (*health.Health, 
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/health", health)
+	mux.Handle("/health", chain.Then(health))
 
 	server := &http.Server{
 		Addr:     h.Address,
@@ -245,6 +247,10 @@ func (h *Health) New(logger log.Logger, health *health.Health) (*health.Health, 
 // WebPA represents a server component within the WebPA cluster.  It is used for both
 // primary servers (e.g. petasos) and supporting, embedded servers such as pprof.
 type WebPA struct {
+	// ApplicationName is the short identifier for the enclosing application, e.g. "talaria".
+	// This value is defaulted to what's passed in via Initialize, but can be changed via injection.
+	ApplicationName string
+
 	// Primary is the main server for this application, e.g. petasos.
 	Primary Basic
 
@@ -264,8 +270,20 @@ type WebPA struct {
 	// Metric describes the metrics provider server for this application
 	Metric Metric
 
+	// Build is the build string for the current codebase
+	Build string
+
 	// Log is the logging configuration for this application.
 	Log *logging.Options
+}
+
+// build returns the injected build string if available, DefaultBuild otherwise
+func (w *WebPA) build() string {
+	if w != nil && len(w.Build) > 0 {
+		return w.Build
+	}
+
+	return DefaultBuild
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -286,7 +304,12 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	var (
-		healthHandler, healthServer = w.Health.New(logger, health)
+		staticHeaders = xhttp.StaticHeaders(http.Header{
+			fmt.Sprintf("X-%s-Build", w.ApplicationName):      {w.build()},
+			fmt.Sprintf("X-%s-Start-Time", w.ApplicationName): {time.Now().UTC().Format(time.RFC822)},
+		})
+
+		healthHandler, healthServer = w.Health.New(logger, alice.New(staticHeaders), health)
 		infoLog                     = logging.Info(logger)
 	)
 
@@ -295,9 +318,6 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Health.Name, "address", w.Health.Address)
 			ListenAndServe(logger, &w.Health, healthServer)
 			healthHandler.Run(waitGroup, shutdown)
-
-			// wrap the primary handler in the RequestTracker decorator
-			primaryHandler = healthHandler.RequestTracker(primaryHandler)
 		}
 
 		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
@@ -305,9 +325,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			ListenAndServe(logger, &w.Pprof, pprofServer)
 		}
 
-		// wrap common metrics around both server handler
-		primaryHandler = w.decorateWithBasicMetrics(registry, primaryHandler)
-
+		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
 			ListenAndServe(logger, &w.Primary, primaryServer)
@@ -320,7 +338,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		if metricsServer := w.Metric.New(logger, registry); metricsServer != nil {
+		if metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metric.Name, "address", w.Metric.Address)
 			ListenAndServe(logger, &w.Metric, metricsServer)
 		}

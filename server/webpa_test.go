@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -289,7 +290,7 @@ func TestHealthNew(t *testing.T) {
 				Options:            record.options,
 			}
 
-			handler, server = health.New(logger, nil)
+			handler, server = health.New(logger, alice.New(), nil)
 		)
 
 		if len(record.address) > 0 {

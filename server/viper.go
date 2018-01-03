@@ -190,7 +190,10 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
-	webPA = new(WebPA)
+	webPA = &WebPA{
+		ApplicationName: applicationName,
+	}
+
 	err = v.Unmarshal(webPA)
 	if err != nil {
 		return
