@@ -356,6 +356,27 @@ func testRegistryUnsupportedType(t *testing.T) {
 	assert.Error(err)
 }
 
+func testRegistryCounterLabel(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		r, err  = NewRegistry(&Options{
+			Metrics: []Metric{
+				Metric{
+					Name:       "counter",
+					Type:       "counter",
+					LabelNames: []string{"label"},
+				},
+			},
+		})
+	)
+
+	require.NoError(err)
+	c := r.NewCounter("counter")
+	assert.NotNil(c)
+	c.With("label", "value").Add(1.0)
+}
+
 func TestRegistry(t *testing.T) {
 	t.Run("AsPrometheusProvider", testRegistryAsPrometheusProvider)
 	t.Run("AsGoKitProvider", testRegistryAsGoKitProvider)
@@ -363,4 +384,5 @@ func TestRegistry(t *testing.T) {
 	t.Run("MissingName", testRegistryMissingName)
 	t.Run("Duplicate", testRegistryDuplicate)
 	t.Run("UnsupportedType", testRegistryUnsupportedType)
+	t.Run("CounterLabel", testRegistryCounterLabel)
 }
