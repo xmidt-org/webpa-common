@@ -15,7 +15,6 @@ import (
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
-	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -69,6 +68,7 @@ type Basic struct {
 	KeyFile            string
 	ClientCACertFile   string
 	LogConnectionState bool
+	ResponseHeaders    http.Header
 }
 
 func (b *Basic) Certificate() (certificateFile, keyFile string) {
@@ -85,6 +85,8 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	if len(b.Address) == 0 {
 		return nil
 	}
+
+	handler = xhttp.StaticHeaders(b.ResponseHeaders)(handler)
 
 	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
@@ -130,6 +132,7 @@ type Metric struct {
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
+	ResponseHeaders    http.Header
 }
 
 func (m *Metric) Certificate() (certificateFile, keyFile string) {
@@ -142,14 +145,17 @@ func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, err
 	return xmetrics.NewRegistry(&m.MetricsOptions, modules...)
 }
 
-func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheus.Gatherer) *http.Server {
+func (m *Metric) New(logger log.Logger, gatherer stdprometheus.Gatherer) *http.Server {
 	if len(m.Address) == 0 {
 		return nil
 	}
 
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", chain.Then(promhttp.HandlerFor(gatherer, m.HandlerOptions)))
+	var (
+		mux     = http.NewServeMux()
+		handler = xhttp.StaticHeaders(m.ResponseHeaders)(promhttp.HandlerFor(gatherer, m.HandlerOptions))
+	)
 
+	mux.Handle("/metrics", handler)
 	server := &http.Server{
 		Addr:     m.Address,
 		Handler:  mux,
@@ -258,10 +264,6 @@ type WebPA struct {
 	// Metric describes the metrics provider server for this application
 	Metric Metric
 
-	// ResponseHeaders hold custom, static response headers that are emitted on every response.
-	// Version headers are a primary use case for this configuration options.
-	ResponseHeaders http.Header
-
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 }
@@ -286,7 +288,6 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 	var (
 		healthHandler, healthServer = w.Health.New(logger, health)
 		infoLog                     = logging.Info(logger)
-		staticHeaders               = xhttp.StaticHeaders(w.ResponseHeaders)
 	)
 
 	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
@@ -304,8 +305,8 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			ListenAndServe(logger, &w.Pprof, pprofServer)
 		}
 
-		//wrap common metrics around both server handler
-		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
+		// wrap common metrics around both server handler
+		primaryHandler = w.decorateWithBasicMetrics(registry, primaryHandler)
 
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
@@ -319,7 +320,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			ListenAndServe(logger, &w.Alternate, alternateServer)
 		}
 
-		if metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry); metricsServer != nil {
+		if metricsServer := w.Metric.New(logger, registry); metricsServer != nil {
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metric.Name, "address", w.Metric.Address)
 			ListenAndServe(logger, &w.Metric, metricsServer)
 		}
