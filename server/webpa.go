@@ -23,6 +23,7 @@ import (
 
 const (
 	DefaultBuild = "development"
+	DefaultFqdn  = "localhost"
 )
 
 var (
@@ -273,6 +274,9 @@ type WebPA struct {
 	// Build is the build string for the current codebase
 	Build string
 
+	// Fqdn is the fully-qualified domain name of this server, typically injected as a fact
+	Fqdn string
+
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 }
@@ -284,6 +288,15 @@ func (w *WebPA) build() string {
 	}
 
 	return DefaultBuild
+}
+
+// fqdn returns the injected fully-qualified domain name if available, DefaultFqdn otherwise
+func (w *WebPA) fqdn() string {
+	if w != nil && len(w.Fqdn) > 0 {
+		return w.Fqdn
+	}
+
+	return DefaultFqdn
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -306,6 +319,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 	var (
 		staticHeaders = xhttp.StaticHeaders(http.Header{
 			fmt.Sprintf("X-%s-Build", w.ApplicationName):      {w.build()},
+			fmt.Sprintf("X-%s-Server", w.ApplicationName):     {w.fqdn()},
 			fmt.Sprintf("X-%s-Start-Time", w.ApplicationName): {time.Now().UTC().Format(time.RFC822)},
 		})
 
