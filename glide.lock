@@ -1,5 +1,5 @@
-hash: 9dad6434f68499c4d1e61c5919e2c18334409a998f74498022277744919d21a6
-updated: 2017-12-01T18:21:40.801676-08:00
+hash: 455f8d75e587cf425b0e5e24e0e93f5d3afe4ae251b46c04a1c43c5eb19e5b9d
+updated: 2018-01-04T11:39:59.758551749-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -40,7 +40,7 @@ imports:
   subpackages:
   - linux
 - name: github.com/cenk/backoff
-  version: 309aa717adbf351e92864cbedf9cca0b769a4b5a
+  version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
   subpackages:
@@ -50,7 +50,7 @@ imports:
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/go-ini/ini
-  version: f280b3ba517bf5fc98922624f21fb0e7a92adaec
+  version: 32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a
 - name: github.com/go-kit/kit
   version: a9ca6725cbbea455e61c6bc8a1ed28e81eb3493b
   subpackages:
@@ -79,7 +79,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/protobuf
-  version: 130e6b02ab059e7b717a096f397c5b60111cae74
+  version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
   subpackages:
   - proto
 - name: github.com/gorilla/context
@@ -87,11 +87,11 @@ imports:
 - name: github.com/gorilla/mux
   version: 392c28fe23e1c45ddba891b0320b3b5df220beea
 - name: github.com/gorilla/schema
-  version: e6c82218a8b3ed3cbeb5407429849c0b0b597d40
+  version: afe77393c53b66afe9212810d9b2013859d04ae6
 - name: github.com/gorilla/websocket
   version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
 - name: github.com/hashicorp/hcl
-  version: 8f6b1344a92ff8877cf24a5de9177bf7d0a2a187
+  version: 23c074d0eceb2b8a5bfdbb271ab780cde70f05a8
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -102,29 +102,29 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/influxdata/influxdb
-  version: fd11e200c8b2e4d23c31945e330b2768b83d46f5
+  version: 176a7e1e98e2d11d2abe7cbe7db565ea7e30b817
   subpackages:
   - client/v2
   - models
   - pkg/escape
 - name: github.com/jmespath/go-jmespath
-  version: bd40a432e4c76585ef6b72d3fd96fb9b6dc7b68d
+  version: dd801d4f4ce7ac746e7e7b4489d2fa600b3b096b
 - name: github.com/jtacoma/uritemplates
   version: 307ae868f90f4ee1b73ebe4596e0394237dacce8
 - name: github.com/justinas/alice
-  version: 052b8b6c18edb9db317af86806d8e00ebaa94160
+  version: 03f45bd4b7dad4734bc4620e46a35789349abb20
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/magiconair/properties
-  version: 8d7837e64d3c1ee4e54a880c5a920ab4316fc90a
+  version: 49d762b9817ba1c2e9d0c69183c2b4a8b8f1d934
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
   - pbutil
 - name: github.com/mitchellh/mapstructure
-  version: d0303fe809921458f417bcf828397a65db30a7e4
+  version: 06020f85339e21b2478f756a78e295255ffa4d6a
 - name: github.com/pelletier/go-toml
-  version: 9c1b4e331f1e3d98e72600677699fbe212cd6d16
+  version: 0131db6d737cfbbfb678f8b7d92e55e27ce46224
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
@@ -145,7 +145,7 @@ imports:
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: a6e9df898b1336106c743392c48ee0b71f5c4efa
+  version: b15cd069a83443be3154b719d0cc9fe8117f09fb
   subpackages:
   - xfs
 - name: github.com/rubyist/circuitbreaker
@@ -163,7 +163,7 @@ imports:
 - name: github.com/spaolacci/murmur3
   version: 0d12bf811670bf6a1a63828dfbd003eded177fce
 - name: github.com/spf13/afero
-  version: ee1bd8ee15a1306d1f9201acc41ef39cd9f99a1b
+  version: 57afd63c68602b63ed976de00dd066ccb3c319db
   subpackages:
   - mem
 - name: github.com/spf13/cast
@@ -194,20 +194,20 @@ imports:
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
 - name: golang.org/x/net
-  version: a337091b0525af65de94df2eb7e98bd9962dcbe2
+  version: d866cfc389cec985d6fda2859936a575a55a3ab6
   subpackages:
   - context
 - name: golang.org/x/sys
-  version: 7ddbeae9ae08c6a06a59597f0c9edbc5ff2444ce
+  version: a3f2cbd54cf5dfe3fbaccf76375fdb12f67654c8
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: bd91bbf73e9a4a801adbfb97133c992678533126
+  version: e19ae1496984b1c655b8044a65c0300a3c878dd3
   subpackages:
   - transform
   - unicode/norm
 - name: gopkg.in/natefinch/lumberjack.v2
   version: a96e63847dc3c67d17befa69c303767e2f84e54f
 - name: gopkg.in/yaml.v2
-  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
+  version: c95af922eae69f190717a0b7148960af8c55a072
 testImports: []
