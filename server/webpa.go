@@ -22,7 +22,10 @@ import (
 )
 
 const (
-	DefaultBuild = "development"
+	DefaultBuild  = "development"
+	DefaultServer = "localhost"
+	DefaultRegion = "local"
+	DefaultFlavor = "development"
 )
 
 var (
@@ -273,6 +276,15 @@ type WebPA struct {
 	// Build is the build string for the current codebase
 	Build string
 
+	// Server is the fully-qualified domain name of this server, typically injected as a fact
+	Server string
+
+	// Region is the region in which this server is running, typically injected as a fact
+	Region string
+
+	// Flavor is the flavor of this server, typically injected as a fact
+	Flavor string
+
 	// Log is the logging configuration for this application.
 	Log *logging.Options
 }
@@ -284,6 +296,33 @@ func (w *WebPA) build() string {
 	}
 
 	return DefaultBuild
+}
+
+// server returns the injected fully-qualified domain name if available, DefaultServer otherwise
+func (w *WebPA) server() string {
+	if w != nil && len(w.Server) > 0 {
+		return w.Server
+	}
+
+	return DefaultServer
+}
+
+// region returns the region in which this server is running, or DefaultRegion otherwise
+func (w *WebPA) region() string {
+	if w != nil && len(w.Region) > 0 {
+		return w.Region
+	}
+
+	return DefaultRegion
+}
+
+// flavor returns the region in which this server is running, or DefaultRegion otherwise
+func (w *WebPA) flavor() string {
+	if w != nil && len(w.Flavor) > 0 {
+		return w.Flavor
+	}
+
+	return DefaultFlavor
 }
 
 // Prepare gets a WebPA server ready for execution.  This method does not return errors, but the returned
@@ -306,6 +345,9 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 	var (
 		staticHeaders = xhttp.StaticHeaders(http.Header{
 			fmt.Sprintf("X-%s-Build", w.ApplicationName):      {w.build()},
+			fmt.Sprintf("X-%s-Server", w.ApplicationName):     {w.server()},
+			fmt.Sprintf("X-%s-Region", w.ApplicationName):     {w.region()},
+			fmt.Sprintf("X-%s-Flavor", w.ApplicationName):     {w.flavor()},
 			fmt.Sprintf("X-%s-Start-Time", w.ApplicationName): {time.Now().UTC().Format(time.RFC822)},
 		})
 
