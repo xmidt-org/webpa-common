@@ -85,7 +85,6 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		forbiddenStatusCode = a.forbiddenStatusCode()
 		logger              = a.logger()
 		errorLog            = logging.Error(logger)
-		debugLog            = logging.Debug(logger)
 	)
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
