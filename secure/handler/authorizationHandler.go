@@ -97,7 +97,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
-			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, logging.ErrorKey(), err)
+			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, "token", headerValue, logging.ErrorKey(), err)
 			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error()))
 			return
 		}
@@ -107,9 +107,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 
 		valid, err := a.Validator.Validate(ctx, token)
-		if err != nil {
-			errorLog.Log(logging.MessageKey(), "validation error", logging.ErrorKey(), err)
-		} else if valid {
+		if err == nil && valid {
 			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
@@ -117,6 +115,9 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		errorLog.Log(
 			logging.MessageKey(), "request denied",
+			"validator-response", valid,
+			"validator-error", err,
+			"token", headerValue,
 			"method", request.Method,
 			"url", request.URL,
 			"user-agent", request.Header.Get("User-Agent"),
@@ -124,6 +125,6 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			"remoteAddress", request.RemoteAddr,
 		)
 
-		response.WriteHeader(forbiddenStatusCode)
+		WriteJsonError(response, forbiddenStatusCode, "request denied")
 	})
 }
