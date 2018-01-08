@@ -85,6 +85,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		forbiddenStatusCode = a.forbiddenStatusCode()
 		logger              = a.logger()
 		errorLog            = logging.Error(logger)
+		debugLog            = logging.Debug(logger)
 	)
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
@@ -123,6 +124,9 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			"content-length", request.ContentLength,
 			"remoteAddress", request.RemoteAddr,
 		)
+
+		//by this point, the token should be declared invalid
+		debugLog.Log("invalid-token", headerValue)
 
 		response.WriteHeader(forbiddenStatusCode)
 	})
