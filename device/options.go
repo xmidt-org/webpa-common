@@ -27,8 +27,8 @@ const (
 	DefaultDecoderPoolSize        = 1000
 	DefaultEncoderPoolSize        = 1000
 	DefaultInitialCapacity        = 1000
-	DefaultReadBufferSize         = 4096
-	DefaultWriteBufferSize        = 4096
+	DefaultReadBufferSize         = 0
+	DefaultWriteBufferSize        = 0
 	DefaultDeviceMessageQueueSize = 100
 )
 
