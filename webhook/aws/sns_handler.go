@@ -118,7 +118,7 @@ func (ss *SNSServer) Subscribe() {
 
 	resp, err := ss.SVC.Subscribe(params)
 	if err == nil {
-		ss.SNSSubscriptionAttemptCounter(resp.StatusCode)
+		ss.SNSSubscriptionAttemptCounter(1)
 	} else {
 		ss.SNSSubscriptionAttemptCounter(-1)
 		attemptNum := 1
@@ -139,7 +139,7 @@ func (ss *SNSServer) Subscribe() {
 				ss.SNSSubscriptionAttemptCounter(-1)
 				ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 			} else {
-				ss.SNSSubscriptionAttemptCounter(resp.StatusCode)
+				ss.SNSSubscriptionAttemptCounter(1)
 				break
 			}
 
@@ -281,7 +281,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 func (ss *SNSServer) PublishMessage(message string) {
 
 	ss.debugLog.Log(logging.MessageKey(), "SNS PublishMessage", "called", message)
-	ss.SNSNotificationSent.Add(1.0)
+	ss.metrics.SNSNotificationSent.Add(1.0)
 
 	// push Notification message onto notif data channel
 	ss.notificationData <- message
