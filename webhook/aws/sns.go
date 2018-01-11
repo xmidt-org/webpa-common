@@ -196,8 +196,7 @@ func (ss *SNSServer) SNSSubscriptionAttemptCounter(code int) metrics.Counter {
 		return ss.metrics.SNSSubscribeAttempt.With("code", "failure")
 	}
 
-	s := strconv.Itoa(code)
-	return ss.metrics.SNSSubscribeAttempt.With("code", s)
+	return ss.metrics.SNSSubscribeAttempt.With("code", "okay")
 }
 
 // helper function to get the right notification received counter to increment
