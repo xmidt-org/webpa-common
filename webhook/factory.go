@@ -44,7 +44,7 @@ type Factory struct {
 // This example uses Viper, which I highly recommend.  You could just pass an io.Reader too, and use
 // the encoding/json package.  In any case, allowing the configuration source to be nil makes a lot
 // of things easier on clients, like creating a test Factory for tests in client code.
-func NewFactory(v *viper.Viper) (f *Factory, err error) {
+func NewFactory(v *viper.Viper, registry *xmetrics.Registry) (f *Factory, err error) {
 	f = &Factory{
 		/* put in any system defaults here.  they won't be overridden by Viper unless they are present in external configuration */
 		UndertakerInterval: DEFAULT_UNDERTAKER_INTERVAL,
@@ -66,13 +66,18 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 	}
 
 	f.undertaker = f.Prune
-	f.Notifier, err = AWS.NewNotifier(v)
+	if registry != nil {
+		f.Notifier, err = AWS.NewNotifier(v, registry)
+	} else {
+		f.Notifier, err = AWS.NewNotifier(v, nil)
+	}
 
 	return
 }
 
 func (f *Factory) SetList(ul UpdatableList) {
 	f.m.list = ul
+	m.ReportListSize(f.m.list.Len())
 }
 
 func (f *Factory) Prune(items []W) (list []W) {
@@ -164,7 +169,10 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 	if nil != err {
 		xhttp.WriteError(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
+		m.SNSNotificationReceivedCounter(http.StatusBadRequest)
 		return
 	}
 	m.sendNewHooks([]W{*w})
+	
+	m.ReportListSize(m.list.Len())
 }

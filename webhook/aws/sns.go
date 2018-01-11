@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
@@ -44,6 +46,7 @@ type SNSServer struct {
 
 	errorLog log.Logger
 	debugLog log.Logger
+	metrics  Metrics
 }
 
 // Notifier interface implements the various notification server functionalities
@@ -98,7 +101,7 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
 func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.Handler,
-	logger log.Logger, now func() time.Time) {
+	logger log.Logger, registry *xmetrics.Registry, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
@@ -139,6 +142,15 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 	ss.errorLog = logging.Error(logger)
 	ss.debugLog = logging.Debug(logger)
 
+	if registry != nil {
+		ss.metrics = AddMetrics(*registry)
+	} else {
+		o := &xmetrics.Options{}
+		registry = &xmetrics.NewRegistry(o, nil) 
+		ss.metrics = AddMetrics(*registry)
+	}
+
+
 	ss.debugLog.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
 
 	// Set various SNS POST routes
@@ -172,3 +184,29 @@ func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 		return false
 	}
 }
+
+// helper function to report the list size value
+func (ss *SNSServer) ReportListSize(size int) {
+	ss.metrics.ListSize.Set(size)
+}
+
+// helper function to get the right subscription attempts counter to increment
+func (ss *SNSServer) SNSSubscriptionAttemptCounter(code int) metrics.Counter {
+	if code == -1 {
+		return ss.metrics.SNSSubscribeAttempt.With("code", "failure")
+	}
+
+	s := strconv.Itoa(code)
+	return ss.metrics.SNSSubscribeAttempt.With("code", s)
+}
+
+// helper function to get the right notification received counter to increment
+func (ss *SNSServer) SNSNotificationReceivedCounter(code int) metrics.Counter {
+	if code == -1 {
+		return ss.metrics.SNSNotificationReceived.With("code", "failure")
+	}
+
+	s := strconv.Itoa(code)
+	return ss.metrics.SNSNotificationReceived.With("code", s)
+}
+
