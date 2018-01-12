@@ -88,7 +88,7 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	f.Notifier = n
 
 	expectedSubArn := "pending confirmation"
@@ -143,7 +143,7 @@ func TestNotifierPublishFlow(t *testing.T) {
 	assert := assert.New(t)
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	// setting to mocked Notifier instance
 	f.Notifier = n
 
@@ -190,7 +190,7 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	assert := assert.New(t)
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	// setting to mocked Notifier instance
 	f.Notifier = n
 
@@ -234,7 +234,7 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 	assert := assert.New(t)
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	// setting to mocked Notifier instance
 	f.Notifier = n
 
