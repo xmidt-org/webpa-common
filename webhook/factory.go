@@ -67,11 +67,7 @@ func NewFactory(v *viper.Viper, registry *xmetrics.Registry) (f *Factory, err er
 	}
 
 	f.undertaker = f.Prune
-	if registry != nil {
-		f.Notifier, err = AWS.NewNotifier(v, registry)
-	} else {
-		f.Notifier, err = AWS.NewNotifier(v, nil)
-	}
+	f.Notifier, err = AWS.NewNotifier(v)
 
 	return
 }
