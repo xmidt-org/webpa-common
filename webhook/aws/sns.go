@@ -12,6 +12,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
 
@@ -146,7 +147,10 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 		ss.metrics = AddMetrics(*registry)
 	} else {
 		o := &xmetrics.Options{}
-		registry = &xmetrics.NewRegistry(o, nil) 
+		registry, err := &xmetrics.NewRegistry(o, nil)
+		if err != nil {
+			ss.errorLog.Log(logging.MessageKey(), "failed to create default registry", "error", err)
+		}
 		ss.metrics = AddMetrics(*registry)
 	}
 
@@ -187,7 +191,7 @@ func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 
 // helper function to report the list size value
 func (ss *SNSServer) ReportListSize(size int) {
-	ss.metrics.ListSize.Set(size)
+	ss.metrics.ListSize.Set(float64(size))
 }
 
 // helper function to get the right subscription attempts counter to increment
