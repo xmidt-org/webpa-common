@@ -26,6 +26,11 @@ const (
 	DefaultServer = "localhost"
 	DefaultRegion = "local"
 	DefaultFlavor = "development"
+
+	DefaultIdleTimeout       time.Duration = 15 * time.Second
+	DefaultReadHeaderTimeout time.Duration = 3 * time.Second
+	DefaultWriteTimeout      time.Duration = 3 * time.Second
+	DefaultMaxHeaderBytes                  = 8192
 )
 
 var (
@@ -77,6 +82,44 @@ type Basic struct {
 	KeyFile            string
 	ClientCACertFile   string
 	LogConnectionState bool
+
+	DisableKeepAlives bool
+	MaxHeaderBytes    int
+	IdleTimeout       time.Duration
+	ReadHeaderTimeout time.Duration
+	WriteTimeout      time.Duration
+}
+
+func (b *Basic) maxHeaderBytes() int {
+	if b != nil && b.MaxHeaderBytes > 0 {
+		return b.MaxHeaderBytes
+	}
+
+	return DefaultMaxHeaderBytes
+}
+
+func (b *Basic) idleTimeout() time.Duration {
+	if b != nil && b.IdleTimeout > 0 {
+		return b.IdleTimeout
+	}
+
+	return DefaultIdleTimeout
+}
+
+func (b *Basic) readHeaderTimeout() time.Duration {
+	if b != nil && b.ReadHeaderTimeout > 0 {
+		return b.ReadHeaderTimeout
+	}
+
+	return DefaultReadHeaderTimeout
+}
+
+func (b *Basic) writeTimeout() time.Duration {
+	if b != nil && b.WriteTimeout > 0 {
+		return b.WriteTimeout
+	}
+
+	return DefaultWriteTimeout
 }
 
 func (b *Basic) Certificate() (certificateFile, keyFile string) {
@@ -116,14 +159,22 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	}
 
 	server := &http.Server{
-		Addr:      b.Address,
-		Handler:   handler,
-		ErrorLog:  NewErrorLog(b.Name, logger),
-		TLSConfig: tlsConfig,
+		Addr:              b.Address,
+		Handler:           handler,
+		ReadHeaderTimeout: b.readHeaderTimeout(),
+		WriteTimeout:      b.writeTimeout(),
+		IdleTimeout:       b.idleTimeout(),
+		MaxHeaderBytes:    b.maxHeaderBytes(),
+		ErrorLog:          NewErrorLog(b.Name, logger),
+		TLSConfig:         tlsConfig,
 	}
 
 	if b.LogConnectionState {
 		server.ConnState = NewConnectionStateLogger(b.Name, logger)
+	}
+
+	if b.DisableKeepAlives {
+		server.SetKeepAlivesEnabled(false)
 	}
 
 	return server
@@ -162,15 +213,20 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 
 	mux.Handle("/metrics", handler)
 	server := &http.Server{
-		Addr:     m.Address,
-		Handler:  mux,
-		ErrorLog: NewErrorLog(m.Name, logger),
+		Addr:              m.Address,
+		Handler:           mux,
+		ReadHeaderTimeout: DefaultReadHeaderTimeout,
+		WriteTimeout:      DefaultWriteTimeout,
+		IdleTimeout:       DefaultIdleTimeout,
+		MaxHeaderBytes:    DefaultMaxHeaderBytes,
+		ErrorLog:          NewErrorLog(m.Name, logger),
 	}
 
 	if m.LogConnectionState {
 		server.ConnState = NewConnectionStateLogger(m.Name, logger)
 	}
 
+	server.SetKeepAlivesEnabled(false)
 	return server
 }
 
@@ -235,15 +291,20 @@ func (h *Health) New(logger log.Logger, chain alice.Chain, health *health.Health
 	mux.Handle("/health", chain.Then(health))
 
 	server := &http.Server{
-		Addr:     h.Address,
-		Handler:  mux,
-		ErrorLog: NewErrorLog(h.Name, logger),
+		Addr:              h.Address,
+		Handler:           mux,
+		ReadHeaderTimeout: DefaultReadHeaderTimeout,
+		WriteTimeout:      DefaultWriteTimeout,
+		IdleTimeout:       DefaultIdleTimeout,
+		MaxHeaderBytes:    DefaultMaxHeaderBytes,
+		ErrorLog:          NewErrorLog(h.Name, logger),
 	}
 
 	if h.LogConnectionState {
 		server.ConnState = NewConnectionStateLogger(h.Name, logger)
 	}
 
+	server.SetKeepAlivesEnabled(false)
 	return health, server
 }
 
