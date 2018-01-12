@@ -53,7 +53,7 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, http.Handler, log.Logger, func() time.Time)
+	Initialize(*mux.Router, *url.URL, http.Handler, log.Logger, *xmetrics.Registry, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string)
