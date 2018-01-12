@@ -6,6 +6,7 @@ import (
 
 	AWS "github.com/Comcast/webpa-common/webhook/aws"
 	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/spf13/viper"
 )
 

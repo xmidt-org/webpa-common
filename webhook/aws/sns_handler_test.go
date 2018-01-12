@@ -92,7 +92,7 @@ func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mu
 
 	r := mux.NewRouter()
 	logger := logging.NewTestLogger(nil, t)
-	ss.Initialize(r, nil, nil, logger, testNow)
+	ss.Initialize(r, nil, nil, logger, nil, testNow)
 
 	return ss, m, mv, r
 }
@@ -443,7 +443,7 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger(nil, t)
-	ss.Initialize(nil, nil, nil, logger, testNow)
+	ss.Initialize(nil, nil, nil, logger, nil, testNow)
 
 	sub1 := &sns.Subscription{
 		Endpoint:        aws.String("http://host:port/sns/1503357402"),
