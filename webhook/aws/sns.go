@@ -151,7 +151,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 		if err != nil {
 			ss.errorLog.Log(logging.MessageKey(), "failed to create default registry", "error", err)
 		}
-		ss.metrics = AddMetrics(&registry)
+		ss.metrics = AddMetrics(registry)
 	}
 
 
