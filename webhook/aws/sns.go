@@ -60,6 +60,9 @@ type Notifier interface {
 	Unsubscribe(string)
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte
 	ValidateSubscriptionArn(string) bool
+	ReportListSize(int)
+	SNSSubscriptionAttemptCounter(int) metrics.Counter
+	SNSNotificationReceivedCounter(int) metrics.Counter
 }
 
 // NewSNSServer creates SNSServer instance using viper config

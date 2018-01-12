@@ -77,7 +77,7 @@ func TestNotifierReadyFlow(t *testing.T) {
 
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	f.Notifier = n
 
 	testNotifierReady(t, m, mv, r, f)
