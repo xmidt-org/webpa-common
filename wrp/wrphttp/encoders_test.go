@@ -17,15 +17,13 @@ import (
 
 func testClientEncodeRequestBodyEncodeError(t *testing.T, custom http.Header) {
 	var (
-		assert = assert.New(t)
-		pool   = wrp.NewEncoderPool(1, wrp.JSON)
-
+		assert     = assert.New(t)
 		wrpRequest = new(mockRequestResponse)
 	)
 
-	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).Return(errors.New("expected")).Once()
+	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), wrp.JSON).Return(errors.New("expected")).Once()
 	assert.Error(
-		ClientEncodeRequestBody(pool, custom)(context.Background(), httptest.NewRequest("GET", "/", nil), wrpRequest),
+		ClientEncodeRequestBody(wrp.JSON, custom)(context.Background(), httptest.NewRequest("GET", "/", nil), wrpRequest),
 	)
 
 	wrpRequest.AssertExpectations(t)
@@ -34,7 +32,6 @@ func testClientEncodeRequestBodyEncodeError(t *testing.T, custom http.Header) {
 func testClientEncodeRequestBodySuccess(t *testing.T, custom http.Header) {
 	var (
 		assert       = assert.New(t)
-		pool         = wrp.NewEncoderPool(1, wrp.JSON)
 		expectedBody = []byte("expected body")
 
 		httpRequest = &http.Request{
@@ -44,7 +41,7 @@ func testClientEncodeRequestBodySuccess(t *testing.T, custom http.Header) {
 		wrpRequest = new(mockRequestResponse)
 	)
 
-	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
+	wrpRequest.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), wrp.JSON).
 		Run(func(arguments mock.Arguments) {
 			output := arguments.Get(0).(io.Writer)
 			output.Write(expectedBody)
@@ -54,11 +51,11 @@ func testClientEncodeRequestBodySuccess(t *testing.T, custom http.Header) {
 	wrpRequest.On("Destination").Return("mac:101029293838").Once()
 
 	assert.NoError(
-		ClientEncodeRequestBody(pool, custom)(context.Background(), httpRequest, wrpRequest),
+		ClientEncodeRequestBody(wrp.JSON, custom)(context.Background(), httpRequest, wrpRequest),
 	)
 
 	assert.Equal("mac:101029293838", httpRequest.Header.Get(DestinationHeader))
-	assert.Equal(pool.Format().ContentType(), httpRequest.Header.Get("Content-Type"))
+	assert.Equal(wrp.JSON.ContentType(), httpRequest.Header.Get("Content-Type"))
 	assert.Equal(int64(len(expectedBody)), httpRequest.ContentLength)
 
 	actualBody, err := ioutil.ReadAll(httpRequest.Body)
@@ -209,23 +206,21 @@ func TestClientEncodeRequestHeaders(t *testing.T) {
 
 func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
 	var (
-		assert = assert.New(t)
-		pool   = wrp.NewEncoderPool(1, format)
-
+		assert          = assert.New(t)
 		expectedPayload = []byte("expected payload")
 		httpResponse    = httptest.NewRecorder()
 		wrpResponse     = new(mockRequestResponse)
 	)
 
 	wrpResponse.On("Spans").Return([]tracing.Span{})
-	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
+	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), format).
 		Run(func(arguments mock.Arguments) {
 			output := arguments.Get(0).(io.Writer)
 			output.Write(expectedPayload)
 		}).
 		Return(error(nil)).Once()
 
-	assert.NoError(ServerEncodeResponseBody("", pool)(context.Background(), httpResponse, wrpResponse))
+	assert.NoError(ServerEncodeResponseBody("", format)(context.Background(), httpResponse, wrpResponse))
 	assert.Equal(http.StatusOK, httpResponse.Code)
 	assert.Equal(format.ContentType(), httpResponse.HeaderMap.Get("Content-Type"))
 	assert.Equal(expectedPayload, httpResponse.Body.Bytes())
@@ -235,18 +230,16 @@ func testServerEncodeResponseBodySuccess(t *testing.T, format wrp.Format) {
 
 func testServerEncodeResponseBodyEncodeError(t *testing.T, format wrp.Format) {
 	var (
-		assert = assert.New(t)
-		pool   = wrp.NewEncoderPool(1, format)
-
+		assert       = assert.New(t)
 		httpResponse = httptest.NewRecorder()
 		wrpResponse  = new(mockRequestResponse)
 	)
 
 	wrpResponse.On("Spans").Return([]tracing.Span{})
-	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), pool).
+	wrpResponse.On("Encode", mock.MatchedBy(func(io.Writer) bool { return true }), format).
 		Return(errors.New("expected error")).Once()
 
-	assert.Error(ServerEncodeResponseBody("", pool)(context.Background(), httpResponse, wrpResponse))
+	assert.Error(ServerEncodeResponseBody("", format)(context.Background(), httpResponse, wrpResponse))
 	assert.Empty(httpResponse.HeaderMap)
 	assert.Empty(httpResponse.Body.Bytes())
 

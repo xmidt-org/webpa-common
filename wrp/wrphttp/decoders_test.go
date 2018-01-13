@@ -19,10 +19,8 @@ import (
 
 func testClientDecodeResponseBodyReadError(t *testing.T) {
 	var (
-		assert = assert.New(t)
-		body   = new(mockReadCloser)
-		pool   = wrp.NewDecoderPool(1, wrp.JSON)
-
+		assert       = assert.New(t)
+		body         = new(mockReadCloser)
 		httpResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       body,
@@ -30,8 +28,7 @@ func testClientDecodeResponseBodyReadError(t *testing.T) {
 	)
 
 	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, errors.New("expected")).Once()
-	value, err := ClientDecodeResponseBody(pool)(context.Background(), httpResponse)
-	assert.Zero(pool.Len())
+	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
 	assert.Nil(value)
 	assert.Error(err)
 
@@ -40,26 +37,21 @@ func testClientDecodeResponseBodyReadError(t *testing.T) {
 
 func testClientDecodeResponseBodyHttpError(t *testing.T) {
 	var (
-		assert = assert.New(t)
-		pool   = wrp.NewDecoderPool(1, wrp.JSON)
-
+		assert       = assert.New(t)
 		httpResponse = &http.Response{
 			StatusCode: http.StatusBadRequest,
 			Body:       ioutil.NopCloser(strings.NewReader("dummy")),
 		}
 	)
 
-	value, err := ClientDecodeResponseBody(pool)(context.Background(), httpResponse)
-	assert.Zero(pool.Len())
+	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
 	assert.Nil(value)
 	assert.Error(err)
 }
 
 func testClientDecodeResponseBodyBadContentType(t *testing.T) {
 	var (
-		assert = assert.New(t)
-		pool   = wrp.NewDecoderPool(1, wrp.JSON)
-
+		assert       = assert.New(t)
 		httpResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Header: http.Header{
@@ -71,17 +63,14 @@ func testClientDecodeResponseBodyBadContentType(t *testing.T) {
 		}
 	)
 
-	value, err := ClientDecodeResponseBody(pool)(context.Background(), httpResponse)
-	assert.Zero(pool.Len())
+	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
 	assert.Nil(value)
 	assert.Error(err)
 }
 
 func testClientDecodeResponseBodyUnexpectedContentType(t *testing.T) {
 	var (
-		assert = assert.New(t)
-		pool   = wrp.NewDecoderPool(1, wrp.JSON)
-
+		assert       = assert.New(t)
 		httpResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Header: http.Header{
@@ -93,18 +82,15 @@ func testClientDecodeResponseBodyUnexpectedContentType(t *testing.T) {
 		}
 	)
 
-	value, err := ClientDecodeResponseBody(pool)(context.Background(), httpResponse)
-	assert.Zero(pool.Len())
+	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
 	assert.Nil(value)
 	assert.Error(err)
 }
 
 func testClientDecodeResponseBodySuccess(t *testing.T) {
 	var (
-		require = require.New(t)
-		assert  = assert.New(t)
-		pool    = wrp.NewDecoderPool(1, wrp.JSON)
-
+		require      = require.New(t)
+		assert       = assert.New(t)
 		httpResponse = &http.Response{
 			StatusCode: http.StatusOK,
 			Header: http.Header{
@@ -116,8 +102,7 @@ func testClientDecodeResponseBodySuccess(t *testing.T) {
 		}
 	)
 
-	value, err := ClientDecodeResponseBody(pool)(context.Background(), httpResponse)
-	assert.Equal(1, pool.Len())
+	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
 	require.NotNil(value)
 	require.NoError(err)
 
@@ -275,13 +260,12 @@ func TestServerDecodeRequestBody(t *testing.T) {
 		require = require.New(t)
 		logger  = logging.NewTestLogger(nil, t)
 
-		pool        = wrp.NewDecoderPool(1, wrp.JSON)
 		httpRequest = httptest.NewRequest("GET", "/", strings.NewReader(`
 			{"msg_type": 3, "source": "test", "dest": "mac:123412341234"}
 		`))
 	)
 
-	value, err := ServerDecodeRequestBody(logger, pool)(context.Background(), httpRequest)
+	value, err := ServerDecodeRequestBody(logger, wrp.JSON)(context.Background(), httpRequest)
 	require.NotNil(value)
 	require.NoError(err)
 

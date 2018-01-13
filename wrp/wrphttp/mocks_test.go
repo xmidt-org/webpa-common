@@ -39,12 +39,12 @@ func (m *mockRequestResponse) Message() *wrp.Message {
 	return m.Called().Get(0).(*wrp.Message)
 }
 
-func (m *mockRequestResponse) Encode(output io.Writer, pool *wrp.EncoderPool) error {
-	return m.Called(output, pool).Error(0)
+func (m *mockRequestResponse) Encode(output io.Writer, format wrp.Format) error {
+	return m.Called(output, format).Error(0)
 }
 
-func (m *mockRequestResponse) EncodeBytes(pool *wrp.EncoderPool) ([]byte, error) {
-	arguments := m.Called(pool)
+func (m *mockRequestResponse) EncodeBytes(format wrp.Format) ([]byte, error) {
+	arguments := m.Called(format)
 	return arguments.Get(0).([]byte), arguments.Error(1)
 }
 

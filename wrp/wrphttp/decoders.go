@@ -73,7 +73,7 @@ func DecodeRequestHeaders(ctx context.Context, original *http.Request) (interfac
 
 // ClientDecodeResponseBody produces a go-kit transport/http.DecodeResponseFunc that turns an HTTP response
 // into a WRP response.
-func ClientDecodeResponseBody(pool *wrp.DecoderPool) gokithttp.DecodeResponseFunc {
+func ClientDecodeResponseBody(format wrp.Format) gokithttp.DecodeResponseFunc {
 	return func(ctx context.Context, httpResponse *http.Response) (interface{}, error) {
 		body, err := ioutil.ReadAll(httpResponse.Body)
 		if err != nil {
@@ -88,11 +88,11 @@ func ClientDecodeResponseBody(pool *wrp.DecoderPool) gokithttp.DecodeResponseFun
 
 			if err != nil {
 				return nil, &xhttp.Error{Code: http.StatusBadRequest, Text: err.Error()}
-			} else if responseFormat != pool.Format() {
+			} else if responseFormat != format {
 				return nil, &xhttp.Error{Code: http.StatusUnsupportedMediaType, Text: fmt.Sprintf("Unexpected response Content-Type: %s", contentType)}
 			}
 
-			response, err := wrpendpoint.DecodeResponseBytes(body, pool)
+			response, err := wrpendpoint.DecodeResponseBytes(body, format)
 			if err != nil {
 				return nil, &xhttp.Error{Code: http.StatusInternalServerError, Text: err.Error()}
 			}
@@ -142,17 +142,17 @@ func withLogger(logger log.Logger, r *http.Request) log.Logger {
 }
 
 // ServerDecodeRequestBody creates a go-kit transport/http.DecodeRequestFunc function that parses the body of an HTTP
-// request as a WRP message in the format used by the given pool.  The supplied pool should match the
+// request as a WRP message in the given format.  The supplied format should match the
 // Content-Type of the request, or an error is returned.
 //
 // This decoder function is appropriate when the HTTP request body contains a full WRP message.  For situations
 // where the HTTP body is only the payload, use the Headers decoder.
-func ServerDecodeRequestBody(logger log.Logger, pool *wrp.DecoderPool) gokithttp.DecodeRequestFunc {
+func ServerDecodeRequestBody(logger log.Logger, format wrp.Format) gokithttp.DecodeRequestFunc {
 	return func(ctx context.Context, httpRequest *http.Request) (interface{}, error) {
 		return wrpendpoint.DecodeRequest(
 			withLogger(logger, httpRequest),
 			httpRequest.Body,
-			pool,
+			format,
 		)
 	}
 }
