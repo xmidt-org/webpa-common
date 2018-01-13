@@ -219,18 +219,23 @@ func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
 	okay.Add(0.0)
 	other.Add(0.0)
 
-	go for {
-		switch code := <- notifyChan {
-		case http.StatusInternalServerError:
-			internalErr.Add(1.0)
-		case http.StatusBadRequest:
-			badRequest.Add(1.0)
-		case http.StatusOK:
-			okay.Add(1.0)
-		default:
-			other.Add(1.0)
+	fn := func() {
+		for {
+			code := <- notifyChan
+			switch code {
+			case http.StatusInternalServerError:
+				internalErr.Add(1.0)
+			case http.StatusBadRequest:
+				badRequest.Add(1.0)
+			case http.StatusOK:
+				okay.Add(1.0)
+			default:
+				other.Add(1.0)
+			}
 		}
 	}
+	
+	go fn()
 	
 	return notifyChan
 }
