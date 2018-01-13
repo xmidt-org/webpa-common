@@ -218,7 +218,9 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	d.requestClose()
 
 	if closeError := c.Close(); closeError != nil {
-		d.debugLog.Log(logging.MessageKey(), "Error closing device connection", logging.ErrorKey(), closeError)
+		d.errorLog.Log(logging.MessageKey(), "Error closing device connection", logging.ErrorKey(), closeError)
+	} else {
+		d.debugLog.Log(logging.MessageKey(), "Closed device connection")
 	}
 
 	m.dispatch(
