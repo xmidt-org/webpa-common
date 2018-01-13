@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Comcast/webpa-common/tracing"
@@ -11,8 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// BUG: XPC
-/*
 func TestServerErrorEncoder(t *testing.T) {
 	var (
 		assert   = assert.New(t)
@@ -41,7 +40,6 @@ func TestServerErrorEncoder(t *testing.T) {
 		assert.Equal(record.expectedHeader, response.Header())
 	}
 }
-*/
 
 func TestHeadersForError(t *testing.T) {
 	var (
