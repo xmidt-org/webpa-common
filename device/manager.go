@@ -157,8 +157,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
 	}
 
-	existing, deviceCount, err := m.registry.add(d)
-	m.measures.Device.Set(float64(deviceCount))
+	existing, _, err := m.registry.add(d)
 	if err != nil {
 		d.errorLog.Log(logging.MessageKey(), "unable to connect device", logging.ErrorKey(), err)
 		response.Header().Set(MaxDevicesHeader, strconv.FormatUint(uint64(m.registry.maxDevices()), 10))
@@ -178,8 +177,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
 	if err != nil {
-		deviceCount := m.registry.remove(d)
-		m.measures.Device.Set(float64(deviceCount))
+		m.registry.remove(d)
 		return nil, err
 	}
 
@@ -204,15 +202,16 @@ func (m *manager) dispatch(e *Event) {
 // dispatches message failed events for any messages that were waiting to be delivered
 // at the time of pump closure.
 func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
+	m.measures.Disconnect.Add(1.0)
+	m.measures.Device.Add(-1.0)
+
 	if pumpError != nil {
 		d.errorLog.Log(logging.MessageKey(), "pump close", logging.ErrorKey(), pumpError)
 	} else {
 		d.debugLog.Log(logging.MessageKey(), "pump close")
 	}
 
-	m.measures.Disconnect.Add(1.0)
-	deviceCount := m.registry.remove(d)
-	m.measures.Device.Set(float64(deviceCount))
+	m.registry.remove(d)
 
 	// always request a close, to ensure that the write goroutine is
 	// shutdown and to signal to other goroutines that the device is closed
@@ -248,6 +247,7 @@ func (m *manager) pongCallbackFor(d *device) func(string) {
 func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 	d.debugLog.Log(logging.MessageKey(), "readPump starting")
 	m.measures.Connect.Add(1.0)
+	m.measures.Device.Add(1.0)
 
 	var (
 		frameRead bool
