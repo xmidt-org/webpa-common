@@ -23,10 +23,10 @@ type Note interface {
 	Message() *wrp.Message
 
 	// Encode writes out the WRP message fronted by this Note in the format supported by the pool.
-	Encode(output io.Writer, pool *wrp.EncoderPool) error
+	Encode(output io.Writer, format wrp.Format) error
 
 	// EncodeBytes works like Encode, except that it returns a []byte.
-	EncodeBytes(pool *wrp.EncoderPool) ([]byte, error)
+	EncodeBytes(format wrp.Format) ([]byte, error)
 }
 
 type note struct {
@@ -49,24 +49,24 @@ func (n *note) Message() *wrp.Message {
 	return n.message
 }
 
-func (n *note) Encode(output io.Writer, pool *wrp.EncoderPool) error {
-	if n.format == pool.Format() && len(n.contents) > 0 {
+func (n *note) Encode(output io.Writer, format wrp.Format) error {
+	if n.format == format && len(n.contents) > 0 {
 		_, err := output.Write(n.contents)
 		return err
 	}
 
-	return pool.Encode(output, n.message)
+	return wrp.NewEncoder(output, format).Encode(n.message)
 }
 
-func (n *note) EncodeBytes(pool *wrp.EncoderPool) ([]byte, error) {
-	if n.format == pool.Format() && len(n.contents) > 0 {
+func (n *note) EncodeBytes(format wrp.Format) ([]byte, error) {
+	if n.format == format && len(n.contents) > 0 {
 		copyOf := make([]byte, len(n.contents))
 		copy(copyOf, n.contents)
 		return copyOf, nil
 	}
 
 	var output []byte
-	err := pool.EncodeBytes(&output, n.message)
+	err := wrp.NewEncoderBytes(&output, format).Encode(n.message)
 	return output, err
 }
 
@@ -128,26 +128,22 @@ func withLogger(logger log.Logger, m *wrp.Message, keyvals ...interface{}) log.L
 }
 
 // DecodeRequest extracts a WRP request from the given source.
-func DecodeRequest(logger log.Logger, source io.Reader, pool *wrp.DecoderPool) (Request, error) {
+func DecodeRequest(logger log.Logger, source io.Reader, format wrp.Format) (Request, error) {
 	contents, err := ioutil.ReadAll(source)
 	if err != nil {
 		return nil, err
 	}
 
-	return DecodeRequestBytes(logger, contents, pool)
+	return DecodeRequestBytes(logger, contents, format)
 }
 
 // DecodeRequestBytes returns a Request taken from the contents.  The given pool is used to decode the WRP message.
 //
 // This function also enhances the given logger with contextual information about the returned WRP request.  The
 // logger that is passed to this function should never be nil and should never have a Caller or DefaultCaller set.
-func DecodeRequestBytes(logger log.Logger, contents []byte, pool *wrp.DecoderPool) (Request, error) {
-	d := pool.Get()
-	defer pool.Put(d)
-
-	d.ResetBytes(contents)
+func DecodeRequestBytes(logger log.Logger, contents []byte, format wrp.Format) (Request, error) {
 	m := new(wrp.Message)
-	if err := d.Decode(m); err != nil {
+	if err := wrp.NewDecoderBytes(contents, format).Decode(m); err != nil {
 		return nil, err
 	}
 
@@ -157,9 +153,9 @@ func DecodeRequestBytes(logger log.Logger, contents []byte, pool *wrp.DecoderPoo
 			transactionID: m.TransactionUUID,
 			message:       m,
 			contents:      contents,
-			format:        pool.Format(),
+			format:        format,
 		},
-		logger: withLogger(logger, m, "format", pool.Format()),
+		logger: withLogger(logger, m, "format", format),
 	}, nil
 }
 
@@ -205,23 +201,19 @@ func (r *response) WithSpans(spans ...tracing.Span) interface{} {
 }
 
 // DecodeResponse extracts a WRP response from the given source.
-func DecodeResponse(source io.Reader, pool *wrp.DecoderPool) (Response, error) {
+func DecodeResponse(source io.Reader, format wrp.Format) (Response, error) {
 	contents, err := ioutil.ReadAll(source)
 	if err != nil {
 		return nil, err
 	}
 
-	return DecodeResponseBytes(contents, pool)
+	return DecodeResponseBytes(contents, format)
 }
 
 // DecodeResponseBytes returns a Response taken from the contents.  The given pool is used to decode the WRP message.
-func DecodeResponseBytes(contents []byte, pool *wrp.DecoderPool) (Response, error) {
-	d := pool.Get()
-	defer pool.Put(d)
-
-	d.ResetBytes(contents)
+func DecodeResponseBytes(contents []byte, format wrp.Format) (Response, error) {
 	m := new(wrp.Message)
-	if err := d.Decode(m); err != nil {
+	if err := wrp.NewDecoderBytes(contents, format).Decode(m); err != nil {
 		return nil, err
 	}
 
@@ -231,7 +223,7 @@ func DecodeResponseBytes(contents []byte, pool *wrp.DecoderPool) (Response, erro
 			transactionID: m.TransactionUUID,
 			message:       m,
 			contents:      contents,
-			format:        pool.Format(),
+			format:        format,
 		},
 	}, nil
 }
