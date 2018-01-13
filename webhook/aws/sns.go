@@ -48,6 +48,7 @@ type SNSServer struct {
 	errorLog log.Logger
 	debugLog log.Logger
 	metrics  Metrics
+	snsNotificationReceivedChan chan int
 }
 
 // Notifier interface implements the various notification server functionalities
@@ -61,8 +62,7 @@ type Notifier interface {
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte
 	ValidateSubscriptionArn(string) bool
 	ReportListSize(int)
-	SNSSubscriptionAttemptCounter(int) metrics.Counter
-	SNSNotificationReceivedCounter(int) metrics.Counter
+	SNSNotificationReceivedCounter(int)
 }
 
 // NewSNSServer creates SNSServer instance using viper config
@@ -192,27 +192,45 @@ func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 	}
 }
 
-// helper function to report the list size value
+// ReqportListSize is use to set the size of the registered listeners in metrics.
 func (ss *SNSServer) ReportListSize(size int) {
 	ss.metrics.ListSize.Set(float64(size))
 }
 
-// helper function to get the right subscription attempts counter to increment
-func (ss *SNSServer) SNSSubscriptionAttemptCounter(code int) metrics.Counter {
-	if code == -1 {
-		return ss.metrics.SNSSubscribeAttempt.With("code", "failure")
-	}
-
-	return ss.metrics.SNSSubscribeAttempt.With("code", "okay")
+// SNSNotificationReceivedCounter relays response code data to be aggregated in metrics
+func (ss *SNSServer) SNSNotificationReceivedCounter(code int) {
+	ss.snsNotificationReceivedChan <- code
 }
 
-// helper function to get the right notification received counter to increment
-func (ss *SNSServer) SNSNotificationReceivedCounter(code int) metrics.Counter {
-	if code == -1 {
-		return ss.metrics.SNSNotificationReceived.With("code", "failure")
+// SNSNotificationReceivedInit initializes metrics counters and returns a channel to send response codes to count
+func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
+	// notification channel
+	notifyChan := make(chan int)
+	
+	// create counters
+	internalErr := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusInternalServerError))
+	badRequest := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusBadRequest))
+	okay := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusOK))
+	other := ss.metrics.SNSNotificationReceived.With("code", "other")
+	
+	// set values to 0
+	internalErr.Add(0.0)
+	badRequest.Add(0.0)
+	okay.Add(0.0)
+	other.Add(0.0)
+
+	go for {
+		switch code := <- notifyChan {
+		case http.StatusInternalServerError:
+			internalErr.Add(1.0)
+		case http.StatusBadRequest:
+			badRequest.Add(1.0)
+		case http.StatusOK:
+			okay.Add(1.0)
+		default:
+			other.Add(1.0)
+		}
 	}
-
-	s := strconv.Itoa(code)
-	return ss.metrics.SNSNotificationReceived.With("code", s)
+	
+	return notifyChan
 }
-

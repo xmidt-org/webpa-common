@@ -61,7 +61,6 @@ func AddMetrics(registry xmetrics.Registry) (m Metrics) {
 			m.ListSize.Add(0.0)
 		case SNSNotificationReceived:
 			m.SNSNotificationReceived = registry.NewCounter(metric.Name)
-			m.SNSNotificationReceived.Add(0.0)
 		case SNSNotificationSent:
 			m.SNSNotificationSent = registry.NewCounter(metric.Name)
 			m.SNSNotificationSent.Add(0.0)
