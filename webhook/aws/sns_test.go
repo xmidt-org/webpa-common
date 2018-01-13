@@ -128,7 +128,7 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 		Host:   "host-test:port",
 	}
 
-	ss.Initialize(nil, selfUrl, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	ss.Initialize(nil, selfUrl, nil, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)
@@ -147,7 +147,7 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 		Host:   "host-test:port",
 	}
 
-	ss.Initialize(nil, selfUrl, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	ss.Initialize(nil, selfUrl, nil, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)

@@ -117,7 +117,10 @@ func (ss *SNSServer) Subscribe() {
 	ss.debugLog.Log("subscribeParams", params)
 
 	resp, err := ss.SVC.Subscribe(params)
-	if err != nil {
+	if err == nil {
+		ss.SNSSubscriptionAttemptCounter(1)
+	} else {
+		ss.SNSSubscriptionAttemptCounter(-1)
 		attemptNum := 1
 		ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 		attemptNum++
@@ -133,8 +136,10 @@ func (ss *SNSServer) Subscribe() {
 
 			resp, err = ss.SVC.Subscribe(params)
 			if err != nil {
+				ss.SNSSubscriptionAttemptCounter(-1)
 				ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 			} else {
+				ss.SNSSubscriptionAttemptCounter(1)
 				break
 			}
 
@@ -198,6 +203,7 @@ func (ss *SNSServer) SubscribeConfirmHandle(rw http.ResponseWriter, req *http.Re
 
 	ss.subscriptionArn.Store(*resp.SubscriptionArn)
 	ss.debugLog.Log(logging.MessageKey(), "SNS is ready", "subscriptionArn", *resp.SubscriptionArn)
+	ss.metrics.SNSSubscribed.Add(1.0)
 
 	// start listenAndPublishMessage go routine
 	go ss.listenAndPublishMessage()
@@ -215,6 +221,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	if !ss.ValidateSubscriptionArn(subArn) {
 		// Returning HTTP 500 error such that AWS will retry and meanwhile subscriptionConfirmation will be received
 		xhttp.WriteError(rw, http.StatusInternalServerError, "SubscriptionARN does not match")
+		ss.SNSNotificationReceivedCounter(http.StatusInternalServerError)
 		return nil
 	}
 
@@ -224,6 +231,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	if err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS read req body error", logging.ErrorKey(), err)
 		xhttp.WriteError(rw, http.StatusBadRequest, "request body error")
+		ss.SNSNotificationReceivedCounter(http.StatusBadRequest)
 		return nil
 	}
 
@@ -232,6 +240,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	if !valid || v_err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS signature validation error", logging.ErrorKey(), v_err)
 		xhttp.WriteError(rw, http.StatusBadRequest, SNS_VALIDATION_ERR)
+		ss.SNSNotificationReceivedCounter(http.StatusBadRequest)
 		return nil
 	}
 	// TODO: health.SendEvent(HTH.Set("TotalDataPayloadReceived", int(len(raw)) ))
@@ -249,6 +258,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 			"received", msg.TopicArn,
 			"expected", ss.Config.Sns.TopicArn)
 		xhttp.WriteError(rw, http.StatusBadRequest, "TopicArn does not match")
+		ss.SNSNotificationReceivedCounter(http.StatusBadRequest)
 		return nil
 	}
 
@@ -258,8 +268,11 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 	if msgEnv != ss.Config.Env {
 		ss.errorLog.Log(logging.MessageKey(), "SNS environment mismatch", "msgEnv", msgEnv, "config", ss.Config.Env)
 		xhttp.WriteError(rw, http.StatusBadRequest, "SNS Msg config env does not match")
+		ss.SNSNotificationReceivedCounter(http.StatusBadRequest)
 		return nil
 	}
+
+	ss.SNSNotificationReceivedCounter(http.StatusOK)
 
 	return []byte(msg.Message)
 }
@@ -268,6 +281,7 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 func (ss *SNSServer) PublishMessage(message string) {
 
 	ss.debugLog.Log(logging.MessageKey(), "SNS PublishMessage", "called", message)
+	ss.metrics.SNSNotificationSent.Add(1.0)
 
 	// push Notification message onto notif data channel
 	ss.notificationData <- message

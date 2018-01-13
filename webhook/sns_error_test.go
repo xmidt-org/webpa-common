@@ -24,7 +24,7 @@ func testNow() time.Time {
 func TestSubArnError(t *testing.T) {
 	n, m, _, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	f.Notifier = n
 
 	assert := assert.New(t)
@@ -36,7 +36,7 @@ func TestSubArnError(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	f.Initialize(r, nil, handler, nil, testNow)
+	f.Initialize(r, nil, handler, nil, nil, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -72,14 +72,14 @@ func TestSubArnError(t *testing.T) {
 func TestNotificationBeforeInitialize(t *testing.T) {
 	n, _, _, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil)
+	f, _ := NewFactory(nil, nil)
 	f.Notifier = n
 
 	assert := assert.New(t)
 
 	_, handler := f.NewRegistryAndHandler()
 
-	f.Initialize(r, nil, handler, nil, testNow)
+	f.Initialize(r, nil, handler, nil, nil, testNow)
 
 	ts := httptest.NewServer(r)
 
