@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	ListSize                = "list_size_value"
-	SNSNotificationReceived = "sns_notification_received_count"
-	SNSNotificationSent     = "sns_notification_sent_count"
-	SNSSubscribeAttempt     = "sns_subscribe_attempt_count"
-	SNSSubscribed           = "sns_subscribed_value"
+	ListSize                = "webhook_list_size_value"
+	SNSNotificationReceived = "webhook_sns_notification_received_count"
+	SNSNotificationSent     = "webhook_sns_notification_sent_count"
+	SNSSubscribeAttempt     = "webhook_sns_subscribe_attempt_count"
+	SNSSubscribed           = "webhook_sns_subscribed_value"
 )
 
 type Metrics struct {
