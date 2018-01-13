@@ -13,7 +13,8 @@ import (
 // encoding for headers.
 func ServerErrorEncoder(timeLayout string) gokithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, response http.ResponseWriter) {
-		HeadersForError(err, timeLayout, response.Header())
+		// BUG: XPC
+		// HeadersForError(err, timeLayout, response.Header())
 		response.WriteHeader(StatusCodeForError(err))
 	}
 }
