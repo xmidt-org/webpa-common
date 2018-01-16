@@ -207,10 +207,10 @@ func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
 	notifyChan := make(chan int)
 	
 	// create counters
-	internalErr := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusInternalServerError))
-	badRequest := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusBadRequest))
-	okay := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusOK))
-	other := ss.metrics.SNSNotificationReceived.With("code", "other")
+	internalErr := ss.metrics.SNSNotificationReceived.With(strconv.Itoa(http.StatusInternalServerError))
+	badRequest := ss.metrics.SNSNotificationReceived.With(strconv.Itoa(http.StatusBadRequest))
+	okay := ss.metrics.SNSNotificationReceived.With(strconv.Itoa(http.StatusOK))
+	other := ss.metrics.SNSNotificationReceived.With("other")
 	
 	// set values to 0
 	internalErr.Add(0.0)
