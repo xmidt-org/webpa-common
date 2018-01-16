@@ -53,7 +53,7 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, http.Handler, log.Logger, *xmetrics.Registry, func() time.Time)
+	Initialize(*mux.Router, *url.URL, http.Handler, log.Logger, xmetrics.Registry, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string)
@@ -104,7 +104,7 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
 func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.Handler,
-	logger log.Logger, registry *xmetrics.Registry, now func() time.Time) {
+	logger log.Logger, registry xmetrics.Registry, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
@@ -145,17 +145,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 	ss.errorLog = logging.Error(logger)
 	ss.debugLog = logging.Debug(logger)
 
-	if registry != nil {
-		ss.metrics = AddMetrics(*registry)
-	} else {
-		o := &xmetrics.Options{}
-		registry, err := xmetrics.NewRegistry(o)
-		if err != nil {
-			ss.errorLog.Log(logging.MessageKey(), "failed to create default registry", "error", err)
-		}
-		ss.metrics = AddMetrics(registry)
-	}
-
+	ss.metrics = AddMetrics(registry)
 
 	ss.debugLog.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
 
@@ -207,10 +197,10 @@ func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
 	notifyChan := make(chan int)
 	
 	// create counters
-	internalErr := ss.metrics.SNSNotificationReceived.With(strconv.Itoa(http.StatusInternalServerError))
-	badRequest := ss.metrics.SNSNotificationReceived.With(strconv.Itoa(http.StatusBadRequest))
-	okay := ss.metrics.SNSNotificationReceived.With(strconv.Itoa(http.StatusOK))
-	other := ss.metrics.SNSNotificationReceived.With("other")
+	internalErr := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusInternalServerError))
+	badRequest := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusBadRequest))
+	okay := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusOK))
+	other := ss.metrics.SNSNotificationReceived.With("code", "other")
 	
 	// set values to 0
 	internalErr.Add(0.0)

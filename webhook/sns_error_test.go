@@ -36,7 +36,8 @@ func TestSubArnError(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	f.Initialize(r, nil, handler, nil, nil, testNow)
+	registry := makeTestRegistry()
+	f.Initialize(r, nil, handler, nil, registry, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -79,7 +80,8 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	f.Initialize(r, nil, handler, nil, nil, testNow)
+	registry := makeTestRegistry()
+	f.Initialize(r, nil, handler, nil, registry, testNow)
 
 	ts := httptest.NewServer(r)
 
