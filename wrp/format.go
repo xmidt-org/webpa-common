@@ -2,6 +2,7 @@ package wrp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -62,7 +63,21 @@ func (f Format) ContentType() string {
 // FormatFromContentType examines the Content-Type value and returns
 // the appropriate Format.  This function returns an error if the given
 // Content-Type did not map to a WRP format.
-func FormatFromContentType(contentType string) (Format, error) {
+//
+// The optional fallback is used if contentType is the empty string.  Only
+// the first fallback value is used.  The rest are ignored.  This approach allows
+// simple usages such as:
+//
+//   FormatFromContentType(header.Get("Content-Type"), wrp.Msgpack)
+func FormatFromContentType(contentType string, fallback ...Format) (Format, error) {
+	if len(contentType) == 0 {
+		if len(fallback) > 0 {
+			return fallback[0], nil
+		}
+
+		return Format(-1), errors.New("Missing content type")
+	}
+
 	if strings.Contains(contentType, "json") {
 		return JSON, nil
 	} else if strings.Contains(contentType, "msgpack") {
