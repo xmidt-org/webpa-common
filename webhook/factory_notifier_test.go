@@ -28,8 +28,8 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 
 	registry, handler := f.NewRegistryAndHandler()
 
-	registry := makeTestRegistry()
-	f.Initialize(r, nil, handler, nil, registry, testNow)
+	metricsRegistry := AWS.makeTestRegistry()
+	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -101,8 +101,8 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	registry := makeTestRegistry()
-	f.Initialize(r, nil, handler, nil, registry, testNow)
+	metricsRegistry := AWS.makeTestRegistry()
+	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 

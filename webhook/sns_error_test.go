@@ -36,8 +36,8 @@ func TestSubArnError(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	registry := makeTestRegistry()
-	f.Initialize(r, nil, handler, nil, registry, testNow)
+	metricsRegistry := AWS.makeTestRegistry()
+	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -80,8 +80,8 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 
 	_, handler := f.NewRegistryAndHandler()
 
-	registry := makeTestRegistry()
-	f.Initialize(r, nil, handler, nil, registry, testNow)
+	metricsRegistry := AWS.makeTestRegistry()
+	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 
