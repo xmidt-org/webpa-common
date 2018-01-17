@@ -79,20 +79,20 @@ func (r *Request) ID() (i ID, err error) {
 // to produce a device Request from an http.Request.
 //
 // The returned request will not be associated with any context.
-func DecodeRequest(source io.Reader, pool *wrp.DecoderPool) (*Request, error) {
+func DecodeRequest(source io.Reader, format wrp.Format) (*Request, error) {
 	contents, err := ioutil.ReadAll(source)
 	if err != nil {
 		return nil, err
 	}
 
 	message := new(wrp.Message)
-	if err := pool.DecodeBytes(message, contents); err != nil {
+	if err := wrp.NewDecoderBytes(contents, format).Decode(message); err != nil {
 		return nil, err
 	}
 
 	return &Request{
 		Message:  message,
-		Format:   pool.Format(),
+		Format:   format,
 		Contents: contents,
 	}, nil
 }
@@ -125,8 +125,8 @@ type Response struct {
 //
 // If none of the above applies, the encoder pool is used to encode response.Routing to the HTTP
 // response.  The content type is set to pool.Format().
-func EncodeResponse(output http.ResponseWriter, response *Response, pool *wrp.EncoderPool) (err error) {
-	if pool == nil || pool.Format() == response.Format {
+func EncodeResponse(output http.ResponseWriter, response *Response, format wrp.Format) (err error) {
+	if format == response.Format {
 		if len(response.Contents) == 0 {
 			_, err = xhttp.WriteError(
 				output,
@@ -142,8 +142,8 @@ func EncodeResponse(output http.ResponseWriter, response *Response, pool *wrp.En
 		return
 	}
 
-	output.Header().Set("Content-Type", pool.Format().ContentType())
-	err = pool.Encode(output, response.Message)
+	output.Header().Set("Content-Type", format.ContentType())
+	err = wrp.NewEncoder(output, format).Encode(response.Message)
 	return
 }
 
