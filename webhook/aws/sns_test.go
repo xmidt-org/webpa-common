@@ -128,7 +128,7 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 		Host:   "host-test:port",
 	}
 
-	registry := makeTestRegistry()
+	registry := MakeTestRegistry()
 	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
@@ -148,7 +148,7 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 		Host:   "host-test:port",
 	}
 
-	registry := makeTestRegistry()
+	registry := MakeTestRegistry()
 	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
