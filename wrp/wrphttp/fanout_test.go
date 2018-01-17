@@ -40,8 +40,6 @@ func testFanoutOptionsDefaults(t *testing.T, o *FanoutOptions) {
 	assert.Equal(DefaultClientTimeout, o.clientTimeout())
 	assert.Equal(DefaultMaxClients, o.maxClients())
 	assert.Equal(DefaultConcurrency, o.concurrency())
-	assert.Equal(DefaultEncoderPoolSize, o.encoderPoolSize())
-	assert.Equal(DefaultDecoderPoolSize, o.decoderPoolSize())
 	assert.Empty(o.middleware())
 }
 
@@ -61,12 +59,10 @@ func testFanoutOptionsConfigured(t *testing.T) {
 				IdleConnTimeout:     30 * time.Minute,
 				MaxIdleConnsPerHost: 256,
 			},
-			FanoutTimeout:   500 * time.Second,
-			ClientTimeout:   37 * time.Second,
-			MaxClients:      38734,
-			Concurrency:     3249,
-			EncoderPoolSize: 56,
-			DecoderPoolSize: 98234,
+			FanoutTimeout: 500 * time.Second,
+			ClientTimeout: 37 * time.Second,
+			MaxClients:    38734,
+			Concurrency:   3249,
 			Middleware: []endpoint.Middleware{
 				func(e endpoint.Endpoint) endpoint.Endpoint {
 					middlewareCalled = true
@@ -96,8 +92,6 @@ func testFanoutOptionsConfigured(t *testing.T) {
 	assert.Equal(37*time.Second, o.clientTimeout())
 	assert.Equal(int64(38734), o.maxClients())
 	assert.Equal(3249, o.concurrency())
-	assert.Equal(56, o.encoderPoolSize())
-	assert.Equal(98234, o.decoderPoolSize())
 
 	middleware := o.middleware()
 	require.Len(middleware, 1)
@@ -147,7 +141,7 @@ func testNewFanoutEndpointSendReceive(t *testing.T) {
 			assert.Equal(wrp.Msgpack.ContentType(), request.Header.Get("Accept"))
 
 			contents, _ := ioutil.ReadAll(request.Body)
-			actualRequest, err := wrpendpoint.DecodeRequestBytes(logger, contents, wrp.NewDecoderPool(1, wrp.Msgpack))
+			actualRequest, err := wrpendpoint.DecodeRequestBytes(logger, contents, wrp.Msgpack)
 			if !assert.NoError(err) {
 				response.WriteHeader(http.StatusInternalServerError)
 				return

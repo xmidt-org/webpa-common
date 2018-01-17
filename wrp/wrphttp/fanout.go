@@ -25,8 +25,6 @@ const (
 	DefaultClientTimeout       time.Duration = 30 * time.Second
 	DefaultMaxClients          int64         = 10000
 	DefaultConcurrency                       = 1000
-	DefaultEncoderPoolSize                   = 100
-	DefaultDecoderPoolSize                   = 100
 )
 
 // FanoutOptions describe the options available for a go-kit HTTP server that does fanout via fanout.New.
@@ -59,12 +57,6 @@ type FanoutOptions struct {
 	// Concurrency is the maximum number of concurrent fanouts allowed.  This is enforced via a Concurrent middleware.
 	// If this is not set, DefaultConcurrency is used.
 	Concurrency int `json:"concurrency"`
-
-	// EncoderPoolSize is the size of the WRP encoder pool.  If not set, DefaultEncoderPoolSize is used.
-	EncoderPoolSize int
-
-	// DecoderPoolSize is the size of the WRP encoder pool.  If not set, DefaultDecoderPoolSize is used.
-	DecoderPoolSize int
 
 	// Middleware is the extra Middleware to append, which can (and often is) empty
 	Middleware []endpoint.Middleware `json:"-"`
@@ -162,38 +154,12 @@ func (f *FanoutOptions) concurrency() int {
 	return DefaultConcurrency
 }
 
-func (f *FanoutOptions) encoderPoolSize() int {
-	if f != nil && f.EncoderPoolSize > 0 {
-		return f.EncoderPoolSize
-	}
-
-	return DefaultEncoderPoolSize
-}
-
-func (f *FanoutOptions) decoderPoolSize() int {
-	if f != nil && f.DecoderPoolSize > 0 {
-		return f.DecoderPoolSize
-	}
-
-	return DefaultDecoderPoolSize
-}
-
 func (f *FanoutOptions) middleware() []endpoint.Middleware {
 	if f != nil {
 		return f.Middleware
 	}
 
 	return nil
-}
-
-// NewEncoderPool creates a wrp.EncoderPool using this options, which can be nil to take defaults
-func (o *FanoutOptions) NewEncoderPool(format wrp.Format) *wrp.EncoderPool {
-	return wrp.NewEncoderPool(o.encoderPoolSize(), format)
-}
-
-// NewDecoderPool creates a wrp.DecoderPool using this options, which can be nil to take defaults
-func (o *FanoutOptions) NewDecoderPool(format wrp.Format) *wrp.DecoderPool {
-	return wrp.NewDecoderPool(o.decoderPoolSize(), format)
 }
 
 // NewFanoutEndpoint uses the supplied options to produce a go-kit HTTP server endpoint which
@@ -208,9 +174,6 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 	}
 
 	var (
-		encoderPool = o.NewEncoderPool(wrp.Msgpack)
-		decoderPool = o.NewDecoderPool(wrp.Msgpack)
-
 		httpClient = &http.Client{
 			CheckRedirect: xhttp.CheckRedirect(
 				xhttp.RedirectPolicy{
@@ -236,8 +199,8 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 			gokithttp.NewClient(
 				o.method(),
 				url,
-				ClientEncodeRequestBody(encoderPool, customHeader),
-				ClientDecodeResponseBody(decoderPool),
+				ClientEncodeRequestBody(wrp.Msgpack, customHeader),
+				ClientDecodeResponseBody(wrp.Msgpack),
 				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(transporthttp.GetBody),
 			).Endpoint()
 	}

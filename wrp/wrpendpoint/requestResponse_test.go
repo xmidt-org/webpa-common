@@ -55,7 +55,6 @@ func testNoteEncodeUseContents(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		actual bytes.Buffer
-		pool   = wrp.NewEncoderPool(1, wrp.Msgpack)
 
 		note = note{
 			contents: []byte("expected contents"),
@@ -63,18 +62,15 @@ func testNoteEncodeUseContents(t *testing.T) {
 		}
 	)
 
-	assert.NoError(note.Encode(&actual, pool))
+	assert.NoError(note.Encode(&actual, wrp.Msgpack))
 	assert.Equal("expected contents", actual.String())
-	assert.Equal(0, pool.Len())
 }
 
 func testNoteEncodeUseMessage(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		actual bytes.Buffer
-		pool   = wrp.NewEncoderPool(1, wrp.JSON)
-
-		note = note{
+		note   = note{
 			message: &wrp.Message{
 				Type:        wrp.SimpleRequestResponseMessageType,
 				Source:      "test",
@@ -83,32 +79,27 @@ func testNoteEncodeUseMessage(t *testing.T) {
 		}
 	)
 
-	assert.NoError(note.Encode(&actual, pool))
+	assert.NoError(note.Encode(&actual, wrp.JSON))
 	assert.JSONEq(`{"msg_type": 3, "source": "test", "dest": "test"}`, actual.String())
-	assert.Equal(1, pool.Len())
 }
 
 func testNoteEncodeBytesUseContents(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		pool   = wrp.NewEncoderPool(1, wrp.Msgpack)
-
-		note = note{
+		note   = note{
 			contents: []byte("expected contents"),
 			format:   wrp.Msgpack,
 		}
 	)
 
-	actual, err := note.EncodeBytes(pool)
+	actual, err := note.EncodeBytes(wrp.Msgpack)
 	assert.Equal("expected contents", string(actual))
 	assert.NoError(err)
-	assert.Equal(0, pool.Len())
 }
 
 func testNoteEncodeBytesUseMessage(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		pool   = wrp.NewEncoderPool(1, wrp.JSON)
 
 		note = note{
 			message: &wrp.Message{
@@ -119,9 +110,8 @@ func testNoteEncodeBytesUseMessage(t *testing.T) {
 		}
 	)
 
-	actual, err := note.EncodeBytes(pool)
+	actual, err := note.EncodeBytes(wrp.JSON)
 	assert.NoError(err)
-	assert.Equal(1, pool.Len())
 	assert.JSONEq(`{"msg_type": 3, "source": "test", "dest": "test"}`, string(actual))
 }
 
@@ -138,12 +128,9 @@ func TestNote(t *testing.T) {
 }
 
 func testDecodeRequest(t *testing.T, logger log.Logger, source io.Reader, format wrp.Format, original wrp.Message) {
-	var (
-		require = require.New(t)
-		pool    = wrp.NewDecoderPool(1, format)
-	)
+	require := require.New(t)
 
-	request, err := DecodeRequest(logger, source, pool)
+	request, err := DecodeRequest(logger, source, format)
 	require.NotNil(request)
 	require.NoError(err)
 
@@ -154,24 +141,20 @@ func testDecodeRequest(t *testing.T, logger log.Logger, source io.Reader, format
 func testDecodeRequestReadError(t *testing.T, format wrp.Format) {
 	var (
 		assert        = assert.New(t)
-		pool          = wrp.NewDecoderPool(1, format)
 		expectedError = errors.New("expected read error")
 		source        = new(mockReader)
 	)
 
 	source.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
-	request, err := DecodeRequest(nil, source, pool)
+	request, err := DecodeRequest(nil, source, format)
 	assert.Nil(request)
 	assert.Equal(expectedError, err)
 }
 
 func testDecodeRequestBytes(t *testing.T, logger log.Logger, source []byte, format wrp.Format, original wrp.Message) {
-	var (
-		require = require.New(t)
-		pool    = wrp.NewDecoderPool(1, format)
-	)
+	require := require.New(t)
 
-	request, err := DecodeRequestBytes(logger, source, pool)
+	request, err := DecodeRequestBytes(logger, source, format)
 	require.NotNil(request)
 	require.NoError(err)
 
@@ -180,12 +163,9 @@ func testDecodeRequestBytes(t *testing.T, logger log.Logger, source []byte, form
 }
 
 func testDecodeRequestBytesDecodeError(t *testing.T, format wrp.Format) {
-	var (
-		assert = assert.New(t)
-		pool   = wrp.NewDecoderPool(1, format)
-	)
+	assert := assert.New(t)
 
-	request, err := DecodeRequestBytes(nil, []byte{0xFF}, pool)
+	request, err := DecodeRequestBytes(nil, []byte{0xFF}, format)
 	assert.Nil(request)
 	assert.Error(err)
 }
@@ -263,12 +243,9 @@ func TestRequest(t *testing.T) {
 }
 
 func testDecodeResponse(t *testing.T, source io.Reader, format wrp.Format, original wrp.Message) {
-	var (
-		require = require.New(t)
-		pool    = wrp.NewDecoderPool(1, format)
-	)
+	require := require.New(t)
 
-	response, err := DecodeResponse(source, pool)
+	response, err := DecodeResponse(source, format)
 	require.NotNil(response)
 	require.NoError(err)
 
@@ -278,24 +255,20 @@ func testDecodeResponse(t *testing.T, source io.Reader, format wrp.Format, origi
 func testDecodeResponseReadError(t *testing.T, format wrp.Format) {
 	var (
 		assert        = assert.New(t)
-		pool          = wrp.NewDecoderPool(1, format)
 		expectedError = errors.New("expected read error")
 		source        = new(mockReader)
 	)
 
 	source.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
-	response, err := DecodeResponse(source, pool)
+	response, err := DecodeResponse(source, format)
 	assert.Nil(response)
 	assert.Equal(expectedError, err)
 }
 
 func testDecodeResponseBytes(t *testing.T, source []byte, format wrp.Format, original wrp.Message) {
-	var (
-		require = require.New(t)
-		pool    = wrp.NewDecoderPool(1, format)
-	)
+	require := require.New(t)
 
-	response, err := DecodeResponseBytes(source, pool)
+	response, err := DecodeResponseBytes(source, format)
 	require.NotNil(response)
 	require.NoError(err)
 
@@ -303,12 +276,9 @@ func testDecodeResponseBytes(t *testing.T, source []byte, format wrp.Format, ori
 }
 
 func testDecodeResponseBytesDecodeError(t *testing.T, format wrp.Format) {
-	var (
-		assert = assert.New(t)
-		pool   = wrp.NewDecoderPool(1, format)
-	)
+	assert := assert.New(t)
 
-	response, err := DecodeResponseBytes([]byte{0xFF}, pool)
+	response, err := DecodeResponseBytes([]byte{0xFF}, format)
 	assert.Nil(response)
 	assert.Error(err)
 }

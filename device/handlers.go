@@ -112,15 +112,6 @@ type MessageHandler struct {
 	// Logger is the sink for logging output.  If not set, logging will be sent to a NOP logger
 	Logger log.Logger
 
-	// Decoders is the pool of wrp.Decoder objects used to decode http.Request bodies
-	// sent to this handler.  This field is required.
-	Decoders *wrp.DecoderPool
-
-	// Encoders is the optional pool of wrp.Encoder objects used to encode wrp messages sent
-	// as HTTP responses.  If not supplied, this handler assumes the format returned by the Router
-	// is the format to be sent back in the HTTP response.
-	Encoders *wrp.EncoderPool
-
 	// Router is the device message Router to use.  This field is required.
 	Router Router
 }
@@ -135,7 +126,12 @@ func (mh *MessageHandler) logger() log.Logger {
 
 // decodeRequest transforms an HTTP request into a device request.
 func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceRequest *Request, err error) {
-	deviceRequest, err = DecodeRequest(httpRequest.Body, mh.Decoders)
+	format, err := wrp.FormatFromContentType(httpRequest.Header.Get("Content-Type"), wrp.Msgpack)
+	if err != nil {
+		return nil, err
+	}
+
+	deviceRequest, err = DecodeRequest(httpRequest.Body, format)
 	if err == nil {
 		deviceRequest = deviceRequest.WithContext(httpRequest.Context())
 	}
@@ -146,10 +142,24 @@ func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceReques
 func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpRequest *http.Request) {
 	deviceRequest, err := mh.decodeRequest(httpRequest)
 	if err != nil {
+		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to decode request", logging.ErrorKey(), err)
 		xhttp.WriteErrorf(
 			httpResponse,
 			http.StatusBadRequest,
-			"Could not decode WRP message: %s",
+			"Unable to decode request: %s",
+			err,
+		)
+
+		return
+	}
+
+	responseFormat, err := wrp.FormatFromContentType(httpRequest.Header.Get("Accept"), deviceRequest.Format)
+	if err != nil {
+		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to determine response WRP format", logging.ErrorKey(), err)
+		xhttp.WriteErrorf(
+			httpResponse,
+			http.StatusBadRequest,
+			"Unable to determine response WRP format: %s",
 			err,
 		)
 
@@ -178,6 +188,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			code = http.StatusBadRequest
 		}
 
+		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not process device request", logging.ErrorKey(), err)
 		xhttp.WriteErrorf(
 			httpResponse,
 			code,
@@ -185,8 +196,8 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			err,
 		)
 	} else if deviceResponse != nil {
-		if err := EncodeResponse(httpResponse, deviceResponse, mh.Encoders); err != nil {
-			logging.Error(mh.logger()).Log(logging.MessageKey(), "Error while writing transaction response", logging.ErrorKey(), err)
+		if err := EncodeResponse(httpResponse, deviceResponse, responseFormat); err != nil {
+			mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Error while writing transaction response", logging.ErrorKey(), err)
 		}
 	}
 

@@ -41,14 +41,14 @@ func EncodeRequest(format wrp.Format) gokithttp.EncodeRequestFunc {
 // ClientEncodeRequestBody produces a go-kit transport/http.EncodeRequestFunc for use when sending WRP requests
 // to HTTP clients.  The returned decoder will set the appropriate headers and set the body to the encoded
 // WRP message in the request.
-func ClientEncodeRequestBody(pool *wrp.EncoderPool, custom http.Header) gokithttp.EncodeRequestFunc {
+func ClientEncodeRequestBody(format wrp.Format, custom http.Header) gokithttp.EncodeRequestFunc {
 	return func(ctx context.Context, httpRequest *http.Request, value interface{}) error {
 		var (
 			wrpRequest = value.(wrpendpoint.Request)
 			body       = new(bytes.Buffer)
 		)
 
-		if err := wrpRequest.Encode(body, pool); err != nil {
+		if err := wrpRequest.Encode(body, format); err != nil {
 			return err
 		}
 
@@ -59,7 +59,7 @@ func ClientEncodeRequestBody(pool *wrp.EncoderPool, custom http.Header) gokithtt
 		}
 
 		httpRequest.Header.Set(DestinationHeader, wrpRequest.Destination())
-		httpRequest.Header.Set("Content-Type", pool.Format().ContentType())
+		httpRequest.Header.Set("Content-Type", format.ContentType())
 		httpRequest.ContentLength = int64(body.Len())
 		httpRequest.Body = ioutil.NopCloser(body)
 		return nil
@@ -95,7 +95,7 @@ func ClientEncodeRequestHeaders(custom http.Header) gokithttp.EncodeRequestFunc 
 
 // ServerEncodeResponseBody produces a go-kit transport/http.EncodeResponseFunc that transforms a wrphttp.Response into
 // an HTTP response.
-func ServerEncodeResponseBody(timeLayout string, pool *wrp.EncoderPool) gokithttp.EncodeResponseFunc {
+func ServerEncodeResponseBody(timeLayout string, format wrp.Format) gokithttp.EncodeResponseFunc {
 	return func(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
 		var (
 			wrpResponse = value.(wrpendpoint.Response)
@@ -104,11 +104,11 @@ func ServerEncodeResponseBody(timeLayout string, pool *wrp.EncoderPool) gokithtt
 
 		tracinghttp.HeadersForSpans(wrpResponse.Spans(), timeLayout, httpResponse.Header())
 
-		if err := wrpResponse.Encode(&output, pool); err != nil {
+		if err := wrpResponse.Encode(&output, format); err != nil {
 			return err
 		}
 
-		httpResponse.Header().Set("Content-Type", pool.Format().ContentType())
+		httpResponse.Header().Set("Content-Type", format.ContentType())
 		_, err := output.WriteTo(httpResponse)
 		return err
 	}

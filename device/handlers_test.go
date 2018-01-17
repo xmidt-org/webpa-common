@@ -244,8 +244,7 @@ func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
-			Decoders: wrp.NewDecoderPool(1, wrp.Msgpack),
-			Router:   router,
+			Router: router,
 		}
 	)
 
@@ -270,11 +269,10 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 			Destination: "mac:123412341234",
 		}
 
-		setupEncoders   = wrp.NewEncoderPool(1, wrp.Msgpack)
 		requestContents []byte
 	)
 
-	require.NoError(setupEncoders.EncodeBytes(&requestContents, message))
+	require.NoError(wrp.NewEncoderBytes(&requestContents, wrp.Msgpack).Encode(message))
 
 	var (
 		response           = httptest.NewRecorder()
@@ -283,8 +281,7 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
-			Router:   router,
-			Decoders: wrp.NewDecoderPool(1, wrp.Msgpack),
+			Router: router,
 		}
 	)
 
@@ -321,11 +318,10 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 			Metadata:    map[string]string{"foo": "bar"},
 		}
 
-		setupEncoders   = wrp.NewEncoderPool(1, requestFormat)
 		requestContents []byte
 	)
 
-	require.NoError(setupEncoders.EncodeBytes(&requestContents, event))
+	require.NoError(wrp.NewEncoderBytes(&requestContents, requestFormat).Encode(event))
 
 	var (
 		response = httptest.NewRecorder()
@@ -333,12 +329,14 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
-			Router:   router,
-			Decoders: wrp.NewDecoderPool(1, requestFormat),
+			Logger: logging.NewTestLogger(nil, t),
+			Router: router,
 		}
 
 		actualDeviceRequest *Request
 	)
+
+	request.Header.Set("Content-Type", requestFormat.ContentType())
 
 	router.On(
 		"Route",
@@ -383,15 +381,12 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 			TransactionUUID: transactionKey,
 		}
 
-		setupRequestEncoders   = wrp.NewEncoderPool(1, requestFormat)
-		setupResponseEncoders  = wrp.NewEncoderPool(1, wrp.Msgpack)
-		verifyResponseDecoders = wrp.NewDecoderPool(1, responseFormat)
-		requestContents        []byte
-		responseContents       []byte
+		requestContents  []byte
+		responseContents []byte
 	)
 
-	require.NoError(setupRequestEncoders.EncodeBytes(&requestContents, requestMessage))
-	require.NoError(setupResponseEncoders.EncodeBytes(&responseContents, responseMessage))
+	require.NoError(wrp.NewEncoderBytes(&requestContents, requestFormat).Encode(requestMessage))
+	require.NoError(wrp.NewEncoderBytes(&responseContents, responseFormat).Encode(responseMessage))
 
 	var (
 		response = httptest.NewRecorder()
@@ -400,9 +395,8 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		router  = new(mockRouter)
 		device  = new(mockDevice)
 		handler = MessageHandler{
-			Router:   router,
-			Decoders: wrp.NewDecoderPool(1, requestFormat),
-			Encoders: wrp.NewEncoderPool(1, responseFormat),
+			Logger: logging.NewTestLogger(nil, t),
+			Router: router,
 		}
 
 		actualDeviceRequest    *Request
@@ -413,6 +407,9 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 			Contents: responseContents,
 		}
 	)
+
+	request.Header.Set("Content-Type", requestFormat.ContentType())
+	request.Header.Set("Accept", responseFormat.ContentType())
 
 	router.On(
 		"Route",
@@ -428,7 +425,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal(responseFormat.ContentType(), response.HeaderMap.Get("Content-Type"))
 	require.NotNil(actualDeviceRequest)
-	assert.NoError(verifyResponseDecoders.Decode(new(wrp.Message), response.Body))
+	assert.NoError(wrp.NewDecoder(response.Body, responseFormat).Decode(new(wrp.Message)))
 
 	router.AssertExpectations(t)
 	device.AssertExpectations(t)
@@ -459,11 +456,10 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 			TransactionUUID: transactionKey,
 		}
 
-		setupRequestEncoders = wrp.NewEncoderPool(1, wrp.Msgpack)
-		requestContents      []byte
+		requestContents []byte
 	)
 
-	require.NoError(setupRequestEncoders.EncodeBytes(&requestContents, requestMessage))
+	require.NoError(wrp.NewEncoderBytes(&requestContents, wrp.Msgpack).Encode(requestMessage))
 
 	var (
 		response = httptest.NewRecorder()
@@ -472,8 +468,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		router  = new(mockRouter)
 		device  = new(mockDevice)
 		handler = MessageHandler{
-			Router:   router,
-			Decoders: wrp.NewDecoderPool(1, wrp.Msgpack),
+			Router: router,
 		}
 
 		actualResponseBody     map[string]interface{}
