@@ -13,6 +13,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
+	"github.com/gorilla/websocket"
 )
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
@@ -93,18 +94,14 @@ type Manager interface {
 
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
 // created from the options if one is not supplied.
-func NewManager(o *Options, cf ConnectionFactory) Manager {
-	if cf == nil {
-		cf = NewConnectionFactory(o)
-	}
-
+func NewManager(o *Options) Manager {
 	logger := o.logger()
-	m := &manager{
+	return &manager{
 		logger:   logger,
 		errorLog: logging.Error(logger),
 		debugLog: logging.Debug(logger),
 
-		connectionFactory:      cf,
+		upgrader:               o.upgrader(),
 		conveyTranslator:       conveyhttp.NewHeaderTranslator("", nil),
 		registry:               newRegistry(o.initialCapacity(), o.maxDevices()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
@@ -114,8 +111,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		listeners: o.listeners(),
 		measures:  NewMeasures(o.metricsProvider()),
 	}
-
-	return m
 }
 
 // manager is the internal Manager implementation.
@@ -124,8 +119,8 @@ type manager struct {
 	errorLog log.Logger
 	debugLog log.Logger
 
-	connectionFactory ConnectionFactory
-	conveyTranslator  conveyhttp.HeaderTranslator
+	upgrader         *websocket.Upgrader
+	conveyTranslator conveyhttp.HeaderTranslator
 
 	registry *registry
 
@@ -175,7 +170,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.statistics.AddDuplications(existing.statistics.Duplications() + 1)
 	}
 
-	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
+	c, err := m.upgrader.Upgrade(response, request, responseHeader)
 	if err != nil {
 		m.registry.remove(d)
 		return nil, err

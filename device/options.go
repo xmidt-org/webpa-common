@@ -7,6 +7,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -17,12 +18,11 @@ const (
 	// ConveyHeader is the name of the optional HTTP header which contains the encoded convey JSON.
 	ConveyHeader = "X-Webpa-Convey"
 
-	DefaultHandshakeTimeout time.Duration = 10 * time.Second
-	DefaultIdlePeriod       time.Duration = 135 * time.Second
-	DefaultRequestTimeout   time.Duration = 30 * time.Second
-	DefaultWriteTimeout     time.Duration = 60 * time.Second
-	DefaultPingPeriod       time.Duration = 45 * time.Second
-	DefaultAuthDelay        time.Duration = 1 * time.Second
+	DefaultIdlePeriod     time.Duration = 135 * time.Second
+	DefaultRequestTimeout time.Duration = 30 * time.Second
+	DefaultWriteTimeout   time.Duration = 60 * time.Second
+	DefaultPingPeriod     time.Duration = 45 * time.Second
+	DefaultAuthDelay      time.Duration = 1 * time.Second
 
 	DefaultDecoderPoolSize        = 1000
 	DefaultEncoderPoolSize        = 1000
@@ -35,17 +35,8 @@ const (
 // Options represent the available configuration options for components
 // within this package
 type Options struct {
-	// HandshakeTimeout is the optional websocket handshake timeout.  If not supplied,
-	// the internal gorilla default is used.
-	HandshakeTimeout time.Duration
-
-	// DecoderPoolSize is the size of the pool of wrp.Decoder objects used internally
-	// to decode messages from external sources, such as HTTP requests
-	DecoderPoolSize int
-
-	// EncoderPoolSize is the size of the pool of wrp.Encoder objects used internally
-	// to encode messages that have no encoded byte representation.
-	EncoderPoolSize int
+	// Upgrader is the gorilla websocket.Upgrader injected into these options.
+	Upgrader websocket.Upgrader
 
 	// InitialCapacity is used as the starting capacity of the internal map of
 	// registered devices.  If not supplied, DefaultInitialCapacity is used.
@@ -54,17 +45,6 @@ type Options struct {
 	// MaxDevices is the maximum number of devices allowed to connect to any one Manager.
 	// If unset (i.e. zero), math.MaxUint32 is used as the maximum.
 	MaxDevices uint32
-
-	// ReadBufferSize is the optional size of websocket read buffers.  If not supplied,
-	// the internal gorilla default is used.
-	ReadBufferSize int
-
-	// WriteBufferSize is the optional size of websocket write buffers.  If not supplied,
-	// the internal gorilla default is used.
-	WriteBufferSize int
-
-	// Subprotocols is the optional slice of websocket subprotocols to use.
-	Subprotocols []string
 
 	// DeviceMessageQueueSize is the capacity of the channel which stores messages waiting
 	// to be transmitted to a device.  If not supplied, DefaultDeviceMessageQueueSize is used.
@@ -98,36 +78,21 @@ type Options struct {
 	MetricsProvider provider.Provider
 }
 
+func (o *Options) upgrader() *websocket.Upgrader {
+	upgrader = new(websocket.Upgrader)
+	if o != nil {
+		*upgrader = o.Upgrader
+	}
+
+	return upgrader
+}
+
 func (o *Options) deviceMessageQueueSize() int {
 	if o != nil && o.DeviceMessageQueueSize > 0 {
 		return o.DeviceMessageQueueSize
 	}
 
 	return DefaultDeviceMessageQueueSize
-}
-
-func (o *Options) handshakeTimeout() time.Duration {
-	if o != nil && o.HandshakeTimeout > 0 {
-		return o.HandshakeTimeout
-	}
-
-	return DefaultHandshakeTimeout
-}
-
-func (o *Options) decoderPoolSize() int {
-	if o != nil && o.DecoderPoolSize > 0 {
-		return o.DecoderPoolSize
-	}
-
-	return DefaultDecoderPoolSize
-}
-
-func (o *Options) encoderPoolSize() int {
-	if o != nil && o.EncoderPoolSize > 0 {
-		return o.EncoderPoolSize
-	}
-
-	return DefaultEncoderPoolSize
 }
 
 func (o *Options) initialCapacity() uint32 {
@@ -184,31 +149,6 @@ func (o *Options) writeTimeout() time.Duration {
 	}
 
 	return DefaultWriteTimeout
-}
-
-func (o *Options) readBufferSize() int {
-	if o != nil && o.ReadBufferSize > 0 {
-		return o.ReadBufferSize
-	}
-
-	return DefaultReadBufferSize
-}
-
-func (o *Options) writeBufferSize() int {
-	if o != nil && o.WriteBufferSize > 0 {
-		return o.WriteBufferSize
-	}
-
-	return DefaultWriteBufferSize
-}
-
-func (o *Options) subprotocols() (subprotocols []string) {
-	if o != nil && len(o.Subprotocols) > 0 {
-		subprotocols = make([]string, len(o.Subprotocols))
-		copy(subprotocols, o.Subprotocols)
-	}
-
-	return
 }
 
 func (o *Options) logger() log.Logger {

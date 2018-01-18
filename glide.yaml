@@ -24,7 +24,7 @@ import:
   version: v1.3.0
 - package: github.com/gorilla/schema
 - package: github.com/gorilla/websocket
-  version: v1.1.0
+  version: v1.2.0
 - package: github.com/tinylib/msgp
   version: "1.0"
   subpackages:
