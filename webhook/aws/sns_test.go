@@ -129,6 +129,7 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 	}
 
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
+	ss.metrics = ApplyMetricsData(registry)
 	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
@@ -149,6 +150,7 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 	}
 
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
+	ss.metrics = ApplyMetricsData(registry)
 	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)

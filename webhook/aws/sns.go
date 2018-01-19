@@ -46,7 +46,7 @@ type SNSServer struct {
 
 	errorLog log.Logger
 	debugLog log.Logger
-	metrics  Metrics
+	metrics  AWSMetrics
 	snsNotificationReceivedChan chan int
 }
 
@@ -60,7 +60,6 @@ type Notifier interface {
 	Unsubscribe(string)
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte
 	ValidateSubscriptionArn(string) bool
-	ReportListSize(int)
 	SNSNotificationReceivedCounter(int)
 }
 
@@ -145,7 +144,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 	ss.errorLog = logging.Error(logger)
 	ss.debugLog = logging.Debug(logger)
 
-	ss.metrics = AddMetrics(registry)
+	ss.metrics = ApplyMetrics(registry)
 
 	ss.debugLog.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
 
@@ -179,11 +178,6 @@ func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 		)
 		return false
 	}
-}
-
-// ReqportListSize is use to set the size of the registered listeners in metrics.
-func (ss *SNSServer) ReportListSize(size int) {
-	ss.metrics.ListSize.Set(float64(size))
 }
 
 // SNSNotificationReceivedCounter relays response code data to be aggregated in metrics
