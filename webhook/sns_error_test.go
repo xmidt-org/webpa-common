@@ -35,7 +35,7 @@ func TestSubArnError(t *testing.T) {
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
-	f.m.metrics = ApplyMetricsData(registry)
+	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
@@ -79,7 +79,7 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 	assert := assert.New(t)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
-	f.m.metrics = ApplyMetricsData(registry)
+	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	_, handler := f.NewRegistryAndHandler(metricsRegisty)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 

@@ -103,7 +103,7 @@ func (f *Factory) NewRegistryAndHandler(registry xmetrics.Registry) (Registry, h
 	}
 	f.m = monitor
 	f.m.Notifier = f.Notifier
-	f.m.metrics = ApplyMetrics(registry)
+	f.m.metrics = ApplyMetricsData(registry)
 
 	reg := NewRegistry(f.m)
 

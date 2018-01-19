@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,7 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
-	f.m.metrics = ApplyMetricsData(registry)
+	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	registry, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
@@ -100,7 +101,7 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
-	f.m.metrics = ApplyMetricsData(registry)
+	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
