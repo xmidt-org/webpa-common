@@ -3,6 +3,7 @@ package webhook
 import (
 	"encoding/json"
 	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
