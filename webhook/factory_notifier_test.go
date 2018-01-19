@@ -28,7 +28,6 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
-	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	registry, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
@@ -102,7 +101,6 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
-	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
