@@ -81,6 +81,7 @@ func TestNotifierReadyFlow(t *testing.T) {
 
 	f, _ := NewFactory(nil, nil)
 	f.Notifier = n
+	f.m = &monitor{}
 
 	testNotifierReady(t, m, mv, r, f)
 }
