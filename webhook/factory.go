@@ -168,7 +168,7 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 	if nil != err {
 		xhttp.WriteError(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
-		m.NotificationUnmarshallFailed.Add(1.0)
+		m.metrics.NotificationUnmarshallFailed.Add(1.0)
 		return
 	}
 	m.sendNewHooks([]W{*w})
