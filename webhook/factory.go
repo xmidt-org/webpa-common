@@ -74,7 +74,7 @@ func NewFactory(v *viper.Viper, registry *xmetrics.Registry) (f *Factory, err er
 
 func (f *Factory) SetList(ul UpdatableList) {
 	f.m.list = ul
-	f.m.metrics.ListSize.Set( float64(m.list.Len()) )
+	f.m.metrics.ListSize.Set( float64(f.m.list.Len()) )
 }
 
 func (f *Factory) Prune(items []W) (list []W) {
