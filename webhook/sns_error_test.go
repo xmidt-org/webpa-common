@@ -81,7 +81,7 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
 	f.m.metrics = ApplyMetricsData(metricsRegistry)
-	_, handler := f.NewRegistryAndHandler(metricsRegisty)
+	_, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
