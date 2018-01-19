@@ -76,10 +76,13 @@ type Options struct {
 
 	// MetricsProvider is the go-kit factory for metrics
 	MetricsProvider provider.Provider
+
+	// Now is the closure used to determine the current time.  If not set, time.Now is used.
+	Now func() time.Time
 }
 
 func (o *Options) upgrader() *websocket.Upgrader {
-	upgrader = new(websocket.Upgrader)
+	upgrader := new(websocket.Upgrader)
 	if o != nil {
 		*upgrader = o.Upgrader
 	}
@@ -173,4 +176,12 @@ func (o *Options) metricsProvider() provider.Provider {
 	}
 
 	return provider.NewDiscardProvider()
+}
+
+func (o *Options) now() func() time.Time {
+	if o != nil && o.Now != nil {
+		return o.Now
+	}
+
+	return time.Now
 }
