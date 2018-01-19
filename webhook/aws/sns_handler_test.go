@@ -92,7 +92,7 @@ func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mu
 
 	r := mux.NewRouter()
 	logger := logging.NewTestLogger(nil, t)
-	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
 	ss.metrics = ApplyMetricsData(registry)
 	ss.Initialize(r, nil, nil, logger, registry, testNow)
 
@@ -445,7 +445,7 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger(nil, t)
-	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{})
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
 	ss.metrics = ApplyMetricsData(registry)
 	ss.Initialize(nil, nil, nil, logger, registry, testNow)
 
