@@ -35,7 +35,7 @@ func TestSubArnError(t *testing.T) {
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
-	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
@@ -79,7 +79,7 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 
 	assert := assert.New(t)
 
-	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	f.m.metrics = ApplyMetricsData(metricsRegistry)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
 	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
