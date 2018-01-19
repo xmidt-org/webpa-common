@@ -19,6 +19,7 @@ type AWSMetrics struct {
 	SNSSubscribed           metrics.Gauge
 }
 
+// Metrics returns the defined metrics as a list
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		xmetrics.Metric{
@@ -46,6 +47,8 @@ func Metrics() []xmetrics.Metric {
 	}
 }
 
+// ApplyMetricsData is used for setting the counter values on the AWSMetrics
+// when stored and accessing for later use
 func ApplyMetricsData(registry xmetrics.Registry) (m AWSMetrics) {
 	for _, metric := range Metrics() {
 		switch metric.Name {
