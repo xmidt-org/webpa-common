@@ -30,8 +30,8 @@ func Metrics() []xmetrics.Metric {
 	}
 }
 
-func ApplyMetricsData(registry xmetrics.Registry) (m Metrics) {
-	for _, metric := range GetMetrics() {
+func ApplyMetricsData(registry xmetrics.Registry) (m WebhookMetrics) {
+	for _, metric := range Metrics() {
 		switch metric.Name {
 		case ListSize:
 			m.ListSize = registry.NewGauge(metric.Name)

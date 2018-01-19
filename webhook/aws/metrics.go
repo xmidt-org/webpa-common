@@ -46,8 +46,8 @@ func Metrics() []xmetrics.Metric {
 	}
 }
 
-func ApplyMetricsData(registry xmetrics.Registry) (m Metrics) {
-	for _, metric := range GetMetrics() {
+func ApplyMetricsData(registry xmetrics.Registry) (m AWSMetrics) {
+	for _, metric := range Metrics() {
 		switch metric.Name {
 		case SNSNotificationReceived:
 			m.SNSNotificationReceived = registry.NewCounter(metric.Name)
