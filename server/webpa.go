@@ -81,6 +81,7 @@ type Basic struct {
 	CertificateFile    string
 	KeyFile            string
 	ClientCACertFile   string
+	PeerVerifyFunc	   *func([][]byte, [][]*x509.Certificate) error
 	LogConnectionState bool
 
 	DisableKeepAlives bool
@@ -88,6 +89,10 @@ type Basic struct {
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	WriteTimeout      time.Duration
+}
+
+func (b *Basic) SetPeerVerifyFunc( verifyPtr *func([][]byte, [][]*x509.Certificate) error) {
+	b.PeerVerifyFunc = verifyPtr
 }
 
 func (b *Basic) maxHeaderBytes() int {
@@ -155,6 +160,9 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
 			tlsConfig.BuildNameToCertificate()
+
+			// Add verify peer ceritifcate callback for additional validation
+			tlsConfig.VerifyPeerCertificate = *b.PeerVerifyFunc
 		}
 	}
 
