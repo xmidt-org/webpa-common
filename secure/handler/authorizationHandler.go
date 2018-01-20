@@ -11,8 +11,8 @@ import (
 	"github.com/go-kit/kit/log"
 )
 
-//contextKey helps in the process of avoiding context key collision
-type contextKey int
+//satClientIDKey is the key to set/get sat client IDs using contexts.
+var satClientIDKey = struct{ key string }{key: "sat-client-key"}
 
 const (
 	// The Content-Type value for JSON
@@ -26,9 +26,6 @@ const (
 
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
-
-	//SatClientIDKey is the key to set/get sat client IDs using contexts. Iota is used to seal the prevention of context key collissions
-	SatClientIDKey contextKey = iota
 )
 
 // WriteJsonError writes a standard JSON error to the response
@@ -117,7 +114,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		valid, err := a.Validator.Validate(ctx, token)
 		if err == nil && valid {
-			request = request.WithContext(context.WithValue(request.Context(), SatClientIDKey, satClientID))
+			request = request.WithContext(NewContextSatID(request.Context(), satClientID))
 			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
@@ -156,4 +153,16 @@ func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID str
 		}
 	}
 	return
+}
+
+//NewContextSatID returns a context with the specified value
+func NewContextSatID(ctx context.Context, satClientID string) context.Context {
+	return context.WithValue(ctx, satClientIDKey, satClientID)
+}
+
+//FromContextSatID retrieves the SatClientID (if any) from the given context
+//the second result indicates whether
+func FromContextSatID(ctx context.Context) (string, bool) {
+	ID, ok := ctx.Value(satClientIDKey).(string)
+	return ID, ok
 }
