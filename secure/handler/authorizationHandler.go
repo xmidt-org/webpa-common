@@ -1,18 +1,27 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
+	"github.com/Comcast/webpa-common/contextcommon"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
 )
 
-//satClientIDKey is the key to set/get sat client IDs using contexts.
-var satClientIDKey = struct{}{}
+type contextKey struct{}
+
+//handlerValuesKey is the key to set/get context values
+var handlerValuesKey = contextKey{}
+
+//ContextValues contains the values shared under the satClientIDKey from this package
+type ContextValues struct {
+	SatClientID string
+	Method      string
+	Path        string
+}
 
 const (
 	// The Content-Type value for JSON
@@ -106,15 +115,17 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)
+		contextValues := &ContextValues{
+			Method:      request.Method,
+			Path:        request.URL.Path,
+			SatClientID: extractSatClientID(token, logger),
+		}
 
-		satClientID := extractSatClientID(token, logger)
+		sharedContext := contextcommon.NewContextWithValue(request.Context(), handlerValuesKey, contextValues)
 
-		valid, err := a.Validator.Validate(ctx, token)
+		valid, err := a.Validator.Validate(sharedContext, token)
 		if err == nil && valid {
-			request = request.WithContext(NewContextSatID(request.Context(), satClientID))
+			request = request.WithContext(sharedContext)
 			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
@@ -124,7 +135,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			logging.MessageKey(), "request denied",
 			"validator-response", valid,
 			"validator-error", err,
-			"sat-client-id", satClientID,
+			"sat-client-id", contextValues.SatClientID,
 			"token", headerValue,
 			"method", request.Method,
 			"url", request.URL,
@@ -153,16 +164,4 @@ func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID str
 		}
 	}
 	return
-}
-
-//NewContextSatID returns a context with the specified value
-func NewContextSatID(ctx context.Context, satClientID string) context.Context {
-	return context.WithValue(ctx, satClientIDKey, satClientID)
-}
-
-//FromContextSatID retrieves the SatClientID (if any) from the given context
-//the second result indicates whether
-func FromContextSatID(ctx context.Context) (string, bool) {
-	ID, ok := ctx.Value(satClientIDKey).(string)
-	return ID, ok
 }
