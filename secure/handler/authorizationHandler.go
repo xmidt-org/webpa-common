@@ -12,7 +12,7 @@ import (
 )
 
 //satClientIDKey is the key to set/get sat client IDs using contexts.
-var satClientIDKey = struct{ key string }{key: "sat-client-key"}
+var satClientIDKey = struct{}{}
 
 const (
 	// The Content-Type value for JSON
