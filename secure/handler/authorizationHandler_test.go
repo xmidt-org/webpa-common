@@ -228,7 +228,7 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 
 		inputRequest := request.WithContext(request.Context())
 
-		request = request.WithContext(context.WithValue(request.Context(), SatClientIDKey, "N/A")) //request has this context after Decorate() is called
+		request = request.WithContext(context.WithValue(request.Context(), satClientIDKey, "N/A")) //request has this context after Decorate() is called
 
 		mockHttpHandler := &mockHttpHandler{}
 		mockHttpHandler.On("ServeHTTP", response, request).
@@ -328,4 +328,30 @@ func TestExtractSatClientID(t *testing.T) {
 		assert.EqualValues("N/A", extractSatClientID(token, logging.DefaultLogger()))
 	})
 
+}
+
+func TestNewContextSatID(t *testing.T) {
+	assert := assert.New(t)
+	expectedContext := context.WithValue(context.Background(), satClientIDKey, "test")
+	actualContext := NewContextSatID(context.Background(), "test")
+	assert.EqualValues(expectedContext, actualContext)
+}
+
+func TestFromContextSatID(t *testing.T) {
+	t.Run("NoSatID", func(t *testing.T) {
+		assert := assert.New(t)
+		val, ofType := FromContextSatID(context.Background())
+
+		assert.Empty(val)
+		assert.False(ofType)
+	})
+
+	t.Run("PresentSatID", func(t *testing.T) {
+		assert := assert.New(t)
+		inputContext := context.WithValue(context.Background(), satClientIDKey, "test")
+		val, ofType := FromContextSatID(inputContext)
+
+		assert.EqualValues("test", val)
+		assert.True(ofType)
+	})
 }
