@@ -73,6 +73,8 @@ func ListenAndServe(logger log.Logger, s Secure, e executor) {
 	}
 }
 
+type PeerVerifyCallback *func([][]byte, [][]*x509.Certificate) error
+
 // Basic describes a simple HTTP server.  Typically, this struct has its values
 // injected via Viper.  See the New function in this package.
 type Basic struct {
@@ -81,7 +83,8 @@ type Basic struct {
 	CertificateFile    string
 	KeyFile            string
 	ClientCACertFile   string
-	PeerVerifyFunc	   *func([][]byte, [][]*x509.Certificate) error
+	PeerVerify	   bool
+	PeerVerifyFunc     PeerVerifyCallback	// Callback func to add peer client cert CN, SAN validation
 	LogConnectionState bool
 
 	DisableKeepAlives bool
@@ -91,7 +94,7 @@ type Basic struct {
 	WriteTimeout      time.Duration
 }
 
-func (b *Basic) SetPeerVerifyFunc( verifyPtr *func([][]byte, [][]*x509.Certificate) error) {
+func (b *Basic) SetPeerVerifyCallback( verifyPtr PeerVerifyCallback) {
 	b.PeerVerifyFunc = verifyPtr
 }
 
@@ -162,7 +165,9 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 			tlsConfig.BuildNameToCertificate()
 
 			// Add verify peer ceritifcate callback for additional validation
-			tlsConfig.VerifyPeerCertificate = *b.PeerVerifyFunc
+			if b.PeerVerify && b.PeerVerifyFunc != nil {
+				tlsConfig.VerifyPeerCertificate = *b.PeerVerifyFunc
+			}
 		}
 	}
 
