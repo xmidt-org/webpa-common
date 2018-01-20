@@ -12,6 +12,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -225,6 +226,10 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 		token, _ := secure.ParseAuthorization(authorizationValue)
 		mockValidator.On("Validate", ctx, token).Return(true, nil).Once()
 
+		inputRequest := request.WithContext(request.Context())
+
+		request = request.WithContext(context.WithValue(request.Context(), SatClientIDKey, "N/A")) //request has this context after Decorate() is called
+
 		mockHttpHandler := &mockHttpHandler{}
 		mockHttpHandler.On("ServeHTTP", response, request).
 			Run(func(arguments mock.Arguments) {
@@ -235,7 +240,7 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 
 		decorated := record.handler.Decorate(mockHttpHandler)
 		assert.NotNil(decorated)
-		decorated.ServeHTTP(response, request)
+		decorated.ServeHTTP(response, inputRequest)
 		assert.Equal(response.Code, record.expectedStatusCode)
 
 		mockValidator.AssertExpectations(t)
@@ -297,4 +302,30 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 		mockValidator.AssertExpectations(t)
 		mockHttpHandler.AssertExpectations(t)
 	}
+}
+
+func TestExtractSatClientID(t *testing.T) {
+
+	t.Run("JWT Type", func(t *testing.T) {
+		assert := assert.New(t)
+		token, errParse := secure.ParseAuthorization("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXN1YnNjcmliZXIiLCIiOiJKb2huIERvZSIsImFkbWluIjp0cnVlfQ.IXIs63ofkXSeZmPMKGs5zxREksHoLMS33LRqw1NMrCA")
+
+		if errParse != nil {
+			t.FailNow()
+		}
+
+		assert.EqualValues("test-subscriber", extractSatClientID(token, logging.DefaultLogger()))
+	})
+
+	t.Run("Non-JWT Type", func(t *testing.T) {
+		assert := assert.New(t)
+		token, errParse := secure.ParseAuthorization("Basic abcd==")
+
+		if errParse != nil {
+			t.FailNow()
+		}
+
+		assert.EqualValues("N/A", extractSatClientID(token, logging.DefaultLogger()))
+	})
+
 }
