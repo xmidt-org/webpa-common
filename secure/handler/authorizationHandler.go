@@ -7,8 +7,12 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
 )
+
+//contextKey helps in the process of avoiding context key collision
+type contextKey int
 
 const (
 	// The Content-Type value for JSON
@@ -22,6 +26,9 @@ const (
 
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
+
+	//SatClientIDKey is the key to set/get sat client IDs using contexts. Iota is used to seal the prevention of context key collissions
+	SatClientIDKey contextKey = iota
 )
 
 // WriteJsonError writes a standard JSON error to the response
@@ -106,8 +113,11 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, "method", request.Method)
 		ctx = context.WithValue(ctx, "path", request.URL.Path)
 
+		satClientID := extractSatClientID(token, logger)
+
 		valid, err := a.Validator.Validate(ctx, token)
 		if err == nil && valid {
+			request = request.WithContext(context.WithValue(request.Context(), SatClientIDKey, satClientID))
 			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
@@ -117,6 +127,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			logging.MessageKey(), "request denied",
 			"validator-response", valid,
 			"validator-error", err,
+			"sat-client-id", satClientID,
 			"token", headerValue,
 			"method", request.Method,
 			"url", request.URL,
@@ -127,4 +138,22 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		WriteJsonError(response, forbiddenStatusCode, "request denied")
 	})
+}
+
+func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID string) {
+	satClientID = "N/A"
+	if token.Type() == secure.Bearer {
+		if jwsObj, errJWSParse := secure.DefaultJWSParser.ParseJWS(token); errJWSParse == nil {
+			if claims, ok := jwsObj.Payload().(jws.Claims); ok {
+				if satClientIDStr, isString := claims.Get("sub").(string); isString {
+					satClientID = satClientIDStr
+				} else {
+					logging.Error(logger).Log(logging.MessageKey(), "JWT Claim value was not of string type")
+				}
+			}
+		} else {
+			logging.Error(logger).Log(logging.MessageKey(), "Unexpected non-fatal JWS parse error", logging.ErrorKey(), errJWSParse)
+		}
+	}
+	return
 }
