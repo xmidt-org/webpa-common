@@ -220,15 +220,21 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 		request.Header.Set(record.headerName, authorizationValue)
 		response := httptest.NewRecorder()
 
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)
-		token, _ := secure.ParseAuthorization(authorizationValue)
-		mockValidator.On("Validate", ctx, token).Return(true, nil).Once()
+		inputCtxValue := &ContextValues{
+			SatClientID: "N/A",
+			Path:        request.URL.Path,
+			Method:      request.Method,
+		}
 
 		inputRequest := request.WithContext(request.Context())
 
-		request = request.WithContext(context.WithValue(request.Context(), satClientIDKey, "N/A")) //request has this context after Decorate() is called
+		inputCtx := context.WithValue(inputRequest.Context(), handlerValuesKey, inputCtxValue)
+
+		token, _ := secure.ParseAuthorization(authorizationValue)
+
+		mockValidator.On("Validate", inputCtx, token).Return(true, nil).Once()
+
+		request = request.WithContext(inputCtx) //request has this context after Decorate() is called
 
 		mockHttpHandler := &mockHttpHandler{}
 		mockHttpHandler.On("ServeHTTP", response, request).
@@ -285,11 +291,17 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
 		request.Header.Set(record.headerName, authorizationValue)
 
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)
+		inputCtxValue := &ContextValues{
+			SatClientID: "N/A",
+			Path:        request.URL.Path,
+			Method:      request.Method,
+		}
+
+		inputCtx := context.WithValue(request.Context(), handlerValuesKey, inputCtxValue)
+
 		token, _ := secure.ParseAuthorization(authorizationValue)
-		mockValidator.On("Validate", ctx, token).Return(false, errors.New("expected")).Once()
+
+		mockValidator.On("Validate", inputCtx, token).Return(false, errors.New("expected")).Once()
 
 		response := httptest.NewRecorder()
 		mockHttpHandler := &mockHttpHandler{}
