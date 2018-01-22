@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/contextcommon"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/SermoDigital/jose/jws"
@@ -121,7 +120,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			SatClientID: extractSatClientID(token, logger),
 		}
 
-		sharedContext := contextcommon.NewContextWithValue(request.Context(), handlerValuesKey, contextValues)
+		sharedContext := NewContextWithValue(request.Context(), contextValues)
 
 		valid, err := a.Validator.Validate(sharedContext, token)
 		if err == nil && valid {
