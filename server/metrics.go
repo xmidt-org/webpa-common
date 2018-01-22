@@ -19,6 +19,12 @@ func Metrics() []xmetrics.Metric {
 			Help: "A gauge of requests currently being served by the handler.",
 		},
 		xmetrics.Metric{
+			Name:       "active_connections",
+			Type:       "counter",
+			Help:       "The number of active connections associated with a listener",
+			LabelNames: []string{"server"},
+		},
+		xmetrics.Metric{
 			Name:    "request_duration_seconds",
 			Type:    "histogram",
 			Help:    "A histogram of latencies for requests.",
