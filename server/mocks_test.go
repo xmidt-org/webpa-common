@@ -2,10 +2,48 @@ package server
 
 import (
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/stretchr/testify/mock"
 )
+
+type mockHandler struct {
+	mock.Mock
+}
+
+func (m *mockHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+	m.Called(response, request)
+}
+
+type mockExecutor struct {
+	mock.Mock
+}
+
+func (m *mockExecutor) Serve(l net.Listener) error {
+	return m.Called(l).Error(0)
+}
+
+func (m *mockExecutor) ServeTLS(l net.Listener, certificateFile, keyFile string) error {
+	return m.Called(l, certificateFile, keyFile).Error(0)
+}
+
+func (m *mockExecutor) ListenAndServe() error {
+	return m.Called().Error(0)
+}
+
+func (m *mockExecutor) ListenAndServeTLS(certificateFile, keyFile string) error {
+	return m.Called(certificateFile, keyFile).Error(0)
+}
+
+type mockSecure struct {
+	mock.Mock
+}
+
+func (m *mockSecure) Certificate() (string, string) {
+	arguments := m.Called()
+	return arguments.String(0), arguments.String(1)
+}
 
 type mockListener struct {
 	mock.Mock
