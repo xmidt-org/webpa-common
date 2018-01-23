@@ -263,7 +263,6 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 	defer closeOnce.Do(func() { m.pumpClose(d, r, readError) })
 
 	for {
-		decoder.ResetBytes(nil)
 		messageType, data, readError := r.ReadMessage()
 		if readError != nil {
 			return
@@ -276,7 +275,9 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 		message := new(wrp.Message)
 		decoder.ResetBytes(data)
-		if err := decoder.Decode(message); err != nil {
+		err := decoder.Decode(message)
+		decoder.ResetBytes(nil)
+		if err != nil {
 			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
 			continue
 		}
@@ -388,6 +389,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 				// Contents, then do the encoding here.
 				encoder.ResetBytes(&frameContents)
 				writeError = encoder.Encode(envelope.request.Message)
+				encoder.ResetBytes(nil)
 			}
 
 			if writeError == nil {

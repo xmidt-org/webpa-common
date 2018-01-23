@@ -1,7 +1,6 @@
 package device
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"sync"
@@ -9,17 +8,18 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
+	"github.com/gorilla/websocket"
 )
 
 func expectMessage(c Connection) (*wrp.Message, error) {
-	var frame bytes.Buffer
-	if ok, err := c.Read(&frame); !ok || err != nil {
+	_, frame, err := c.ReadMessage()
+	if err != nil {
 		return nil, fmt.Errorf("Read failed: %s", err)
 	}
 
 	var (
 		message = new(wrp.Message)
-		decoder = wrp.NewDecoder(&frame, wrp.Msgpack)
+		decoder = wrp.NewDecoderBytes(frame, wrp.Msgpack)
 	)
 
 	if err := decoder.Decode(message); err != nil {
@@ -36,8 +36,7 @@ func writeMessage(m *wrp.Message, c Connection) error {
 		return err
 	}
 
-	_, err := c.Write(buffer)
-	return err
+	return c.WriteMessage(websocket.BinaryMessage, buffer)
 }
 
 func ExampleManagerTransaction() {
