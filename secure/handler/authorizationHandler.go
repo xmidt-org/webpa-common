@@ -1,14 +1,26 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
 )
+
+type contextKey struct{}
+
+//handlerValuesKey is the key to set/get context values
+var handlerValuesKey = contextKey{}
+
+//ContextValues contains the values shared under the satClientIDKey from this package
+type ContextValues struct {
+	SatClientID string
+	Method      string
+	Path        string
+}
 
 const (
 	// The Content-Type value for JSON
@@ -102,12 +114,17 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			return
 		}
 
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)
+		contextValues := &ContextValues{
+			Method:      request.Method,
+			Path:        request.URL.Path,
+			SatClientID: extractSatClientID(token, logger),
+		}
 
-		valid, err := a.Validator.Validate(ctx, token)
+		sharedContext := NewContextWithValue(request.Context(), contextValues)
+
+		valid, err := a.Validator.Validate(sharedContext, token)
 		if err == nil && valid {
+			request = request.WithContext(sharedContext)
 			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
@@ -117,6 +134,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			logging.MessageKey(), "request denied",
 			"validator-response", valid,
 			"validator-error", err,
+			"sat-client-id", contextValues.SatClientID,
 			"token", headerValue,
 			"method", request.Method,
 			"url", request.URL,
@@ -127,4 +145,22 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		WriteJsonError(response, forbiddenStatusCode, "request denied")
 	})
+}
+
+func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID string) {
+	satClientID = "N/A"
+	if token.Type() == secure.Bearer {
+		if jwsObj, errJWSParse := secure.DefaultJWSParser.ParseJWS(token); errJWSParse == nil {
+			if claims, ok := jwsObj.Payload().(jws.Claims); ok {
+				if satClientIDStr, isString := claims.Get("sub").(string); isString {
+					satClientID = satClientIDStr
+				} else {
+					logging.Error(logger).Log(logging.MessageKey(), "JWT Claim value was not of string type")
+				}
+			}
+		} else {
+			logging.Error(logger).Log(logging.MessageKey(), "Unexpected non-fatal JWS parse error", logging.ErrorKey(), errJWSParse)
+		}
+	}
+	return
 }
