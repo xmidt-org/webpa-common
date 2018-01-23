@@ -184,3 +184,19 @@ func TestInitializeMetrics(t *testing.T) {
 	assert.Equal("foo", w.Metric.MetricsOptions.Namespace)
 	assert.Equal("bar", w.Metric.MetricsOptions.Subsystem)
 }
+
+func TestInitializeWhenPeerVerifyTrue(t *testing.T) {
+
+	var assert = assert.New(t)
+	v := viper.New()
+	v.Set(PeerVerifySuffix, "true")
+
+	var logger, registry, webPA, err = Initialize("invalidLog", nil, nil, v)
+
+	assert.NotNil(logger)
+	assert.NotNil(registry)
+	assert.NotNil(webPA)
+	assert.Nil(err)
+	assert.Equal(true,webPA.Primary.PeerVerify)
+}
+
