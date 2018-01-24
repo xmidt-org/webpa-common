@@ -16,9 +16,9 @@ func testInstrumentListenerClose(t *testing.T) {
 		require = require.New(t)
 
 		logger   = logging.NewTestLogger(nil, t)
-		counter  = generic.NewCounter("test")
+		gauge    = generic.NewGauge("test")
 		delegate = new(mockListener)
-		listener = InstrumentListener(logger, counter, delegate)
+		listener = InstrumentListener(logger, gauge, delegate)
 	)
 
 	require.NotNil(listener)
@@ -26,7 +26,7 @@ func testInstrumentListenerClose(t *testing.T) {
 	delegate.On("Close").Return(error(nil)).Once()
 
 	assert.Nil(listener.Close())
-	assert.Zero(counter.Value())
+	assert.Zero(gauge.Value())
 
 	delegate.AssertExpectations(t)
 }
@@ -38,9 +38,9 @@ func testInstrumentListenerCloseError(t *testing.T) {
 
 		expectedError = errors.New("expected error from Close")
 		logger        = logging.NewTestLogger(nil, t)
-		counter       = generic.NewCounter("test")
+		gauge         = generic.NewGauge("test")
 		delegate      = new(mockListener)
-		listener      = InstrumentListener(logger, counter, delegate)
+		listener      = InstrumentListener(logger, gauge, delegate)
 	)
 
 	require.NotNil(listener)
@@ -48,7 +48,7 @@ func testInstrumentListenerCloseError(t *testing.T) {
 	delegate.On("Close").Return(expectedError).Once()
 
 	assert.Equal(expectedError, listener.Close())
-	assert.Zero(counter.Value())
+	assert.Zero(gauge.Value())
 
 	delegate.AssertExpectations(t)
 }
@@ -59,10 +59,10 @@ func testInstrumentListenerAccept(t *testing.T) {
 		require = require.New(t)
 
 		logger       = logging.NewTestLogger(nil, t)
-		counter      = generic.NewCounter("test")
+		gauge        = generic.NewGauge("test")
 		delegate     = new(mockListener)
 		expectedConn = new(mockConn)
-		listener     = InstrumentListener(logger, counter, delegate)
+		listener     = InstrumentListener(logger, gauge, delegate)
 	)
 
 	require.NotNil(listener)
@@ -73,14 +73,14 @@ func testInstrumentListenerAccept(t *testing.T) {
 	actualConn, err := listener.Accept()
 	require.NotNil(actualConn)
 	assert.NoError(err)
-	assert.Equal(1.0, counter.Value())
+	assert.Equal(1.0, gauge.Value())
 
 	assert.Nil(actualConn.Close())
-	assert.Zero(counter.Value())
+	assert.Zero(gauge.Value())
 
-	// the counter decrement should be idempotent
+	// the gauge decrement should be idempotent
 	assert.Nil(actualConn.Close())
-	assert.Zero(counter.Value())
+	assert.Zero(gauge.Value())
 
 	delegate.AssertExpectations(t)
 	expectedConn.AssertExpectations(t)
@@ -93,9 +93,9 @@ func testInstrumentListenerAcceptError(t *testing.T) {
 
 		expectedError = errors.New("expected error from Accept")
 		logger        = logging.NewTestLogger(nil, t)
-		counter       = generic.NewCounter("test")
+		gauge         = generic.NewGauge("test")
 		delegate      = new(mockListener)
-		listener      = InstrumentListener(logger, counter, delegate)
+		listener      = InstrumentListener(logger, gauge, delegate)
 	)
 
 	require.NotNil(listener)
@@ -105,7 +105,7 @@ func testInstrumentListenerAcceptError(t *testing.T) {
 	actualConn, err := listener.Accept()
 	assert.Nil(actualConn)
 	assert.Error(err)
-	assert.Equal(0.0, counter.Value())
+	assert.Zero(gauge.Value())
 
 	delegate.AssertExpectations(t)
 }
@@ -116,7 +116,7 @@ func testInstrumentListenerAcceptConnCloseError(t *testing.T) {
 		require = require.New(t)
 
 		logger        = logging.NewTestLogger(nil, t)
-		counter       = generic.NewCounter("test")
+		counter       = generic.NewGauge("test")
 		delegate      = new(mockListener)
 		expectedConn  = new(mockConn)
 		expectedError = errors.New("expected error from conn.Close")

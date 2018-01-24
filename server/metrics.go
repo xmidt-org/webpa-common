@@ -20,7 +20,7 @@ func Metrics() []xmetrics.Metric {
 		},
 		xmetrics.Metric{
 			Name:       "active_connections",
-			Type:       "counter",
+			Type:       "gauge",
 			Help:       "The number of active connections associated with a listener",
 			LabelNames: []string{"server"},
 		},

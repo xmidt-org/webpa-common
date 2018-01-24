@@ -12,18 +12,18 @@ import (
 
 // InstrumentListener returns a net.Listener which tracks the number of current connections.  Any
 // errors during Accept or Close are logged via the supplied logger.
-func InstrumentListener(logger log.Logger, counter metrics.Counter, l net.Listener) net.Listener {
-	return &instrumentedListener{l, logger, counter}
+func InstrumentListener(logger log.Logger, gauge metrics.Gauge, l net.Listener) net.Listener {
+	return &instrumentedListener{l, logger, gauge}
 }
 
 type instrumentedListener struct {
 	net.Listener
-	logger  log.Logger
-	counter metrics.Counter
+	logger log.Logger
+	gauge  metrics.Gauge
 }
 
 func (l *instrumentedListener) closeConn() {
-	l.counter.Add(-1.0)
+	l.gauge.Add(-1.0)
 }
 
 func (l *instrumentedListener) Accept() (net.Conn, error) {
@@ -33,7 +33,7 @@ func (l *instrumentedListener) Accept() (net.Conn, error) {
 		return nil, err
 	}
 
-	l.counter.Add(1.0)
+	l.gauge.Add(1.0)
 	return &instrumentedConn{Conn: c, closeConn: l.closeConn}, nil
 }
 

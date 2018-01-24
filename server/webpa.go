@@ -161,13 +161,13 @@ func (b *Basic) Certificate() (certificateFile, keyFile string) {
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, counter metrics.Counter) (net.Listener, error) {
+func (b *Basic) NewListener(logger log.Logger, gauge metrics.Gauge) (net.Listener, error) {
 	l, err := net.Listen("tcp", b.Address)
 	if err != nil {
 		return nil, err
 	}
 
-	l = InstrumentListener(logger, counter, l)
+	l = InstrumentListener(logger, gauge, l)
 	maxConnections := b.maxConnections()
 	if maxConnections > 0 {
 		l = netutil.LimitListener(l, maxConnections)
@@ -462,7 +462,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			fmt.Sprintf("X-%s-Start-Time", w.ApplicationName): {time.Now().UTC().Format(time.RFC822)},
 		})
 
-		activeConnections = registry.NewCounter("active_connections")
+		activeConnections = registry.NewGauge("active_connections")
 
 		healthHandler, healthServer = w.Health.New(logger, alice.New(staticHeaders), health)
 		infoLog                     = logging.Info(logger)
