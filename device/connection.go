@@ -2,272 +2,148 @@ package device
 
 import (
 	"io"
-	"net/http"
 	"time"
 
+	"github.com/go-kit/kit/metrics"
 	"github.com/gorilla/websocket"
 )
 
-const (
-	transferBufferSize = 64
-)
+// Reader represents the read behavior of a device connection
+type Reader interface {
+	ReadMessage() (int, []byte, error)
+	SetReadDeadline(time.Time) error
+	SetPongHandler(func(string) error)
+}
 
-// Connection represents a websocket connection to a WebPA-compatible device.
-// Connection implementations abstract the semantics of serverside WRP message
-// handling and enforce policies like idleness.
-//
-// Connection implements both io.Writer and io.Closer, making it convenient for
-// direct encoding via wrp.Encoder.  However, since each websocket frame is a separate
-// byte sequence, this type does not implement io.Reader.  Rather, the Read method
-// transfers the next frame to an io.ReaderFrom.
+// ReadCloser adds io.Closer behavior to Reader
+type ReadCloser interface {
+	io.Closer
+	Reader
+}
+
+// Writer represents the write behavior of a device connection
+type Writer interface {
+	WriteMessage(int, []byte) error
+	WritePreparedMessage(*websocket.PreparedMessage) error
+	SetWriteDeadline(time.Time) error
+}
+
+// WriteCloser adds io.Closer behavior to Writer
+type WriteCloser interface {
+	io.Closer
+	Writer
+}
+
+// Connection describes the set of behaviors for device connections used by this package.
 type Connection interface {
-	io.WriteCloser
-
-	// NextReader returns the next binary message frame.  If this method returns an error,
-	// this connection should be abandoned and closed.  This method is not safe
-	// for concurrent invocation and must not be invoked concurrently with Write.
-	//
-	// NextReader will skip frames if they are not supported by the WRP protocol.  For example,
-	// text frames are not supported and are skipped.  Anytime a frame is skipped, this
-	// method returns a nil reader and a nil error.
-	NextReader() (io.Reader, error)
-
-	// Read transfers the next binary frame to the given ReaderFrom instance.  If this method
-	// returns an error, this connection should be abandoned and closed.  This method is not safe
-	// for concurrent invocation and must not be invoked concurrently with Write.
-	//
-	// As with NextReader, this method skips frames that are not supported by the WRP protocol.
-	// The first boolean return value indicates whether a frame was skipped.  If true, the frame's
-	// contents were transferred to the target ReaderFrom.  If false, the error will always be nil
-	// and no frame will have been read.
-	Read(io.ReaderFrom) (bool, error)
-
-	// Ping sends a ping message to the device.  This method may be invoked concurrently
-	// with any other method of this interface, including Ping() itself.
-	Ping([]byte) error
-
-	// SetPongCallback registers the given function to be invoked whenever this connection
-	// notices a pong from the device.  Note that this is not the same as a handler.  This callback
-	// cannot return an error, and is invoked as part of the internal pong handler that
-	// enforces the idle policy.  The pong callback can be nil, which simply reverts back
-	// to the internal default handler.
-	//
-	// This method cannot be called concurrently with Write().
-	SetPongCallback(func(string))
-
-	// SendClose transmits a close frame to the device.  After this method is invoked,
-	// the only method that should be invoked is Close()
-	SendClose() error
+	io.Closer
+	Reader
+	Writer
 }
 
-// connection is the internal implementation of Connection
-type connection struct {
-	webSocket    *websocket.Conn
-	idlePeriod   time.Duration
-	writeTimeout time.Duration
+func zeroDeadline() time.Time {
+	return time.Time{}
 }
 
-func (c *connection) updateReadDeadline() error {
-	return c.webSocket.SetReadDeadline(
-		time.Now().Add(c.idlePeriod),
-	)
-}
+// NewDeadline creates a deadline closure given a timeout and a now function.
+// If timeout is nonpositive, the return closure always returns zero time.
+// If now is nil (and timeout is positive), then time.Now is used.
+func NewDeadline(timeout time.Duration, now func() time.Time) func() time.Time {
+	if timeout > 0 {
+		if now == nil {
+			now = time.Now
+		}
 
-func (c *connection) nextWriteDeadline() time.Time {
-	var deadline time.Time
-	if c.writeTimeout > 0 {
-		deadline = time.Now().Add(c.writeTimeout)
+		return func() time.Time {
+			return now().Add(timeout)
+		}
 	}
 
-	return deadline
+	return zeroDeadline
 }
 
-func (c *connection) updateWriteDeadline() error {
-	if c.writeTimeout > 0 {
-		return c.webSocket.SetWriteDeadline(
-			time.Now().Add(c.writeTimeout),
-		)
-	}
-
-	return nil
-}
-
-func (c *connection) defaultPongHandler(data string) error {
-	return c.updateReadDeadline()
-}
-
-func (c *connection) pongHandler(callback func(string)) func(string) error {
-	return func(data string) (err error) {
-		err = c.updateReadDeadline()
-		callback(data)
-		return
-	}
-}
-
-func (c *connection) SetPongCallback(callback func(string)) {
-	if callback != nil {
-		c.webSocket.SetPongHandler(c.pongHandler(callback))
-	} else {
-		c.webSocket.SetPongHandler(c.defaultPongHandler)
-	}
-}
-
-func (c *connection) NextReader() (frame io.Reader, err error) {
-	if err = c.updateReadDeadline(); err != nil {
-		return
-	}
-
-	var messageType int
-	if messageType, frame, err = c.webSocket.NextReader(); err != nil {
-		return
-	} else if messageType != websocket.BinaryMessage {
-		// skip this frame, and allow the caller to take some action
-		frame = nil
-	}
-
-	return
-}
-
-func (c *connection) Read(target io.ReaderFrom) (frameRead bool, err error) {
-	var frame io.Reader
-	frame, err = c.NextReader()
-	frameRead = (frame != nil)
-	if err == nil {
-		_, err = target.ReadFrom(frame)
-	}
-
-	return
-}
-
-func (c *connection) Write(message []byte) (int, error) {
-	if err := c.webSocket.WriteMessage(websocket.BinaryMessage, message); err != nil {
-		return 0, err
-	}
-
-	return len(message), nil
-}
-
-func (c *connection) Close() error {
-	return c.webSocket.Close()
-}
-
-func (c *connection) SendClose() error {
-	return c.webSocket.WriteControl(
-		websocket.CloseMessage,
-		websocket.FormatCloseMessage(websocket.CloseNormalClosure, "close"),
-		c.nextWriteDeadline(),
-	)
-}
-
-func (c *connection) Ping(data []byte) error {
-	return c.webSocket.WriteControl(websocket.PingMessage, data, c.nextWriteDeadline())
-}
-
-// ConnectionFactory provides the instantiation logic for Connections.  This interface
-// is appropriate for server-side connections that enforce various WebPA policies,
-// such as idleness and a write timeout.
-type ConnectionFactory interface {
-	NewConnection(http.ResponseWriter, *http.Request, http.Header) (Connection, error)
-}
-
-// NewConnectionFactory produces a ConnectionFactory instance from a set of Options.
-func NewConnectionFactory(o *Options) ConnectionFactory {
-	return &connectionFactory{
-		upgrader: websocket.Upgrader{
-			HandshakeTimeout: o.handshakeTimeout(),
-			ReadBufferSize:   o.readBufferSize(),
-			WriteBufferSize:  o.writeBufferSize(),
-			Subprotocols:     o.subprotocols(),
-		},
-		idlePeriod:   o.idlePeriod(),
-		writeTimeout: o.writeTimeout(),
-	}
-}
-
-// connectionFactory is the default ConnectionFactory implementation
-type connectionFactory struct {
-	upgrader     websocket.Upgrader
-	idlePeriod   time.Duration
-	writeTimeout time.Duration
-}
-
-func (cf *connectionFactory) NewConnection(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Connection, error) {
-	webSocket, err := cf.upgrader.Upgrade(response, request, responseHeader)
+// NewPinger creates a ping closure for the given connection.  Internally, a prepared message is created using the
+// supplied data, and the given counter is incremented for each successful update of the write deadline.
+func NewPinger(w Writer, pings metrics.Counter, data []byte, deadline func() time.Time) (func() error, error) {
+	pm, err := websocket.NewPreparedMessage(websocket.PingMessage, data)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &connection{
-		webSocket:    webSocket,
-		idlePeriod:   cf.idlePeriod,
-		writeTimeout: cf.writeTimeout,
-	}
+	return func() error {
+		err := w.SetWriteDeadline(deadline())
+		if err != nil {
+			return err
+		}
 
-	// initialize the pong callback to the default, which
-	// also registers the handler that enforces the idle policy
-	c.SetPongCallback(nil)
+		err = w.WritePreparedMessage(pm)
+		if err != nil {
+			return err
+		}
 
-	return c, nil
+		// only incrememt when the complete ping operation was successful
+		pings.Add(1.0)
+		return nil
+	}, nil
 }
 
-// Dialer is a WebPA dialer for websocket Connections
-type Dialer interface {
-	Dial(URL string, id ID, extra http.Header) (Connection, *http.Response, error)
+// SetPongHandler establishes an instrumented pong handler for the given connection that enforces
+// the given read timeout.
+func SetPongHandler(r Reader, pongs metrics.Counter, deadline func() time.Time) {
+	r.SetPongHandler(func(_ string) error {
+		// increment up front, as this function is only called when a pong is actually received
+		pongs.Add(1.)
+		return r.SetReadDeadline(deadline())
+	})
 }
 
-// NewDialer constructs a WebPA Dialer using a set of Options and a gorilla Dialer.  Both
-// parameters are optional.  If the gorilla Dialer is supplied, it is copied for use internally.
-// If an Options is supplied, the appropriate settings will override any gorilla Dialer, e.g. ReadBufferSize.
-func NewDialer(o *Options, d *websocket.Dialer) Dialer {
-	dialer := &dialer{
-		idlePeriod:   o.idlePeriod(),
-		writeTimeout: o.writeTimeout(),
-	}
-
-	if d != nil {
-		dialer.webSocketDialer = *d
-	}
-
-	// Options only override the dialer if supplied, and if no
-	// dialer is specified always use the Options to establish WebPA settings
-	if (d != nil && o != nil) || d == nil {
-		dialer.webSocketDialer.HandshakeTimeout = o.handshakeTimeout()
-		dialer.webSocketDialer.ReadBufferSize = o.readBufferSize()
-		dialer.webSocketDialer.WriteBufferSize = o.writeBufferSize()
-		dialer.webSocketDialer.Subprotocols = o.subprotocols()
-	}
-
-	return dialer
+type instrumentedReader struct {
+	ReadCloser
+	statistics Statistics
 }
 
-// dialer is the internal implementation of Dialer.  This implemention wraps a gorilla Dialer
-type dialer struct {
-	webSocketDialer websocket.Dialer
-	idlePeriod      time.Duration
-	writeTimeout    time.Duration
-}
-
-func (d *dialer) Dial(URL string, id ID, extra http.Header) (Connection, *http.Response, error) {
-	requestHeader := make(http.Header, len(extra)+2)
-	for key, value := range extra {
-		requestHeader[key] = value
+func (ir *instrumentedReader) ReadMessage() (int, []byte, error) {
+	messageType, data, err := ir.ReadCloser.ReadMessage()
+	if err == nil {
+		ir.statistics.AddBytesReceived(len(data))
+		ir.statistics.AddMessagesReceived(1)
 	}
 
-	requestHeader.Set(DeviceNameHeader, string(id))
-	webSocket, response, err := d.webSocketDialer.Dial(URL, requestHeader)
+	return messageType, data, err
+}
+
+func InstrumentReader(r ReadCloser, s Statistics) ReadCloser {
+	return &instrumentedReader{r, s}
+}
+
+type instrumentedWriter struct {
+	WriteCloser
+	statistics Statistics
+}
+
+func (iw *instrumentedWriter) WriteMessage(messageType int, data []byte) error {
+	err := iw.WriteCloser.WriteMessage(messageType, data)
 	if err != nil {
-		return nil, response, err
+		return err
 	}
 
-	c := &connection{
-		webSocket:    webSocket,
-		idlePeriod:   d.idlePeriod,
-		writeTimeout: d.writeTimeout,
+	iw.statistics.AddBytesSent(len(data))
+	iw.statistics.AddMessagesSent(1)
+	return nil
+}
+
+func (iw *instrumentedWriter) WritePreparedMessage(pm *websocket.PreparedMessage) error {
+	err := iw.WriteCloser.WritePreparedMessage(pm)
+	if err != nil {
+		return err
 	}
 
-	// initialize the pong callback to the default, which
-	// also registers the handler that enforces the idle policy
-	c.SetPongCallback(nil)
+	// TODO: There isn't any way to obtain the length of a prepared message, so there's not a way to instrument it
+	// at the moment
+	iw.statistics.AddMessagesSent(1)
+	return nil
+}
 
-	return c, response, nil
+func InstrumentWriter(w WriteCloser, s Statistics) WriteCloser {
+	return &instrumentedWriter{w, s}
 }

@@ -3,7 +3,6 @@ package device
 import (
 	"bytes"
 	"testing"
-	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/spf13/viper"
@@ -36,8 +35,7 @@ func TestNewOptions(t *testing.T) {
 
 	assert.Equal(
 		Options{
-			HandshakeTimeout: time.Minute + 15*time.Second,
-			Logger:           logger,
+			Logger: logger,
 		},
 		*o,
 	)
@@ -51,8 +49,7 @@ func TestNewOptionsUnmarshalError(t *testing.T) {
 		configuration = `{
 			"device": {
 				"manager": {
-					"deviceNameHeader": {"this": "is not valid"},
-					"handshakeTimeout": "this is not a valid duration"
+					"upgrader": "this is not valid"
 				}
 			}
 		}`

@@ -1,5 +1,5 @@
-hash: 4ab12e534332f369b63736a29c06fa72eb763188d943c79b77cbc5350a3b8d2b
-updated: 2018-01-22T13:34:03.356942632-08:00
+hash: 93e70927af4ea993a329e51af95ae9ad2086321f3c616831dd494f289af8251f
+updated: 2018-01-23T13:28:47.178821494-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -79,7 +79,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/protobuf
-  version: 1e59b77b52bf8e4b449a57e6f79f21226d571845
+  version: c65a0412e71e8b9b3bfd22925720d23c0f054237
   subpackages:
   - proto
 - name: github.com/gorilla/context
@@ -89,7 +89,7 @@ imports:
 - name: github.com/gorilla/schema
   version: afe77393c53b66afe9212810d9b2013859d04ae6
 - name: github.com/gorilla/websocket
-  version: 3ab3a8b8831546bd18fd182c20687ca853b2bb13
+  version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
 - name: github.com/hashicorp/hcl
   version: 23c074d0eceb2b8a5bfdbb271ab780cde70f05a8
   subpackages:
@@ -145,7 +145,7 @@ imports:
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: b15cd069a83443be3154b719d0cc9fe8117f09fb
+  version: a6e9df898b1336106c743392c48ee0b71f5c4efa
   subpackages:
   - xfs
 - name: github.com/rubyist/circuitbreaker

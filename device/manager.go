@@ -1,8 +1,7 @@
 package device
 
 import (
-	"bytes"
-	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
+	"github.com/gorilla/websocket"
 )
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
@@ -93,18 +93,16 @@ type Manager interface {
 
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
 // created from the options if one is not supplied.
-func NewManager(o *Options, cf ConnectionFactory) Manager {
-	if cf == nil {
-		cf = NewConnectionFactory(o)
-	}
-
+func NewManager(o *Options) Manager {
 	logger := o.logger()
-	m := &manager{
+	return &manager{
 		logger:   logger,
 		errorLog: logging.Error(logger),
 		debugLog: logging.Debug(logger),
 
-		connectionFactory:      cf,
+		readDeadline:           NewDeadline(o.idlePeriod(), o.now()),
+		writeDeadline:          NewDeadline(o.writeTimeout(), o.now()),
+		upgrader:               o.upgrader(),
 		conveyTranslator:       conveyhttp.NewHeaderTranslator("", nil),
 		registry:               newRegistry(o.initialCapacity(), o.maxDevices()),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
@@ -114,8 +112,6 @@ func NewManager(o *Options, cf ConnectionFactory) Manager {
 		listeners: o.listeners(),
 		measures:  NewMeasures(o.metricsProvider()),
 	}
-
-	return m
 }
 
 // manager is the internal Manager implementation.
@@ -124,8 +120,10 @@ type manager struct {
 	errorLog log.Logger
 	debugLog log.Logger
 
-	connectionFactory ConnectionFactory
-	conveyTranslator  conveyhttp.HeaderTranslator
+	readDeadline     func() time.Time
+	writeDeadline    func() time.Time
+	upgrader         *websocket.Upgrader
+	conveyTranslator conveyhttp.HeaderTranslator
 
 	registry *registry
 
@@ -157,6 +155,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
 	}
 
+	// we want to add to the registry before the socket upgrade so that we enforce our maximum
+	// device limit prior to doing any heavylifting
 	existing, _, err := m.registry.add(d)
 	if err != nil {
 		d.errorLog.Log(logging.MessageKey(), "unable to connect device", logging.ErrorKey(), err)
@@ -175,15 +175,10 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		d.statistics.AddDuplications(existing.statistics.Duplications() + 1)
 	}
 
-	c, err := m.connectionFactory.NewConnection(response, request, responseHeader)
-	if err != nil {
+	if err := m.startPumps(d, response, request, responseHeader); err != nil {
 		m.registry.remove(d)
 		return nil, err
 	}
-
-	closeOnce := new(sync.Once)
-	go m.readPump(d, c, closeOnce)
-	go m.writePump(d, c, closeOnce)
 
 	return d, nil
 }
@@ -194,6 +189,25 @@ func (m *manager) dispatch(e *Event) {
 	}
 }
 
+// startPumps performs the websocket upgrade and starts the read and write pumps
+func (m *manager) startPumps(d *device, response http.ResponseWriter, request *http.Request, responseHeader http.Header) error {
+	c, err := m.upgrader.Upgrade(response, request, responseHeader)
+	if err != nil {
+		return err
+	}
+
+	pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
+	if err != nil {
+		return err
+	}
+
+	SetPongHandler(c, m.measures.Pong, m.readDeadline)
+	closeOnce := new(sync.Once)
+	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
+	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
+	return nil
+}
+
 // pumpClose handles the proper shutdown and logging of a device's pumps.
 // This method should be executed within a sync.Once, so that it only executes
 // once for a given device.
@@ -201,7 +215,7 @@ func (m *manager) dispatch(e *Event) {
 // Note that the write pump does additional cleanup.  In particular, the write pump
 // dispatches message failed events for any messages that were waiting to be delivered
 // at the time of pump closure.
-func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
+func (m *manager) pumpClose(d *device, c io.Closer, pumpError error) {
 	m.measures.Disconnect.Add(1.0)
 	m.measures.Device.Add(-1.0)
 
@@ -231,28 +245,14 @@ func (m *manager) pumpClose(d *device, c Connection, pumpError error) {
 	)
 }
 
-// pongCallbackFor creates a callback that delegates to this Manager's Listeners
-// for the given device.
-func (m *manager) pongCallbackFor(d *device) func(string) {
-	// reuse the same event instance to ease gc pressure
-	event := new(Event)
-
-	return func(data string) {
-		m.measures.Pong.Add(1.0)
-		event.SetPong(d, data)
-		m.dispatch(event)
-	}
-}
-
 // readPump is the goroutine which handles the stream of WRP messages from a device.
 // This goroutine exits when any error occurs on the connection.
-func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
+func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 	d.debugLog.Log(logging.MessageKey(), "readPump starting")
 	m.measures.Connect.Add(1.0)
 	m.measures.Device.Add(1.0)
 
 	var (
-		frameRead bool
 		readError error
 		event     Event // reuse the same event as a carrier of data to listeners
 		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
@@ -260,29 +260,25 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 
 	// all the read pump has to do is ensure the device and the connection are closed
 	// it is the write pump's responsibility to do further cleanup
-	defer closeOnce.Do(func() { m.pumpClose(d, c, readError) })
-	c.SetPongCallback(m.pongCallbackFor(d))
+	defer closeOnce.Do(func() { m.pumpClose(d, r, readError) })
 
 	for {
-		var frameBuffer bytes.Buffer
-		frameRead, readError = c.Read(&frameBuffer)
+		messageType, data, readError := r.ReadMessage()
 		if readError != nil {
 			return
-		} else if !frameRead {
-			d.errorLog.Log(logging.MessageKey(), "skipping unsupported frame")
+		}
+
+		if messageType != websocket.BinaryMessage {
+			d.errorLog.Log(logging.MessageKey(), "skipping non-binary frame", "messageType", messageType)
 			continue
 		}
 
-		var (
-			message  = new(wrp.Message)
-			rawFrame = frameBuffer.Bytes()
-		)
-
-		d.statistics.AddBytesReceived(len(rawFrame))
-		decoder.ResetBytes(rawFrame)
-		if decodeError := decoder.Decode(message); decodeError != nil {
-			// malformed WRP messages are allowed: the read pump will keep on chugging
-			d.errorLog.Log(logging.MessageKey(), "skipping malformed frame", logging.ErrorKey(), decodeError)
+		message := new(wrp.Message)
+		decoder.ResetBytes(data)
+		err := decoder.Decode(message)
+		decoder.ResetBytes(nil)
+		if err != nil {
+			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
 			continue
 		}
 
@@ -290,8 +286,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 			m.measures.RequestResponse.Add(1.0)
 		}
 
-		d.statistics.AddMessagesReceived(1)
-		event.SetMessageReceived(d, message, wrp.Msgpack, rawFrame)
+		event.SetMessageReceived(d, message, wrp.Msgpack, data)
 
 		// update any waiting transaction
 		if message.IsTransactionPart() {
@@ -301,7 +296,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 					Device:   d,
 					Message:  message,
 					Format:   wrp.Msgpack,
-					Contents: rawFrame,
+					Contents: data,
 				},
 			)
 
@@ -321,7 +316,7 @@ func (m *manager) readPump(d *device, c Connection, closeOnce *sync.Once) {
 // writePump is the goroutine which services messages addressed to the device.
 // this goroutine exits when either an explicit shutdown is requested or any
 // error occurs on the connection.
-func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
+func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, closeOnce *sync.Once) {
 	d.debugLog.Log(logging.MessageKey(), "writePump starting")
 
 	var (
@@ -332,9 +327,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
 
-		pingData    = fmt.Sprintf("ping[%s]", d.id)
-		pingMessage = []byte(pingData)
-		pingTicker  = time.NewTicker(m.pingPeriod)
+		pingTicker = time.NewTicker(m.pingPeriod)
 
 		// wait for the delay, then send an auth status request to the device
 		authStatusTimer = time.AfterFunc(m.authDelay, func() {
@@ -353,7 +346,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 	defer func() {
 		pingTicker.Stop()
 		authStatusTimer.Stop()
-		closeOnce.Do(func() { m.pumpClose(d, c, writeError) })
+		closeOnce.Do(func() { m.pumpClose(d, w, writeError) })
 
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
@@ -384,7 +377,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 
 		select {
 		case <-d.shutdown:
-			writeError = c.SendClose()
+			writeError = w.Close()
 			return
 
 		case envelope = <-d.messages:
@@ -396,14 +389,11 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 				// Contents, then do the encoding here.
 				encoder.ResetBytes(&frameContents)
 				writeError = encoder.Encode(envelope.request.Message)
+				encoder.ResetBytes(nil)
 			}
 
 			if writeError == nil {
-				var bytesSent int
-				if bytesSent, writeError = c.Write(frameContents); writeError == nil {
-					d.statistics.AddBytesSent(bytesSent)
-					d.statistics.AddMessagesSent(1)
-				}
+				writeError = w.WriteMessage(websocket.BinaryMessage, frameContents)
 			}
 
 			if writeError != nil {
@@ -417,12 +407,7 @@ func (m *manager) writePump(d *device, c Connection, closeOnce *sync.Once) {
 			m.dispatch(&event)
 
 		case <-pingTicker.C:
-			writeError = c.Ping(pingMessage)
-			if writeError == nil {
-				m.measures.Ping.Add(1.0)
-				event.SetPing(d, pingData, writeError)
-				m.dispatch(&event)
-			}
+			writeError = pinger()
 		}
 	}
 }

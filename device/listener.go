@@ -36,12 +36,6 @@ const (
 	// was no waiting transaction
 	TransactionBroken
 
-	// Ping occurs when a device has been sent a ping
-	Ping
-
-	// Pong occurs when a device has responded to a ping
-	Pong
-
 	InvalidEventString string = "!!INVALID DEVICE EVENT TYPE!!"
 )
 
@@ -66,8 +60,6 @@ func (et EventType) String() string {
 		return "TransactionComplete"
 	case TransactionBroken:
 		return "TransactionBroken"
-	case Pong:
-		return "Pong"
 	default:
 		return InvalidEventString
 	}
@@ -107,9 +99,6 @@ type Event struct {
 	// for MessageFailed events when there was an actual error.  For MessageFailed events that indicate a
 	// device was disconnected with enqueued messages, this field will be nil.
 	Error error
-
-	// Data is the ping or pong data associated with this event.  This field is only set for Ping and Pong events.
-	Data string
 }
 
 // Clear resets all fields in this Event.  This is most often in preparation to reuse the Event instance.
@@ -144,23 +133,6 @@ func (e *Event) SetMessageReceived(d Interface, m *wrp.Message, f wrp.Format, c 
 	e.Message = m
 	e.Format = f
 	e.Contents = c
-}
-
-// SetPing is a convenience for resetting an Event appropriate for a Ping
-func (e *Event) SetPing(d Interface, data string, err error) {
-	e.Clear()
-	e.Type = Ping
-	e.Device = d
-	e.Data = data
-	e.Error = err
-}
-
-// SetPong is convenience for resetting an Event appropriate for a Pong
-func (e *Event) SetPong(d Interface, data string) {
-	e.Clear()
-	e.Type = Pong
-	e.Device = d
-	e.Data = data
 }
 
 // Listener is an event sink.  Listeners should never modify events and should never

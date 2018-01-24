@@ -20,7 +20,6 @@ func testEventString(t *testing.T) {
 			MessageFailed,
 			TransactionComplete,
 			TransactionBroken,
-			Pong,
 		}
 	)
 
@@ -44,7 +43,6 @@ func testEventClear(t *testing.T, event Event) {
 	assert.Equal(wrp.Msgpack, event.Format)
 	assert.Nil(event.Contents)
 	assert.Nil(event.Error)
-	assert.Empty(event.Data)
 }
 
 func TestEvent(t *testing.T) {
@@ -82,11 +80,6 @@ func TestEvent(t *testing.T) {
 				Device:   device,
 				Message:  new(wrp.Message),
 				Contents: []byte("contents"),
-			},
-			{
-				Type:   Pong,
-				Device: device,
-				Data:   "some pong data",
 			},
 		}
 	)
