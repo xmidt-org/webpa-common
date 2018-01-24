@@ -12,7 +12,6 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,7 +28,7 @@ var (
 // startWebsocketServer sets up a server-side environment for testing device-related websocket code
 func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
 	var (
-		manager = NewManager(o, nil)
+		manager = NewManager(o)
 		server  = httptest.NewServer(
 			alice.New(Timeout(o), UseID.FromHeader).Then(
 				&ConnectHandler{
@@ -51,14 +50,17 @@ func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
 	return manager, server, websocketURL.String()
 }
 
-func connectTestDevices(t *testing.T, assert *assert.Assertions, dialer Dialer, connectURL string) map[ID]Connection {
+func connectTestDevices(t *testing.T, dialer Dialer, connectURL string) map[ID]Connection {
 	devices := make(map[ID]Connection, len(testDeviceIDs))
 
 	for _, id := range testDeviceIDs {
-		deviceConnection, response, err := dialer.Dial(connectURL, id, nil)
-		if assert.NotNil(deviceConnection) && assert.NotNil(response) && assert.NoError(err) {
-			devices[id] = deviceConnection
+		deviceConnection, _, err := dialer.DialDevice(string(id), connectURL, nil)
+		if err != nil {
+			t.Fatalf("Unable to dial test device: %s", err)
+			break
 		}
+
+		devices[id] = deviceConnection
 	}
 
 	return devices
@@ -76,7 +78,7 @@ func testManagerConnectMissingDeviceContext(t *testing.T) {
 		Logger: logging.NewTestLogger(nil, t),
 	}
 
-	manager := NewManager(options, nil)
+	manager := NewManager(options)
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "http://localhost.com", nil)
 
@@ -98,21 +100,16 @@ func testManagerConnectConnectionFactoryError(t *testing.T) {
 			},
 		}
 
-		connectionFactory = new(mockConnectionFactory)
-		manager           = NewManager(options, connectionFactory)
-		response          = httptest.NewRecorder()
-		request           = WithIDRequest(ID("mac:123412341234"), httptest.NewRequest("POST", "http://localhost.com", nil))
-		responseHeader    http.Header
-		expectedError     = errors.New("expected error")
+		manager        = NewManager(options)
+		response       = httptest.NewRecorder()
+		request        = WithIDRequest(ID("mac:123412341234"), httptest.NewRequest("POST", "http://localhost.com", nil))
+		responseHeader http.Header
+		expectedError  = errors.New("expected error")
 	)
-
-	connectionFactory.On("NewConnection", response, request, responseHeader).Once().Return(nil, expectedError)
 
 	device, actualError := manager.Connect(response, request, responseHeader)
 	assert.Nil(device)
 	assert.Equal(expectedError, actualError)
-
-	connectionFactory.AssertExpectations(t)
 }
 
 func testManagerConnectVisit(t *testing.T) {
@@ -143,11 +140,7 @@ func testManagerConnectVisit(t *testing.T) {
 	defer server.Close()
 	connectWait.Add(len(testDeviceIDs))
 
-	var (
-		dialer      = NewDialer(options, nil)
-		testDevices = connectTestDevices(t, assert, dialer, connectURL)
-	)
-
+	testDevices := connectTestDevices(t, DefaultDialer(), connectURL)
 	defer closeTestDevices(assert, testDevices)
 
 	connectWait.Wait()
@@ -187,29 +180,6 @@ func testManagerConnectVisit(t *testing.T) {
 	assert.Equal(len(testDeviceIDs), deviceSet.len())
 }
 
-func testManagerPongCallbackFor(t *testing.T) {
-	assert := assert.New(t)
-	expectedDevice := newDevice(ID("ponged device"), 1, time.Now(), logging.NewTestLogger(nil, t))
-	expectedData := "expected pong data"
-	listenerCalled := false
-
-	manager := &manager{
-		logger: logging.NewTestLogger(nil, t),
-		listeners: []Listener{
-			func(event *Event) {
-				listenerCalled = true
-				assert.True(expectedDevice == event.Device)
-				assert.Equal(expectedData, event.Data)
-			},
-		},
-		measures: NewMeasures(provider.NewDiscardProvider()),
-	}
-
-	pongCallback := manager.pongCallbackFor(expectedDevice)
-	pongCallback(expectedData)
-	assert.True(listenerCalled)
-}
-
 func testManagerDisconnect(t *testing.T) {
 	assert := assert.New(t)
 	connectWait := new(sync.WaitGroup)
@@ -238,8 +208,7 @@ func testManagerDisconnect(t *testing.T) {
 	manager, server, connectURL := startWebsocketServer(options)
 	defer server.Close()
 
-	dialer := NewDialer(options, nil)
-	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	testDevices := connectTestDevices(t, DefaultDialer(), connectURL)
 	defer closeTestDevices(assert, testDevices)
 
 	connectWait.Wait()
@@ -281,8 +250,7 @@ func testManagerDisconnectIf(t *testing.T) {
 	manager, server, connectURL := startWebsocketServer(options)
 	defer server.Close()
 
-	dialer := NewDialer(options, nil)
-	testDevices := connectTestDevices(t, assert, dialer, connectURL)
+	testDevices := connectTestDevices(t, DefaultDialer(), connectURL)
 	defer closeTestDevices(assert, testDevices)
 
 	connectWait.Wait()
@@ -319,15 +287,12 @@ func testManagerRouteBadDestination(t *testing.T) {
 			},
 		}
 
-		connectionFactory = new(mockConnectionFactory)
-		manager           = NewManager(nil, connectionFactory)
+		manager = NewManager(nil)
 	)
 
 	response, err := manager.Route(request)
 	assert.Nil(response)
 	assert.Error(err)
-
-	connectionFactory.AssertExpectations(t)
 }
 
 func testManagerRouteDeviceNotFound(t *testing.T) {
@@ -339,15 +304,12 @@ func testManagerRouteDeviceNotFound(t *testing.T) {
 			},
 		}
 
-		connectionFactory = new(mockConnectionFactory)
-		manager           = NewManager(nil, connectionFactory)
+		manager = NewManager(nil)
 	)
 
 	response, err := manager.Route(request)
 	assert.Nil(response)
 	assert.Equal(ErrorDeviceNotFound, err)
-
-	connectionFactory.AssertExpectations(t)
 }
 
 func testManagerRouteNonUniqueID(t *testing.T) {
@@ -363,8 +325,7 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 		device1 = newDevice(ID("mac:112233445566"), 1, time.Now(), logger)
 		device2 = newDevice(ID("mac:112233445566"), 1, time.Now(), logger)
 
-		connectionFactory = new(mockConnectionFactory)
-		manager           = NewManager(nil, connectionFactory).(*manager)
+		manager = NewManager(nil).(*manager)
 	)
 
 	manager.registry.add(device1)
@@ -373,71 +334,6 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 	response, err := manager.Route(request)
 	assert.Nil(response)
 	assert.Equal(ErrorNonUniqueID, err)
-
-	connectionFactory.AssertExpectations(t)
-}
-
-func testManagerPingPong(t *testing.T) {
-	var (
-		assert      = assert.New(t)
-		connectWait = new(sync.WaitGroup)
-		pongs       = make(chan Interface, 100)
-
-		options = &Options{
-			Logger: logging.NewTestLogger(nil, t),
-			Listeners: []Listener{
-				func(event *Event) {
-					switch event.Type {
-					case Connect:
-						connectWait.Done()
-					case Pong:
-						pongs <- event.Device
-					}
-				},
-			},
-			PingPeriod: 500 * time.Millisecond,
-		}
-	)
-
-	connectWait.Add(len(testDeviceIDs))
-
-	var (
-		_, server, connectURL = startWebsocketServer(options)
-		dialer                = NewDialer(options, nil)
-		testDevices           = connectTestDevices(t, assert, dialer, connectURL)
-	)
-
-	defer server.Close()
-	defer closeTestDevices(assert, testDevices)
-	connectWait.Wait()
-
-	for id, connection := range testDevices {
-		// pongs are processed on the read goroutine
-		go func(id ID, c Connection) {
-			var err error
-			for err == nil {
-				_, err = c.NextReader()
-			}
-		}(id, connection)
-	}
-
-	pongWait := new(sync.WaitGroup)
-	pongWait.Add(1)
-	go func() {
-		defer pongWait.Done()
-		pongedDevices := make(deviceSet)
-		timeout := time.After(10 * time.Second)
-		for pongedDevices.len() < len(testDeviceIDs) {
-			select {
-			case ponged := <-pongs:
-				pongedDevices.add(ponged)
-			case <-timeout:
-				assert.Fail("Not all devices responded to pings within the timeout")
-			}
-		}
-	}()
-
-	pongWait.Wait()
 }
 
 func TestManager(t *testing.T) {
@@ -457,6 +353,4 @@ func TestManager(t *testing.T) {
 		t.Run("Disconnect", testManagerDisconnect)
 	*/
 	t.Run("DisconnectIf", testManagerDisconnectIf)
-	t.Run("PongCallbackFor", testManagerPongCallbackFor)
-	t.Run("PingPong", testManagerPingPong)
 }

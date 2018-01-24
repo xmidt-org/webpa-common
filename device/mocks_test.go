@@ -58,16 +58,6 @@ func (m *mockDevice) Send(request *Request) (*Response, error) {
 	return first, arguments.Error(1)
 }
 
-type mockConnectionFactory struct {
-	mock.Mock
-}
-
-func (m *mockConnectionFactory) NewConnection(response http.ResponseWriter, request *http.Request, header http.Header) (Connection, error) {
-	arguments := m.Called(response, request, header)
-	first, _ := arguments.Get(0).(Connection)
-	return first, arguments.Error(1)
-}
-
 // deviceSet is a convenient map type for capturing visited devices
 // and asserting expectations.
 type deviceSet map[*device]bool

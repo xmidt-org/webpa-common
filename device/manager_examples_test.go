@@ -75,20 +75,10 @@ func ExampleManagerTransaction() {
 		}
 
 		manager, server, websocketURL = startWebsocketServer(options)
-
-		dialer                   = NewDialer(options, nil)
-		connection, _, dialError = dialer.Dial(
-			websocketURL,
-			"mac:111122223333",
-			nil,
-		)
 	)
 
 	defer server.Close()
-	if dialError != nil {
-		fmt.Fprintf(os.Stderr, "Dial error: %s\n", dialError)
-		return
-	}
+	connection, _ := MustDialDevice(DefaultDialer(), "mac:112233445566", websocketURL, nil)
 
 	// grab the auth status message that should be coming
 	if message, err := expectMessage(connection); err != nil {
