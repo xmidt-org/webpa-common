@@ -4,6 +4,7 @@ import (
 	"errors"
 	//	"github.com/Comcast/webpa-common/health"
 	"crypto/tls"
+	"crypto/x509"
 	"net/http"
 	"sync"
 	"testing"
@@ -379,6 +380,7 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		require  = require.New(t)
+		pvFunc = func(cert [][]byte, verified [][]*x509.Certificate) error { return nil }
 		testData = []struct {
 			address            string
 			certificateFile    string
@@ -386,11 +388,14 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			clientCACertFile   string
 			handler            *mockHandler
 			logConnectionState bool
+			peerVerifyFunc	   PeerVerifyCallback
 		}{
-			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true},
-			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true},
-			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true},
-			{":8081", "", "", "", new(mockHandler), false},
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, pvFunc},
+			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true, pvFunc},
+			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true, nil},
+			{":8081", "", "", "", new(mockHandler), false, nil},
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, nil},
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, DefaultPeerVerifyCallback},
 		}
 	)
 
@@ -406,6 +411,7 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 				KeyFile:            record.keyFile,
 				ClientCACertFile:   record.clientCACertFile,
 				LogConnectionState: record.logConnectionState,
+				PeerVerifyFunc:	    record.peerVerifyFunc,
 			}
 
 			server = basic.New(logger, record.handler)
@@ -424,12 +430,25 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			require.NotNil(tlsConfig)
 			assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 			require.NotNil(tlsConfig.ClientCAs)
+			assert.NotNil(tlsConfig.VerifyPeerCertificate)
 		case 1:
 			require.Nil(server.TLSConfig)
 		case 2:
 			require.Nil(server.TLSConfig)
 		case 3:
 			require.Nil(server.TLSConfig)
+		case 4:
+			tlsConfig := server.TLSConfig
+			require.NotNil(tlsConfig)
+			assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
+			require.NotNil(tlsConfig.ClientCAs)
+			assert.Nil(tlsConfig.VerifyPeerCertificate)
+		case 5: 
+			tlsConfig := server.TLSConfig
+			require.NotNil(tlsConfig)
+			assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
+			require.NotNil(tlsConfig.ClientCAs)
+			assert.NotNil(tlsConfig.VerifyPeerCertificate)
 		}
 
 		if record.handler != nil {

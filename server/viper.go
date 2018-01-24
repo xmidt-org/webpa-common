@@ -55,6 +55,9 @@ const (
 
 	// FileFlagShorthand is the command-line shortcut flag for FileFlagName
 	FileFlagShorthand = "f"
+
+	// PeerVerify key
+	PeerVerifySuffix = "peerVerify"
 )
 
 // ConfigureFlagSet adds the standard set of WebPA flags to the supplied FlagSet.  Use of this function
@@ -197,6 +200,13 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 	err = v.Unmarshal(webPA)
 	if err != nil {
 		return
+	}
+
+	if v.IsSet(PeerVerifySuffix) {
+		webPA.PeerVerify = v.GetBool(PeerVerifySuffix)
+		if webPA.PeerVerify {
+			webPA.Primary.PeerVerifyFunc = DefaultPeerVerifyCallback
+		}
 	}
 
 	logger = logging.New(webPA.Log)

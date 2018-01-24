@@ -97,6 +97,13 @@ func ListenAndServe(logger log.Logger, s Secure, e executor) {
 	}
 }
 
+type PeerVerifyCallback func([][]byte, [][]*x509.Certificate) error
+
+func DefaultPeerVerifyCallback(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	// Default callback performs no validation 
+	return nil
+}
+
 // Basic describes a simple HTTP server.  Typically, this struct has its values
 // injected via Viper.  See the New function in this package.
 type Basic struct {
@@ -105,6 +112,7 @@ type Basic struct {
 	CertificateFile    string
 	KeyFile            string
 	ClientCACertFile   string
+	PeerVerifyFunc     PeerVerifyCallback	// Callback func to add peer client cert CN, SAN validation
 	LogConnectionState bool
 
 	MaxConnections    int
@@ -122,6 +130,10 @@ func (b *Basic) maxConnections() int {
 
 	// no max connections set
 	return 0
+}
+
+func (b *Basic) SetPeerVerifyCallback( verifyPtr PeerVerifyCallback) {
+	b.PeerVerifyFunc = verifyPtr
 }
 
 func (b *Basic) maxHeaderBytes() int {
@@ -205,6 +217,11 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
 			tlsConfig.BuildNameToCertificate()
+
+			// Add verify peer ceritifcate callback for additional validation
+			if b.PeerVerifyFunc != nil {
+				tlsConfig.VerifyPeerCertificate = b.PeerVerifyFunc
+			}
 		}
 	}
 
@@ -398,6 +415,9 @@ type WebPA struct {
 
 	// Log is the logging configuration for this application.
 	Log *logging.Options
+
+	// PeerVerify is the option to be set to verify peer client certificate and details
+	PeerVerify bool
 }
 
 // build returns the injected build string if available, DefaultBuild otherwise

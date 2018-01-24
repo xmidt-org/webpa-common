@@ -184,3 +184,48 @@ func TestInitializeMetrics(t *testing.T) {
 	assert.Equal("foo", w.Metric.MetricsOptions.Namespace)
 	assert.Equal("bar", w.Metric.MetricsOptions.Subsystem)
 }
+
+func TestInitializeWhenPeerVerifySet(t *testing.T) {
+
+	var assert = assert.New(t)
+	var testPeerVerify = []string{"true", "false"}
+	v := viper.New()
+
+	for _, verify := range testPeerVerify {
+		v.Set(PeerVerifySuffix, verify)
+
+		var logger, registry, webPA, err = Initialize("invalidLog", nil, nil, v)
+
+		assert.NotNil(logger)
+		assert.NotNil(registry)
+		assert.NotNil(webPA)
+		assert.Nil(err)
+
+		switch verify {
+
+		case "true":
+			assert.Equal(true,webPA.PeerVerify)
+			assert.NotNil(webPA.Primary.PeerVerifyFunc)
+		case "false":
+			assert.Equal(false,webPA.PeerVerify)
+			assert.Nil(webPA.Primary.PeerVerifyFunc)
+		}
+	}
+}
+
+func TestInitializeWhenPeerVerifyNotSet(t *testing.T) {
+
+	var assert = assert.New(t)
+	v := viper.New()
+
+	var logger, registry, webPA, err = Initialize("invalidLog", nil, nil, v)
+
+	assert.NotNil(logger)
+	assert.NotNil(registry)
+	assert.NotNil(webPA)
+	assert.Nil(err)
+	assert.Equal(false,webPA.PeerVerify)
+	assert.Nil(webPA.Primary.PeerVerifyFunc)
+}
+
+
