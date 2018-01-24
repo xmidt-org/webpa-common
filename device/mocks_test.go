@@ -3,6 +3,7 @@ package device
 import (
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -56,6 +57,20 @@ func (m *mockDevice) Send(request *Request) (*Response, error) {
 	arguments := m.Called(request)
 	first, _ := arguments.Get(0).(*Response)
 	return first, arguments.Error(1)
+}
+
+type mockWebsocketDialer struct {
+	mock.Mock
+}
+
+func (m *mockWebsocketDialer) Dial(url string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
+	var (
+		arguments = m.Called(url, requestHeader)
+		first, _  = arguments.Get(0).(*websocket.Conn)
+		second, _ = arguments.Get(1).(*http.Response)
+	)
+
+	return first, second, arguments.Error(2)
 }
 
 // deviceSet is a convenient map type for capturing visited devices

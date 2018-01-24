@@ -46,11 +46,6 @@ type DialerOptions struct {
 
 // NewDialer produces a device dialer using the supplied set of options
 func NewDialer(o DialerOptions) Dialer {
-	// optimization: if the options have the defaults set, then just return the default dialer
-	if len(o.DeviceHeader) == 0 && o.WSDialer == nil {
-		return DefaultDialer()
-	}
-
 	d := &dialer{
 		deviceHeader: o.DeviceHeader,
 		wd:           o.WSDialer,
@@ -60,7 +55,7 @@ func NewDialer(o DialerOptions) Dialer {
 		d.deviceHeader = DeviceNameHeader
 	}
 
-	if d.wd != nil {
+	if d.wd == nil {
 		d.wd = defaultWebsocketDialer
 	}
 
