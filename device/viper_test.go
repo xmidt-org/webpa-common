@@ -49,8 +49,7 @@ func TestNewOptionsUnmarshalError(t *testing.T) {
 		configuration = `{
 			"device": {
 				"manager": {
-					"deviceNameHeader": {"this": "is not valid"},
-					"handshakeTimeout": "this is not a valid duration"
+					"upgrader": "this is not valid"
 				}
 			}
 		}`
