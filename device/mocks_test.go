@@ -59,6 +59,20 @@ func (m *mockDevice) Send(request *Request) (*Response, error) {
 	return first, arguments.Error(1)
 }
 
+type mockDialer struct {
+	mock.Mock
+}
+
+func (m *mockDialer) DialDevice(deviceName, url string, extra http.Header) (*websocket.Conn, *http.Response, error) {
+	var (
+		arguments = m.Called(deviceName, url, extra)
+		first, _  = arguments.Get(0).(*websocket.Conn)
+		second, _ = arguments.Get(1).(*http.Response)
+	)
+
+	return first, second, arguments.Error(2)
+}
+
 type mockWebsocketDialer struct {
 	mock.Mock
 }
