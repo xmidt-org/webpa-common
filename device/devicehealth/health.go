@@ -49,15 +49,5 @@ func (l *Listener) OnDeviceEvent(e *device.Event) {
 		l.Dispatcher.SendEvent(func(s health.Stats) {
 			s[TotalWRPRequestResponseProcessed] += 1
 		})
-
-	case device.Ping:
-		l.Dispatcher.SendEvent(func(s health.Stats) {
-			s[TotalPingMessagesReceived] += 1
-		})
-
-	case device.Pong:
-		l.Dispatcher.SendEvent(func(s health.Stats) {
-			s[TotalPongMessagesReceived] += 1
-		})
 	}
 }

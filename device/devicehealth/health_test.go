@@ -90,62 +90,10 @@ func testListenerOnDeviceEventTransactionComplete(t *testing.T) {
 	dispatcher.AssertExpectations(t)
 }
 
-func testListenerOnDeviceEventPing(t *testing.T) {
-	var (
-		assert     = assert.New(t)
-		dispatcher = new(mockDispatcher)
-		listener   = &Listener{Dispatcher: dispatcher}
-
-		expectedStats = health.Stats{
-			TotalPingMessagesReceived: 1,
-		}
-
-		actualStats = health.Stats{}
-	)
-
-	dispatcher.On("SendEvent", mock.AnythingOfType("health.HealthFunc")).Once().
-		Run(func(arguments mock.Arguments) {
-			hf := arguments.Get(0).(health.HealthFunc)
-			hf(actualStats)
-		})
-
-	listener.OnDeviceEvent(&device.Event{Type: device.Ping})
-	assert.Equal(expectedStats, actualStats)
-
-	dispatcher.AssertExpectations(t)
-}
-
-func testListenerOnDeviceEventPong(t *testing.T) {
-	var (
-		assert     = assert.New(t)
-		dispatcher = new(mockDispatcher)
-		listener   = &Listener{Dispatcher: dispatcher}
-
-		expectedStats = health.Stats{
-			TotalPongMessagesReceived: 1,
-		}
-
-		actualStats = health.Stats{}
-	)
-
-	dispatcher.On("SendEvent", mock.AnythingOfType("health.HealthFunc")).Once().
-		Run(func(arguments mock.Arguments) {
-			hf := arguments.Get(0).(health.HealthFunc)
-			hf(actualStats)
-		})
-
-	listener.OnDeviceEvent(&device.Event{Type: device.Pong})
-	assert.Equal(expectedStats, actualStats)
-
-	dispatcher.AssertExpectations(t)
-}
-
 func TestListener(t *testing.T) {
 	t.Run("OnDeviceEvent", func(t *testing.T) {
 		t.Run("Connect", testListenerOnDeviceEventConnect)
 		t.Run("Disconnect", testListenerOnDeviceEventDisconnect)
 		t.Run("TransactionComplete", testListenerOnDeviceEventTransactionComplete)
-		t.Run("Ping", testListenerOnDeviceEventPing)
-		t.Run("Pong", testListenerOnDeviceEventPong)
 	})
 }
