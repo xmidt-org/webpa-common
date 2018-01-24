@@ -12,7 +12,7 @@ import (
 
 type contextKey struct{}
 
-//handlerValuesKey is the key to set/get context values
+//handlerValuesKey is the key to set/get context values in this package
 var handlerValuesKey = contextKey{}
 
 //ContextValues contains the values shared under the satClientIDKey from this package
