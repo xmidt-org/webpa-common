@@ -12,6 +12,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/mock"
 )
 
@@ -219,11 +220,21 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 		request.Header.Set(record.headerName, authorizationValue)
 		response := httptest.NewRecorder()
 
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)
+		inputCtxValue := &ContextValues{
+			SatClientID: "N/A",
+			Path:        request.URL.Path,
+			Method:      request.Method,
+		}
+
+		inputRequest := request.WithContext(request.Context())
+
+		inputCtx := context.WithValue(inputRequest.Context(), handlerValuesKey, inputCtxValue)
+
 		token, _ := secure.ParseAuthorization(authorizationValue)
-		mockValidator.On("Validate", ctx, token).Return(true, nil).Once()
+
+		mockValidator.On("Validate", inputCtx, token).Return(true, nil).Once()
+
+		request = request.WithContext(inputCtx) //request has this context after Decorate() is called
 
 		mockHttpHandler := &mockHttpHandler{}
 		mockHttpHandler.On("ServeHTTP", response, request).
@@ -235,7 +246,7 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 
 		decorated := record.handler.Decorate(mockHttpHandler)
 		assert.NotNil(decorated)
-		decorated.ServeHTTP(response, request)
+		decorated.ServeHTTP(response, inputRequest)
 		assert.Equal(response.Code, record.expectedStatusCode)
 
 		mockValidator.AssertExpectations(t)
@@ -280,11 +291,17 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
 		request.Header.Set(record.headerName, authorizationValue)
 
-		ctx := context.Background()
-		ctx = context.WithValue(ctx, "method", request.Method)
-		ctx = context.WithValue(ctx, "path", request.URL.Path)
+		inputCtxValue := &ContextValues{
+			SatClientID: "N/A",
+			Path:        request.URL.Path,
+			Method:      request.Method,
+		}
+
+		inputCtx := context.WithValue(request.Context(), handlerValuesKey, inputCtxValue)
+
 		token, _ := secure.ParseAuthorization(authorizationValue)
-		mockValidator.On("Validate", ctx, token).Return(false, errors.New("expected")).Once()
+
+		mockValidator.On("Validate", inputCtx, token).Return(false, errors.New("expected")).Once()
 
 		response := httptest.NewRecorder()
 		mockHttpHandler := &mockHttpHandler{}
@@ -297,4 +314,30 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 		mockValidator.AssertExpectations(t)
 		mockHttpHandler.AssertExpectations(t)
 	}
+}
+
+func TestExtractSatClientID(t *testing.T) {
+
+	t.Run("JWT Type", func(t *testing.T) {
+		assert := assert.New(t)
+		token, errParse := secure.ParseAuthorization("Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0LXN1YnNjcmliZXIiLCIiOiJKb2huIERvZSIsImFkbWluIjp0cnVlfQ.IXIs63ofkXSeZmPMKGs5zxREksHoLMS33LRqw1NMrCA")
+
+		if errParse != nil {
+			t.FailNow()
+		}
+
+		assert.EqualValues("test-subscriber", extractSatClientID(token, logging.DefaultLogger()))
+	})
+
+	t.Run("Non-JWT Type", func(t *testing.T) {
+		assert := assert.New(t)
+		token, errParse := secure.ParseAuthorization("Basic abcd==")
+
+		if errParse != nil {
+			t.FailNow()
+		}
+
+		assert.EqualValues("N/A", extractSatClientID(token, logging.DefaultLogger()))
+	})
+
 }

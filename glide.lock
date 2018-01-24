@@ -197,6 +197,7 @@ imports:
   version: 5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec
   subpackages:
   - context
+  - netutil
 - name: golang.org/x/sys
   version: af50095a40f9041b3b38960738837185c26e9419
   subpackages:

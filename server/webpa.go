@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"golang.org/x/net/netutil"
 
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
@@ -16,6 +19,7 @@ import (
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -41,6 +45,9 @@ var (
 // executor is an internal type used to start an HTTP server.  *http.Server implements
 // this interface.  It can be mocked for testing.
 type executor interface {
+	Serve(net.Listener) error
+	ServeTLS(l net.Listener, certificateFile, keyFile string) error
+
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
 }
@@ -52,13 +59,30 @@ type Secure interface {
 	Certificate() (certificateFile, keyFile string)
 }
 
+// Serve is like ListenAndServe, but accepts a custom net.Listener
+func Serve(logger log.Logger, s Secure, l net.Listener, e executor) {
+	certificateFile, keyFile := s.Certificate()
+	if len(certificateFile) > 0 && len(keyFile) > 0 {
+		go func() {
+			logging.Error(logger).Log(
+				logging.ErrorKey(), e.ServeTLS(l, certificateFile, keyFile),
+			)
+		}()
+	} else {
+		go func() {
+			logging.Error(logger).Log(
+				logging.ErrorKey(), e.Serve(l),
+			)
+		}()
+	}
+}
+
 // ListenAndServe invokes the appropriate server method based on the secure information.
 // If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
 // is called to start the server.  Otherwise, e.ListenAndServe() is used.
 func ListenAndServe(logger log.Logger, s Secure, e executor) {
 	certificateFile, keyFile := s.Certificate()
 	if len(certificateFile) > 0 && len(keyFile) > 0 {
-
 		go func() {
 			logging.Error(logger).Log(
 				logging.ErrorKey(), e.ListenAndServeTLS(certificateFile, keyFile),
@@ -83,11 +107,21 @@ type Basic struct {
 	ClientCACertFile   string
 	LogConnectionState bool
 
+	MaxConnections    int
 	DisableKeepAlives bool
 	MaxHeaderBytes    int
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
 	WriteTimeout      time.Duration
+}
+
+func (b *Basic) maxConnections() int {
+	if b != nil && b.MaxConnections > 0 {
+		return b.MaxConnections
+	}
+
+	// no max connections set
+	return 0
 }
 
 func (b *Basic) maxHeaderBytes() int {
@@ -124,6 +158,22 @@ func (b *Basic) writeTimeout() time.Duration {
 
 func (b *Basic) Certificate() (certificateFile, keyFile string) {
 	return b.CertificateFile, b.KeyFile
+}
+
+// NewListener creates a decorated TCPListener appropriate for this server's configuration.
+func (b *Basic) NewListener(logger log.Logger, counter metrics.Counter) (net.Listener, error) {
+	l, err := net.Listen("tcp", b.Address)
+	if err != nil {
+		return nil, err
+	}
+
+	l = InstrumentListener(logger, counter, l)
+	maxConnections := b.maxConnections()
+	if maxConnections > 0 {
+		l = netutil.LimitListener(l, maxConnections)
+	}
+
+	return l, nil
 }
 
 // New creates an http.Server using this instance's configuration.  The given logger is required,
@@ -412,6 +462,8 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			fmt.Sprintf("X-%s-Start-Time", w.ApplicationName): {time.Now().UTC().Format(time.RFC822)},
 		})
 
+		activeConnections = registry.NewCounter("active_connections")
+
 		healthHandler, healthServer = w.Health.New(logger, alice.New(staticHeaders), health)
 		infoLog                     = logging.Info(logger)
 	)
@@ -430,15 +482,27 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
+			listener, err := w.Primary.NewListener(logger, activeConnections.With("primary"))
+			if err != nil {
+				// TODO: handle cleanup
+				return err
+			}
+
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
-			ListenAndServe(logger, &w.Primary, primaryServer)
+			Serve(logger, &w.Primary, listener, primaryServer)
 		} else {
 			return ErrorNoPrimaryAddress
 		}
 
 		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
+			listener, err := w.Primary.NewListener(logger, activeConnections.With("alternate"))
+			if err != nil {
+				// TODO: handle cleanup
+				return err
+			}
+
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Alternate.Name, "address", w.Alternate.Address)
-			ListenAndServe(logger, &w.Alternate, alternateServer)
+			Serve(logger, &w.Alternate, listener, alternateServer)
 		}
 
 		if metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry); metricsServer != nil {

@@ -16,35 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockHandler struct {
-	mock.Mock
-}
-
-func (m *mockHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	m.Called(response, request)
-}
-
-type mockExecutor struct {
-	mock.Mock
-}
-
-func (m *mockExecutor) ListenAndServe() error {
-	return m.Called().Error(0)
-}
-
-func (m *mockExecutor) ListenAndServeTLS(certificateFile, keyFile string) error {
-	return m.Called(certificateFile, keyFile).Error(0)
-}
-
-type mockSecure struct {
-	mock.Mock
-}
-
-func (m *mockSecure) Certificate() (string, string) {
-	arguments := m.Called()
-	return arguments.String(0), arguments.String(1)
-}
-
 func TestListenAndServeNonSecure(t *testing.T) {
 	var (
 		simpleError = errors.New("expected")
