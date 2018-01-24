@@ -388,15 +388,14 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			clientCACertFile   string
 			handler            *mockHandler
 			logConnectionState bool
-			peerVerify         bool
 			peerVerifyFunc	   PeerVerifyCallback
 		}{
-			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, true, &pvFunc},
-			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true, true, &pvFunc},
-			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true, true, nil},
-			{":8081", "", "", "", new(mockHandler), false, true, nil},
-			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, true, nil},
-			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, false, &pvFunc},
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, pvFunc},
+			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true, pvFunc},
+			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true, nil},
+			{":8081", "", "", "", new(mockHandler), false, nil},
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, nil},
+			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true, DefaultPeerVerifyCallback},
 		}
 	)
 
@@ -412,7 +411,6 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 				KeyFile:            record.keyFile,
 				ClientCACertFile:   record.clientCACertFile,
 				LogConnectionState: record.logConnectionState,
-				PeerVerify:	    record.peerVerify,
 				PeerVerifyFunc:	    record.peerVerifyFunc,
 			}
 
@@ -450,7 +448,7 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			require.NotNil(tlsConfig)
 			assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 			require.NotNil(tlsConfig.ClientCAs)
-			assert.Nil(tlsConfig.VerifyPeerCertificate)
+			assert.NotNil(tlsConfig.VerifyPeerCertificate)
 		}
 
 		if record.handler != nil {

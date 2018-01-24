@@ -203,7 +203,10 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 	}
 
 	if v.IsSet(PeerVerifySuffix) {
-		webPA.Primary.PeerVerify = v.GetBool(PeerVerifySuffix)
+		webPA.PeerVerify = v.GetBool(PeerVerifySuffix)
+		if webPA.PeerVerify {
+			webPA.Primary.PeerVerifyFunc = DefaultPeerVerifyCallback
+		}
 	}
 
 	logger = logging.New(webPA.Log)
