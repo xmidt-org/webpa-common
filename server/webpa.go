@@ -482,7 +482,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
-			listener, err := w.Primary.NewListener(logger, activeConnections.With("primary"))
+			listener, err := w.Primary.NewListener(logger, activeConnections.With("server", "primary"))
 			if err != nil {
 				// TODO: handle cleanup
 				return err
@@ -495,7 +495,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		}
 
 		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
-			listener, err := w.Primary.NewListener(logger, activeConnections.With("alternate"))
+			listener, err := w.Primary.NewListener(logger, activeConnections.With("server", "alternate"))
 			if err != nil {
 				// TODO: handle cleanup
 				return err
