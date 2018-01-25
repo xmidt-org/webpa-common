@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"testing"
-	"time"
 )
 
 func ExampleSimpleJWSValidator(t *testing.T) {
@@ -578,7 +579,6 @@ func TestJWSValidatorValidate(t *testing.T) {
 		mockJWSParser.AssertExpectations(t)
 	}
 }
-
 func TestJWTValidatorFactory(t *testing.T) {
 	assert := assert.New(t)
 	now := time.Now().Unix()

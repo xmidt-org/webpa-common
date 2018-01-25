@@ -12,7 +12,7 @@ import (
 
 type contextKey struct{}
 
-//handlerValuesKey is the key to set/get context values
+//handlerValuesKey is the key to set/get context values in this package
 var handlerValuesKey = contextKey{}
 
 //ContextValues contains the values shared under the satClientIDKey from this package
@@ -54,6 +54,7 @@ type AuthorizationHandler struct {
 	ForbiddenStatusCode int
 	Validator           secure.Validator
 	Logger              log.Logger
+	measures            *secure.JWTValidationMeasures
 }
 
 // headerName returns the authorization header to use, either a.HeaderName
@@ -104,6 +105,10 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		if len(headerValue) == 0 {
 			errorLog.Log(logging.MessageKey(), "missing header", "name", headerName)
 			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("missing header: %s", headerName))
+
+			if a.measures != nil {
+				a.measures.ValidationReason.With("reason", "missing_header").Add(1)
+			}
 			return
 		}
 
@@ -111,6 +116,10 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		if err != nil {
 			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, "token", headerValue, logging.ErrorKey(), err)
 			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error()))
+
+			if a.measures != nil {
+				a.measures.ValidationReason.With("reason", "invalid_header").Add(1)
+			}
 			return
 		}
 

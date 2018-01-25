@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/secure/key"
-	"github.com/SermoDigital/jose/jws"
-	"github.com/SermoDigital/jose/jwt"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/SermoDigital/jose/jws"
+	"github.com/SermoDigital/jose/jwt"
 )
 
 var (
@@ -69,6 +70,7 @@ type JWSValidator struct {
 	Resolver      key.Resolver
 	Parser        JWSParser
 	JWTValidators []*jwt.Validator
+	measures      *JWTValidationMeasures
 }
 
 // capabilityValidation determines if a claim's capability is valid
@@ -136,6 +138,10 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	}
 
 	if nil != err {
+		//signature error
+		if v.measures != nil {
+			v.measures.ValidationReason.With("reason", "invalid_signature").Add(1)
+		}
 		return
 	}
 
@@ -157,6 +163,12 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 		*/
 		// *****  REMOVE THIS CODE AFTER BRING BACK THE COMMENTED CODE ABOVE *****
 		// ***** vvvvvvvvvvvvvvv *****
+
+		// successful validation
+		if v.measures != nil {
+			v.measures.ValidationReason.With("reason", "ok").Add(1)
+		}
+
 		return true, nil
 		// ***** ^^^^^^^^^^^^^^^ *****
 
@@ -171,6 +183,7 @@ type JWTValidatorFactory struct {
 	Expected  jwt.Claims `json:"expected"`
 	ExpLeeway int        `json:"expLeeway"`
 	NbfLeeway int        `json:"nbfLeeway"`
+	measures  *JWTValidationMeasures
 }
 
 func (f *JWTValidatorFactory) expLeeway() time.Duration {
@@ -202,17 +215,25 @@ func (f *JWTValidatorFactory) New(custom ...jwt.ValidateFunc) *jwt.Validator {
 	customCount := len(custom)
 	if customCount > 0 {
 		validateFunc = func(claims jwt.Claims) (err error) {
-			err = claims.Validate(time.Now(), expLeeway, nbfLeeway)
+			now := time.Now()
+			err = claims.Validate(now, expLeeway, nbfLeeway)
 			for index := 0; index < customCount && err == nil; index++ {
 				err = custom[index](claims)
 			}
+
+			f.observeMeasures(claims, now, expLeeway, nbfLeeway, err)
 
 			return
 		}
 	} else {
 		// if no custom validate functions were passed, use a simpler function
-		validateFunc = func(claims jwt.Claims) error {
-			return claims.Validate(time.Now(), expLeeway, nbfLeeway)
+		validateFunc = func(claims jwt.Claims) (err error) {
+			now := time.Now()
+			err = claims.Validate(now, expLeeway, nbfLeeway)
+
+			f.observeMeasures(claims, now, expLeeway, nbfLeeway, err)
+
+			return
 		}
 	}
 
@@ -221,5 +242,32 @@ func (f *JWTValidatorFactory) New(custom ...jwt.ValidateFunc) *jwt.Validator {
 		EXP:      expLeeway,
 		NBF:      nbfLeeway,
 		Fn:       validateFunc,
+	}
+}
+
+func (f *JWTValidatorFactory) observeMeasures(claims jwt.Claims, now time.Time, expLeeway, nbfLeeway time.Duration, err error) {
+	if f.measures == nil {
+		return // measure tools are not defined, skip
+	}
+
+	//how far did we land from the NBF (in seconds): ie. -1 means 1 sec before, 1 means 1 sec after
+	if nbf, nbfPresent := claims.NotBefore(); nbfPresent {
+		nbf = nbf.Add(-nbfLeeway)
+		f.measures.NBFHistogram.WithLabelValues().Observe(nbf.Sub(now).Seconds())
+	}
+
+	//how far did we land from the EXP (in seconds): ie. -1 means 1 sec before, 1 means 1 sec after
+	if exp, expPresent := claims.Expiration(); expPresent {
+		exp = exp.Add(expLeeway)
+		f.measures.ExpHistogram.WithLabelValues().Observe(exp.Sub(now).Seconds())
+	}
+
+	switch err {
+	case jwt.ErrTokenIsExpired:
+		f.measures.ValidationReason.With("reason", "expired_token").Add(1)
+		break
+	case jwt.ErrTokenNotYetValid:
+		f.measures.ValidationReason.With("reason", "premature_token").Add(1)
+		break
 	}
 }
