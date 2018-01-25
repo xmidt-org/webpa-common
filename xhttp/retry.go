@@ -2,6 +2,11 @@ package xhttp
 
 import (
 	"net/http"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics"
 )
 
 // temporaryError is the expected interface for a (possibly) temporary error
@@ -23,20 +28,39 @@ func DefaultShouldRetry(err error) bool {
 	return false
 }
 
+// RetryOptions are the configuration options for a retry transactor
+type RetryOptions struct {
+	// Logger is the go-kit logger to use.  Defaults to logging.DefaultLogger() if unset.
+	Logger log.Logger
+
+	// Retries is the count of retries.  If not positive, then no transactor decoration is performed.
+	Retries int
+
+	// ShouldRetry is the retry predicate.  Defaults to DefaultShouldRetry if unset.
+	ShouldRetry ShouldRetryFunc
+
+	// Counter is the counter for total retries.  If unset, no metrics are collected on retries.
+	Counter metrics.Counter
+}
+
 // RetryTransactor returns an HTTP transactor function, of the same signature as http.Client.Do, that
 // retries a certain number of times.
 //
-// If retryCount is nonpositive, next is returned undecorated.
-func RetryTransactor(retryCount int, shouldRetry ShouldRetryFunc, next func(*http.Request) (*http.Response, error)) func(*http.Request) (*http.Response, error) {
-	if retryCount < 1 {
+// If o.Retries is nonpositive, next is returned undecorated.
+func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, error)) func(*http.Request) (*http.Response, error) {
+	if o.Retries < 1 {
 		return next
 	}
 
-	if shouldRetry == nil {
-		shouldRetry = DefaultShouldRetry
+	if o.Logger == nil {
+		o.Logger = logging.DefaultLogger()
 	}
 
-	attempts := retryCount + 1
+	if o.ShouldRetry == nil {
+		o.ShouldRetry = DefaultShouldRetry
+	}
+
+	attempts := o.Retries + 1
 	return func(request *http.Request) (*http.Response, error) {
 		var (
 			response *http.Response
@@ -45,9 +69,21 @@ func RetryTransactor(retryCount int, shouldRetry ShouldRetryFunc, next func(*htt
 
 		for i := 0; i < attempts; i++ {
 			response, err = next(request)
-			if err == nil || !shouldRetry(err) {
-				break
+			if err != nil && o.ShouldRetry(err) {
+				o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), "error", err, "attempt", i+1)
+
+				if o.Counter != nil {
+					o.Counter.Add(1.0)
+				}
+
+				continue
 			}
+
+			break
+		}
+
+		if err != nil {
+			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), "error", err, "attempts", attempts)
 		}
 
 		return response, err

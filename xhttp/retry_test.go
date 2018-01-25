@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/metrics/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +29,25 @@ func TestDefaultShouldRetry(t *testing.T) {
 	})
 }
 
+func testRetryTransactorDefaultLogger(t *testing.T) {
+	var (
+		assert           = assert.New(t)
+		require          = require.New(t)
+		transactorCalled = false
+
+		transactor = func(*http.Request) (*http.Response, error) {
+			transactorCalled = true
+			return nil, nil
+		}
+
+		retry = RetryTransactor(RetryOptions{Retries: 1}, transactor)
+	)
+
+	require.NotNil(retry)
+	retry(httptest.NewRequest("GET", "/", nil))
+	assert.True(transactorCalled)
+}
+
 func testRetryTransactorNoRetries(t *testing.T) {
 	var (
 		assert           = assert.New(t)
@@ -38,7 +59,7 @@ func testRetryTransactorNoRetries(t *testing.T) {
 			return nil, nil
 		}
 
-		retry = RetryTransactor(0, nil, transactor)
+		retry = RetryTransactor(RetryOptions{}, transactor)
 	)
 
 	require.NotNil(retry)
@@ -52,6 +73,7 @@ func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
 		require         = require.New(t)
 		expectedRequest = httptest.NewRequest("GET", "/", nil)
 		expectedError   = &net.DNSError{IsTemporary: true}
+		counter         = generic.NewCounter("test")
 
 		transactorCount = 0
 		transactor      = func(actualRequest *http.Request) (*http.Response, error) {
@@ -60,7 +82,7 @@ func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
 			return nil, expectedError
 		}
 
-		retry = RetryTransactor(retryCount, nil, transactor)
+		retry = RetryTransactor(RetryOptions{Logger: logging.NewTestLogger(nil, t), Retries: retryCount, Counter: counter}, transactor)
 	)
 
 	require.NotNil(retry)
@@ -68,6 +90,7 @@ func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
 	assert.Nil(actualResponse)
 	assert.Equal(expectedError, actualError)
 	assert.Equal(1+retryCount, transactorCount)
+	assert.Equal(float64(1+retryCount), counter.Value())
 }
 
 func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
@@ -76,6 +99,7 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 		require          = require.New(t)
 		expectedRequest  = httptest.NewRequest("GET", "/", nil)
 		expectedResponse = new(http.Response)
+		counter          = generic.NewCounter("test")
 
 		transactorCount = 0
 		transactor      = func(actualRequest *http.Request) (*http.Response, error) {
@@ -84,7 +108,7 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 			return expectedResponse, nil
 		}
 
-		retry = RetryTransactor(retryCount, nil, transactor)
+		retry = RetryTransactor(RetryOptions{Logger: logging.NewTestLogger(nil, t), Retries: retryCount, Counter: counter}, transactor)
 	)
 
 	require.NotNil(retry)
@@ -92,9 +116,11 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 	assert.True(expectedResponse == actualResponse)
 	assert.NoError(actualError)
 	assert.Equal(1, transactorCount)
+	assert.Zero(counter.Value())
 }
 
 func TestRetryTransactor(t *testing.T) {
+	t.Run("DefaultLogger", testRetryTransactorDefaultLogger)
 	t.Run("NoRetries", testRetryTransactorNoRetries)
 
 	t.Run("AllRetriesFail", func(t *testing.T) {
