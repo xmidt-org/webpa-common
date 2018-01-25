@@ -708,4 +708,8 @@ func TestDefineMeasures(t *testing.T) {
 	a, m := JWTValidatorFactory{}, &JWTValidationMeasures{}
 	a.DefineMeasures(m)
 	assert.Equal(m, a.measures)
+
+	b := JWSValidator{}
+	b.DefineMeasures(m)
+	assert.Equal(m, b.measures)
 }
