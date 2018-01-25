@@ -178,6 +178,11 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	return
 }
 
+//DefineMeasures defines the metrics tool used by JWSValidator
+func (v *JWSValidator) DefineMeasures(m *JWTValidationMeasures) {
+	v.measures = m
+}
+
 // JWTValidatorFactory is a configurable factory for *jwt.Validator instances
 type JWTValidatorFactory struct {
 	Expected  jwt.Claims `json:"expected"`
