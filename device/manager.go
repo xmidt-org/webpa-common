@@ -254,7 +254,6 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 	var (
 		readError error
-		event     Event // reuse the same event as a carrier of data to listeners
 		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
 	)
 
@@ -273,7 +272,17 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
-		message := new(wrp.Message)
+		var (
+			message = new(wrp.Message)
+			event   = Event{
+				Type:     MessageReceived,
+				Device:   d,
+				Message:  message,
+				Format:   wrp.Msgpack,
+				Contents: data,
+			}
+		)
+
 		decoder.ResetBytes(data)
 		err := decoder.Decode(message)
 		decoder.ResetBytes(nil)
@@ -285,8 +294,6 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		if message.Type == wrp.SimpleRequestResponseMessageType {
 			m.measures.RequestResponse.Add(1.0)
 		}
-
-		event.SetMessageReceived(d, message, wrp.Msgpack, data)
 
 		// update any waiting transaction
 		if message.IsTransactionPart() {
@@ -320,9 +327,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	d.debugLog.Log(logging.MessageKey(), "writePump starting")
 
 	var (
-		// we'll reuse this event instance
-		event = Event{Type: Connect, Device: d}
-
 		envelope   *envelope
 		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
@@ -338,7 +342,10 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 		})
 	)
 
-	m.dispatch(&event)
+	m.dispatch(&Event{
+		Type:   Connect,
+		Device: d,
+	})
 
 	// cleanup: we not only ensure that the device and connection are closed but also
 	// ensure that any messages that were waiting and/or failed are dispatched to
@@ -351,8 +358,14 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
 		if envelope != nil {
-			event.SetRequestFailed(d, envelope.request, writeError)
-			m.dispatch(&event)
+			m.dispatch(&Event{
+				Type:     MessageFailed,
+				Device:   d,
+				Message:  envelope.request.Message,
+				Format:   envelope.request.Format,
+				Contents: envelope.request.Contents,
+				Error:    writeError,
+			})
 		}
 
 		// drain the messages, dispatching them as message failed events.  we never close
@@ -364,8 +377,14 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			select {
 			case undeliverable := <-d.messages:
 				d.errorLog.Log(logging.MessageKey(), "undeliverable message", "deviceMessage", undeliverable)
-				event.SetRequestFailed(d, undeliverable.request, writeError)
-				m.dispatch(&event)
+				m.dispatch(&Event{
+					Type:     MessageFailed,
+					Device:   d,
+					Message:  undeliverable.request.Message,
+					Format:   undeliverable.request.Format,
+					Contents: undeliverable.request.Contents,
+					Error:    writeError,
+				})
 			default:
 				return
 			}
@@ -396,11 +415,19 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 				writeError = w.WriteMessage(websocket.BinaryMessage, frameContents)
 			}
 
+			event := Event{
+				Device:   d,
+				Message:  envelope.request.Message,
+				Format:   envelope.request.Format,
+				Contents: envelope.request.Contents,
+				Error:    writeError,
+			}
+
 			if writeError != nil {
 				envelope.complete <- writeError
-				event.SetRequestFailed(d, envelope.request, writeError)
+				event.Type = MessageFailed
 			} else {
-				event.SetRequestSuccess(d, envelope.request)
+				event.Type = MessageSent
 			}
 
 			close(envelope.complete)

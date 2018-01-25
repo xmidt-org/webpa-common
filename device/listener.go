@@ -101,40 +101,6 @@ type Event struct {
 	Error error
 }
 
-// Clear resets all fields in this Event.  This is most often in preparation to reuse the Event instance.
-func (e *Event) Clear() {
-	*e = blankEvent
-}
-
-// SetRequestFailed is a convenience for setting an Event appropriate for a message failure
-func (e *Event) SetRequestFailed(d Interface, r *Request, err error) {
-	e.Clear()
-	e.Type = MessageFailed
-	e.Device = d
-	e.Message = r.Message
-	e.Format = r.Format
-	e.Error = err
-}
-
-// SetRequestSuccess is a convenience for setting an Event appropriate for a message success
-func (e *Event) SetRequestSuccess(d Interface, r *Request) {
-	e.Clear()
-	e.Type = MessageSent
-	e.Device = d
-	e.Message = r.Message
-	e.Format = r.Format
-}
-
-// SetMessageReceived is a convenience for setting an Event appropriate for a message receipt
-func (e *Event) SetMessageReceived(d Interface, m *wrp.Message, f wrp.Format, c []byte) {
-	e.Clear()
-	e.Type = MessageReceived
-	e.Device = d
-	e.Message = m
-	e.Format = f
-	e.Contents = c
-}
-
 // Listener is an event sink.  Listeners should never modify events and should never
 // store events for later use.  If data from an event is needed for another goroutine
 // or for long-term storage, a copy should be made.
