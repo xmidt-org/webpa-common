@@ -21,4 +21,6 @@ var (
 	ErrorResponseNoContents           = errors.New("The response has no contents")
 	ErrorDeviceBusy                   = errors.New("That device is busy")
 	ErrorDeviceClosed                 = errors.New("That device has been closed")
+	ErrorTransactionsClosed           = errors.New("Transactions are closed for that device")
+	ErrorTransactionsAlreadyClosed    = errors.New("That Transactions is already closed")
 )
