@@ -701,3 +701,11 @@ func TestJWTValidatorFactory(t *testing.T) {
 		}
 	}
 }
+
+//A simple verification that a pointer function signature is used
+func TestDefineMeasures(t *testing.T) {
+	assert := assert.New(t)
+	a, m := JWTValidatorFactory{}, &JWTValidationMeasures{}
+	a.DefineMeasures(m)
+	assert.Equal(m, a.measures)
+}
