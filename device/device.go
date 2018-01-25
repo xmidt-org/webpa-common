@@ -134,6 +134,7 @@ func (d *device) MarshalJSON() ([]byte, error) {
 func (d *device) requestClose() {
 	if atomic.CompareAndSwapInt32(&d.state, stateOpen, stateClosed) {
 		close(d.shutdown)
+		d.transactions.Close()
 	}
 }
 

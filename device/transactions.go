@@ -151,6 +151,7 @@ func EncodeResponse(output http.ResponseWriter, response *Response, format wrp.F
 // concurrent access.
 type Transactions struct {
 	lock    sync.RWMutex
+	closed  bool
 	pending map[string]chan *Response
 }
 
@@ -162,15 +163,15 @@ func NewTransactions() *Transactions {
 
 // Len returns the count of pending transactions
 func (t *Transactions) Len() int {
-	t.lock.RLock()
 	defer t.lock.RUnlock()
+	t.lock.RLock()
 	return len(t.pending)
 }
 
 // Keys returns a slice containing the transaction keys that are pending
 func (t *Transactions) Keys() []string {
-	t.lock.RLock()
 	defer t.lock.RUnlock()
+	t.lock.RLock()
 
 	var (
 		keys     = make([]string, len(t.pending))
@@ -198,10 +199,10 @@ func (t *Transactions) Complete(transactionKey string, response *Response) error
 		panic("nil response")
 	}
 
+	defer t.lock.Unlock()
 	t.lock.Lock()
 	result, ok := t.pending[transactionKey]
 	delete(t.pending, transactionKey)
-	t.lock.Unlock()
 
 	if !ok {
 		return ErrorNoSuchTransactionKey
@@ -219,14 +220,36 @@ func (t *Transactions) Complete(transactionKey string, response *Response) error
 // This method is normally called by the same goroutine that calls Register to ensure that transactions
 // are cleaned up.
 func (t *Transactions) Cancel(transactionKey string) {
+	defer t.lock.Unlock()
 	t.lock.Lock()
+	if t.closed {
+		return
+	}
+
 	result, ok := t.pending[transactionKey]
 	delete(t.pending, transactionKey)
-	t.lock.Unlock()
 
 	if ok {
 		close(result)
 	}
+}
+
+// Close cancels all pending transactions and marks this Transactions so that no future Register calls will succeed.
+// Typically useful during a device disconnection to cleanup waiting goroutines.
+func (t *Transactions) Close() error {
+	defer t.lock.Unlock()
+	t.lock.Lock()
+	if t.closed {
+		return ErrorTransactionsAlreadyClosed
+	}
+
+	t.closed = true
+	for key, responses := range t.pending {
+		delete(t.pending, key)
+		close(responses)
+	}
+
+	return nil
 }
 
 // Register inserts a transaction key into the pending set and returns a channel that a Response
@@ -245,8 +268,11 @@ func (t *Transactions) Register(transactionKey string) (<-chan *Response, error)
 		return nil, ErrorInvalidTransactionKey
 	}
 
-	t.lock.Lock()
 	defer t.lock.Unlock()
+	t.lock.Lock()
+	if t.closed {
+		return nil, ErrorTransactionsClosed
+	}
 
 	if _, ok := t.pending[transactionKey]; ok {
 		return nil, ErrorTransactionAlreadyRegistered
