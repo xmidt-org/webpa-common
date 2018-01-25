@@ -17,19 +17,19 @@ import (
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 
-var (
-	authStatus = &wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized}
+var authStatus *websocket.PreparedMessage
 
-	// authStatusRequest is the device Request sent for a successful authorization.
-	authStatusRequest = Request{
-		Message: authStatus,
-		Contents: wrp.MustEncode(
-			authStatus,
-			wrp.Msgpack,
-		),
-		Format: wrp.Msgpack,
+func init() {
+	var err error
+	authStatus, err = websocket.NewPreparedMessage(
+		websocket.BinaryMessage,
+		wrp.MustEncode(&wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized}, wrp.Msgpack),
+	)
+
+	if err != nil {
+		panic(err)
 	}
-)
+}
 
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
@@ -338,7 +338,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			// TODO: This will keep the device from being garbage collected until the timer
 			// triggers.  This is only a problem if a device connects then disconnects faster
 			// than the authDelay setting.
-			d.Send(&authStatusRequest)
+			w.WritePreparedMessage(authStatus)
 		})
 	)
 
