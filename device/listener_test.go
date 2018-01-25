@@ -1,10 +1,8 @@
 package device
 
 import (
-	"errors"
 	"testing"
 
-	"github.com/Comcast/webpa-common/wrp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -33,62 +31,6 @@ func testEventString(t *testing.T) {
 	assert.Equal(InvalidEventString, EventType(255).String())
 }
 
-func testEventClear(t *testing.T, event Event) {
-	assert := assert.New(t)
-
-	event.Clear()
-	assert.Equal(EventType(0), event.Type)
-	assert.Nil(event.Device)
-	assert.Nil(event.Message)
-	assert.Equal(wrp.Msgpack, event.Format)
-	assert.Nil(event.Contents)
-	assert.Nil(event.Error)
-}
-
 func TestEvent(t *testing.T) {
-	t.Run("String", func(t *testing.T) {
-		testEventString(t)
-	})
-
-	var (
-		device = new(mockDevice)
-		events = []Event{
-			{},
-			{
-				Type:   Connect,
-				Device: device,
-			},
-			{
-				Type:   Disconnect,
-				Device: device,
-			},
-			{
-				Type:     MessageFailed,
-				Device:   device,
-				Message:  new(wrp.Message),
-				Contents: []byte("contents"),
-			},
-			{
-				Type:     MessageFailed,
-				Device:   device,
-				Message:  new(wrp.Message),
-				Contents: []byte("contents"),
-				Error:    errors.New("some random I/O problem"),
-			},
-			{
-				Type:     MessageReceived,
-				Device:   device,
-				Message:  new(wrp.Message),
-				Contents: []byte("contents"),
-			},
-		}
-	)
-
-	t.Run("Clear", func(t *testing.T) {
-		for _, original := range events {
-			testEventClear(t, original)
-		}
-	})
-
-	device.AssertExpectations(t)
+	t.Run("String", testEventString)
 }
