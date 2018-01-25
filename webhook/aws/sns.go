@@ -145,6 +145,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 	ss.debugLog = logging.Debug(logger)
 
 	ss.metrics = ApplyMetricsData(registry)
+	ss.snsNotificationReceivedChan = SNSNotificationReceivedInit()
 
 	ss.debugLog.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
 
