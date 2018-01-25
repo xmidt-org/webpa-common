@@ -2,6 +2,10 @@ package xhttp
 
 import (
 	"net/http"
+
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 // temporaryError is the expected interface for a (possibly) temporary error
@@ -27,7 +31,7 @@ func DefaultShouldRetry(err error) bool {
 // retries a certain number of times.
 //
 // If retryCount is nonpositive, next is returned undecorated.
-func RetryTransactor(retryCount int, shouldRetry ShouldRetryFunc, next func(*http.Request) (*http.Response, error)) func(*http.Request) (*http.Response, error) {
+func RetryTransactor(logger log.Logger, retryCount int, shouldRetry ShouldRetryFunc, next func(*http.Request) (*http.Response, error)) func(*http.Request) (*http.Response, error) {
 	if retryCount < 1 {
 		return next
 	}
@@ -45,9 +49,16 @@ func RetryTransactor(retryCount int, shouldRetry ShouldRetryFunc, next func(*htt
 
 		for i := 0; i < attempts; i++ {
 			response, err = next(request)
-			if err == nil || !shouldRetry(err) {
-				break
+			if err != nil && shouldRetry(err) {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), "error", err, "attempt", i+1)
+				continue
 			}
+
+			break
+		}
+
+		if err != nil {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), "error", err, "attempts", attempts)
 		}
 
 		return response, err

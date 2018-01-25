@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,7 +39,7 @@ func testRetryTransactorNoRetries(t *testing.T) {
 			return nil, nil
 		}
 
-		retry = RetryTransactor(0, nil, transactor)
+		retry = RetryTransactor(logging.NewTestLogger(nil, t), 0, nil, transactor)
 	)
 
 	require.NotNil(retry)
@@ -60,7 +61,7 @@ func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
 			return nil, expectedError
 		}
 
-		retry = RetryTransactor(retryCount, nil, transactor)
+		retry = RetryTransactor(logging.NewTestLogger(nil, t), retryCount, nil, transactor)
 	)
 
 	require.NotNil(retry)
@@ -84,7 +85,7 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 			return expectedResponse, nil
 		}
 
-		retry = RetryTransactor(retryCount, nil, transactor)
+		retry = RetryTransactor(logging.NewTestLogger(nil, t), retryCount, nil, transactor)
 	)
 
 	require.NotNil(retry)
