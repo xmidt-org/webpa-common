@@ -9,7 +9,9 @@ import (
 	"github.com/go-kit/kit/metrics"
 )
 
-// temporaryError is the expected interface for a (possibly) temporary error
+// temporaryError is the expected interface for a (possibly) temporary error.
+// Several of the error types in the net package implicitely implement this interface,
+// for example net.DNSError.
 type temporaryError interface {
 	Temporary() bool
 }
@@ -19,7 +21,8 @@ type temporaryError interface {
 type ShouldRetryFunc func(error) bool
 
 // DefaultShouldRetry is the default retry predicate.  It returns true if and only if err exposes a Temporary() bool
-// method and that method returns true.
+// method and that method returns true.  That means, for example, that for a net.DNSError with the temporary flag set to true
+// this predicate also returns true.
 func DefaultShouldRetry(err error) bool {
 	if temp, ok := err.(temporaryError); ok {
 		return temp.Temporary()
@@ -44,7 +47,8 @@ type RetryOptions struct {
 }
 
 // RetryTransactor returns an HTTP transactor function, of the same signature as http.Client.Do, that
-// retries a certain number of times.
+// retries a certain number of times.  Note that net/http.RoundTripper.RoundTrip also is of this signature,
+// so this decorator can be used with a RoundTripper or an http.Client equally well.
 //
 // If o.Retries is nonpositive, next is returned undecorated.
 func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, error)) func(*http.Request) (*http.Response, error) {
