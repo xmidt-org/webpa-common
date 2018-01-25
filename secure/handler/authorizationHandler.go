@@ -156,6 +156,11 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 	})
 }
 
+//DefineMeasures facilitates clients to define authHandler metrics tools
+func (a AuthorizationHandler) DefineMeasures(m *secure.JWTValidationMeasures) {
+	a.measures = m
+}
+
 func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID string) {
 	satClientID = "N/A"
 	if token.Type() == secure.Bearer {
