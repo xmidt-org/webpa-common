@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -26,9 +27,9 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
-	registry, handler := f.NewRegistryAndHandler()
-
-	f.Initialize(r, nil, handler, nil, nil, testNow)
+	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
+	registry, handler := f.NewRegistryAndHandler(metricsRegistry)
+	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -79,6 +80,7 @@ func TestNotifierReadyFlow(t *testing.T) {
 
 	f, _ := NewFactory(nil, nil)
 	f.Notifier = n
+	f.m = &monitor{}
 
 	testNotifierReady(t, m, mv, r, f)
 }
@@ -98,9 +100,9 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
-	_, handler := f.NewRegistryAndHandler()
-
-	f.Initialize(r, nil, handler, nil, nil, testNow)
+	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
+	_, handler := f.NewRegistryAndHandler(metricsRegistry)
+	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 

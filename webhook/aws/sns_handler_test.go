@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
@@ -92,7 +93,8 @@ func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mu
 
 	r := mux.NewRouter()
 	logger := logging.NewTestLogger(nil, t)
-	ss.Initialize(r, nil, nil, logger, nil, testNow)
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(r, nil, nil, logger, registry, testNow)
 
 	return ss, m, mv, r
 }
@@ -443,7 +445,8 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 	}
 
 	logger := logging.NewTestLogger(nil, t)
-	ss.Initialize(nil, nil, nil, logger, nil, testNow)
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(nil, nil, nil, logger, registry, testNow)
 
 	sub1 := &sns.Subscription{
 		Endpoint:        aws.String("http://host:port/sns/1503357402"),

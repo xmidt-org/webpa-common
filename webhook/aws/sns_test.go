@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -128,7 +129,8 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 		Host:   "host-test:port",
 	}
 
-	ss.Initialize(nil, selfUrl, nil, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)
@@ -147,7 +149,8 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 		Host:   "host-test:port",
 	}
 
-	ss.Initialize(nil, selfUrl, nil, nil, nil, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)

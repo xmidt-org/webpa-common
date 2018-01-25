@@ -116,11 +116,16 @@ func (ss *SNSServer) Subscribe() {
 
 	ss.debugLog.Log("subscribeParams", params)
 
+	failCounter := ss.metrics.SNSSubscribeAttempt.With("code", "failure")
+	okayCounter := ss.metrics.SNSSubscribeAttempt.With("code", "okay")
+	failCounter.Add(0.0)
+	okayCounter.Add(0.0)
+
 	resp, err := ss.SVC.Subscribe(params)
 	if err == nil {
-		ss.SNSSubscriptionAttemptCounter(1)
+		okayCounter.Add(1.0)
 	} else {
-		ss.SNSSubscriptionAttemptCounter(-1)
+		failCounter.Add(1.0)
 		attemptNum := 1
 		ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 		attemptNum++
@@ -136,10 +141,10 @@ func (ss *SNSServer) Subscribe() {
 
 			resp, err = ss.SVC.Subscribe(params)
 			if err != nil {
-				ss.SNSSubscriptionAttemptCounter(-1)
+				failCounter.Add(1.0)
 				ss.errorLog.Log(logging.MessageKey(), "SNS subscribe error", "attempt", attemptNum, logging.ErrorKey(), err)
 			} else {
-				ss.SNSSubscriptionAttemptCounter(1)
+				okayCounter.Add(1.0)
 				break
 			}
 

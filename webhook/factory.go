@@ -74,7 +74,7 @@ func NewFactory(v *viper.Viper, registry *xmetrics.Registry) (f *Factory, err er
 
 func (f *Factory) SetList(ul UpdatableList) {
 	f.m.list = ul
-	f.m.ReportListSize(f.m.list.Len())
+	f.m.metrics.ListSize.Set( float64(f.m.list.Len()) )
 }
 
 func (f *Factory) Prune(items []W) (list []W) {
@@ -89,7 +89,7 @@ func (f *Factory) Prune(items []W) (list []W) {
 
 // NewRegistryAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
+func (f *Factory) NewRegistryAndHandler(registry xmetrics.Registry) (Registry, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -103,6 +103,7 @@ func (f *Factory) NewRegistryAndHandler() (Registry, http.Handler) {
 	}
 	f.m = monitor
 	f.m.Notifier = f.Notifier
+	f.m.metrics = ApplyMetricsData(registry)
 
 	reg := NewRegistry(f.m)
 
@@ -124,7 +125,8 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
-	externalUpdate func([]W)
+	externalUpdate   func([]W)
+	metrics          WebhookMetrics
 }
 
 func (m *monitor) listen() {
@@ -166,10 +168,10 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 	}
 	if nil != err {
 		xhttp.WriteError(response, http.StatusBadRequest, "Notification Message JSON unmarshall failed")
-		m.SNSNotificationReceivedCounter(http.StatusBadRequest)
+		m.metrics.NotificationUnmarshallFailed.Add(1.0)
 		return
 	}
 	m.sendNewHooks([]W{*w})
 	
-	m.ReportListSize(m.list.Len())
+	m.metrics.ListSize.Set( float64(m.list.Len()) )
 }
