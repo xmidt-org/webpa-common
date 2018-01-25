@@ -25,7 +25,7 @@ func testNow() time.Time {
 func TestSubArnError(t *testing.T) {
 	n, m, _, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil, nil)
+	f, _ := NewFactory(nil)
 	f.Notifier = n
 
 	assert := assert.New(t)
@@ -73,7 +73,7 @@ func TestSubArnError(t *testing.T) {
 func TestNotificationBeforeInitialize(t *testing.T) {
 	n, _, _, r := AWS.SetUpTestNotifier()
 
-	f, _ := NewFactory(nil, nil)
+	f, _ := NewFactory(nil)
 	f.Notifier = n
 
 	assert := assert.New(t)
