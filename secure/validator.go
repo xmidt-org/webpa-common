@@ -202,6 +202,11 @@ func (f *JWTValidatorFactory) nbfLeeway() time.Duration {
 	return 0
 }
 
+//DefineMeasures helps establish the metrics tools
+func (f *JWTValidatorFactory) DefineMeasures(m *JWTValidationMeasures) {
+	f.measures = m
+}
+
 // New returns a jwt.Validator using the configuration expected claims (if any)
 // and a validator function that checks the exp and nbf claims.
 //
