@@ -108,9 +108,8 @@ func (w *W) sanitize(ip string) (err error) {
 		w.Address = host
 	}
 
-	if w.Duration <= 0 || w.Duration > DEFAULT_EXPIRATION_DURATION {
-		w.Duration = DEFAULT_EXPIRATION_DURATION
-	}
+	// always set duration to default
+	w.Duration = DEFAULT_EXPIRATION_DURATION
 
 	if &w.Until == nil || w.Until.Equal(time.Time{}) {
 		w.Until = time.Now().Add(w.Duration)
