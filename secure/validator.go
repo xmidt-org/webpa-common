@@ -138,9 +138,20 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	}
 
 	if nil != err {
-		//signature error
 		if v.measures != nil {
-			v.measures.ValidationReason.With("reason", "invalid_signature").Add(1)
+
+			//capture specific cases of interest, default to global (invalid_signature) reason
+			switch err {
+			case jwt.ErrTokenIsExpired:
+				v.measures.ValidationReason.With("reason", "expired_token").Add(1)
+				break
+			case jwt.ErrTokenNotYetValid:
+				v.measures.ValidationReason.With("reason", "premature_token").Add(1)
+				break
+
+			default:
+				v.measures.ValidationReason.With("reason", "invalid_signature").Add(1)
+			}
 		}
 		return
 	}
@@ -178,8 +189,8 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	return
 }
 
-//DefineMeasures defines the metrics tool used by JWSValidator
-func (v *JWSValidator) DefineMeasures(m *JWTValidationMeasures) {
+//defineMeasures defines the metrics tool used by JWSValidator
+func (v *JWSValidator) defineMeasures(m *JWTValidationMeasures) {
 	v.measures = m
 }
 
@@ -207,8 +218,8 @@ func (f *JWTValidatorFactory) nbfLeeway() time.Duration {
 	return 0
 }
 
-//DefineMeasures helps establish the metrics tools
-func (f *JWTValidatorFactory) DefineMeasures(m *JWTValidationMeasures) {
+//defineMeasures helps establish the metrics tools
+func (f *JWTValidatorFactory) defineMeasures(m *JWTValidationMeasures) {
 	f.measures = m
 }
 
@@ -263,21 +274,14 @@ func (f *JWTValidatorFactory) observeMeasures(claims jwt.Claims, now time.Time, 
 	//how far did we land from the NBF (in seconds): ie. -1 means 1 sec before, 1 means 1 sec after
 	if nbf, nbfPresent := claims.NotBefore(); nbfPresent {
 		nbf = nbf.Add(-nbfLeeway)
-		f.measures.NBFHistogram.WithLabelValues().Observe(nbf.Sub(now).Seconds())
+		offsetToNBF := now.Sub(nbf).Seconds()
+		f.measures.NBFHistogram.Observe(offsetToNBF)
 	}
 
 	//how far did we land from the EXP (in seconds): ie. -1 means 1 sec before, 1 means 1 sec after
 	if exp, expPresent := claims.Expiration(); expPresent {
 		exp = exp.Add(expLeeway)
-		f.measures.ExpHistogram.WithLabelValues().Observe(exp.Sub(now).Seconds())
-	}
-
-	switch err {
-	case jwt.ErrTokenIsExpired:
-		f.measures.ValidationReason.With("reason", "expired_token").Add(1)
-		break
-	case jwt.ErrTokenNotYetValid:
-		f.measures.ValidationReason.With("reason", "premature_token").Add(1)
-		break
+		offsetToEXP := now.Sub(exp).Seconds()
+		f.measures.ExpHistogram.Observe(offsetToEXP)
 	}
 }
