@@ -3,7 +3,7 @@ package secure
 import (
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
-	"github.com/prometheus/client_golang/prometheus"
+	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 )
 
 //Names for our metrics
@@ -39,16 +39,16 @@ func Metrics() []xmetrics.Metric {
 
 //JWTValidationMeasures describes the defined metrics that will be used by clients
 type JWTValidationMeasures struct {
-	NBFHistogram     prometheus.ObserverVec
-	ExpHistogram     prometheus.ObserverVec
+	NBFHistogram     *gokitprometheus.Histogram
+	ExpHistogram     *gokitprometheus.Histogram
 	ValidationReason metrics.Counter
 }
 
 //NewJWTValidationMeasures realizes desired metrics
 func NewJWTValidationMeasures(r xmetrics.Registry) *JWTValidationMeasures {
 	return &JWTValidationMeasures{
-		NBFHistogram:     r.NewHistogramVec(NBFHistogram),
-		ExpHistogram:     r.NewHistogramVec(EXPHistogram),
+		NBFHistogram:     gokitprometheus.NewHistogram(r.NewHistogramVec(NBFHistogram)),
+		ExpHistogram:     gokitprometheus.NewHistogram(r.NewHistogramVec(EXPHistogram)),
 		ValidationReason: r.NewCounter(JWTValidationReasonCounter),
 	}
 }
