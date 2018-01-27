@@ -189,8 +189,8 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 	return
 }
 
-//defineMeasures defines the metrics tool used by JWSValidator
-func (v *JWSValidator) defineMeasures(m *JWTValidationMeasures) {
+//DefineMeasures defines the metrics tool used by JWSValidator
+func (v *JWSValidator) DefineMeasures(m *JWTValidationMeasures) {
 	v.measures = m
 }
 
@@ -218,8 +218,8 @@ func (f *JWTValidatorFactory) nbfLeeway() time.Duration {
 	return 0
 }
 
-//defineMeasures helps establish the metrics tools
-func (f *JWTValidatorFactory) defineMeasures(m *JWTValidationMeasures) {
+//DefineMeasures helps establish the metrics tools
+func (f *JWTValidatorFactory) DefineMeasures(m *JWTValidationMeasures) {
 	f.measures = m
 }
 
