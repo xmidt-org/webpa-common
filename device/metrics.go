@@ -8,6 +8,7 @@ import (
 
 const (
 	DeviceCounter          = "device_count"
+	DuplicatesCounter      = "duplicate_count"
 	RequestResponseCounter = "request_response_count"
 	PingCounter            = "ping_count"
 	PongCounter            = "pong_count"
@@ -21,6 +22,10 @@ func Metrics() []xmetrics.Metric {
 		xmetrics.Metric{
 			Name: DeviceCounter,
 			Type: "gauge",
+		},
+		xmetrics.Metric{
+			Name: DuplicatesCounter,
+			Type: "counter",
 		},
 		xmetrics.Metric{
 			Name: RequestResponseCounter,
@@ -48,6 +53,7 @@ func Metrics() []xmetrics.Metric {
 // Measures is a convenient struct that holds all the device-related metric objects for runtime consumption.
 type Measures struct {
 	Device          metrics.Gauge
+	Duplicates      metrics.Counter
 	RequestResponse metrics.Counter
 	Ping            metrics.Counter
 	Pong            metrics.Counter
