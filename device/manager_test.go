@@ -153,28 +153,6 @@ func testManagerConnectVisit(t *testing.T) {
 	}
 
 	assert.Equal(len(testDeviceIDs), deviceSet.len())
-
-	deviceSet.reset()
-	assert.Zero(manager.VisitIf(
-		func(ID) bool { return false },
-		deviceSet.managerCapture(),
-	))
-
-	assert.Empty(deviceSet)
-
-	for _, id := range testDeviceIDs {
-		deviceSet.reset()
-		assert.Equal(
-			1,
-			manager.VisitIf(
-				func(candidate ID) bool { return candidate == id },
-				deviceSet.managerCapture(),
-			),
-		)
-
-		deviceSet.assertSameID(assert, id)
-	}
-
 	deviceSet.reset()
 	manager.VisitAll(deviceSet.managerCapture())
 	assert.Equal(len(testDeviceIDs), deviceSet.len())
@@ -328,8 +306,8 @@ func testManagerRouteNonUniqueID(t *testing.T) {
 		manager = NewManager(nil).(*manager)
 	)
 
-	manager.registry.add(device1)
-	manager.registry.add(device2)
+	manager.devices.add(device1.id, func() (*device, error) { return device1, nil })
+	manager.devices.add(device2.id, func() (*device, error) { return device2, nil })
 
 	response, err := manager.Route(request)
 	assert.Nil(response)

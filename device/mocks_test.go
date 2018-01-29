@@ -38,8 +38,8 @@ func (m *mockDevice) Pending() int {
 	return m.Called().Int(0)
 }
 
-func (m *mockDevice) RequestClose() {
-	m.Called()
+func (m *mockDevice) Close() error {
+	return m.Called().Error(0)
 }
 
 func (m *mockDevice) Closed() bool {
