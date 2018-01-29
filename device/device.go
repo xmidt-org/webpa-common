@@ -131,11 +131,13 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	return output.Bytes(), err
 }
 
-func (d *device) requestClose() {
+func (d *device) requestClose() error {
 	if atomic.CompareAndSwapInt32(&d.state, stateOpen, stateClosed) {
 		close(d.shutdown)
 		d.transactions.Close()
 	}
+
+	return nil
 }
 
 func (d *device) ID() ID {

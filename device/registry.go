@@ -1,124 +1,135 @@
 package device
 
 import (
-	"fmt"
-	"math"
+	"errors"
 	"sync"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 )
+
+var errDeviceLimitReached = errors.New("Device limit reached")
+
+type registryOptions struct {
+	Logger          log.Logger
+	Limit           int
+	InitialCapacity int
+	Measures        Measures
+}
 
 // registry is the internal lookup map for devices.  it is bounded by an optional maximum number
 // of connected devices.
 type registry struct {
-	lock    sync.RWMutex
-	limit   uint32
-	devices map[ID]*device
+	logger log.Logger
+	lock   sync.RWMutex
+	limit  int
+	data   map[ID]*device
+
+	count      metrics.Gauge
+	connect    metrics.Counter
+	disconnect metrics.Counter
+	duplicates metrics.Counter
 }
 
-func newRegistry(initialCapacity, maxDevices uint32) *registry {
-	if maxDevices == 0 {
-		maxDevices = math.MaxUint32
+func newRegistry(o registryOptions) *registry {
+	if o.InitialCapacity < 1 {
+		o.InitialCapacity = 10
 	}
 
 	return &registry{
-		devices: make(map[ID]*device, initialCapacity),
-		limit:   maxDevices,
+		logger:     o.Logger,
+		data:       make(map[ID]*device, o.InitialCapacity),
+		limit:      o.Limit,
+		count:      o.Measures.Device,
+		connect:    o.Measures.Connect,
+		disconnect: o.Measures.Disconnect,
+		duplicates: o.Measures.Duplicates,
 	}
 }
 
-func (r *registry) maxDevices() uint32 {
-	return r.limit
-}
-
-func (r *registry) add(d *device) (*device, int, error) {
+// add uses a factory function to create a new device atomically with modifying
+// the registry
+func (r *registry) add(id ID, f func() (*device, error)) (*device, error) {
+	defer r.lock.Unlock()
 	r.lock.Lock()
 
-	var (
-		existing = r.devices[d.id]
-		failed   = false
-		err      error
-	)
-
-	// if there is an existing device, it will be replaced so the count won't go up
-	// if there is NOT an existing device, the count will go up by one and that must be within the limit
-	if existing != nil || uint32(len(r.devices)+1) <= r.limit {
-		r.devices[d.id] = d
-	} else {
-		failed = true
+	existing := r.data[id]
+	if existing == nil && r.limit > 0 && (len(r.data)+1) >= r.limit {
+		// adding this would result in exceeding the limit
+		return nil, errDeviceLimitReached
 	}
 
-	deviceCount := len(r.devices)
-	r.lock.Unlock()
-
-	if failed {
-		err = fmt.Errorf("Maximum count of devices exceeded [%d]", r.limit)
+	newDevice, err := f()
+	if err != nil {
+		return nil, err
 	}
 
-	return existing, deviceCount, err
+	// at this point, the various pumps should be up and running for the new device,
+	// but the device is not addressable from the outside yet.
+	r.data[id] = newDevice
+
+	if existing != nil {
+		r.disconnect.Add(1.0)
+		r.duplicates.Add(1.0)
+		newDevice.Statistics().AddDuplications(existing.Statistics().Duplications() + 1)
+		existing.requestClose()
+	}
+
+	r.connect.Add(1.0)
+	r.count.Set(float64(len(r.data)))
+	return newDevice, nil
 }
 
-func (r *registry) remove(d *device) int {
+func (r *registry) remove(id ID) (*device, bool) {
+	defer r.lock.Unlock()
 	r.lock.Lock()
-	delete(r.devices, d.id)
-	deviceCount := len(r.devices)
-	r.lock.Unlock()
 
-	return deviceCount
-}
-
-func (r *registry) removeID(id ID) (*device, bool) {
-	r.lock.Lock()
-	existing, ok := r.devices[id]
-	delete(r.devices, id)
-	r.lock.Unlock()
+	existing, ok := r.data[id]
+	if ok {
+		delete(r.data, id)
+		r.disconnect.Add(1.0)
+		r.count.Add(-1.0)
+		existing.requestClose()
+	}
 
 	return existing, ok
 }
 
-func (r *registry) removeIf(filter func(ID) bool, visitor func(*device)) int {
+func (r *registry) removeIf(f func(d *device) bool) int {
 	defer r.lock.Unlock()
 	r.lock.Lock()
 
 	count := 0
-	for id, candidate := range r.devices {
-		if filter(id) {
+	for id, d := range r.data {
+		if f(d) {
+			delete(r.data, id)
 			count++
-			delete(r.devices, id)
-			visitor(candidate)
+			d.requestClose()
 		}
+	}
+
+	if count > 0 {
+		r.disconnect.Add(float64(count))
+		r.count.Set(float64(len(r.data)))
 	}
 
 	return count
 }
 
-func (r *registry) visitAll(visitor func(*device)) int {
+func (r *registry) visit(f func(d *device)) int {
 	defer r.lock.RUnlock()
 	r.lock.RLock()
 
-	for _, d := range r.devices {
-		visitor(d)
+	for _, d := range r.data {
+		f(d)
 	}
 
-	return len(r.devices)
-}
-
-func (r *registry) visitIf(filter func(ID) bool, visitor func(*device)) int {
-	defer r.lock.RUnlock()
-	r.lock.RLock()
-
-	count := 0
-	for id, candidate := range r.devices {
-		if filter(id) {
-			count++
-			visitor(candidate)
-		}
-	}
-
-	return count
+	return len(r.data)
 }
 
 func (r *registry) get(id ID) (*device, bool) {
 	r.lock.RLock()
-	existing, ok := r.devices[id]
+	existing, ok := r.data[id]
 	r.lock.RUnlock()
 
 	return existing, ok
