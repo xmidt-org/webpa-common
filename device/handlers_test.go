@@ -608,13 +608,14 @@ func testListHandlerServeHTTP(t *testing.T) {
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 47913 * time.Minute
 		registry            = new(mockRegistry)
+		logger              = logging.NewTestLogger(nil, t)
 
 		now = func() time.Time {
 			return expectedConnectedAt.Add(expectedUpTime)
 		}
 
-		firstDevice  = newDevice(ID("firat"), 1, expectedConnectedAt, nil)
-		secondDevice = newDevice(ID("second"), 1, expectedConnectedAt, nil)
+		firstDevice  = newDevice(deviceOptions{ID: ID("firat"), QueueSize: 1, ConnectedAt: expectedConnectedAt, Logger: logger})
+		secondDevice = newDevice(deviceOptions{ID: ID("second"), QueueSize: 1, ConnectedAt: expectedConnectedAt, Logger: logger})
 
 		handler = ListHandler{
 			Logger:   logging.NewTestLogger(nil, t),

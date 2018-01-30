@@ -158,7 +158,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	d, err := m.devices.add(id, func() (*device, error) {
 		var (
-			d   = newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
+			d   = newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
 			err = m.startPumps(d, response, request, responseHeader)
 		)
 
@@ -167,6 +167,13 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	if err != nil {
 		m.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to connect device", "id", id, logging.ErrorKey(), err)
+	} else {
+		m.dispatch(
+			&Event{
+				Type:   Connect,
+				Device: d,
+			},
+		)
 	}
 
 	return d, err
@@ -331,11 +338,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			w.WritePreparedMessage(authStatus)
 		})
 	)
-
-	m.dispatch(&Event{
-		Type:   Connect,
-		Device: d,
-	})
 
 	// cleanup: we not only ensure that the device and connection are closed but also
 	// ensure that any messages that were waiting and/or failed are dispatched to
