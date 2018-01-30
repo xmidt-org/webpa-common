@@ -68,6 +68,7 @@ func NewMeasures(p provider.Provider) Measures {
 		RequestResponse: p.NewCounter(RequestResponseCounter),
 		Ping:            p.NewCounter(PingCounter),
 		Pong:            p.NewCounter(PongCounter),
+		Duplicates:      p.NewCounter(DuplicatesCounter),
 		Connect:         p.NewCounter(ConnectCounter),
 		Disconnect:      p.NewCounter(DisconnectCounter),
 	}

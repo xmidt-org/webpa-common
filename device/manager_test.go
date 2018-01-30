@@ -1,7 +1,6 @@
 package device
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -88,7 +87,7 @@ func testManagerConnectMissingDeviceContext(t *testing.T) {
 	assert.Equal(response.Code, http.StatusInternalServerError)
 }
 
-func testManagerConnectConnectionFactoryError(t *testing.T) {
+func testManagerConnectUpgradeError(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		options = &Options{
@@ -104,12 +103,11 @@ func testManagerConnectConnectionFactoryError(t *testing.T) {
 		response       = httptest.NewRecorder()
 		request        = WithIDRequest(ID("mac:123412341234"), httptest.NewRequest("POST", "http://localhost.com", nil))
 		responseHeader http.Header
-		expectedError  = errors.New("expected error")
 	)
 
 	device, actualError := manager.Connect(response, request, responseHeader)
 	assert.Nil(device)
-	assert.Equal(expectedError, actualError)
+	assert.Error(actualError)
 }
 
 func testManagerConnectVisit(t *testing.T) {
@@ -192,7 +190,7 @@ func testManagerDisconnect(t *testing.T) {
 	connectWait.Wait()
 	assert.Zero(manager.Disconnect(ID("nosuch")))
 	for _, id := range testDeviceIDs {
-		assert.Equal(1, manager.Disconnect(id))
+		assert.Equal(true, manager.Disconnect(id))
 	}
 
 	disconnectWait.Wait()
@@ -290,45 +288,18 @@ func testManagerRouteDeviceNotFound(t *testing.T) {
 	assert.Equal(ErrorDeviceNotFound, err)
 }
 
-func testManagerRouteNonUniqueID(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		request = &Request{
-			Message: &wrp.Message{
-				Destination: "mac:112233445566",
-			},
-		}
-
-		logger  = logging.NewTestLogger(nil, t)
-		device1 = newDevice(ID("mac:112233445566"), 1, time.Now(), logger)
-		device2 = newDevice(ID("mac:112233445566"), 1, time.Now(), logger)
-
-		manager = NewManager(nil).(*manager)
-	)
-
-	manager.devices.add(device1.id, func() (*device, error) { return device1, nil })
-	manager.devices.add(device2.id, func() (*device, error) { return device2, nil })
-
-	response, err := manager.Route(request)
-	assert.Nil(response)
-	assert.Equal(ErrorNonUniqueID, err)
-}
-
 func TestManager(t *testing.T) {
-	/*
-			t.Run("Connect", func(t *testing.T) {
-				t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
-				t.Run("ConnectionFactoryError", testManagerConnectConnectionFactoryError)
-				t.Run("Visit", testManagerConnectVisit)
-			})
+	t.Run("Connect", func(t *testing.T) {
+		t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
+		t.Run("UpgradeError", testManagerConnectUpgradeError)
+		t.Run("Visit", testManagerConnectVisit)
+	})
 
-			t.Run("Route", func(t *testing.T) {
-				t.Run("BadDestination", testManagerRouteBadDestination)
-				t.Run("DeviceNotFound", testManagerRouteDeviceNotFound)
-				t.Run("NonUniqueID", testManagerRouteNonUniqueID)
-			})
+	t.Run("Route", func(t *testing.T) {
+		t.Run("BadDestination", testManagerRouteBadDestination)
+		t.Run("DeviceNotFound", testManagerRouteDeviceNotFound)
+	})
 
-		t.Run("Disconnect", testManagerDisconnect)
-	*/
+	t.Run("Disconnect", testManagerDisconnect)
 	t.Run("DisconnectIf", testManagerDisconnectIf)
 }
