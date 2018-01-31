@@ -139,7 +139,7 @@ func NewCollector(m Metric) (prometheus.Collector, error) {
 }
 
 // Merger is the strategy for merging metrics from various sources.  It applies a configurable default
-// namespace and subsystem to each metric.  This type implements a Fluid Interface which tracks the first
+// namespace and subsystem to each metric.  This type implements a Fluent Interface which tracks the first
 // error encountered.
 type Merger struct {
 	defaultNamespace string

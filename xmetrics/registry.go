@@ -226,7 +226,7 @@ func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 		DefaultNamespace(o.namespace()).
 		DefaultSubsystem(o.subsystem()).
 		AddModules(false, modules...).
-		AddMetrics(true, o.metrics())
+		AddModules(true, o.Module)
 
 	if merger.Err() != nil {
 		return nil, merger.Err()
