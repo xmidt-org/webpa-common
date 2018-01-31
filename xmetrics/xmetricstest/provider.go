@@ -22,19 +22,19 @@ type Provider interface {
 
 	// AssertValue asserts that a given metric has a value.  The metric must implement the xmetrics.Valuer interface,
 	// which is the case for both counters and gauges.
-	AssertValue(testingT, string, float64) bool
+	AssertValue(testingT, string, float64) (xmetrics.Valuer, bool)
 
 	// ExpectValue sets an expectation for a metric having a specific value.  This expectation can be checked
 	// with AssertExpectations.
 	ExpectValue(testingT, string, float64) Provider
 
 	AssertCounter(testingT, string) *generic.Counter
-	AssertCounterValue(testingT, string, float64) *generic.Counter
+	AssertCounterValue(testingT, string, float64) (*generic.Counter, bool)
 	ExpectCounter(string) Provider
 	ExpectCounterValue(string, float64) Provider
 
 	AssertGauge(testingT, string) *generic.Gauge
-	AssertGaugeValue(testingT, string, float64) *generic.Gauge
+	AssertGaugeValue(testingT, string, float64) (*generic.Gauge, bool)
 	ExpectGauge(string) Provider
 	ExpectGaugeValue(string, float64) Provider
 
@@ -77,22 +77,32 @@ type testProvider struct {
 	expectations []func(t testingT) bool
 }
 
-func (tp *testProvider) AssertValue(t testingT, name string, expected float64) bool {
-	defer tp.lock.Unlock()
-	tp.lock.Lock()
-
+// assertMetric attempts to fetch a metric with the given name and returns the metric instance
+// along with a flag indicating success.
+func (tp *testProvider) assertMetric(t testingT, name string) (interface{}, bool) {
 	e, ok := tp.metrics[name]
 	if !ok {
 		t.Errorf("no such metric: %s", name)
-		return false
+	}
+
+	return e, ok
+}
+
+func (tp *testProvider) assertValuer(t testingT, name string) xmetrics.Valuer {
+	e, ok := tp.assertMetric(t, name)
+	if !ok {
+		return nil
 	}
 
 	v, ok := e.(xmetrics.Valuer)
 	if !ok {
-		t.Errorf("existing metric does not expose a value (i.e. is not a counter or a gauge): %s", name)
-		return false
+		t.Errorf("existing metric %s does not expose a value (it is not a counter or a gauge)", name)
 	}
 
+	return v
+}
+
+func (tp *testProvider) assertValue(t testingT, name string, v xmetrics.Valuer, expected float64) bool {
 	actual := v.Value()
 	if expected != actual {
 		t.Errorf("metric %s does not have the expected value %f.  actual value: %f", name, expected, actual)
@@ -102,12 +112,30 @@ func (tp *testProvider) AssertValue(t testingT, name string, expected float64) b
 	return true
 }
 
+func (tp *testProvider) AssertValue(t testingT, name string, expected float64) (xmetrics.Valuer, bool) {
+	defer tp.lock.Unlock()
+	tp.lock.Lock()
+
+	v := tp.assertValuer(t, name)
+	if v != nil {
+		ok := tp.assertValue(t, name, v, expected)
+		return v, ok
+	}
+
+	return nil, false
+}
+
 func (tp *testProvider) ExpectValue(t testingT, name string, expected float64) Provider {
 	defer tp.lock.Unlock()
 	tp.lock.Lock()
 
 	tp.expectations = append(tp.expectations, func(t testingT) bool {
-		return tp.AssertValue(t, name, expected)
+		v := tp.assertValuer(t, name)
+		if v != nil {
+			return tp.assertValue(t, name, v, expected)
+		}
+
+		return false
 	})
 
 	return tp
@@ -122,7 +150,7 @@ func (tp *testProvider) NewCounter(name string) metrics.Counter {
 			return c
 		}
 
-		panic(fmt.Errorf("existing metric %s is not a counter", name))
+		panic(fmt.Errorf("metric %s is not a counter", name))
 	}
 
 	c := generic.NewCounter(name)
@@ -130,34 +158,42 @@ func (tp *testProvider) NewCounter(name string) metrics.Counter {
 	return c
 }
 
-func (tp *testProvider) AssertCounter(t testingT, name string) *generic.Counter {
-	defer tp.lock.Unlock()
-	tp.lock.Lock()
-
-	e, ok := tp.metrics[name]
+func (tp *testProvider) assertCounter(t testingT, name string) *generic.Counter {
+	e, ok := tp.assertMetric(t, name)
 	if !ok {
-		t.Errorf("expected counter not present: %s", name)
 		return nil
 	}
 
 	c, ok := e.(*generic.Counter)
 	if !ok {
 		t.Errorf("metric %s is not a counter", name)
-		return nil
 	}
 
 	return c
 }
 
-func (tp *testProvider) AssertCounterValue(t testingT, name string, expected float64) *generic.Counter {
-	c := tp.AssertCounter(t, name)
+func (tp *testProvider) assertCounterValue(t testingT, name string, expected float64) (*generic.Counter, bool) {
+	c := tp.assertCounter(t, name)
 	if c != nil {
-		actual := c.Value()
-		t.Errorf("counter %s does not have the expected value %f.  actual value: %f", name, expected, actual)
-		return nil
+		ok := tp.assertValue(t, name, c, expected)
+		return c, ok
 	}
 
-	return c
+	return nil, false
+}
+
+func (tp *testProvider) AssertCounter(t testingT, name string) *generic.Counter {
+	defer tp.lock.Unlock()
+	tp.lock.Lock()
+
+	return tp.assertCounter(t, name)
+}
+
+func (tp *testProvider) AssertCounterValue(t testingT, name string, expected float64) (*generic.Counter, bool) {
+	defer tp.lock.Unlock()
+	tp.lock.Lock()
+
+	return tp.assertCounterValue(t, name, expected)
 }
 
 func (tp *testProvider) ExpectCounter(name string) Provider {
@@ -165,7 +201,7 @@ func (tp *testProvider) ExpectCounter(name string) Provider {
 	tp.lock.Lock()
 
 	tp.expectations = append(tp.expectations, func(t testingT) bool {
-		return tp.AssertCounter(t, name) != nil
+		return tp.assertCounter(t, name) != nil
 	})
 
 	return tp
@@ -176,10 +212,35 @@ func (tp *testProvider) ExpectCounterValue(name string, expected float64) Provid
 	tp.lock.Lock()
 
 	tp.expectations = append(tp.expectations, func(t testingT) bool {
-		return tp.AssertCounterValue(t, name, expected) != nil
+		_, ok := tp.assertCounterValue(t, name, expected)
+		return ok
 	})
 
 	return tp
+}
+
+func (tp *testProvider) assertGauge(t testingT, name string) *generic.Gauge {
+	e, ok := tp.assertMetric(t, name)
+	if !ok {
+		return nil
+	}
+
+	g, ok := e.(*generic.Gauge)
+	if !ok {
+		t.Errorf("metric %s is not a gauge", name)
+	}
+
+	return g
+}
+
+func (tp *testProvider) assertGaugeValue(t testingT, name string, expected float64) (*generic.Gauge, bool) {
+	g := tp.assertGauge(t, name)
+	if g != nil {
+		ok := tp.assertValue(t, name, g, expected)
+		return g, ok
+	}
+
+	return nil, false
 }
 
 func (tp *testProvider) NewGauge(name string) metrics.Gauge {
@@ -203,30 +264,14 @@ func (tp *testProvider) AssertGauge(t testingT, name string) *generic.Gauge {
 	defer tp.lock.Unlock()
 	tp.lock.Lock()
 
-	e, ok := tp.metrics[name]
-	if !ok {
-		t.Errorf("expected gauge not present: %s", name)
-		return nil
-	}
-
-	g, ok := e.(*generic.Gauge)
-	if !ok {
-		t.Errorf("metric %s is not a gauge", name)
-		return nil
-	}
-
-	return g
+	return tp.assertGauge(t, name)
 }
 
-func (tp *testProvider) AssertGaugeValue(t testingT, name string, expected float64) *generic.Gauge {
-	g := tp.AssertGauge(t, name)
-	if g != nil {
-		actual := g.Value()
-		t.Errorf("gauge %s does not have the expected value %f.  actual value: %f", name, expected, actual)
-		return nil
-	}
+func (tp *testProvider) AssertGaugeValue(t testingT, name string, expected float64) (*generic.Gauge, bool) {
+	defer tp.lock.Unlock()
+	tp.lock.Lock()
 
-	return g
+	return tp.assertGaugeValue(t, name, expected)
 }
 
 func (tp *testProvider) ExpectGauge(name string) Provider {
@@ -234,7 +279,7 @@ func (tp *testProvider) ExpectGauge(name string) Provider {
 	tp.lock.Lock()
 
 	tp.expectations = append(tp.expectations, func(t testingT) bool {
-		return tp.AssertGauge(t, name) != nil
+		return tp.assertGauge(t, name) != nil
 	})
 
 	return tp
@@ -245,7 +290,8 @@ func (tp *testProvider) ExpectGaugeValue(name string, expected float64) Provider
 	tp.lock.Lock()
 
 	tp.expectations = append(tp.expectations, func(t testingT) bool {
-		return tp.AssertGaugeValue(t, name, expected) != nil
+		_, ok := tp.assertGaugeValue(t, name, expected)
+		return ok
 	})
 
 	return tp
@@ -260,7 +306,7 @@ func (tp *testProvider) NewHistogram(name string, buckets int) metrics.Histogram
 			return h
 		}
 
-		panic(fmt.Errorf("existing metric %s is not a histogram", name))
+		panic(fmt.Errorf("metric %s is not a histogram", name))
 	}
 
 	h := generic.NewHistogram(name, buckets)
@@ -268,23 +314,25 @@ func (tp *testProvider) NewHistogram(name string, buckets int) metrics.Histogram
 	return h
 }
 
+func (tp *testProvider) assertHistogram(t testingT, name string) *generic.Histogram {
+	e, ok := tp.assertMetric(t, name)
+	if !ok {
+		return nil
+	}
+
+	g, ok := e.(*generic.Histogram)
+	if !ok {
+		t.Errorf("metric %s is not a histogram", name)
+	}
+
+	return g
+}
+
 func (tp *testProvider) AssertHistogram(t testingT, name string) *generic.Histogram {
 	defer tp.lock.Unlock()
 	tp.lock.Lock()
 
-	e, ok := tp.metrics[name]
-	if !ok {
-		t.Errorf("expected histogram not present: %s", name)
-		return nil
-	}
-
-	h, ok := e.(*generic.Histogram)
-	if !ok {
-		t.Errorf("metric %s is not a histogram", name)
-		return nil
-	}
-
-	return h
+	return tp.assertHistogram(t, name)
 }
 
 func (tp *testProvider) ExpectHistogram(name string) Provider {
@@ -292,7 +340,7 @@ func (tp *testProvider) ExpectHistogram(name string) Provider {
 	tp.lock.Lock()
 
 	tp.expectations = append(tp.expectations, func(t testingT) bool {
-		return tp.AssertHistogram(t, name) != nil
+		return tp.assertHistogram(t, name) != nil
 	})
 
 	return tp
