@@ -222,7 +222,9 @@ func (r *registry) Stop() {
 // present in the options will override any corresponding metric from modules.
 func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 	// merge all the metrics, allowing options to override modules
-	merger := NewMerger(o.namespace(), o.subsystem()).
+	merger := NewMerger().
+		DefaultNamespace(o.namespace()).
+		DefaultSubsystem(o.subsystem()).
 		AddModules(false, modules...).
 		AddMetrics(true, o.metrics())
 
