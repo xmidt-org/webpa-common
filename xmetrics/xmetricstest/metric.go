@@ -8,12 +8,12 @@ import (
 	"github.com/go-kit/kit/metrics/generic"
 )
 
-// NewGeneric creates the appropriate go-kit metrics/generic metric from the
+// NewMetric creates the appropriate go-kit metrics/generic metric from the
 // supplied descriptor.  Both summaries and histograms result in *generic.Histogram instances.
 // If the returned error is nil, the returned metric will always be one of the metrics/generic types.
 //
 // Only the metric Name is used.  Namespace and subsystem are not applied by this factory function.
-func NewGeneric(m xmetrics.Metric) (interface{}, error) {
+func NewMetric(m xmetrics.Metric) (interface{}, error) {
 	if len(m.Name) == 0 {
 		return nil, errors.New("A name is required for a metric")
 	}
