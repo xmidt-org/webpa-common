@@ -290,7 +290,7 @@ func testRegistryDuplicate(t *testing.T) {
 					},
 					Metric{
 						Name: "duplicate",
-						Type: "counter",
+						Type: "gauge",
 					},
 				},
 			}

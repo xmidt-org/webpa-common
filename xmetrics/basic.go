@@ -23,3 +23,14 @@ type AddSetter interface {
 type Observer interface {
 	Observe(float64)
 }
+
+// Valuer is implemented by metrics which can expose their current value.  A couple of go-kit's metrics/generic types implement this interface.
+type Valuer interface {
+	Value() float64
+}
+
+// LabelValuer is implemented by metrics which expose what their label values are.
+// All of go-kit's metrics/generic types implement this interface.
+type LabelValuer interface {
+	LabelValues() []string
+}

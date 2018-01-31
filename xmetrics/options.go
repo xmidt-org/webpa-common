@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	DefaultNamespace = "global"
-	DefaultSubsystem = "development"
+	DefaultNamespace = "test"
+	DefaultSubsystem = "test"
 )
 
 // Options is the configurable options for creating a Prometheus registry
