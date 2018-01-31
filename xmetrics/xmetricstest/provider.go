@@ -55,7 +55,9 @@ type Provider interface {
 // Additionally, it may also be used to set expectations and do assertions on the recorded metrics.
 // At this time, label values *are not supported*.
 //
-// If this function is unable to merge configuration into a Provider, it panics.
+// If this function is unable to merge configuration into a Provider, it panics.  The Provider will
+// be usable if no options or modules are passed.  Passing configuration is only necessary if the
+// actual production configuration is being tested.
 func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 	merger := xmetrics.NewMerger().
 		Namer(func(_, _ string, name string) string { return name }).
