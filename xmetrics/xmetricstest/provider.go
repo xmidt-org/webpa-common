@@ -68,9 +68,20 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 		panic(merger.Err())
 	}
 
-	return &testProvider{
+	tp := &testProvider{
 		metrics: make(map[string]interface{}),
 	}
+
+	for name, metric := range merger.Merged() {
+		e, err := NewMetric(metric)
+		if err != nil {
+			panic(err)
+		}
+
+		tp.metrics[name] = e
+	}
+
+	return tp
 }
 
 type testProvider struct {
