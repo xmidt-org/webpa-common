@@ -6,6 +6,7 @@ import (
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func testNewProviderDefault(t *testing.T) {
@@ -345,8 +346,29 @@ func testProviderExpectValue(t *testing.T) {
 	})
 }
 
+func testProviderAssertCounter(t *testing.T) {
+	t.Run("Preregistered", func(t *testing.T) {
+		var (
+			assert   = assert.New(t)
+			require  = require.New(t)
+			testingT = new(mockTestingT)
+			provider = exampleProvider()
+		)
+
+		c := provider.NewCounter("counter")
+		require.NotNil(c)
+
+		assert.True(c == provider.AssertCounter(testingT, "counter"))
+		testingT.AssertNumberOfCalls(t, "Errorf", 0)
+
+		assert.Nil(provider.AssertCounter(testingT, "gauge"))
+		testingT.AssertExpectations(t)
+	})
+}
+
 func TestProvider(t *testing.T) {
 	t.Run("AssertValue", testProviderAssertValue)
 	t.Run("ExpectValue", testProviderExpectValue)
 	t.Run("NewCounter", testProviderNewCounter)
+	t.Run("AssertCounter", testProviderAssertCounter)
 }
