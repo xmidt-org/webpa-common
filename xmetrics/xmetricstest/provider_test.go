@@ -347,6 +347,23 @@ func testProviderExpectValue(t *testing.T) {
 }
 
 func testProviderAssertCounter(t *testing.T) {
+	t.Run("DoesNotExist", func(t *testing.T) {
+		var (
+			assert   = assert.New(t)
+			require  = require.New(t)
+			testingT = new(mockTestingT)
+			provider = exampleProvider()
+		)
+
+		c := provider.NewCounter("counter")
+		require.NotNil(c)
+
+		testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
+
+		assert.Nil(provider.AssertCounter(testingT, "doesnotexist"))
+		testingT.AssertExpectations(t)
+	})
+
 	t.Run("Preregistered", func(t *testing.T) {
 		var (
 			assert   = assert.New(t)
@@ -357,6 +374,8 @@ func testProviderAssertCounter(t *testing.T) {
 
 		c := provider.NewCounter("counter")
 		require.NotNil(c)
+
+		testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
 
 		assert.True(c == provider.AssertCounter(testingT, "counter"))
 		testingT.AssertNumberOfCalls(t, "Errorf", 0)
