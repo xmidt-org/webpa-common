@@ -220,6 +220,129 @@ func testProviderAssertValue(t *testing.T) {
 }
 
 func testProviderExpectValue(t *testing.T) {
+	t.Run("DoesNotExist", func(t *testing.T) {
+		var (
+			assert   = assert.New(t)
+			testingT = new(mockTestingT)
+			provider = exampleProvider()
+		)
+
+		assert.Equal(provider, provider.ExpectValue("doesnotexist", 1.0))
+
+		testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
+		assert.False(provider.AssertExpectations(testingT))
+		testingT.AssertExpectations(t)
+	})
+
+	t.Run("NonValuer", func(t *testing.T) {
+		var (
+			assert   = assert.New(t)
+			testingT = new(mockTestingT)
+			provider = exampleProvider()
+		)
+
+		assert.Equal(provider, provider.ExpectValue("histogram", 1.0))
+
+		testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
+		assert.False(provider.AssertExpectations(testingT))
+		testingT.AssertExpectations(t)
+	})
+
+	t.Run("Preregistered", func(t *testing.T) {
+		t.Run("Counter", func(t *testing.T) {
+			t.Run("Initial", func(t *testing.T) {
+				var (
+					assert   = assert.New(t)
+					testingT = new(mockTestingT)
+					provider = exampleProvider()
+				)
+
+				testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
+
+				assert.Equal(provider, provider.ExpectValue("counter", 0.0))
+				assert.True(provider.AssertExpectations(testingT))
+				testingT.AssertNumberOfCalls(t, "Errorf", 0)
+
+				provider.NewCounter("counter").Add(1.0)
+				assert.False(provider.AssertExpectations(testingT))
+				testingT.AssertExpectations(t)
+			})
+
+			t.Run("Incremented", func(t *testing.T) {
+				var (
+					assert   = assert.New(t)
+					testingT = new(mockTestingT)
+					provider = exampleProvider()
+				)
+
+				assert.Equal(provider, provider.ExpectValue("counter", 1.0))
+				provider.NewCounter("counter").Add(1.0)
+				assert.True(provider.AssertExpectations(testingT))
+				testingT.AssertExpectations(t)
+			})
+		})
+
+		t.Run("Gauge", func(t *testing.T) {
+			t.Run("Initial", func(t *testing.T) {
+				var (
+					assert   = assert.New(t)
+					testingT = new(mockTestingT)
+					provider = exampleProvider()
+				)
+
+				testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
+
+				assert.Equal(provider, provider.ExpectValue("gauge", 0.0))
+				assert.True(provider.AssertExpectations(testingT))
+				testingT.AssertNumberOfCalls(t, "Errorf", 0)
+
+				provider.NewGauge("gauge").Add(1.0)
+				assert.False(provider.AssertExpectations(testingT))
+				testingT.AssertExpectations(t)
+			})
+
+			t.Run("Incremented", func(t *testing.T) {
+				var (
+					assert   = assert.New(t)
+					testingT = new(mockTestingT)
+					provider = exampleProvider()
+				)
+
+				assert.Equal(provider, provider.ExpectValue("gauge", 1.0))
+				provider.NewGauge("gauge").Add(1.0)
+				assert.True(provider.AssertExpectations(testingT))
+				testingT.AssertExpectations(t)
+			})
+		})
+
+		t.Run("Multiple", func(t *testing.T) {
+			t.Run("Success", func(t *testing.T) {
+				var (
+					assert   = assert.New(t)
+					testingT = new(mockTestingT)
+					provider = exampleProvider()
+				)
+
+				assert.Equal(provider, provider.ExpectValue("counter", 0.0).ExpectValue("gauge", 0.0))
+				assert.True(provider.AssertExpectations(testingT))
+				testingT.AssertExpectations(t)
+			})
+
+			t.Run("Failure", func(t *testing.T) {
+				var (
+					assert   = assert.New(t)
+					testingT = new(mockTestingT)
+					provider = exampleProvider()
+				)
+
+				testingT.On("Errorf", mock.MatchedBy(func(string) bool { return true }), mock.MatchedBy(func([]interface{}) bool { return true })).Once()
+
+				assert.Equal(provider, provider.ExpectValue("counter", 0.0).ExpectValue("gauge", 1.0))
+				assert.False(provider.AssertExpectations(testingT))
+				testingT.AssertExpectations(t)
+			})
+		})
+	})
 }
 
 func TestProvider(t *testing.T) {

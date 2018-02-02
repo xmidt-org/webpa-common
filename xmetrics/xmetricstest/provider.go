@@ -368,7 +368,7 @@ func (tp *testProvider) AssertExpectations(t testingT) bool {
 
 	result := true
 	for _, e := range tp.expectations {
-		result = result || e(t)
+		result = e(t) && result
 	}
 
 	return result
