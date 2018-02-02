@@ -26,7 +26,7 @@ type Provider interface {
 
 	// ExpectValue sets an expectation for a metric having a specific value.  This expectation can be checked
 	// with AssertExpectations.
-	ExpectValue(testingT, string, float64) Provider
+	ExpectValue(string, float64) Provider
 
 	AssertCounter(testingT, string) *generic.Counter
 	AssertCounterValue(testingT, string, float64) (*generic.Counter, bool)
@@ -138,7 +138,7 @@ func (tp *testProvider) AssertValue(t testingT, name string, expected float64) (
 	return nil, false
 }
 
-func (tp *testProvider) ExpectValue(t testingT, name string, expected float64) Provider {
+func (tp *testProvider) ExpectValue(name string, expected float64) Provider {
 	defer tp.lock.Unlock()
 	tp.lock.Lock()
 
