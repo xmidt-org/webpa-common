@@ -1,12 +1,35 @@
 package xmetricstest
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics/generic"
 )
+
+// labelsAndValuesKey produces a consistent, unique key for a set of label/value pairs
+func labelsAndValuesKey(labelsAndValues []string) string {
+	var (
+		count  = len(labelsAndValues)
+		output bytes.Buffer
+	)
+
+	switch count {
+	case 0:
+		break
+
+	case 2:
+
+	default:
+		if count%2 != 0 {
+			panic(errors.New("Each label must be followed by a value"))
+		}
+	}
+
+	return output.String()
+}
 
 // NewMetric creates the appropriate go-kit metrics/generic metric from the
 // supplied descriptor.  Both summaries and histograms result in *generic.Histogram instances.
