@@ -5,25 +5,20 @@ import (
 	"sync"
 
 	"github.com/Comcast/webpa-common/xmetrics"
-	"github.com/Comcast/webpa-common/xmetrics/xmetricstest/expect"
 	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/metrics/generic"
 	"github.com/go-kit/kit/metrics/provider"
 )
-
-// testingT is the expected behavior for a testing object.  *testing.T implements this interface.
-type testingT interface {
-	Errorf(string, ...interface{})
-}
 
 // Provider is a testing implementation of go-kit's provider.Provider.  Additionally, it provides
 // assertion and expectation functionality.
 type Provider interface {
 	provider.Provider
 
-	// Expect associates zero or more expectations with a specific metric.  This method adds the expectations
-	// to any existing expectations for the metric.
-	Expect(string, ...expect.E)
+	// Expect associates an expectation with a metric.  The optional list of labels and values will
+	// examine any nested metric instead of the root metric.
+	//
+	// This method returns this Provider instance for Fluent method chaining.
+	Expect(string, expectation, ...string) Provider
 
 	// AssertExpectations verifies all expectations.  It returns true if and only if all
 	// expectations pass or if there were no expectations set.
@@ -54,7 +49,7 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 
 	tp := &testProvider{
 		metrics:      make(map[string]interface{}),
-		expectations: make(map[string][]expect.E),
+		expectations: make(map[string][]expectation),
 	}
 
 	for name, metric := range merger.Merged() {
@@ -69,10 +64,12 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 	return tp
 }
 
+// testProvider is the internal Provider implementation that extends go-kit's provider
+// with expect/assert functionality.
 type testProvider struct {
 	lock         sync.Mutex
 	metrics      map[string]interface{}
-	expectations map[string][]expect.E
+	expectations map[string][]expectation
 }
 
 func (tp *testProvider) NewCounter(name string) metrics.Counter {
@@ -87,7 +84,7 @@ func (tp *testProvider) NewCounter(name string) metrics.Counter {
 		panic(fmt.Errorf("metric %s is not a counter", name))
 	}
 
-	c := generic.NewCounter(name)
+	c := NewCounter(name)
 	tp.metrics[name] = c
 	return c
 }
@@ -104,7 +101,7 @@ func (tp *testProvider) NewGauge(name string) metrics.Gauge {
 		panic(fmt.Errorf("existing metric %s is not a gauge", name))
 	}
 
-	g := generic.NewGauge(name)
+	g := NewGauge(name)
 	tp.metrics[name] = g
 	return g
 }
@@ -121,7 +118,7 @@ func (tp *testProvider) NewHistogram(name string, buckets int) metrics.Histogram
 		panic(fmt.Errorf("metric %s is not a histogram", name))
 	}
 
-	h := generic.NewHistogram(name, buckets)
+	h := NewHistogram(name, buckets)
 	tp.metrics[name] = h
 	return h
 }
@@ -129,14 +126,12 @@ func (tp *testProvider) NewHistogram(name string, buckets int) metrics.Histogram
 func (tp *testProvider) Stop() {
 }
 
-func (tp *testProvider) Expect(name string, e ...expect.E) {
-	if len(e) == 0 {
-		return
-	}
-
+func (tp *testProvider) Expect(name string, e expectation, labelsAndValues ...string) Provider {
 	defer tp.lock.Unlock()
 	tp.lock.Lock()
-	tp.expectations[name] = append(tp.expectations[name], e...)
+	tp.expectations[name] = append(tp.expectations[name], e)
+
+	return tp
 }
 
 func (tp *testProvider) AssertExpectations(t testingT) bool {

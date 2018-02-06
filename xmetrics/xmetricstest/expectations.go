@@ -1,4 +1,4 @@
-package expect
+package xmetricstest
 
 import (
 	"github.com/Comcast/webpa-common/xmetrics"
@@ -10,13 +10,13 @@ type testingT interface {
 	Errorf(string, ...interface{})
 }
 
-// E is a metric expectation.  The metric will implement one of the go-kit metrics interfaces, e.g. Counter.
-type E func(t testingT, name string, metric interface{}) bool
+// expectation is a metric expectation.  The metric will implement one of the go-kit metrics interfaces, e.g. Counter.
+type expectation func(t testingT, name string, metric interface{}) bool
 
 // Value returns an expectation for a metric to be of a certain value.  The metric in question must implement
 // xmetrics.Valuer, which both counter and gauge do.  This assertion does not constrain the type of metric beyond
 // simply exposing a value.  Use another expectation to assert that a metric is of a more specific type.
-func Value(expected float64) E {
+func Value(expected float64) expectation {
 	return func(t testingT, n string, m interface{}) bool {
 		v, ok := m.(xmetrics.Valuer)
 		if !ok {
