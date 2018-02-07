@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/Comcast/webpa-common/xmetrics"
-	"github.com/go-kit/kit/metrics/generic"
+	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,8 +33,9 @@ func testNewMetricCounter(t *testing.T) {
 	require.NotNil(c)
 	require.NoError(err)
 
-	_, ok := c.(*generic.Counter)
-	assert.True(ok)
+	assert.Implements((*metrics.Counter)(nil), c)
+	assert.Implements((*Labeled)(nil), c)
+	assert.Implements((*xmetrics.Valuer)(nil), c)
 }
 
 func testNewMetricGauge(t *testing.T) {
@@ -47,8 +48,9 @@ func testNewMetricGauge(t *testing.T) {
 	require.NotNil(c)
 	require.NoError(err)
 
-	_, ok := c.(*generic.Gauge)
-	assert.True(ok)
+	assert.Implements((*metrics.Gauge)(nil), c)
+	assert.Implements((*Labeled)(nil), c)
+	assert.Implements((*xmetrics.Valuer)(nil), c)
 }
 
 func testNewMetricHistogram(t *testing.T) {
@@ -61,8 +63,8 @@ func testNewMetricHistogram(t *testing.T) {
 	require.NotNil(c)
 	require.NoError(err)
 
-	_, ok := c.(*generic.Histogram)
-	assert.True(ok)
+	assert.Implements((*metrics.Histogram)(nil), c)
+	assert.Implements((*Labeled)(nil), c)
 }
 
 func testNewMetricSummary(t *testing.T) {
@@ -75,8 +77,8 @@ func testNewMetricSummary(t *testing.T) {
 	require.NotNil(c)
 	require.NoError(err)
 
-	_, ok := c.(*generic.Histogram)
-	assert.True(ok)
+	assert.Implements((*metrics.Histogram)(nil), c)
+	assert.Implements((*Labeled)(nil), c)
 }
 
 func TestNewMetric(t *testing.T) {

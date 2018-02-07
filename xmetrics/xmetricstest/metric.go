@@ -10,10 +10,6 @@ import (
 	"github.com/go-kit/kit/metrics/generic"
 )
 
-type Labeled interface {
-	Get(LVKey) (interface{}, bool)
-}
-
 // rootCounter is a metric which is the root of a label tree of counters.
 type rootCounter struct {
 	*generic.Counter
