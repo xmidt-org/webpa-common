@@ -6,6 +6,24 @@ type Adder interface {
 	Add(float64)
 }
 
+// Incrementer represents an Adder which can only be incremented by 1
+type Incrementer interface {
+	Inc()
+}
+
+type incrementerAdapter struct {
+	Adder
+}
+
+func (ia incrementerAdapter) Inc() {
+	ia.Add(1.0)
+}
+
+// NewIncrementer creates a wrapper around a given Adder.  This is syntactic sugar around using the Adder directly.
+func NewIncrementer(a Adder) Incrementer {
+	return incrementerAdapter{a}
+}
+
 // Setter represents a metric that can receive updates, e.g. a gauge.  Go-kit's metrics.Gauge
 // and prometheus gauges implement this interface.
 type Setter interface {
