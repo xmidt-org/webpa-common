@@ -1,77 +1,30 @@
 package xmetricstest
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"sync"
-	"unicode"
 
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/generic"
 )
 
-var rootKey string = ""
-
-// labelsAndValuesKey produces a consistent, unique key for a set of label/value pairs
-func labelsAndValuesKey(labelsAndValues []string) string {
-	count := len(labelsAndValues)
-	if count == 0 {
-		return rootKey
-	} else if count%2 != 0 {
-		panic(errors.New("Each label must be followed by a value"))
-	}
-
-	var output bytes.Buffer
-	if count == 2 {
-		output.WriteString(labelsAndValues[0])
-		output.WriteRune(unicode.ReplacementChar)
-		output.WriteString(labelsAndValues[1])
-	} else {
-		// we have more than 1 pair of label/value, so create a key with a consistent ordering of labels
-		var (
-			labels = make([]string, 0, count/2)
-			values = make(map[string]string, count/2)
-		)
-
-		for i := 0; i < count; i++ {
-			labels = append(labels, labelsAndValues[i])
-			values[labelsAndValues[i]] = labelsAndValues[i+1]
-		}
-
-		for i, label := range labels {
-			if i > 0 {
-				output.WriteRune(unicode.ReplacementChar)
-			}
-
-			output.WriteString(label)
-			output.WriteRune(unicode.ReplacementChar)
-			output.WriteString(values[label])
-		}
-	}
-
-	return output.String()
-}
-
-// LabelTree is implemented by metrics with expose information about a tree of metrics,
-// each node of which is associated with a set of label/value pairs.  This interface
-// is primarily implemented by xmetricstest metrics.
-type LabelTree interface {
-	Get(...string) (interface{}, bool)
+type Labeled interface {
+	Get(LVKey) (interface{}, bool)
 }
 
 // rootCounter is a metric which is the root of a label tree of counters.
 type rootCounter struct {
 	*generic.Counter
 	lock sync.Mutex
-	tree map[string]metrics.Counter
+	tree map[LVKey]metrics.Counter
 }
 
 func NewCounter(name string) metrics.Counter {
 	c := &rootCounter{
 		Counter: generic.NewCounter(name),
-		tree:    make(map[string]metrics.Counter),
+		tree:    make(map[LVKey]metrics.Counter),
 	}
 
 	c.tree[rootKey] = c
@@ -79,7 +32,11 @@ func NewCounter(name string) metrics.Counter {
 }
 
 func (c *rootCounter) With(labelsAndValues ...string) metrics.Counter {
-	key := labelsAndValuesKey(labelsAndValues)
+	key, err := NewLVKey(labelsAndValues)
+	if err != nil {
+		panic(err)
+	}
+
 	defer c.lock.Unlock()
 	c.lock.Lock()
 
@@ -96,8 +53,7 @@ func (c *rootCounter) With(labelsAndValues ...string) metrics.Counter {
 	return nested
 }
 
-func (c *rootCounter) Get(labelsAndValues ...string) (interface{}, bool) {
-	key := labelsAndValuesKey(labelsAndValues)
+func (c *rootCounter) Get(key LVKey) (interface{}, bool) {
 	c.lock.Lock()
 	existing, ok := c.tree[key]
 	c.lock.Unlock()
@@ -119,13 +75,13 @@ func (c *nestedCounter) With(labelsAndValues ...string) metrics.Counter {
 type rootGauge struct {
 	*generic.Gauge
 	lock sync.Mutex
-	tree map[string]metrics.Gauge
+	tree map[LVKey]metrics.Gauge
 }
 
 func NewGauge(name string) metrics.Gauge {
 	g := &rootGauge{
 		Gauge: generic.NewGauge(name),
-		tree:  make(map[string]metrics.Gauge),
+		tree:  make(map[LVKey]metrics.Gauge),
 	}
 
 	g.tree[rootKey] = g
@@ -133,7 +89,11 @@ func NewGauge(name string) metrics.Gauge {
 }
 
 func (g *rootGauge) With(labelsAndValues ...string) metrics.Gauge {
-	key := labelsAndValuesKey(labelsAndValues)
+	key, err := NewLVKey(labelsAndValues)
+	if err != nil {
+		panic(err)
+	}
+
 	defer g.lock.Unlock()
 	g.lock.Lock()
 
@@ -150,8 +110,7 @@ func (g *rootGauge) With(labelsAndValues ...string) metrics.Gauge {
 	return nested
 }
 
-func (g *rootGauge) Get(labelsAndValues ...string) (interface{}, bool) {
-	key := labelsAndValuesKey(labelsAndValues)
+func (g *rootGauge) Get(key LVKey) (interface{}, bool) {
 	g.lock.Lock()
 	existing, ok := g.tree[key]
 	g.lock.Unlock()
@@ -174,14 +133,14 @@ type rootHistogram struct {
 	*generic.Histogram
 	Buckets int
 	lock    sync.Mutex
-	tree    map[string]metrics.Histogram
+	tree    map[LVKey]metrics.Histogram
 }
 
 func NewHistogram(name string, buckets int) metrics.Histogram {
 	h := &rootHistogram{
 		Histogram: generic.NewHistogram(name, buckets),
 		Buckets:   buckets,
-		tree:      make(map[string]metrics.Histogram),
+		tree:      make(map[LVKey]metrics.Histogram),
 	}
 
 	h.tree[rootKey] = h
@@ -189,7 +148,11 @@ func NewHistogram(name string, buckets int) metrics.Histogram {
 }
 
 func (h *rootHistogram) With(labelsAndValues ...string) metrics.Histogram {
-	key := labelsAndValuesKey(labelsAndValues)
+	key, err := NewLVKey(labelsAndValues)
+	if err != nil {
+		panic(err)
+	}
+
 	defer h.lock.Unlock()
 	h.lock.Lock()
 
@@ -206,8 +169,7 @@ func (h *rootHistogram) With(labelsAndValues ...string) metrics.Histogram {
 	return nested
 }
 
-func (h *rootHistogram) Get(labelsAndValues ...string) (interface{}, bool) {
-	key := labelsAndValuesKey(labelsAndValues)
+func (h *rootHistogram) Get(key LVKey) (interface{}, bool) {
 	h.lock.Lock()
 	existing, ok := h.tree[key]
 	h.lock.Unlock()

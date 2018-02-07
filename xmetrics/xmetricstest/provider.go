@@ -15,10 +15,14 @@ type Provider interface {
 	provider.Provider
 
 	// Expect associates an expectation with a metric.  The optional list of labels and values will
-	// examine any nested metric instead of the root metric.
+	// examine any nested metric instead of the root metric.  This method uses a Fluent Builder style:
 	//
-	// This method returns this Provider instance for Fluent method chaining.
-	Expect(string, expectation, ...string) Provider
+	//    provider.Expect("counter")(xmetricstest.Counter, xmetricstest.Value(1.0)).
+	//        Expect("not_found", "code", "404")(xmetricstest.Counter)
+	//
+	// The returned closure is used to attach expectations to the metric identified by the name and
+	// optional label/value pairs.
+	Expect(string, ...string) func(...expectation) Provider
 
 	// AssertExpectations verifies all expectations.  It returns true if and only if all
 	// expectations pass or if there were no expectations set.
@@ -49,7 +53,7 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 
 	tp := &testProvider{
 		metrics:      make(map[string]interface{}),
-		expectations: make(map[string][]expectation),
+		expectations: make(map[string]map[LVKey][]expectation),
 	}
 
 	for name, metric := range merger.Merged() {
@@ -69,7 +73,7 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 type testProvider struct {
 	lock         sync.Mutex
 	metrics      map[string]interface{}
-	expectations map[string][]expectation
+	expectations map[string]map[LVKey][]expectation
 }
 
 func (tp *testProvider) NewCounter(name string) metrics.Counter {
@@ -126,12 +130,25 @@ func (tp *testProvider) NewHistogram(name string, buckets int) metrics.Histogram
 func (tp *testProvider) Stop() {
 }
 
-func (tp *testProvider) Expect(name string, e expectation, labelsAndValues ...string) Provider {
-	defer tp.lock.Unlock()
-	tp.lock.Lock()
-	tp.expectations[name] = append(tp.expectations[name], e)
+func (tp *testProvider) Expect(name string, labelsAndValues ...string) func(...expectation) Provider {
+	lvKey, err := NewLVKey(labelsAndValues)
+	if err != nil {
+		panic(err)
+	}
 
-	return tp
+	return func(e ...expectation) Provider {
+		defer tp.lock.Unlock()
+		tp.lock.Lock()
+
+		labels, ok := tp.expectations[name]
+		if !ok {
+			labels = make(map[LVKey][]expectation, 1)
+			tp.expectations[name] = labels
+		}
+
+		labels[lvKey] = append(labels[lvKey], e...)
+		return tp
+	}
 }
 
 func (tp *testProvider) AssertExpectations(t testingT) bool {
@@ -139,16 +156,26 @@ func (tp *testProvider) AssertExpectations(t testingT) bool {
 	tp.lock.Lock()
 
 	result := true
-	for name, expectations := range tp.expectations {
-		m, ok := tp.metrics[name]
+	for name, labels := range tp.expectations {
+		root, ok := tp.metrics[name]
 		if !ok {
+			t.Errorf("metric %s does not exist", name)
 			result = false
-			t.Errorf("no such metric with name: %s", name)
 			continue
 		}
 
-		for _, e := range expectations {
-			result = e(t, name, m) && result
+		labeled := root.(Labeled)
+		for lvKey, expectations := range labels {
+			metric, ok := labeled.Get(lvKey)
+			if !ok {
+				t.Errorf("metric %s has no such label/value pairs: %s", name, lvKey)
+				result = false
+				continue
+			}
+
+			for _, e := range expectations {
+				result = e(t, name, metric) && result
+			}
 		}
 	}
 
