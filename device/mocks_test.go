@@ -2,12 +2,14 @@ package device
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
+// mockReader is a mocked io.Reader
 type mockReader struct {
 	mock.Mock
 }
@@ -15,6 +17,51 @@ type mockReader struct {
 func (m *mockReader) Read(b []byte) (int, error) {
 	arguments := m.Called(b)
 	return arguments.Int(0), arguments.Error(1)
+}
+
+// mockConnectionReader is a mocked Reader, from this package.  It represents
+// the read side of a websocket.
+type mockConnectionReader struct {
+	mock.Mock
+}
+
+func (m *mockConnectionReader) ReadMessage() (int, []byte, error) {
+	arguments := m.Called()
+	return arguments.Int(0), arguments.Get(1).([]byte), arguments.Error(2)
+}
+
+func (m *mockConnectionReader) SetReadDeadline(d time.Time) error {
+	return m.Called(d).Error(0)
+}
+
+func (m *mockConnectionReader) SetPongHandler(h func(string) error) {
+	m.Called(h)
+}
+
+func (m *mockConnectionReader) Close() error {
+	return m.Called().Error(0)
+}
+
+// mockConnectionWriter is a mocked Writer, from this package.  It represents
+// the write side of a websocket.
+type mockConnectionWriter struct {
+	mock.Mock
+}
+
+func (m *mockConnectionWriter) WriteMessage(messageType int, data []byte) error {
+	return m.Called(messageType, data).Error(0)
+}
+
+func (m *mockConnectionWriter) WritePreparedMessage(pm *websocket.PreparedMessage) error {
+	return m.Called(pm).Error(0)
+}
+
+func (m *mockConnectionWriter) SetWriteDeadline(d time.Time) error {
+	return m.Called(d).Error(0)
+}
+
+func (m *mockConnectionWriter) Close() error {
+	return m.Called().Error(0)
 }
 
 type mockDevice struct {

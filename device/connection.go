@@ -4,7 +4,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/gorilla/websocket"
 )
 
@@ -64,7 +64,7 @@ func NewDeadline(timeout time.Duration, now func() time.Time) func() time.Time {
 
 // NewPinger creates a ping closure for the given connection.  Internally, a prepared message is created using the
 // supplied data, and the given counter is incremented for each successful update of the write deadline.
-func NewPinger(w Writer, pings metrics.Counter, data []byte, deadline func() time.Time) (func() error, error) {
+func NewPinger(w Writer, pings xmetrics.Incrementer, data []byte, deadline func() time.Time) (func() error, error) {
 	pm, err := websocket.NewPreparedMessage(websocket.PingMessage, data)
 	if err != nil {
 		return nil, err
@@ -82,17 +82,17 @@ func NewPinger(w Writer, pings metrics.Counter, data []byte, deadline func() tim
 		}
 
 		// only incrememt when the complete ping operation was successful
-		pings.Add(1.0)
+		pings.Inc()
 		return nil
 	}, nil
 }
 
 // SetPongHandler establishes an instrumented pong handler for the given connection that enforces
 // the given read timeout.
-func SetPongHandler(r Reader, pongs metrics.Counter, deadline func() time.Time) {
+func SetPongHandler(r Reader, pongs xmetrics.Incrementer, deadline func() time.Time) {
 	r.SetPongHandler(func(_ string) error {
 		// increment up front, as this function is only called when a pong is actually received
-		pongs.Add(1.)
+		pongs.Inc()
 		return r.SetReadDeadline(deadline())
 	})
 }

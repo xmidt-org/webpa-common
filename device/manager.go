@@ -195,18 +195,16 @@ func (m *manager) startPumps(d *device, response http.ResponseWriter, request *h
 	}
 
 	d.debugLog.Log(logging.MessageKey(), "websocket upgrade complete", "localAddress", c.LocalAddr().String())
-	/*
-		pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
-		if err != nil {
-			d.errorLog.Log(logging.MessageKey(), "unable to create pinger", logging.ErrorKey(), err)
-			return err
-		}
-	*/
+	pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
+	if err != nil {
+		d.errorLog.Log(logging.MessageKey(), "unable to create pinger", logging.ErrorKey(), err)
+		return err
+	}
 
-	//SetPongHandler(c, m.measures.Pong, m.readDeadline)
+	SetPongHandler(c, m.measures.Pong, m.readDeadline)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
-	go m.writePump(d, InstrumentWriter(c, d.statistics), func() error { return nil }, closeOnce)
+	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
 	return nil
 }
 

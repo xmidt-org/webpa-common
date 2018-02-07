@@ -55,8 +55,8 @@ type Measures struct {
 	Device          metrics.Gauge
 	Duplicates      metrics.Counter
 	RequestResponse metrics.Counter
-	Ping            metrics.Counter
-	Pong            metrics.Counter
+	Ping            xmetrics.Incrementer
+	Pong            xmetrics.Incrementer
 	Connect         metrics.Counter
 	Disconnect      metrics.Counter
 }
@@ -66,8 +66,8 @@ func NewMeasures(p provider.Provider) Measures {
 	return Measures{
 		Device:          p.NewGauge(DeviceCounter),
 		RequestResponse: p.NewCounter(RequestResponseCounter),
-		Ping:            p.NewCounter(PingCounter),
-		Pong:            p.NewCounter(PongCounter),
+		Ping:            xmetrics.NewIncrementer(p.NewCounter(PingCounter)),
+		Pong:            xmetrics.NewIncrementer(p.NewCounter(PongCounter)),
 		Duplicates:      p.NewCounter(DuplicatesCounter),
 		Connect:         p.NewCounter(ConnectCounter),
 		Disconnect:      p.NewCounter(DisconnectCounter),
