@@ -4,8 +4,8 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics"
 )
 
 var errDeviceLimitReached = errors.New("Device limit reached")
@@ -25,10 +25,10 @@ type registry struct {
 	limit  int
 	data   map[ID]*device
 
-	count      metrics.Gauge
-	connect    metrics.Counter
-	disconnect metrics.Counter
-	duplicates metrics.Counter
+	count      xmetrics.AddSetter
+	connect    xmetrics.Incrementer
+	disconnect xmetrics.Adder
+	duplicates xmetrics.Incrementer
 }
 
 func newRegistry(o registryOptions) *registry {
@@ -70,12 +70,12 @@ func (r *registry) add(id ID, f func() (*device, error)) (*device, error) {
 
 	if existing != nil {
 		r.disconnect.Add(1.0)
-		r.duplicates.Add(1.0)
+		r.duplicates.Inc()
 		newDevice.Statistics().AddDuplications(existing.Statistics().Duplications() + 1)
 		existing.requestClose()
 	}
 
-	r.connect.Add(1.0)
+	r.connect.Inc()
 	r.count.Set(float64(len(r.data)))
 	return newDevice, nil
 }
