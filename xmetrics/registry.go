@@ -1,7 +1,6 @@
 package xmetrics
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/go-kit/kit/metrics"
@@ -217,94 +216,41 @@ func (r *registry) NewSummaryVecEx(namespace, subsystem, name string) *prometheu
 func (r *registry) Stop() {
 }
 
-func (r *registry) newCollector(m Metric) (string, prometheus.Collector, error) {
-	if len(m.Name) == 0 {
-		return "", nil, errors.New("Metric names cannot be empty")
-	}
-
-	if len(m.Namespace) == 0 {
-		m.Namespace = r.namespace
-	}
-
-	if len(m.Subsystem) == 0 {
-		m.Subsystem = r.subsystem
-	}
-
-	if len(m.Help) == 0 {
-		m.Help = m.Name
-	}
-
-	key := prometheus.BuildFQName(m.Namespace, m.Subsystem, m.Name)
-	collector, err := NewCollector(m)
-	return key, collector, err
-}
-
-func (r *registry) insertMetric(m Metric, collectors map[string]prometheus.Collector) error {
-	key, collector, err := r.newCollector(m)
-	if err != nil {
-		return err
-	}
-
-	if _, duplicate := collectors[key]; duplicate {
-		return fmt.Errorf("Duplicate metric: %s", key)
-	}
-
-	collectors[key] = collector
-	return nil
-}
-
-// Module is a function type that returns prebuilt metrics.
-type Module func() []Metric
-
 // NewRegistry creates an xmetrics.Registry from an externally supplied set of Options and a set
 // of modules, which are functions that just return Metrics to register.  The module functions are
 // expected to come from application or library code, and are to define any built-in metrics.  Metrics
 // present in the options will override any corresponding metric from modules.
 func NewRegistry(o *Options, modules ...Module) (Registry, error) {
-	var (
-		defaultNamespace = o.namespace()
-		defaultSubsystem = o.subsystem()
+	// merge all the metrics, allowing options to override modules
+	merger := NewMerger().
+		DefaultNamespace(o.namespace()).
+		DefaultSubsystem(o.subsystem()).
+		AddModules(false, modules...).
+		AddModules(true, o.Module)
 
+	if merger.Err() != nil {
+		return nil, merger.Err()
+	}
+
+	var (
 		pr = o.registry()
 		r  = &registry{
 			Registerer:    pr,
 			Gatherer:      pr,
-			namespace:     defaultNamespace,
-			subsystem:     defaultSubsystem,
+			namespace:     o.namespace(),
+			subsystem:     o.subsystem(),
 			preregistered: make(map[string]prometheus.Collector),
 		}
 	)
 
-	// the configured metrics to preregister, from external configuration
-	for _, m := range o.metrics() {
-		if err := r.insertMetric(m, r.preregistered); err != nil {
+	for name, metric := range merger.Merged() {
+		// merged metrics will have namespace and subsystem set appropriately
+		c, err := NewCollector(metric)
+		if err != nil {
 			return nil, err
 		}
-	}
 
-	// next, the module metrics, which cannot have duplicates among themselves
-	// but *can* be overridden by the externally configured metrics
-	fromModules := make(map[string]prometheus.Collector)
-	for _, f := range modules {
-		for _, m := range f() {
-			if err := r.insertMetric(m, fromModules); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	// for any module metric that was not externally configured, add it
-	for k, c := range fromModules {
-		if _, externallyConfigured := r.preregistered[k]; !externallyConfigured {
-			r.preregistered[k] = c
-		}
-	}
-
-	// now register all metrics in the final map
-	for _, c := range r.preregistered {
-		if err := pr.Register(c); err != nil {
-			return nil, err
-		}
+		r.preregistered[name] = c
 	}
 
 	return r, nil

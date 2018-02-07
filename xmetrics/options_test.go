@@ -17,7 +17,7 @@ func testOptionsDefault(o *Options, t *testing.T) {
 	assert.False(o.disableGoCollector())
 	assert.False(o.disableProcessCollector())
 	assert.NotNil(o.registry())
-	assert.Empty(o.metrics())
+	assert.Empty(o.Module())
 }
 
 func testOptionsCustom(t *testing.T) {
@@ -51,7 +51,7 @@ func testOptionsCustom(t *testing.T) {
 				Type: "counter",
 			},
 		},
-		o.metrics(),
+		o.Module(),
 	)
 }
 

@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	DefaultNamespace = "global"
-	DefaultSubsystem = "development"
+	DefaultNamespace = "test"
+	DefaultSubsystem = "test"
 )
 
 // Options is the configurable options for creating a Prometheus registry
@@ -101,7 +101,8 @@ func (o *Options) disableProcessCollector() bool {
 	return false
 }
 
-func (o *Options) metrics() []Metric {
+// Module acts as a metrics module function using the (normally) injected metrics.
+func (o *Options) Module() []Metric {
 	if o != nil {
 		return o.Metrics
 	}
