@@ -3,7 +3,6 @@ package device
 import (
 	"io"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 )
 
@@ -70,12 +70,6 @@ type Registry interface {
 	// Get returns the device associated with the given ID, if any
 	Get(ID) (Interface, bool)
 
-	// VisitIf applies a visitor to any device matching the ID predicate.
-	//
-	// No methods on this Manager should be called from within either the predicate
-	// or the visitor, or a deadlock will most definitely occur.
-	VisitIf(func(ID) bool, func(Interface)) int
-
 	// VisitAll applies the given visitor function to each device known to this manager.
 	//
 	// No methods on this Manager should be called from within the visitor function, or
@@ -94,23 +88,31 @@ type Manager interface {
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
 // created from the options if one is not supplied.
 func NewManager(o *Options) Manager {
-	logger := o.logger()
+	var (
+		logger   = o.logger()
+		measures = NewMeasures(o.metricsProvider())
+	)
+
 	return &manager{
 		logger:   logger,
 		errorLog: logging.Error(logger),
 		debugLog: logging.Debug(logger),
 
-		readDeadline:           NewDeadline(o.idlePeriod(), o.now()),
-		writeDeadline:          NewDeadline(o.writeTimeout(), o.now()),
-		upgrader:               o.upgrader(),
-		conveyTranslator:       conveyhttp.NewHeaderTranslator("", nil),
-		registry:               newRegistry(o.initialCapacity(), o.maxDevices()),
+		readDeadline:     NewDeadline(o.idlePeriod(), o.now()),
+		writeDeadline:    NewDeadline(o.writeTimeout(), o.now()),
+		upgrader:         o.upgrader(),
+		conveyTranslator: conveyhttp.NewHeaderTranslator("", nil),
+		devices: newRegistry(registryOptions{
+			Logger:   logger,
+			Limit:    o.maxDevices(),
+			Measures: measures,
+		}),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 		authDelay:              o.authDelay(),
 
 		listeners: o.listeners(),
-		measures:  NewMeasures(o.metricsProvider()),
+		measures:  measures,
 	}
 }
 
@@ -125,7 +127,7 @@ type manager struct {
 	upgrader         *websocket.Upgrader
 	conveyTranslator conveyhttp.HeaderTranslator
 
-	registry *registry
+	devices *registry
 
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
@@ -148,39 +150,33 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	d := newDevice(id, m.deviceMessageQueueSize, time.Now(), m.logger)
 	if convey, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
-		d.debugLog.Log("convey", convey)
+		m.logger.Log(level.Key(), level.DebugValue(), "id", id, "convey", convey)
 	} else if err != conveyhttp.ErrMissingHeader {
-		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
+		m.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "badly formatted convey data", "id", id, logging.ErrorKey(), err)
 	}
 
-	// we want to add to the registry before the socket upgrade so that we enforce our maximum
-	// device limit prior to doing any heavylifting
-	existing, _, err := m.registry.add(d)
-	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "unable to connect device", logging.ErrorKey(), err)
-		response.Header().Set(MaxDevicesHeader, strconv.FormatUint(uint64(m.registry.maxDevices()), 10))
-
-		xhttp.WriteError(
-			response,
-			http.StatusServiceUnavailable,
-			err,
+	d, err := m.devices.add(id, func() (*device, error) {
+		var (
+			d   = newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
+			err = m.startPumps(d, response, request, responseHeader)
 		)
 
-		return nil, err
-	} else if existing != nil {
-		existing.errorLog.Log(logging.MessageKey(), "disconnecting duplicate device")
-		existing.requestClose()
-		d.statistics.AddDuplications(existing.statistics.Duplications() + 1)
+		return d, err
+	})
+
+	if err != nil {
+		m.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to connect device", "id", id, logging.ErrorKey(), err)
+	} else {
+		m.dispatch(
+			&Event{
+				Type:   Connect,
+				Device: d,
+			},
+		)
 	}
 
-	if err := m.startPumps(d, response, request, responseHeader); err != nil {
-		m.registry.remove(d)
-		return nil, err
-	}
-
-	return d, nil
+	return d, err
 }
 
 func (m *manager) dispatch(e *Event) {
@@ -191,20 +187,26 @@ func (m *manager) dispatch(e *Event) {
 
 // startPumps performs the websocket upgrade and starts the read and write pumps
 func (m *manager) startPumps(d *device, response http.ResponseWriter, request *http.Request, responseHeader http.Header) error {
+	d.debugLog.Log(logging.MessageKey(), "initializing device")
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
 	if err != nil {
+		d.errorLog.Log(logging.MessageKey(), "failed websocket upgrade", logging.ErrorKey(), err)
 		return err
 	}
 
-	pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
-	if err != nil {
-		return err
-	}
+	d.debugLog.Log(logging.MessageKey(), "websocket upgrade complete", "localAddress", c.LocalAddr().String())
+	/*
+		pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
+		if err != nil {
+			d.errorLog.Log(logging.MessageKey(), "unable to create pinger", logging.ErrorKey(), err)
+			return err
+		}
+	*/
 
-	SetPongHandler(c, m.measures.Pong, m.readDeadline)
+	//SetPongHandler(c, m.measures.Pong, m.readDeadline)
 	closeOnce := new(sync.Once)
 	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
-	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
+	go m.writePump(d, InstrumentWriter(c, d.statistics), func() error { return nil }, closeOnce)
 	return nil
 }
 
@@ -216,20 +218,14 @@ func (m *manager) startPumps(d *device, response http.ResponseWriter, request *h
 // dispatches message failed events for any messages that were waiting to be delivered
 // at the time of pump closure.
 func (m *manager) pumpClose(d *device, c io.Closer, pumpError error) {
-	m.measures.Disconnect.Add(1.0)
-	m.measures.Device.Add(-1.0)
-
 	if pumpError != nil {
-		d.errorLog.Log(logging.MessageKey(), "pump close", logging.ErrorKey(), pumpError)
+		d.errorLog.Log(logging.MessageKey(), "pump close due to error", logging.ErrorKey(), pumpError)
 	} else {
 		d.debugLog.Log(logging.MessageKey(), "pump close")
 	}
 
-	m.registry.remove(d)
-
-	// always request a close, to ensure that the write goroutine is
-	// shutdown and to signal to other goroutines that the device is closed
-	d.requestClose()
+	// remove will invoke requestClose()
+	m.devices.remove(d.id)
 
 	if closeError := c.Close(); closeError != nil {
 		d.errorLog.Log(logging.MessageKey(), "Error closing device connection", logging.ErrorKey(), closeError)
@@ -248,9 +244,8 @@ func (m *manager) pumpClose(d *device, c io.Closer, pumpError error) {
 // readPump is the goroutine which handles the stream of WRP messages from a device.
 // This goroutine exits when any error occurs on the connection.
 func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
+	defer d.debugLog.Log(logging.MessageKey(), "readPump exiting")
 	d.debugLog.Log(logging.MessageKey(), "readPump starting")
-	m.measures.Connect.Add(1.0)
-	m.measures.Device.Add(1.0)
 
 	var (
 		readError error
@@ -264,6 +259,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 	for {
 		messageType, data, readError := r.ReadMessage()
 		if readError != nil {
+			d.errorLog.Log(logging.MessageKey(), "read error", logging.ErrorKey(), readError)
 			return
 		}
 
@@ -324,6 +320,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 // this goroutine exits when either an explicit shutdown is requested or any
 // error occurs on the connection.
 func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, closeOnce *sync.Once) {
+	defer d.debugLog.Log(logging.MessageKey(), "writePump exiting")
 	d.debugLog.Log(logging.MessageKey(), "writePump starting")
 
 	var (
@@ -341,11 +338,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			w.WritePreparedMessage(authStatus)
 		})
 	)
-
-	m.dispatch(&Event{
-		Type:   Connect,
-		Device: d,
-	})
 
 	// cleanup: we not only ensure that the device and connection are closed but also
 	// ensure that any messages that were waiting and/or failed are dispatched to
@@ -396,6 +388,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 
 		select {
 		case <-d.shutdown:
+			d.debugLog.Log(logging.MessageKey(), "explicit shutdown")
 			writeError = w.Close()
 			return
 
@@ -439,45 +432,31 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	}
 }
 
-// wrapVisitor produces an internal visitor that wraps a delegate
-// and preserves encapsulation
-func (m *manager) wrapVisitor(delegate func(Interface)) func(*device) {
-	return func(d *device) {
-		delegate(d)
-	}
-}
-
 func (m *manager) Disconnect(id ID) bool {
-	if existing, ok := m.registry.removeID(id); ok {
-		existing.requestClose()
-		return true
-	}
-
-	return false
+	_, ok := m.devices.remove(id)
+	return ok
 }
 
 func (m *manager) DisconnectIf(filter func(ID) bool) int {
-	return m.registry.removeIf(filter, func(d *device) {
-		d.requestClose()
+	return m.devices.removeIf(func(d *device) bool {
+		return filter(d.id)
 	})
 }
 
 func (m *manager) Get(id ID) (Interface, bool) {
-	return m.registry.get(id)
-}
-
-func (m *manager) VisitIf(filter func(ID) bool, visitor func(Interface)) int {
-	return m.registry.visitIf(filter, m.wrapVisitor(visitor))
+	return m.devices.get(id)
 }
 
 func (m *manager) VisitAll(visitor func(Interface)) int {
-	return m.registry.visitAll(m.wrapVisitor(visitor))
+	return m.devices.visit(func(d *device) {
+		visitor(d)
+	})
 }
 
 func (m *manager) Route(request *Request) (*Response, error) {
 	if destination, err := request.ID(); err != nil {
 		return nil, err
-	} else if d, ok := m.registry.get(destination); ok {
+	} else if d, ok := m.devices.get(destination); ok {
 		return d.Send(request)
 	} else {
 		return nil, ErrorDeviceNotFound

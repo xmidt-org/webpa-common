@@ -98,17 +98,36 @@ type device struct {
 	transactions *Transactions
 }
 
+type deviceOptions struct {
+	ID          ID
+	QueueSize   int
+	ConnectedAt time.Time
+	Logger      log.Logger
+}
+
 // newDevice is an internal factory function for devices
-func newDevice(id ID, queueSize int, connectedAt time.Time, logger log.Logger) *device {
+func newDevice(o deviceOptions) *device {
+	if o.ConnectedAt.IsZero() {
+		o.ConnectedAt = time.Now()
+	}
+
+	if o.Logger == nil {
+		o.Logger = logging.DefaultLogger()
+	}
+
+	if o.QueueSize < 1 {
+		o.QueueSize = DefaultDeviceMessageQueueSize
+	}
+
 	return &device{
-		id:           id,
-		errorLog:     logging.Error(logger, "id", id),
-		infoLog:      logging.Info(logger, "id", id),
-		debugLog:     logging.Debug(logger, "id", id),
-		statistics:   NewStatistics(nil, connectedAt),
+		id:           o.ID,
+		errorLog:     logging.Error(o.Logger, "id", o.ID),
+		infoLog:      logging.Info(o.Logger, "id", o.ID),
+		debugLog:     logging.Debug(o.Logger, "id", o.ID),
+		statistics:   NewStatistics(nil, o.ConnectedAt),
 		state:        stateOpen,
 		shutdown:     make(chan struct{}),
-		messages:     make(chan *envelope, queueSize),
+		messages:     make(chan *envelope, o.QueueSize),
 		transactions: NewTransactions(),
 	}
 }
@@ -131,11 +150,13 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	return output.Bytes(), err
 }
 
-func (d *device) requestClose() {
+func (d *device) requestClose() error {
 	if atomic.CompareAndSwapInt32(&d.state, stateOpen, stateClosed) {
 		close(d.shutdown)
 		d.transactions.Close()
 	}
+
+	return nil
 }
 
 func (d *device) ID() ID {

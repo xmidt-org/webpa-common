@@ -1,7 +1,6 @@
 package device
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -19,8 +18,7 @@ func TestOptionsDefault(t *testing.T) {
 
 		assert.Equal(DefaultDeviceMessageQueueSize, o.deviceMessageQueueSize())
 		assert.NotNil(o.upgrader())
-		assert.Equal(uint32(DefaultInitialCapacity), o.initialCapacity())
-		assert.Equal(uint32(math.MaxUint32), o.maxDevices())
+		assert.Equal(0, o.maxDevices())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
 		assert.Equal(DefaultPingPeriod, o.pingPeriod())
 		assert.Equal(DefaultAuthDelay, o.authDelay())
@@ -44,7 +42,6 @@ func TestOptions(t *testing.T) {
 				WriteBufferSize:  DefaultWriteBufferSize + 926,
 				Subprotocols:     []string{"foobar"},
 			},
-			InitialCapacity:        DefaultInitialCapacity + 4719,
 			MaxDevices:             20000,
 			DeviceMessageQueueSize: DefaultDeviceMessageQueueSize + 287342,
 			IdlePeriod:             DefaultIdlePeriod + 3472*time.Minute,
@@ -68,8 +65,7 @@ func TestOptions(t *testing.T) {
 		*o.upgrader(),
 	)
 
-	assert.Equal(o.InitialCapacity, o.initialCapacity())
-	assert.Equal(uint32(20000), o.maxDevices())
+	assert.Equal(20000, o.maxDevices())
 	assert.Equal(o.IdlePeriod, o.idlePeriod())
 	assert.Equal(o.PingPeriod, o.pingPeriod())
 	assert.Equal(o.AuthDelay, o.authDelay())

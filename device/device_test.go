@@ -48,12 +48,12 @@ func TestDevice(t *testing.T) {
 		var (
 			ctx, cancel = context.WithCancel(context.Background())
 			testMessage = new(wrp.Message)
-			device      = newDevice(
-				record.expectedID,
-				record.expectedQueueSize,
-				expectedConnectedAt,
-				logging.NewTestLogger(nil, t),
-			)
+			device      = newDevice(deviceOptions{
+				ID:          record.expectedID,
+				QueueSize:   record.expectedQueueSize,
+				ConnectedAt: expectedConnectedAt,
+				Logger:      logging.NewTestLogger(nil, t),
+			})
 		)
 
 		require.NotNil(device)

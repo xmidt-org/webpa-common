@@ -1,7 +1,6 @@
 package device
 
 import (
-	"math"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
@@ -24,9 +23,6 @@ const (
 	DefaultPingPeriod     time.Duration = 45 * time.Second
 	DefaultAuthDelay      time.Duration = 1 * time.Second
 
-	DefaultDecoderPoolSize        = 1000
-	DefaultEncoderPoolSize        = 1000
-	DefaultInitialCapacity        = 1000
 	DefaultReadBufferSize         = 0
 	DefaultWriteBufferSize        = 0
 	DefaultDeviceMessageQueueSize = 100
@@ -38,13 +34,9 @@ type Options struct {
 	// Upgrader is the gorilla websocket.Upgrader injected into these options.
 	Upgrader websocket.Upgrader
 
-	// InitialCapacity is used as the starting capacity of the internal map of
-	// registered devices.  If not supplied, DefaultInitialCapacity is used.
-	InitialCapacity uint32
-
 	// MaxDevices is the maximum number of devices allowed to connect to any one Manager.
 	// If unset (i.e. zero), math.MaxUint32 is used as the maximum.
-	MaxDevices uint32
+	MaxDevices int
 
 	// DeviceMessageQueueSize is the capacity of the channel which stores messages waiting
 	// to be transmitted to a device.  If not supplied, DefaultDeviceMessageQueueSize is used.
@@ -98,20 +90,12 @@ func (o *Options) deviceMessageQueueSize() int {
 	return DefaultDeviceMessageQueueSize
 }
 
-func (o *Options) initialCapacity() uint32 {
-	if o != nil && o.InitialCapacity > 0 {
-		return o.InitialCapacity
-	}
-
-	return DefaultInitialCapacity
-}
-
-func (o *Options) maxDevices() uint32 {
+func (o *Options) maxDevices() int {
 	if o != nil && o.MaxDevices > 0 {
 		return o.MaxDevices
 	}
 
-	return math.MaxUint32
+	return 0
 }
 
 func (o *Options) idlePeriod() time.Duration {
