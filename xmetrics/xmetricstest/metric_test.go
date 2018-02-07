@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCounter(t *testing.T) {
+func TestNewCounter(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -51,7 +51,7 @@ func TestCounter(t *testing.T) {
 	}
 }
 
-func TestGauge(t *testing.T) {
+func TestNewGauge(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -100,7 +100,7 @@ func TestGauge(t *testing.T) {
 	}
 }
 
-func TestHistogram(t *testing.T) {
+func TestNewHistogram(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
