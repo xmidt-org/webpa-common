@@ -25,7 +25,7 @@ func Value(expected float64) expectation {
 		}
 
 		if actual := v.Value(); actual != expected {
-			t.Errorf("metric %m does not have the expected value %f.  actual value is %f", n, expected, actual)
+			t.Errorf("metric %s does not have the expected value %f.  actual value is %f", n, expected, actual)
 			return false
 		}
 
