@@ -10,15 +10,15 @@ import (
 	"github.com/go-kit/kit/metrics/generic"
 )
 
-// rootCounter is a metric which is the root of a label tree of counters.
-type rootCounter struct {
+// counter is a testing metric which is the root of a label tree of counters.
+type counter struct {
 	*generic.Counter
 	lock sync.Mutex
 	tree map[LVKey]metrics.Counter
 }
 
 func NewCounter(name string) metrics.Counter {
-	c := &rootCounter{
+	c := &counter{
 		Counter: generic.NewCounter(name),
 		tree:    make(map[LVKey]metrics.Counter),
 	}
@@ -27,7 +27,7 @@ func NewCounter(name string) metrics.Counter {
 	return c
 }
 
-func (c *rootCounter) With(labelsAndValues ...string) metrics.Counter {
+func (c *counter) With(labelsAndValues ...string) metrics.Counter {
 	key, err := NewLVKey(labelsAndValues)
 	if err != nil {
 		panic(err)
@@ -49,7 +49,7 @@ func (c *rootCounter) With(labelsAndValues ...string) metrics.Counter {
 	return nested
 }
 
-func (c *rootCounter) Get(key LVKey) (interface{}, bool) {
+func (c *counter) Get(key LVKey) (interface{}, bool) {
 	c.lock.Lock()
 	existing, ok := c.tree[key]
 	c.lock.Unlock()
@@ -67,15 +67,15 @@ func (c *nestedCounter) With(labelsAndValues ...string) metrics.Counter {
 	return c.with(labelsAndValues...)
 }
 
-// rootGauge is a metric which is the root of a label tree of gauges.
-type rootGauge struct {
+// gauge is a testing metric which is the root of a label tree of gauges.
+type gauge struct {
 	*generic.Gauge
 	lock sync.Mutex
 	tree map[LVKey]metrics.Gauge
 }
 
 func NewGauge(name string) metrics.Gauge {
-	g := &rootGauge{
+	g := &gauge{
 		Gauge: generic.NewGauge(name),
 		tree:  make(map[LVKey]metrics.Gauge),
 	}
@@ -84,7 +84,7 @@ func NewGauge(name string) metrics.Gauge {
 	return g
 }
 
-func (g *rootGauge) With(labelsAndValues ...string) metrics.Gauge {
+func (g *gauge) With(labelsAndValues ...string) metrics.Gauge {
 	key, err := NewLVKey(labelsAndValues)
 	if err != nil {
 		panic(err)
@@ -106,7 +106,7 @@ func (g *rootGauge) With(labelsAndValues ...string) metrics.Gauge {
 	return nested
 }
 
-func (g *rootGauge) Get(key LVKey) (interface{}, bool) {
+func (g *gauge) Get(key LVKey) (interface{}, bool) {
 	g.lock.Lock()
 	existing, ok := g.tree[key]
 	g.lock.Unlock()
@@ -124,8 +124,8 @@ func (nc *nestedGauge) With(labelsAndValues ...string) metrics.Gauge {
 	return nc.with(labelsAndValues...)
 }
 
-// rootHistogram is a metric which is the root of a label tree of histograms.
-type rootHistogram struct {
+// histogram is a testing metric which is the root of a label tree of histograms.
+type histogram struct {
 	*generic.Histogram
 	Buckets int
 	lock    sync.Mutex
@@ -133,7 +133,7 @@ type rootHistogram struct {
 }
 
 func NewHistogram(name string, buckets int) metrics.Histogram {
-	h := &rootHistogram{
+	h := &histogram{
 		Histogram: generic.NewHistogram(name, buckets),
 		Buckets:   buckets,
 		tree:      make(map[LVKey]metrics.Histogram),
@@ -143,7 +143,7 @@ func NewHistogram(name string, buckets int) metrics.Histogram {
 	return h
 }
 
-func (h *rootHistogram) With(labelsAndValues ...string) metrics.Histogram {
+func (h *histogram) With(labelsAndValues ...string) metrics.Histogram {
 	key, err := NewLVKey(labelsAndValues)
 	if err != nil {
 		panic(err)
@@ -165,7 +165,7 @@ func (h *rootHistogram) With(labelsAndValues ...string) metrics.Histogram {
 	return nested
 }
 
-func (h *rootHistogram) Get(key LVKey) (interface{}, bool) {
+func (h *histogram) Get(key LVKey) (interface{}, bool) {
 	h.lock.Lock()
 	existing, ok := h.tree[key]
 	h.lock.Unlock()
