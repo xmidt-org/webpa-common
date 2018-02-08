@@ -24,6 +24,10 @@ type Provider interface {
 	// optional label/value pairs.
 	Expect(string, ...string) func(...expectation) Provider
 
+	// Assert executes an assertion against this provider immediately, without adding it to the
+	// set of expectations asserted via AssertExpectations.
+	Assert(testingT, string, ...string) func(...expectation) bool
+
 	// AssertExpectations verifies all expectations.  It returns true if and only if all
 	// expectations pass or if there were no expectations set.
 	AssertExpectations(testingT) bool
@@ -148,6 +152,37 @@ func (tp *testProvider) Expect(name string, labelsAndValues ...string) func(...e
 
 		labels[lvKey] = append(labels[lvKey], e...)
 		return tp
+	}
+}
+
+func (tp *testProvider) Assert(t testingT, name string, labelsAndValues ...string) func(...expectation) bool {
+	lvKey, err := NewLVKey(labelsAndValues)
+	if err != nil {
+		panic(err)
+	}
+
+	return func(e ...expectation) bool {
+		defer tp.lock.Unlock()
+		tp.lock.Lock()
+
+		metric, ok := tp.metrics[name]
+		if !ok {
+			t.Errorf("metric %s does not exist", name)
+			return false
+		}
+
+		metric, ok = metric.(Labeled).Get(lvKey)
+		if !ok {
+			t.Errorf("metric %s has no such label/value pairs: %s", name, lvKey)
+			return false
+		}
+
+		result := true
+		for _, f := range e {
+			result = f(t, name, metric) && result
+		}
+
+		return result
 	}
 }
 
