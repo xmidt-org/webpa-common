@@ -150,62 +150,53 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
+	d := newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
 	if convey, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
-		m.logger.Log(level.Key(), level.DebugValue(), "id", id, "convey", convey)
+		d.debugLog.Log(level.Key(), level.DebugValue(), "id", id, "convey", convey)
 	} else if err != conveyhttp.ErrMissingHeader {
-		m.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "badly formatted convey data", "id", id, logging.ErrorKey(), err)
+		d.errorLog.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "badly formatted convey data", "id", id, logging.ErrorKey(), err)
 	}
 
-	d, err := m.devices.add(id, func() (*device, error) {
-		var (
-			d   = newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
-			err = m.startPumps(d, response, request, responseHeader)
-		)
-
-		return d, err
-	})
-
+	c, err := m.upgrader.Upgrade(response, request, responseHeader)
 	if err != nil {
-		m.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to connect device", "id", id, logging.ErrorKey(), err)
-	} else {
-		m.dispatch(
-			&Event{
-				Type:   Connect,
-				Device: d,
-			},
-		)
+		d.errorLog.Log(logging.MessageKey(), "failed websocket upgrade", logging.ErrorKey(), err)
+		return nil, err
 	}
 
-	return d, err
+	d.debugLog.Log(logging.MessageKey(), "websocket upgrade complete", "localAddress", c.LocalAddr().String())
+
+	pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
+	if err != nil {
+		d.errorLog.Log(logging.MessageKey(), "unable to create pinger", logging.ErrorKey(), err)
+		c.Close()
+		return nil, err
+	}
+
+	if err := m.devices.add(d); err != nil {
+		d.errorLog.Log(logging.MessageKey(), "unable to register device", logging.ErrorKey(), err)
+		c.Close()
+		return nil, err
+	}
+
+	m.dispatch(
+		&Event{
+			Type:   Connect,
+			Device: d,
+		},
+	)
+
+	SetPongHandler(c, m.measures.Pong, m.readDeadline)
+	closeOnce := new(sync.Once)
+	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
+	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
+
+	return d, nil
 }
 
 func (m *manager) dispatch(e *Event) {
 	for _, listener := range m.listeners {
 		listener(e)
 	}
-}
-
-// startPumps performs the websocket upgrade and starts the read and write pumps
-func (m *manager) startPumps(d *device, response http.ResponseWriter, request *http.Request, responseHeader http.Header) error {
-	d.debugLog.Log(logging.MessageKey(), "initializing device")
-	c, err := m.upgrader.Upgrade(response, request, responseHeader)
-	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "failed websocket upgrade", logging.ErrorKey(), err)
-		return err
-	}
-
-	d.debugLog.Log(logging.MessageKey(), "websocket upgrade complete", "localAddress", c.LocalAddr().String())
-	pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
-	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "unable to create pinger", logging.ErrorKey(), err)
-		return err
-	}
-
-	SetPongHandler(c, m.measures.Pong, m.readDeadline)
-	closeOnce := new(sync.Once)
-	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
-	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
-	return nil
 }
 
 // pumpClose handles the proper shutdown and logging of a device's pumps.

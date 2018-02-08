@@ -7,13 +7,14 @@ import (
 )
 
 const (
-	DeviceCounter          = "device_count"
-	DuplicatesCounter      = "duplicate_count"
-	RequestResponseCounter = "request_response_count"
-	PingCounter            = "ping_count"
-	PongCounter            = "pong_count"
-	ConnectCounter         = "connect_count"
-	DisconnectCounter      = "disconnect_count"
+	DeviceCounter             = "device_count"
+	DuplicatesCounter         = "duplicate_count"
+	RequestResponseCounter    = "request_response_count"
+	PingCounter               = "ping_count"
+	PongCounter               = "pong_count"
+	ConnectCounter            = "connect_count"
+	DisconnectCounter         = "disconnect_count"
+	DeviceLimitReachedCounter = "device_limit_reached_count"
 )
 
 // Metrics is the device module function that adds default device metrics
@@ -47,12 +48,17 @@ func Metrics() []xmetrics.Metric {
 			Name: DisconnectCounter,
 			Type: "counter",
 		},
+		xmetrics.Metric{
+			Name: DeviceLimitReachedCounter,
+			Type: "counter",
+		},
 	}
 }
 
 // Measures is a convenient struct that holds all the device-related metric objects for runtime consumption.
 type Measures struct {
-	Device          xmetrics.AddSetter
+	Device          xmetrics.Setter
+	LimitReached    xmetrics.Incrementer
 	Duplicates      xmetrics.Incrementer
 	RequestResponse metrics.Counter
 	Ping            xmetrics.Incrementer
@@ -65,6 +71,7 @@ type Measures struct {
 func NewMeasures(p provider.Provider) Measures {
 	return Measures{
 		Device:          p.NewGauge(DeviceCounter),
+		LimitReached:    xmetrics.NewIncrementer(p.NewCounter(DeviceLimitReachedCounter)),
 		RequestResponse: p.NewCounter(RequestResponseCounter),
 		Ping:            xmetrics.NewIncrementer(p.NewCounter(PingCounter)),
 		Pong:            xmetrics.NewIncrementer(p.NewCounter(PongCounter)),

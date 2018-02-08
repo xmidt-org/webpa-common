@@ -25,10 +25,11 @@ type registry struct {
 	limit  int
 	data   map[ID]*device
 
-	count      xmetrics.AddSetter
-	connect    xmetrics.Incrementer
-	disconnect xmetrics.Adder
-	duplicates xmetrics.Incrementer
+	count        xmetrics.Setter
+	limitReached xmetrics.Incrementer
+	connect      xmetrics.Incrementer
+	disconnect   xmetrics.Adder
+	duplicates   xmetrics.Incrementer
 }
 
 func newRegistry(o registryOptions) *registry {
@@ -37,36 +38,37 @@ func newRegistry(o registryOptions) *registry {
 	}
 
 	return &registry{
-		logger:     o.Logger,
-		data:       make(map[ID]*device, o.InitialCapacity),
-		limit:      o.Limit,
-		count:      o.Measures.Device,
-		connect:    o.Measures.Connect,
-		disconnect: o.Measures.Disconnect,
-		duplicates: o.Measures.Duplicates,
+		logger:       o.Logger,
+		data:         make(map[ID]*device, o.InitialCapacity),
+		limit:        o.Limit,
+		count:        o.Measures.Device,
+		limitReached: o.Measures.LimitReached,
+		connect:      o.Measures.Connect,
+		disconnect:   o.Measures.Disconnect,
+		duplicates:   o.Measures.Duplicates,
 	}
 }
 
 // add uses a factory function to create a new device atomically with modifying
 // the registry
-func (r *registry) add(id ID, f func() (*device, error)) (*device, error) {
-	defer r.lock.Unlock()
+func (r *registry) add(newDevice *device) error {
+	id := newDevice.ID()
 	r.lock.Lock()
 
 	existing := r.data[id]
-	if existing == nil && r.limit > 0 && (len(r.data)+1) >= r.limit {
+	if existing == nil && r.limit > 0 && (len(r.data)+1) > r.limit {
 		// adding this would result in exceeding the limit
-		return nil, errDeviceLimitReached
+		r.lock.Unlock()
+		r.limitReached.Inc()
+		r.disconnect.Add(1.0)
+		newDevice.requestClose()
+		return errDeviceLimitReached
 	}
 
-	newDevice, err := f()
-	if err != nil {
-		return nil, err
-	}
-
-	// at this point, the various pumps should be up and running for the new device,
-	// but the device is not addressable from the outside yet.
+	// this will either leave the count the same or add 1 to it ...
 	r.data[id] = newDevice
+	r.count.Set(float64(len(r.data)))
+	r.lock.Unlock()
 
 	if existing != nil {
 		r.disconnect.Add(1.0)
@@ -76,19 +78,21 @@ func (r *registry) add(id ID, f func() (*device, error)) (*device, error) {
 	}
 
 	r.connect.Inc()
-	r.count.Set(float64(len(r.data)))
-	return newDevice, nil
+	return nil
 }
 
 func (r *registry) remove(id ID) (*device, bool) {
-	defer r.lock.Unlock()
 	r.lock.Lock()
-
 	existing, ok := r.data[id]
 	if ok {
 		delete(r.data, id)
+	}
+
+	r.count.Set(float64(len(r.data)))
+	r.lock.Unlock()
+
+	if existing != nil {
 		r.disconnect.Add(1.0)
-		r.count.Add(-1.0)
 		existing.requestClose()
 	}
 
