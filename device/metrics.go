@@ -7,13 +7,14 @@ import (
 )
 
 const (
-	DeviceCounter          = "device_count"
-	DuplicatesCounter      = "duplicate_count"
-	RequestResponseCounter = "request_response_count"
-	PingCounter            = "ping_count"
-	PongCounter            = "pong_count"
-	ConnectCounter         = "connect_count"
-	DisconnectCounter      = "disconnect_count"
+	DeviceCounter             = "device_count"
+	DuplicatesCounter         = "duplicate_count"
+	RequestResponseCounter    = "request_response_count"
+	PingCounter               = "ping_count"
+	PongCounter               = "pong_count"
+	ConnectCounter            = "connect_count"
+	DisconnectCounter         = "disconnect_count"
+	DeviceLimitReachedCounter = "device_limit_reached_count"
 )
 
 // Metrics is the device module function that adds default device metrics
@@ -47,29 +48,35 @@ func Metrics() []xmetrics.Metric {
 			Name: DisconnectCounter,
 			Type: "counter",
 		},
+		xmetrics.Metric{
+			Name: DeviceLimitReachedCounter,
+			Type: "counter",
+		},
 	}
 }
 
 // Measures is a convenient struct that holds all the device-related metric objects for runtime consumption.
 type Measures struct {
-	Device          metrics.Gauge
-	Duplicates      metrics.Counter
+	Device          xmetrics.Setter
+	LimitReached    xmetrics.Incrementer
+	Duplicates      xmetrics.Incrementer
 	RequestResponse metrics.Counter
-	Ping            metrics.Counter
-	Pong            metrics.Counter
-	Connect         metrics.Counter
-	Disconnect      metrics.Counter
+	Ping            xmetrics.Incrementer
+	Pong            xmetrics.Incrementer
+	Connect         xmetrics.Incrementer
+	Disconnect      xmetrics.Adder
 }
 
 // NewMeasures constructs a Measures given a go-kit metrics Provider
 func NewMeasures(p provider.Provider) Measures {
 	return Measures{
 		Device:          p.NewGauge(DeviceCounter),
+		LimitReached:    xmetrics.NewIncrementer(p.NewCounter(DeviceLimitReachedCounter)),
 		RequestResponse: p.NewCounter(RequestResponseCounter),
-		Ping:            p.NewCounter(PingCounter),
-		Pong:            p.NewCounter(PongCounter),
-		Duplicates:      p.NewCounter(DuplicatesCounter),
-		Connect:         p.NewCounter(ConnectCounter),
+		Ping:            xmetrics.NewIncrementer(p.NewCounter(PingCounter)),
+		Pong:            xmetrics.NewIncrementer(p.NewCounter(PongCounter)),
+		Duplicates:      xmetrics.NewIncrementer(p.NewCounter(DuplicatesCounter)),
+		Connect:         xmetrics.NewIncrementer(p.NewCounter(ConnectCounter)),
 		Disconnect:      p.NewCounter(DisconnectCounter),
 	}
 }

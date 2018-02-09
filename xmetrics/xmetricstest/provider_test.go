@@ -191,6 +191,149 @@ func testProviderExpect(t *testing.T) {
 	})
 }
 
+func testProviderAssert(t *testing.T) {
+	t.Run("BadLabelsAndValues", func(t *testing.T) {
+		var (
+			assert   = assert.New(t)
+			testingT = new(mockTestingT)
+
+			p = NewProvider(nil)
+		)
+
+		assert.Panics(func() {
+			p.Assert(testingT, "counter", "one")
+		})
+
+		testingT.AssertExpectations(t)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		var (
+			assert  = assert.New(t)
+			require = require.New(t)
+
+			firstCalled = false
+			first       = func(testingT, string, interface{}) bool {
+				firstCalled = true
+				return true
+			}
+
+			lastCalled = false
+			last       = func(testingT, string, interface{}) bool {
+				lastCalled = true
+				return true
+			}
+
+			testingT = new(mockTestingT)
+
+			p = NewProvider(nil, func() []xmetrics.Metric {
+				return []xmetrics.Metric{
+					{Name: "preregistered_counter", Type: "counter"},
+					{Name: "preregistered_gauge", Type: "gauge"},
+					{Name: "preregistered_histogram", Type: "histogram"},
+				}
+			})
+		)
+
+		require.NotPanics(func() {
+			p.NewCounter("preregistered_counter").Add(1.0)
+			p.NewCounter("preregistered_counter").With("code", "500", "method", "POST").Add(2.0)
+			p.NewGauge("preregistered_gauge").Set(15.0)
+			p.NewCounter("adhoc_counter").Add(2.0)
+		})
+
+		assert.True(p.Assert(testingT, "preregistered_counter")(first, Counter, Value(1.0), last))
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		assert.True(p.Assert(testingT, "preregistered_counter", "method", "POST", "code", "500")(first, Counter, Value(2.0), last))
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		assert.True(p.Assert(testingT, "preregistered_gauge")(first, Gauge, last))
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		assert.True(p.Assert(testingT, "preregistered_gauge")(first, Value(15.0), last))
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		assert.True(p.Assert(testingT, "preregistered_histogram")(first, Histogram, last))
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		assert.True(p.Assert(testingT, "adhoc_counter")(first, Counter, Value(2.0), last))
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		testingT.AssertExpectations(t)
+	})
+
+	t.Run("Fail", func(t *testing.T) {
+		var (
+			assert = assert.New(t)
+
+			firstCalled = false
+			first       = func(testingT, string, interface{}) bool {
+				firstCalled = true
+				return true
+			}
+
+			lastCalled = false
+			last       = func(testingT, string, interface{}) bool {
+				lastCalled = true
+				return true
+			}
+
+			nosuch = func(testingT, string, interface{}) bool {
+				assert.Fail("nosuch should not have been called")
+				return true
+			}
+
+			nolabels = func(testingT, string, interface{}) bool {
+				assert.Fail("nolabels should not have been called")
+				return true
+			}
+
+			testingT = new(mockTestingT)
+
+			p = NewProvider(nil, func() []xmetrics.Metric {
+				return []xmetrics.Metric{
+					{Name: "preregistered_counter", Type: "counter"},
+				}
+			})
+		)
+
+		testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Times(4)
+
+		assert.False(p.Assert(testingT, "nosuch")(nosuch))
+		testingT.AssertNumberOfCalls(t, "Errorf", 1)
+
+		assert.False(p.Assert(testingT, "preregistered_counter")(first, Gauge, Value(568.2), last))
+		testingT.AssertNumberOfCalls(t, "Errorf", 3)
+		assert.True(firstCalled)
+		assert.True(lastCalled)
+		firstCalled = false
+		lastCalled = false
+
+		assert.False(p.Assert(testingT, "preregistered_counter", "code", "500")(nolabels))
+
+		testingT.AssertExpectations(t)
+	})
+}
+
 func testProviderAssertExpectations(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		var (
@@ -300,5 +443,6 @@ func TestProvider(t *testing.T) {
 	t.Run("NewHistogram", testProviderNewHistogram)
 	t.Run("Stop", testProviderStop)
 	t.Run("Expect", testProviderExpect)
+	t.Run("Assert", testProviderAssert)
 	t.Run("AssertExpectations", testProviderAssertExpectations)
 }
