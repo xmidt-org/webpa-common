@@ -3,6 +3,8 @@ package xmetrics
 import (
 	"fmt"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/metrics/provider"
@@ -221,9 +223,11 @@ func (r *registry) Stop() {
 // expected to come from application or library code, and are to define any built-in metrics.  Metrics
 // present in the options will override any corresponding metric from modules.
 func NewRegistry(o *Options, modules ...Module) (Registry, error) {
+	logger := o.logger()
+
 	// merge all the metrics, allowing options to override modules
 	merger := NewMerger().
-		Logger(o.logger()).
+		Logger(logger).
 		DefaultNamespace(o.namespace()).
 		DefaultSubsystem(o.subsystem()).
 		AddModules(false, modules...).
@@ -246,6 +250,15 @@ func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 
 	for name, metric := range merger.Merged() {
 		// merged metrics will have namespace and subsystem set appropriately
+		logger.Log(
+			level.Key(), level.DebugValue(),
+			logging.MessageKey(), "registering merged metric",
+			"name", metric.Name,
+			"namespace", metric.Namespace,
+			"subsystem", metric.Subsystem,
+			"fqn", name,
+		)
+
 		c, err := NewCollector(metric)
 		if err != nil {
 			return nil, err
