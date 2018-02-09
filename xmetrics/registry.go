@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
@@ -250,17 +251,37 @@ func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 
 	for name, metric := range merger.Merged() {
 		// merged metrics will have namespace and subsystem set appropriately
-		logger.Log(
-			level.Key(), level.DebugValue(),
-			logging.MessageKey(), "registering merged metric",
+		metricLogger := log.With(
+			logger,
 			"name", metric.Name,
 			"namespace", metric.Namespace,
 			"subsystem", metric.Subsystem,
 			"fqn", name,
 		)
 
+		metricLogger.Log(
+			level.Key(), level.DebugValue(),
+			logging.MessageKey(), "registering merged metric",
+		)
+
 		c, err := NewCollector(metric)
 		if err != nil {
+			metricLogger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "unable to create collector for metric",
+				logging.ErrorKey(), err,
+			)
+
+			return nil, err
+		}
+
+		if err := pr.Register(c); err != nil {
+			metricLogger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "unable to register collector for metric",
+				logging.ErrorKey(), err,
+			)
+
 			return nil, err
 		}
 
