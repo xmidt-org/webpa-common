@@ -223,6 +223,7 @@ func (r *registry) Stop() {
 func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 	// merge all the metrics, allowing options to override modules
 	merger := NewMerger().
+		Logger(o.logger()).
 		DefaultNamespace(o.namespace()).
 		DefaultSubsystem(o.subsystem()).
 		AddModules(false, modules...).
