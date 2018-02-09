@@ -3,6 +3,7 @@ package xmetrics
 import (
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,4 +86,19 @@ func TestNewCollector(t *testing.T) {
 	t.Run("Gauge", testNewCollectorGauge)
 	t.Run("Histogram", testNewCollectorHistogram)
 	t.Run("Summary", testNewCollectorSummary)
+}
+
+func TestMerger(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		var (
+			assert = assert.New(t)
+			merger = NewMerger().
+				Logger(logging.NewTestLogger(nil, t)).
+				AddMetrics(false, []Metric{{Name: "counter", Type: "counter"}}).
+				AddModules(true, func() []Metric { return []Metric{{Name: "counter", Type: "counter"}} })
+		)
+
+		assert.Len(merger.Merged(), 1)
+		assert.NoError(merger.Err())
+	})
 }

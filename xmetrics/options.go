@@ -3,6 +3,8 @@ package xmetrics
 import (
 	"os"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -13,6 +15,9 @@ const (
 
 // Options is the configurable options for creating a Prometheus registry
 type Options struct {
+	// Logger is the go-kit logger to use for metrics output.  If unset, logging.DefaultLogger() is used.
+	Logger log.Logger
+
 	// Namespace is the global default namespace for metrics which don't define a namespace (or for ad hoc metrics).
 	// If not supplied, DefaultNamespace is used.
 	Namespace string
@@ -39,6 +44,14 @@ type Options struct {
 	// Any duplicate metrics will cause an error.  Duplicate metrics are defined as those having the same namespace,
 	// subsystem, and name.
 	Metrics []Metric
+}
+
+func (o *Options) logger() log.Logger {
+	if o != nil && o.Logger != nil {
+		return o.Logger
+	}
+
+	return logging.DefaultLogger()
 }
 
 func (o *Options) namespace() string {
