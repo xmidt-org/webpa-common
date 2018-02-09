@@ -210,6 +210,7 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		webPA.Metric.MetricsOptions.Subsystem = applicationName
 	}
 
+	webPA.Metric.MetricsOptions.Logger = logger
 	registry, err = webPA.Metric.NewRegistry(modules...)
 	if err != nil {
 		return
