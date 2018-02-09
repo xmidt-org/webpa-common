@@ -132,10 +132,190 @@ func testRegistryAdd(t *testing.T) {
 	})
 }
 
-func testRegistryRemove(t *testing.T) {
+func testRegistryRemoveAndGet(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
+
+		p = xmetricstest.NewProvider(nil, Metrics)
+		r = newRegistry(registryOptions{
+			Logger:   logger,
+			Limit:    1,
+			Measures: NewMeasures(p),
+		})
+	)
+
+	require.NotNil(r)
+
+	initial := newDevice(deviceOptions{
+		ID:     ID("test"),
+		Logger: logger,
+	})
+
+	require.NoError(r.add(initial))
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	existing, ok := r.get(ID("test"))
+	assert.True(existing == initial)
+	assert.True(ok)
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	existing, ok = r.get(ID("nosuch"))
+	assert.Nil(existing)
+	assert.False(ok)
+	assert.False(initial.Closed())
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	existing, ok = r.remove(ID("nosuch"))
+	assert.Nil(existing)
+	assert.False(ok)
+	assert.False(initial.Closed())
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	existing, ok = r.remove(ID("test"))
+	assert.True(existing == initial)
+	assert.True(ok)
+	assert.True(initial.Closed())
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	existing, ok = r.get(ID("test"))
+	assert.Nil(existing)
+	assert.False(ok)
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+}
+
+func testRegistryRemoveIf(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
+
+		p = xmetricstest.NewProvider(nil, Metrics)
+		r = newRegistry(registryOptions{
+			Logger:   logger,
+			Limit:    1,
+			Measures: NewMeasures(p),
+		})
+	)
+
+	require.NotNil(r)
+
+	initial := newDevice(deviceOptions{
+		ID:     ID("test"),
+		Logger: logger,
+	})
+
+	require.NoError(r.add(initial))
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	assert.Equal(
+		0,
+		r.removeIf(func(*device) bool {
+			return false
+		}),
+	)
+
+	assert.False(initial.Closed())
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	assert.Equal(
+		1,
+		r.removeIf(func(*device) bool {
+			return true
+		}),
+	)
+
+	assert.True(initial.Closed())
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+}
+
+func testRegistryVisit(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
+
+		p = xmetricstest.NewProvider(nil, Metrics)
+		r = newRegistry(registryOptions{
+			Logger:   logger,
+			Limit:    1,
+			Measures: NewMeasures(p),
+		})
+	)
+
+	require.NotNil(r)
+
+	initial := newDevice(deviceOptions{
+		ID:     ID("test"),
+		Logger: logger,
+	})
+
+	require.NoError(r.add(initial))
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	visitCalled := false
+	assert.Equal(
+		1,
+		r.visit(func(actual *device) {
+			visitCalled = true
+			assert.False(actual.Closed())
+			assert.True(actual == initial)
+		}),
+	)
+
+	assert.False(initial.Closed())
+	assert.True(visitCalled)
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(1.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
 }
 
 func TestRegistry(t *testing.T) {
 	t.Run("Add", testRegistryAdd)
-	t.Run("Remove", testRegistryRemove)
+	t.Run("RemoveAndGet", testRegistryRemoveAndGet)
+	t.Run("RemoveIf", testRegistryRemoveIf)
+	t.Run("Visit", testRegistryVisit)
 }
