@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -19,6 +20,7 @@ func testSubscribeNoDelay(t *testing.T) {
 		registeredChannel chan<- sd.Event
 		registerCalled    = make(chan struct{})
 		deregisterCalled  = make(chan struct{})
+		metricsProvider   = xmetricstest.NewProvider(nil, Metrics)
 
 		options = &Options{
 			Logger: logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
@@ -26,6 +28,7 @@ func testSubscribeNoDelay(t *testing.T) {
 				assert.Fail("The after function should not have been called")
 				return nil
 			},
+			MetricsProvider: metricsProvider,
 		}
 	)
 
@@ -104,6 +107,7 @@ func testSubscribeDelay(t *testing.T) {
 		registeredChannel chan<- sd.Event
 		registerCalled    = make(chan struct{})
 		deregisterCalled  = make(chan struct{})
+		metricsProvider   = xmetricstest.NewProvider(nil, Metrics)
 
 		options = &Options{
 			Logger:      logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
@@ -112,6 +116,7 @@ func testSubscribeDelay(t *testing.T) {
 				assert.Equal(5*time.Minute, d)
 				return delay
 			},
+			MetricsProvider: metricsProvider,
 		}
 	)
 
@@ -206,6 +211,7 @@ func testSubscribeMonitorPanic(t *testing.T) {
 		registeredChannel chan<- sd.Event
 		registerCalled    = make(chan struct{})
 		deregisterCalled  = make(chan struct{})
+		metricsProvider   = xmetricstest.NewProvider(nil, Metrics)
 
 		options = &Options{
 			Logger: logging.NewTestLogger(&logging.Options{Level: "debug", JSON: true}, t),
@@ -216,6 +222,7 @@ func testSubscribeMonitorPanic(t *testing.T) {
 			InstancesFilter: func([]string) []string {
 				panic("expected")
 			},
+			MetricsProvider: metricsProvider,
 		}
 	)
 

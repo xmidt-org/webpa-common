@@ -20,35 +20,35 @@ const (
 // Metrics is the device module function that adds default device metrics
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
-		xmetrics.Metric{
+		{
 			Name: DeviceCounter,
 			Type: "gauge",
 		},
-		xmetrics.Metric{
+		{
 			Name: DuplicatesCounter,
 			Type: "counter",
 		},
-		xmetrics.Metric{
+		{
 			Name: RequestResponseCounter,
 			Type: "counter",
 		},
-		xmetrics.Metric{
+		{
 			Name: PingCounter,
 			Type: "counter",
 		},
-		xmetrics.Metric{
+		{
 			Name: PongCounter,
 			Type: "counter",
 		},
-		xmetrics.Metric{
+		{
 			Name: ConnectCounter,
 			Type: "counter",
 		},
-		xmetrics.Metric{
+		{
 			Name: DisconnectCounter,
 			Type: "counter",
 		},
-		xmetrics.Metric{
+		{
 			Name: DeviceLimitReachedCounter,
 			Type: "counter",
 		},

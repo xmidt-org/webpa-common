@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd"
 )
@@ -44,9 +45,15 @@ type subscription struct {
 	serviceName     string
 	path            string
 	updateDelay     time.Duration
+	now             func() time.Time
 	after           func(time.Duration) <-chan time.Time
 	instancesFilter InstancesFilter
 	accessorFactory AccessorFactory
+
+	errorCount          xmetrics.Incrementer
+	updateCount         xmetrics.Incrementer
+	lastUpdateTimestamp xmetrics.Setter
+	lastErrorTimestamp  xmetrics.Setter
 }
 
 // String returns a string representation of this Subscription, useful
@@ -79,6 +86,7 @@ func (s *subscription) Stop() {
 func (s *subscription) dispatch(instances []string) {
 	filtered := s.instancesFilter(instances)
 	s.infoLog.Log(logging.MessageKey(), "dispatching updated instances", "instances", filtered)
+	s.updateCount.Inc()
 	s.updates <- s.accessorFactory(filtered)
 }
 
@@ -114,11 +122,16 @@ func (s *subscription) monitor(i sd.Instancer) {
 		select {
 		case e := <-events:
 			s.debugLog.Log(logging.MessageKey(), "service discovery event", "instances", e.Instances, logging.ErrorKey(), e.Err)
+			if e.Err != nil {
+				s.errorCount.Inc()
+				s.lastErrorTimestamp.Set(float64(s.now().Unix()))
+				s.errorLog.Log(logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
+				continue
+			}
+
+			s.lastUpdateTimestamp.Set(float64(s.now().Unix()))
 
 			switch {
-			case e.Err != nil:
-				s.errorLog.Log(logging.MessageKey(), "service discovery error", logging.ErrorKey(), e.Err)
-
 			case first:
 				// for the very first event, we want to dispatch immediately no matter what
 				s.debugLog.Log(logging.MessageKey(), "dispatching first event immediately")
@@ -161,19 +174,29 @@ func Subscribe(o *Options, i sd.Instancer) Subscription {
 		serviceName = o.serviceName()
 		path        = o.path()
 		updateDelay = o.updateDelay()
+		p           = o.metricsProvider()
 
 		s = &subscription{
-			errorLog:        logging.Error(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
-			infoLog:         logging.Info(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
-			debugLog:        logging.Debug(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
-			stopped:         make(chan struct{}),
-			updates:         make(chan Accessor, 10),
-			serviceName:     serviceName,
-			path:            path,
-			updateDelay:     updateDelay,
-			after:           o.after(),
-			instancesFilter: o.instancesFilter(),
+			errorLog:    logging.Error(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
+			infoLog:     logging.Info(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
+			debugLog:    logging.Debug(logger, "serviceName", serviceName, "path", path, "updateDelay", updateDelay),
+			stopped:     make(chan struct{}),
+			updates:     make(chan Accessor, 10),
+			serviceName: serviceName,
+			path:        path,
+			updateDelay: updateDelay,
+			now:         o.now(),
+			after:       o.after(),
+			instancesFilter: InstrumentFilter(
+				p.NewGauge(InstanceCount),
+				o.instancesFilter(),
+			),
 			accessorFactory: o.accessorFactory(),
+
+			errorCount:          xmetrics.NewIncrementer(p.NewCounter(ErrorCount)),
+			updateCount:         xmetrics.NewIncrementer(p.NewCounter(UpdateCount)),
+			lastUpdateTimestamp: p.NewGauge(LastUpdateTimestamp),
+			lastErrorTimestamp:  p.NewGauge(LastErrorTimestamp),
 		}
 	)
 

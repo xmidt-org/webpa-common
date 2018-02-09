@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/billhathaway/consistentHash"
 )
 
@@ -29,6 +30,15 @@ func DefaultInstancesFilter(original []string) []string {
 
 	sort.Strings(filtered)
 	return filtered
+}
+
+// InstrumentFilter applies a Setter (gauge) that records the count of instances from the next filter.
+func InstrumentFilter(count xmetrics.Setter, next InstancesFilter) InstancesFilter {
+	return func(raw []string) []string {
+		filtered := next(raw)
+		count.Set(float64(len(filtered)))
+		return filtered
+	}
 }
 
 // AccessorFactory defines the behavior of functions which can take a set
