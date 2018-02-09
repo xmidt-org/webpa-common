@@ -256,6 +256,7 @@ func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 			"name", metric.Name,
 			"namespace", metric.Namespace,
 			"subsystem", metric.Subsystem,
+			"type", metric.Type,
 			"fqn", name,
 		)
 
