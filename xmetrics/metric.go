@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -142,6 +145,7 @@ func NewCollector(m Metric) (prometheus.Collector, error) {
 // namespace and subsystem to each metric.  This type implements a Fluent Interface which tracks the first
 // error encountered.
 type Merger struct {
+	logger           log.Logger
 	defaultNamespace string
 	defaultSubsystem string
 	namer            func(string, string, string) string
@@ -152,11 +156,23 @@ type Merger struct {
 // NewMerger creates a merging strategy with useful defaults.
 func NewMerger() *Merger {
 	return &Merger{
+		logger:           logging.DefaultLogger(),
 		defaultNamespace: DefaultNamespace,
 		defaultSubsystem: DefaultSubsystem,
 		namer:            prometheus.BuildFQName,
 		merged:           make(map[string]Metric),
 	}
+}
+
+// Logger sets a go-kit logger to use for merging output
+func (mr *Merger) Logger(logger log.Logger) *Merger {
+	if logger != nil {
+		mr.logger = logger
+	} else {
+		mr.logger = logging.DefaultLogger()
+	}
+
+	return mr
 }
 
 // Namer sets the fully-qualified naming strategy for this merger.  This method applies to all subsequent
@@ -214,6 +230,20 @@ func (mr *Merger) tryAdd(allowOverride bool, m Metric) bool {
 		return false
 	}
 
+	defer func() {
+		if mr.err != nil {
+			mr.logger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "failed to merge metrics",
+				logging.ErrorKey(), mr.err,
+				"name", m.Name,
+				"namespace", m.Namespace,
+				"subsystem", m.Subsystem,
+				"type", m.Type,
+			)
+		}
+	}()
+
 	if len(m.Name) == 0 {
 		mr.err = errors.New("names are required for metrics")
 		return false
@@ -228,6 +258,16 @@ func (mr *Merger) tryAdd(allowOverride bool, m Metric) bool {
 	}
 
 	fqn := mr.namer(m.Namespace, m.Subsystem, m.Name)
+	mr.logger.Log(
+		level.Key(), level.DebugValue(),
+		logging.MessageKey(), "merging metric",
+		"name", m.Name,
+		"namespace", m.Namespace,
+		"subsystem", m.Subsystem,
+		"fqn", fqn,
+		"type", m.Type,
+	)
+
 	if existing, ok := mr.merged[fqn]; ok {
 		if !allowOverride {
 			mr.err = fmt.Errorf("duplicate metric with name: %s", fqn)

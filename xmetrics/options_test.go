@@ -3,6 +3,7 @@ package xmetrics
 import (
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,6 +12,7 @@ func testOptionsDefault(o *Options, t *testing.T) {
 		assert = assert.New(t)
 	)
 
+	assert.NotNil(o.logger())
 	assert.Equal(DefaultNamespace, o.namespace())
 	assert.Equal(DefaultSubsystem, o.subsystem())
 	assert.False(o.pedantic())
@@ -23,7 +25,9 @@ func testOptionsDefault(o *Options, t *testing.T) {
 func testOptionsCustom(t *testing.T) {
 	var (
 		assert = assert.New(t)
+		logger = logging.NewTestLogger(nil, t)
 		o      = Options{
+			Logger:                  logger,
 			Namespace:               "custom namespace",
 			Subsystem:               "custom subsystem",
 			Pedantic:                true,
@@ -38,6 +42,7 @@ func testOptionsCustom(t *testing.T) {
 		}
 	)
 
+	assert.Equal(logger, o.logger())
 	assert.Equal("custom namespace", o.namespace())
 	assert.Equal("custom subsystem", o.subsystem())
 	assert.True(o.pedantic())
