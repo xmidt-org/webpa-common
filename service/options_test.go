@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +27,8 @@ func testOptionsDefault(t *testing.T) {
 		assert.NotNil(o.instancesFilter())
 		assert.NotNil(o.accessorFactory())
 		assert.NotNil(o.after())
-		assert.NotEmpty(o.String())
+		assert.NotNil(o.now())
+		assert.NotNil(o.metricsProvider())
 	}
 }
 
@@ -41,8 +43,14 @@ func testOptionsCustom(t *testing.T) {
 		customAccessorFactoryCalled bool
 		customAccessorFactory       = func([]string) Accessor { customAccessorFactoryCalled = true; return nil }
 
+		expectedNow     = time.Now()
+		customNowCalled bool
+		customNow       = func() time.Time { customNowCalled = true; return expectedNow }
+
 		customAfterCalled bool
 		customAfter       = func(time.Duration) <-chan time.Time { customAfterCalled = true; return nil }
+
+		metricsProvider = xmetricstest.NewProvider(nil, Metrics)
 
 		testData = []struct {
 			options         *Options
@@ -62,6 +70,8 @@ func testOptionsCustom(t *testing.T) {
 					InstancesFilter: customInstancesFilter,
 					AccessorFactory: customAccessorFactory,
 					After:           customAfter,
+					Now:             customNow,
+					MetricsProvider: metricsProvider,
 				},
 				map[string]bool{"node1.comcast.net:2181": true, "node2.comcast.net:275": true},
 			},
@@ -79,6 +89,8 @@ func testOptionsCustom(t *testing.T) {
 					InstancesFilter: customInstancesFilter,
 					AccessorFactory: customAccessorFactory,
 					After:           customAfter,
+					Now:             customNow,
+					MetricsProvider: metricsProvider,
 				},
 				map[string]bool{"foobar.com:1234": true},
 			},
@@ -96,6 +108,8 @@ func testOptionsCustom(t *testing.T) {
 					InstancesFilter: customInstancesFilter,
 					AccessorFactory: customAccessorFactory,
 					After:           customAfter,
+					Now:             customNow,
+					MetricsProvider: metricsProvider,
 				},
 				map[string]bool{"foobar.com:1234": true, "grover.net:9999": true},
 			},
@@ -114,6 +128,8 @@ func testOptionsCustom(t *testing.T) {
 					InstancesFilter: customInstancesFilter,
 					AccessorFactory: customAccessorFactory,
 					After:           customAfter,
+					Now:             customNow,
+					MetricsProvider: metricsProvider,
 				},
 				map[string]bool{"node1.comcast.net:2181": true, "node2.comcast.net:275": true, "foobar.com:1234": true, "grover.net:9999": true},
 			},
@@ -138,7 +154,6 @@ func testOptionsCustom(t *testing.T) {
 		assert.Equal(options.ServiceName, options.serviceName())
 		assert.Equal(options.Registration, options.registration())
 		assert.Equal(int(options.VnodeCount), options.vnodeCount())
-		assert.NotEmpty(options.String())
 
 		customInstancesFilterCalled = false
 		options.instancesFilter()([]string{})
@@ -148,9 +163,15 @@ func testOptionsCustom(t *testing.T) {
 		options.accessorFactory()([]string{})
 		assert.True(customAccessorFactoryCalled)
 
+		customNowCalled = false
+		assert.Equal(expectedNow, options.now()())
+		assert.True(customNowCalled)
+
 		customAfterCalled = false
 		options.after()(time.Minute)
 		assert.True(customAfterCalled)
+
+		assert.Equal(metricsProvider, options.metricsProvider())
 	}
 }
 

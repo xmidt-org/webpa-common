@@ -1,12 +1,11 @@
 package service
 
 import (
-	"bytes"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/provider"
 )
 
 const (
@@ -63,83 +62,15 @@ type Options struct {
 	// ConsistentAccessorFactory will be used.
 	AccessorFactory AccessorFactory `json:"-"`
 
+	// Now is the optional function which returns the system time.  If not set, time.Now is used.
+	Now func() time.Time `json:"-"`
+
 	// After is the optional function to use to obtain a channel which receives a time.Time
 	// after a delay.  If not set, time.After is used.
 	After func(time.Duration) <-chan time.Time `json:"-"`
-}
 
-func (o *Options) String() string {
-	var output bytes.Buffer
-	if o == nil {
-		output.WriteString("<nil>")
-	} else {
-		if len(o.Connection) > 0 {
-			if output.Len() > 0 {
-				output.WriteString(", ")
-			}
-
-			output.WriteString("connection=")
-			output.WriteString(o.Connection)
-		}
-
-		if len(o.Servers) > 0 {
-			if output.Len() > 0 {
-				output.WriteString(", ")
-			}
-
-			output.WriteString("servers=")
-			output.WriteString(strings.Join(o.Servers, ","))
-		}
-
-		if o.ConnectTimeout > 0 {
-			if output.Len() > 0 {
-				output.WriteString(", ")
-			}
-
-			output.WriteString("connectTimeout=")
-			output.WriteString(o.ConnectTimeout.String())
-		}
-
-		if o.SessionTimeout > 0 {
-			if output.Len() > 0 {
-				output.WriteString(", ")
-			}
-
-			output.WriteString("sessionTimeout=")
-			output.WriteString(o.SessionTimeout.String())
-		}
-
-		if o.UpdateDelay > 0 {
-			if output.Len() > 0 {
-				output.WriteString(", ")
-			}
-
-			output.WriteString("updateDelay=")
-			output.WriteString(o.UpdateDelay.String())
-		}
-
-		if o.VnodeCount > 0 {
-			if output.Len() > 0 {
-				output.WriteString(", ")
-			}
-
-			output.WriteString("vnodeCount=")
-			output.WriteString(strconv.FormatUint(uint64(o.VnodeCount), 10))
-		}
-
-		if output.Len() > 0 {
-			output.WriteString(", ")
-		}
-
-		output.WriteString("path=")
-		output.WriteString(o.Path)
-		output.WriteString(", serviceName=")
-		output.WriteString(o.ServiceName)
-		output.WriteString(", registration=")
-		output.WriteString(o.Registration)
-	}
-
-	return output.String()
+	// MetricsProvider is the go-kit factory for metrics
+	MetricsProvider provider.Provider `json:"-"`
 }
 
 func (o *Options) logger() log.Logger {
@@ -250,4 +181,20 @@ func (o *Options) after() func(time.Duration) <-chan time.Time {
 	}
 
 	return time.After
+}
+
+func (o *Options) now() func() time.Time {
+	if o != nil && o.Now != nil {
+		return o.Now
+	}
+
+	return time.Now
+}
+
+func (o *Options) metricsProvider() provider.Provider {
+	if o != nil && o.MetricsProvider != nil {
+		return o.MetricsProvider
+	}
+
+	return provider.NewDiscardProvider()
 }
