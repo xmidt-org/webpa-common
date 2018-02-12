@@ -11,12 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/netutil"
-
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/Comcast/webpa-common/xlistener"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
@@ -161,19 +160,14 @@ func (b *Basic) Certificate() (certificateFile, keyFile string) {
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, gauge metrics.Gauge) (net.Listener, error) {
-	l, err := net.Listen("tcp", b.Address)
-	if err != nil {
-		return nil, err
-	}
-
-	l = InstrumentListener(logger, gauge, l)
-	maxConnections := b.maxConnections()
-	if maxConnections > 0 {
-		l = netutil.LimitListener(l, maxConnections)
-	}
-
-	return l, nil
+func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Incrementer) (net.Listener, error) {
+	return xlistener.New(xlistener.Options{
+		Logger:         logger,
+		Address:        b.Address,
+		MaxConnections: b.maxConnections(),
+		Active:         activeConnections,
+		Rejected:       rejectedCounter,
+	})
 }
 
 // New creates an http.Server using this instance's configuration.  The given logger is required,
@@ -463,6 +457,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		})
 
 		activeConnections = registry.NewGauge("active_connections")
+		rejectedCounter   = registry.NewCounter("rejected_connections")
 
 		healthHandler, healthServer = w.Health.New(logger, alice.New(staticHeaders), health)
 		infoLog                     = logging.Info(logger)
@@ -482,7 +477,12 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
 		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
-			listener, err := w.Primary.NewListener(logger, activeConnections.With("server", "primary"))
+			listener, err := w.Primary.NewListener(
+				logger,
+				activeConnections.With("server", "primary"),
+				xmetrics.NewIncrementer(rejectedCounter.With("server", "primary")),
+			)
+
 			if err != nil {
 				// TODO: handle cleanup
 				return err
@@ -495,7 +495,12 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		}
 
 		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
-			listener, err := w.Alternate.NewListener(logger, activeConnections.With("server", "alternate"))
+			listener, err := w.Alternate.NewListener(
+				logger,
+				activeConnections.With("server", "alternate"),
+				xmetrics.NewIncrementer(rejectedCounter.With("server", "alternate")),
+			)
+
 			if err != nil {
 				// TODO: handle cleanup
 				return err

@@ -25,6 +25,12 @@ func Metrics() []xmetrics.Metric {
 			LabelNames: []string{"server"},
 		},
 		xmetrics.Metric{
+			Name:       "rejected_connections",
+			Type:       "counter",
+			Help:       "The total number of connections rejected due to exceeding the limit",
+			LabelNames: []string{"server"},
+		},
+		xmetrics.Metric{
 			Name:    "request_duration_seconds",
 			Type:    "histogram",
 			Help:    "A histogram of latencies for requests.",
