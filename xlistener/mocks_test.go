@@ -62,15 +62,3 @@ func (m *mockListener) Close() error {
 func (m *mockListener) Addr() net.Addr {
 	return m.Called().Get(0).(net.Addr)
 }
-
-type mockAddr struct {
-	mock.Mock
-}
-
-func (m *mockAddr) Network() string {
-	return m.Called().String(0)
-}
-
-func (m *mockAddr) String() string {
-	return m.Called().String(0)
-}
