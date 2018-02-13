@@ -21,7 +21,7 @@ import:
 - package: github.com/spaolacci/murmur3
   version: v1.0
 - package: github.com/gorilla/mux
-  version: v1.3.0
+  version: v1.6.1
 - package: github.com/gorilla/schema
 - package: github.com/gorilla/websocket
   version: v1.2.0

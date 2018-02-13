@@ -1,5 +1,5 @@
-hash: 93e70927af4ea993a329e51af95ae9ad2086321f3c616831dd494f289af8251f
-updated: 2018-02-09T13:16:29.014950829-08:00
+hash: d0c060d4280098a0ee40e4032a2256f670fe9e596e3d336143d99d59229ba5aa
+updated: 2018-02-12T19:36:12.346385227-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -85,7 +85,7 @@ imports:
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
-  version: 392c28fe23e1c45ddba891b0320b3b5df220beea
+  version: 53c1911da2b537f792e7cafcb446b05ffe33b996
 - name: github.com/gorilla/schema
   version: afe77393c53b66afe9212810d9b2013859d04ae6
 - name: github.com/gorilla/websocket
@@ -197,7 +197,6 @@ imports:
   version: 5ccada7d0a7ba9aeb5d3aca8d3501b4c2a509fec
   subpackages:
   - context
-  - netutil
 - name: golang.org/x/sys
   version: af50095a40f9041b3b38960738837185c26e9419
   subpackages:
