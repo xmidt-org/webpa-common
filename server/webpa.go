@@ -160,7 +160,7 @@ func (b *Basic) Certificate() (certificateFile, keyFile string) {
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Incrementer) (net.Listener, error) {
+func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder) (net.Listener, error) {
 	return xlistener.New(xlistener.Options{
 		Logger:         logger,
 		Address:        b.Address,
@@ -480,7 +480,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			listener, err := w.Primary.NewListener(
 				logger,
 				activeConnections.With("server", "primary"),
-				xmetrics.NewIncrementer(rejectedCounter.With("server", "primary")),
+				rejectedCounter.With("server", "primary"),
 			)
 
 			if err != nil {
@@ -498,7 +498,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			listener, err := w.Alternate.NewListener(
 				logger,
 				activeConnections.With("server", "alternate"),
-				xmetrics.NewIncrementer(rejectedCounter.With("server", "alternate")),
+				rejectedCounter.With("server", "alternate"),
 			)
 
 			if err != nil {
