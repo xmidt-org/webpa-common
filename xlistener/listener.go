@@ -24,7 +24,7 @@ type Options struct {
 	MaxConnections int
 
 	// Rejected is is incremented each time the listener rejects a connection.  If unset, a go-kit discard Counter is used.
-	Rejected xmetrics.Incrementer
+	Rejected xmetrics.Adder
 
 	// Active is updated to reflect the current number of active connections.  If unset, a go-kit discard Gauge is used.
 	Active xmetrics.Adder
@@ -51,7 +51,7 @@ func New(o Options) (net.Listener, error) {
 	}
 
 	if o.Rejected == nil {
-		o.Rejected = xmetrics.NewIncrementer(discard.NewCounter())
+		o.Rejected = discard.NewCounter()
 	}
 
 	if o.Active == nil {
@@ -79,7 +79,7 @@ func New(o Options) (net.Listener, error) {
 		Listener:  next,
 		logger:    log.With(o.Logger, "listenNetwork", next.Addr().Network(), "listenAddress", next.Addr().String()),
 		semaphore: semaphore,
-		rejected:  o.Rejected,
+		rejected:  xmetrics.NewIncrementer(o.Rejected),
 		active:    o.Active,
 	}, nil
 }
