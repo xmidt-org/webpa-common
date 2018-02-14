@@ -23,12 +23,12 @@ func TestWithLogger(t *testing.T) {
 	assert.True(ok)
 }
 
-func testLoggerMissing(t *testing.T) {
+func testFromContextMissing(t *testing.T) {
 	assert := assert.New(t)
-	assert.NotNil(Logger(context.Background()))
+	assert.NotNil(FromContext(context.Background()))
 }
 
-func testLoggerPresent(t *testing.T) {
+func testFromContextPresent(t *testing.T) {
 	var (
 		require = require.New(t)
 		assert  = assert.New(t)
@@ -36,10 +36,10 @@ func testLoggerPresent(t *testing.T) {
 	)
 
 	require.NotNil(ctx)
-	assert.NotNil(Logger(ctx))
+	assert.NotNil(FromContext(ctx))
 }
 
-func TestLogger(t *testing.T) {
-	t.Run("Missing", testLoggerMissing)
-	t.Run("Present", testLoggerPresent)
+func TestFromContext(t *testing.T) {
+	t.Run("Missing", testFromContextMissing)
+	t.Run("Present", testFromContextPresent)
 }

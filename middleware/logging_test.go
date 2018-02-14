@@ -19,7 +19,7 @@ func testLoggingWithLoggable(t *testing.T) {
 
 		logging = Logging(func(ctx context.Context, value interface{}) (interface{}, error) {
 			assert.Equal(loggable, value)
-			assert.Equal(expectedLogger, logging.Logger(ctx))
+			assert.Equal(expectedLogger, logging.FromContext(ctx))
 			return expectedResponse, nil
 		})
 	)
@@ -45,7 +45,7 @@ func testLoggingWithoutLoggable(t *testing.T) {
 
 		logging = Logging(func(ctx context.Context, value interface{}) (interface{}, error) {
 			assert.Equal(expectedRequest, value)
-			assert.Equal(logging.DefaultLogger(), logging.Logger(ctx))
+			assert.Equal(logging.DefaultLogger(), logging.FromContext(ctx))
 			return expectedResponse, nil
 		})
 	)

@@ -56,7 +56,7 @@ func testNewSuccessFirst(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints["success"] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(logger, logging.FromContext(ctx))
 				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				success <- "success"
@@ -64,7 +64,7 @@ func testNewSuccessFirst(t *testing.T, serviceCount int) {
 			}
 		} else {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(logger, logging.FromContext(ctx))
 				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-failureGate
@@ -111,7 +111,7 @@ func testNewSuccessLast(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints["success"] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(logger, logging.FromContext(ctx))
 				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-successGate
@@ -121,7 +121,7 @@ func testNewSuccessLast(t *testing.T, serviceCount int) {
 		} else {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
 				defer failuresDone.Done()
-				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(logger, logging.FromContext(ctx))
 				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				return nil, fmt.Errorf("expected failure #%d", i)
@@ -183,7 +183,7 @@ func testNewTimeout(t *testing.T, serviceCount int) {
 	endpointsWaiting.Add(serviceCount)
 	for i := 0; i < serviceCount; i++ {
 		endpoints[fmt.Sprintf("slow#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-			assert.Equal(logger, logging.Logger(ctx))
+			assert.Equal(logger, logging.FromContext(ctx))
 			assert.Equal(expectedRequest, FromContext(ctx))
 			assert.Equal(expectedRequest, request)
 			endpointsWaiting.Done()
@@ -236,7 +236,7 @@ func testNewAllEndpointsFail(t *testing.T, serviceCount int) {
 	for i := 0; i < serviceCount; i++ {
 		if i == 0 {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(ctx context.Context, request interface{}) (interface{}, error) {
-				assert.Equal(logger, logging.Logger(ctx))
+				assert.Equal(logger, logging.FromContext(ctx))
 				assert.Equal(expectedRequest, FromContext(ctx))
 				assert.Equal(expectedRequest, request)
 				<-lastEndpointGate
@@ -246,7 +246,7 @@ func testNewAllEndpointsFail(t *testing.T, serviceCount int) {
 			endpoints[fmt.Sprintf("failure#%d", i)] = func(index int) endpoint.Endpoint {
 				return func(ctx context.Context, request interface{}) (interface{}, error) {
 					defer otherEndpointsDone.Done()
-					assert.Equal(logger, logging.Logger(ctx))
+					assert.Equal(logger, logging.FromContext(ctx))
 					assert.Equal(expectedRequest, FromContext(ctx))
 					assert.Equal(expectedRequest, request)
 					return nil, fmt.Errorf("failure#%d", index)
