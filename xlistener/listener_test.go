@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -64,7 +63,7 @@ func testNewCustom(t *testing.T) {
 
 	l, err := New(Options{
 		Logger:         logging.NewTestLogger(nil, t),
-		Rejected:       xmetrics.NewIncrementer(expectedRejected),
+		Rejected:       expectedRejected,
 		Active:         expectedActive,
 		Network:        "tcp4",
 		Address:        ":8080",
@@ -133,7 +132,7 @@ func testListenerAcceptError(t *testing.T, maxConnections int) {
 	l, err := New(Options{
 		Logger:         logging.NewTestLogger(nil, t),
 		MaxConnections: maxConnections,
-		Rejected:       xmetrics.NewIncrementer(expectedRejected),
+		Rejected:       expectedRejected,
 		Active:         expectedActive,
 		Next:           expectedNext,
 	})
@@ -180,7 +179,7 @@ func testListenerAcceptUnlimitedConnections(t *testing.T) {
 
 	l, err := New(Options{
 		Logger:   logging.NewTestLogger(nil, t),
-		Rejected: xmetrics.NewIncrementer(expectedRejected),
+		Rejected: expectedRejected,
 		Active:   expectedActive,
 		Next:     expectedNext,
 	})
@@ -261,7 +260,7 @@ func testListenerAcceptMaxConnections(t *testing.T) {
 	l, err := New(Options{
 		Logger:         logging.NewTestLogger(nil, t),
 		MaxConnections: 1,
-		Rejected:       xmetrics.NewIncrementer(expectedRejected),
+		Rejected:       expectedRejected,
 		Active:         expectedActive,
 		Next:           expectedNext,
 	})

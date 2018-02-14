@@ -160,7 +160,7 @@ func (b *Basic) Certificate() (certificateFile, keyFile string) {
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Incrementer) (net.Listener, error) {
+func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder) (net.Listener, error) {
 	return xlistener.New(xlistener.Options{
 		Logger:         logger,
 		Address:        b.Address,
@@ -480,7 +480,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			listener, err := w.Primary.NewListener(
 				logger,
 				activeConnections.With("server", "primary"),
-				xmetrics.NewIncrementer(rejectedCounter.With("server", "primary")),
+				rejectedCounter.With("server", "primary"),
 			)
 
 			if err != nil {
@@ -498,7 +498,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			listener, err := w.Alternate.NewListener(
 				logger,
 				activeConnections.With("server", "alternate"),
-				xmetrics.NewIncrementer(rejectedCounter.With("server", "alternate")),
+				rejectedCounter.With("server", "alternate"),
 			)
 
 			if err != nil {
@@ -522,24 +522,24 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 //decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
 func (w *WebPA) decorateWithBasicMetrics(p xmetrics.PrometheusProvider, next http.Handler) http.Handler {
 	var (
-		requestCounterVec    = p.NewCounterVec("api_requests_total")
-		inFlightGauge        = p.NewGaugeVec("in_flight_requests").WithLabelValues()
-		requestDurationVec   = p.NewHistogramVec("request_duration_seconds")
-		requestSizeVec       = p.NewHistogramVec("request_size_bytes")
-		responseSizeVec      = p.NewHistogramVec("response_size_bytes")
-		timeToWriteHeaderVec = p.NewHistogramVec("time_writing_header_seconds")
+		requestCounter    = p.NewCounterVec(APIRequestsTotal)
+		inFlight          = p.NewGaugeVec(InFlightRequests).WithLabelValues()
+		requestDuration   = p.NewHistogramVec(RequestDurationSeconds)
+		requestSize       = p.NewHistogramVec(RequestSizeBytes)
+		responseSizeVec   = p.NewHistogramVec(ResponseSizeBytes)
+		timeToWriteHeader = p.NewHistogramVec(TimeWritingHeaderSeconds)
 	)
 
 	//todo: Example documentation does something interesting with /pull vs. /push endpoints
 	//https://godoc.org/github.com/prometheus/client_golang/prometheus/promhttp#InstrumentHandlerDuration
 	//for now, let's keep it simple so /metrics only
 
-	return promhttp.InstrumentHandlerInFlight(inFlightGauge,
-		promhttp.InstrumentHandlerCounter(requestCounterVec,
-			promhttp.InstrumentHandlerDuration(requestDurationVec,
+	return promhttp.InstrumentHandlerInFlight(inFlight,
+		promhttp.InstrumentHandlerCounter(requestCounter,
+			promhttp.InstrumentHandlerDuration(requestDuration,
 				promhttp.InstrumentHandlerResponseSize(responseSizeVec,
-					promhttp.InstrumentHandlerRequestSize(requestSizeVec,
-						promhttp.InstrumentHandlerTimeToWriteHeader(timeToWriteHeaderVec, next))),
+					promhttp.InstrumentHandlerRequestSize(requestSize,
+						promhttp.InstrumentHandlerTimeToWriteHeader(timeToWriteHeader, next))),
 			),
 		),
 	)

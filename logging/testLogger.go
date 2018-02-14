@@ -38,7 +38,6 @@ func NewTestLogger(o *Options, t testSink) log.Logger {
 		log.With(
 			o.loggerFactory()(NewTestWriter(t)),
 			TimestampKey(), log.DefaultTimestampUTC,
-			"caller", log.Caller(4), // we need (1) higher than default caller, since we wrap the testSink
 		),
 		o,
 	)
