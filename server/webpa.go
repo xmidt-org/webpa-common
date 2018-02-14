@@ -211,6 +211,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 		MaxHeaderBytes:    b.maxHeaderBytes(),
 		ErrorLog:          NewErrorLog(b.Name, logger),
 		TLSConfig:         tlsConfig,
+		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){}, // disable HTTP/2
 	}
 
 	if b.LogConnectionState {
