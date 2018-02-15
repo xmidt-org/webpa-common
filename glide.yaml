@@ -38,7 +38,7 @@ import:
 - package: github.com/spf13/viper
   version: v1.0.0
 - package: github.com/samuel/go-zookeeper
-  version: e6b59f6144beb8570562539c1898a0b1fea34b41
+  version: c4fab1ac1bec58281ad0667dc3f0907a9476ac47
 - package: github.com/ugorji/go
   version: 00a57e09e383d445aeef6c6cd642969dc4360231
   subpackages:

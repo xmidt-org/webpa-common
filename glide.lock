@@ -1,5 +1,5 @@
-hash: d0c060d4280098a0ee40e4032a2256f670fe9e596e3d336143d99d59229ba5aa
-updated: 2018-02-12T19:36:12.346385227-08:00
+hash: dbd989ba2aaaa38b9cae3b890d6f63475f67b759abe65d78634788ed1bf4cfcd
+updated: 2018-02-14T23:06:03.977619419-08:00
 imports:
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
@@ -151,7 +151,7 @@ imports:
 - name: github.com/rubyist/circuitbreaker
   version: 7e3e7fbe9c62b943d487af023566a79d9eb22d3b
 - name: github.com/samuel/go-zookeeper
-  version: e6b59f6144beb8570562539c1898a0b1fea34b41
+  version: c4fab1ac1bec58281ad0667dc3f0907a9476ac47
   subpackages:
   - zk
 - name: github.com/SermoDigital/jose
