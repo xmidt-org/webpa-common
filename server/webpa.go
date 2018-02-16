@@ -31,8 +31,8 @@ const (
 	DefaultFlavor = "development"
 
 	DefaultIdleTimeout       time.Duration = 15 * time.Second
-	DefaultReadHeaderTimeout time.Duration = 3 * time.Second
-	DefaultWriteTimeout      time.Duration = 3 * time.Second
+	DefaultReadHeaderTimeout time.Duration = 5 * time.Second
+	DefaultWriteTimeout      time.Duration = 20 * time.Second
 	DefaultMaxHeaderBytes                  = 8192
 )
 
