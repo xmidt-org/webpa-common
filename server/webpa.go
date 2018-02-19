@@ -30,10 +30,14 @@ const (
 	DefaultRegion = "local"
 	DefaultFlavor = "development"
 
-	DefaultIdleTimeout       time.Duration = 15 * time.Second
-	DefaultReadHeaderTimeout time.Duration = 5 * time.Second
-	DefaultWriteTimeout      time.Duration = 20 * time.Second
-	DefaultMaxHeaderBytes                  = 8192
+	//zero-value timeouts mean no timeout
+
+	DefaultIdleTimeout       time.Duration = 0
+	DefaultReadHeaderTimeout time.Duration = 0
+	DefaultReadTimeout       time.Duration = 0
+	DefaultWriteTimeout      time.Duration = 0
+
+	DefaultMaxHeaderBytes = http.DefaultMaxHeaderBytes
 )
 
 var (
@@ -111,6 +115,7 @@ type Basic struct {
 	MaxHeaderBytes    int
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
+	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 }
 
@@ -145,6 +150,14 @@ func (b *Basic) readHeaderTimeout() time.Duration {
 	}
 
 	return DefaultReadHeaderTimeout
+}
+
+func (b *Basic) readTimeout() time.Duration {
+	if b != nil && b.ReadTimeout > 0 {
+		return b.ReadTimeout
+	}
+
+	return DefaultReadTimeout
 }
 
 func (b *Basic) writeTimeout() time.Duration {
@@ -206,6 +219,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 		Addr:              b.Address,
 		Handler:           handler,
 		ReadHeaderTimeout: b.readHeaderTimeout(),
+		ReadTimeout:       b.readTimeout(),
 		WriteTimeout:      b.writeTimeout(),
 		IdleTimeout:       b.idleTimeout(),
 		MaxHeaderBytes:    b.maxHeaderBytes(),
