@@ -1,0 +1,90 @@
+# Gopkg.toml example
+#
+# Refer to https://github.com/golang/dep/blob/master/docs/Gopkg.toml.md
+# for detailed Gopkg.toml documentation.
+#
+# required = ["github.com/user/thing/cmd/thing"]
+# ignored = ["github.com/user/project/pkgX", "bitbucket.org/user/project/pkgA/pkgY"]
+#
+# [[constraint]]
+#   name = "github.com/user/project"
+#   version = "1.0.0"
+#
+# [[constraint]]
+#   name = "github.com/user/project2"
+#   branch = "dev"
+#   source = "github.com/myfork/project2"
+#
+# [[override]]
+#   name = "github.com/x/y"
+#   version = "2.4.0"
+#
+# [prune]
+#   non-go = false
+#   go-tests = true
+#   unused-packages = true
+
+
+[[constraint]]
+  name = "github.com/SermoDigital/jose"
+  version = "1.1.0"
+
+[[constraint]]
+  name = "github.com/aws/aws-sdk-go"
+  version = "1.8.12"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/billhathaway/consistentHash"
+
+[[constraint]]
+  name = "github.com/go-kit/kit"
+  version = "0.5.0"
+
+[[constraint]]
+  name = "github.com/gorilla/mux"
+  version = "1.6.1"
+
+[[constraint]]
+  branch = "master"
+  name = "github.com/gorilla/schema"
+
+[[constraint]]
+  name = "github.com/gorilla/websocket"
+  version = "1.2.0"
+
+[[constraint]]
+  name = "github.com/jtacoma/uritemplates"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/justinas/alice"
+  revision = "03f45bd4b7dad4734bc4620e46a35789349abb20"
+
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "0.9.0-pre1"
+
+[[constraint]]
+  name = "github.com/rubyist/circuitbreaker"
+  version = "2.2.0"
+
+[[constraint]]
+  name = "github.com/samuel/go-zookeeper"
+  revision = "c4fab1ac1bec58281ad0667dc3f0907a9476ac47"
+
+[[constraint]]
+  name = "github.com/spf13/pflag"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "github.com/spf13/viper"
+  version = "1.0.0"
+
+[[constraint]]
+  name = "gopkg.in/natefinch/lumberjack.v2"
+  version = "2.1.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true
