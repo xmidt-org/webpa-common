@@ -1,31 +1,127 @@
 package xviper
 
-import "github.com/spf13/viper"
+import (
+	"fmt"
 
-type options struct {
-	v           *viper.Viper
-	configName  string
-	configPaths []string
-	defaults    map[string]interface{}
-	values      map[string]interface{}
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+)
+
+const (
+	DefaultNameFlag = "name"
+	DefaultFileFlag = "file"
+)
+
+type option func(*viper.Viper) error
+
+func AddConfigPaths(paths ...string) option {
+	return func(v *viper.Viper) error {
+		for _, p := range paths {
+			v.AddConfigPath(p)
+		}
+
+		return nil
+	}
 }
 
-type option func(*options)
-
-func New(o ...option) *viper.Viper {
-	opts := options{}
-	for _, f := range o {
-		f(&opts)
+func SetEnvPrefix(prefix string) option {
+	return func(v *viper.Viper) error {
+		v.SetEnvPrefix(prefix)
+		return nil
 	}
+}
 
-	v := opts.v
+func SetConfigName(name string) option {
+	return func(v *viper.Viper) error {
+		v.SetConfigName(name)
+		return nil
+	}
+}
+
+func SetConfigFile(file string) option {
+	return func(v *viper.Viper) error {
+		v.SetConfigFile(file)
+		return nil
+	}
+}
+
+func AutomaticEnv(v *viper.Viper) error {
+	v.AutomaticEnv()
+	return nil
+}
+
+func BindPFlags(fs *pflag.FlagSet) option {
+	return func(v *viper.Viper) error {
+		return v.BindPFlags(fs)
+	}
+}
+
+func BindConfigName(fs *pflag.FlagSet, flag string) option {
+	return func(v *viper.Viper) error {
+		if f := fs.Lookup(flag); f != nil {
+			configName := f.Value.String()
+			if len(configName) > 0 {
+				v.SetConfigName(configName)
+			}
+		}
+
+		return nil
+	}
+}
+
+func BindConfigFile(fs *pflag.FlagSet, flag string) option {
+	return func(v *viper.Viper) error {
+		if f := fs.Lookup(flag); f != nil {
+			configFile := f.Value.String()
+			if len(configFile) > 0 {
+				v.SetConfigFile(configFile)
+			}
+		}
+
+		return nil
+	}
+}
+
+func StdOptions(applicationName string, fs *pflag.FlagSet) option {
+	return func(v *viper.Viper) error {
+		err := AddConfigPaths(
+			fmt.Sprintf("/etc/%s", applicationName),
+			fmt.Sprintf("$HOME/.%s", applicationName),
+			".",
+		)(v)
+
+		if err == nil {
+			err = SetEnvPrefix(applicationName)(v)
+		}
+
+		if err == nil {
+			err = AutomaticEnv(v)
+		}
+
+		if err == nil {
+			err = SetConfigName(applicationName)(v)
+		}
+
+		if err == nil {
+			err = BindPFlags(fs)(v)
+		}
+
+		return err
+	}
+}
+
+func New(o ...option) (*viper.Viper, error) {
+	return Configure(viper.New(), o...)
+}
+
+func Configure(v *viper.Viper, o ...option) (*viper.Viper, error) {
 	if v != nil {
-		v = viper.New()
+		for _, f := range o {
+			if err := f(v); err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	for _, p := range opts.configPaths {
-		v.AddConfigPath(p)
-	}
-
-	return v
+	return v, nil
 }
