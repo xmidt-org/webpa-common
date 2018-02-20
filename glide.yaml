@@ -1,0 +1,61 @@
+package: github.com/Comcast/webpa-common
+import:
+- package: github.com/justinas/alice
+  version: 03f45bd4b7dad4734bc4620e46a35789349abb20
+- package: github.com/SermoDigital/jose
+  version: 1.1
+  subpackages:
+  - crypto
+  - jws
+  - jwt
+- package: github.com/go-kit/kit
+  version: 0.5.0
+- package: github.com/go-logfmt/logfmt
+  version: v0.3.0
+- package: github.com/go-stack/stack
+  version: v1.6.0
+- package: gopkg.in/natefinch/lumberjack.v2
+  version: v2.1
+- package: github.com/billhathaway/consistentHash
+  version: addea16d2229dba874111898b45be7f4a78af631
+- package: github.com/spaolacci/murmur3
+  version: v1.0
+- package: github.com/gorilla/mux
+  version: v1.6.1
+- package: github.com/gorilla/schema
+- package: github.com/gorilla/websocket
+  version: v1.2.0
+- package: github.com/tinylib/msgp
+  version: "1.0"
+  subpackages:
+  - msgp
+- package: github.com/jtacoma/uritemplates
+  version: v1.0.0
+- package: github.com/rubyist/circuitbreaker
+  version: v2.2.0
+- package: github.com/spf13/pflag
+  version: 1.0.0
+- package: github.com/spf13/viper
+  version: v1.0.0
+- package: github.com/samuel/go-zookeeper
+  version: c4fab1ac1bec58281ad0667dc3f0907a9476ac47
+- package: github.com/ugorji/go
+  version: 00a57e09e383d445aeef6c6cd642969dc4360231
+  subpackages:
+  - codec
+- package: github.com/c9s/goprocinfo
+  version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
+- package: github.com/stretchr/testify
+  version: 890a5c3458b43e6104ff5da8dfa139d013d77544
+  subpackages:
+  - assert
+  - require
+  - mock
+  - linux
+- package: github.com/aws/aws-sdk-go
+  version: 7be45195c3af1b54a609812f90c05a7e492e2491
+  subpackages:
+  - aws
+  - service
+- package: github.com/prometheus/client_golang
+  version: v0.9.0-pre1
