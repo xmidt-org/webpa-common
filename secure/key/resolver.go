@@ -2,6 +2,7 @@ package key
 
 import (
 	"fmt"
+
 	"github.com/Comcast/webpa-common/resource"
 )
 
@@ -31,7 +32,7 @@ type singleResolver struct {
 
 func (r *singleResolver) String() string {
 	return fmt.Sprintf(
-		"singleResolver{parser: %s, purpose: %s, loader: %s}",
+		"singleResolver{parser: %v, purpose: %v, loader: %v}",
 		r.parser,
 		r.purpose,
 		r.loader,
@@ -56,7 +57,7 @@ type multiResolver struct {
 
 func (r *multiResolver) String() string {
 	return fmt.Sprintf(
-		"multiResolver{parser: %s, purpose: %s}",
+		"multiResolver{parser: %v, purpose: %v, expander: %v}",
 		r.parser,
 		r.purpose,
 		r.expander,
