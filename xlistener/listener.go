@@ -40,6 +40,11 @@ type Options struct {
 }
 
 // New constructs a new net.Listener using a set of options.
+//
+// If Next is set, that listener is decorated with connection limiting and other options specfied in Options.
+// Otherwise, a new net.Listener is created, and that new listener is decorated.  Note that in the case
+// where this function creates a new net.Listener, that listener will be occupying a port and should be cleaned
+// up via Close() if higher level errors occur.
 func New(o Options) (net.Listener, error) {
 	if o.Logger == nil {
 		o.Logger = logging.DefaultLogger()
