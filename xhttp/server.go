@@ -6,8 +6,10 @@ import (
 	"net/http"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xlistener"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -62,12 +64,24 @@ type httpServer interface {
 
 // StartOptions describes a set of startup options to apply to http.Server instances
 type StartOptions struct {
-	Logger   log.Logger
+	// Logger is the go-kit Logger to use for server startup and error logging.  If not
+	// supplied, logging.DefaultLogger() is used instead.
+	Logger log.Logger
+
+	// Listener is the optional net.Listener to use.  If not supplied, the http.Server default
+	// listener is used.
 	Listener net.Listener
 
+	// DisableKeepAlives indicates whether the server should honor keep alives
 	DisableKeepAlives bool
-	CertificateFile   string
-	KeyFile           string
+
+	// CertificateFile is the HTTPS certificate file.  If both this field and KeyFile are set,
+	// an HTTPS starter function is created.
+	CertificateFile string
+
+	// KeyFile is the HTTPS key file.  If both this field and CertificateFile are set,
+	// an HTTPS starter function is created.
+	KeyFile string
 }
 
 // NewStarter returns a starter closure for the given HTTP server.  The start options are first
@@ -118,4 +132,70 @@ func NewStarter(o StartOptions, s httpServer) func() error {
 
 		return err
 	}
+}
+
+// ServerOption represents an optional configuration applied to a server after unmarshalling from Viper.
+type ServerOption func(log.Logger, *viper.Viper, *http.Server) error
+
+// ServerLogging creates a ServerOption that sets the ErrorLog and ConnState to objects that will log appropriate messages.
+func ServerLogging(serverName string) ServerOption {
+	return func(logger log.Logger, _ *viper.Viper, s *http.Server) error {
+		s.ErrorLog = NewServerLogger(logger, serverName)
+		s.ConnState = NewServerConnStateLogger(logger, serverName)
+		return nil
+	}
+}
+
+// UnmarshalServer unmarshals an http.Server instance from a Viper environment.  An optional
+// set of ServerOptions can be supplied to provide post-processing on the http.Server instance.
+func UnmarshalServer(logger log.Logger, v *viper.Viper, o ...ServerOption) (*http.Server, error) {
+	v.RegisterAlias("address", "addr")
+	s := new(http.Server)
+	if err := v.Unmarshal(s); err != nil {
+		return nil, err
+	}
+
+	for _, f := range o {
+		if err := f(logger, v, s); err != nil {
+			return nil, err
+		}
+	}
+
+	return s, nil
+}
+
+// NewServer handles extracting a complete http.Server and starter closure from a Viper environment.
+// The server itself, a xlistener.Options, and a StartOptions are all extracted from the
+// supplied Viper instance to fully create the http.Server.
+func NewServer(logger log.Logger, v *viper.Viper, o ...ServerOption) (*http.Server, func() error, error) {
+	server, err := UnmarshalServer(logger, v, o...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	lo := xlistener.Options{
+		Logger: logger,
+	}
+
+	if err := v.Unmarshal(&lo); err != nil {
+		return nil, nil, err
+	}
+
+	listener, err := xlistener.New(lo)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	so := StartOptions{
+		Logger:   logger,
+		Listener: listener,
+	}
+
+	if err := v.Unmarshal(&so); err != nil {
+		// The listener has already been started
+		listener.Close()
+		return nil, nil, err
+	}
+
+	return server, NewStarter(so, server), nil
 }
