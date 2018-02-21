@@ -682,7 +682,7 @@ func TestJWTValidatorFactory(t *testing.T) {
 					}
 
 					{
-						t.Log("Two custom validate functions returning: %v, %v", firstResult, secondResult)
+						t.Logf("Two custom validate functions returning: %v, %v", firstResult, secondResult)
 						validator := record.factory.New(first, second)
 						assert.NotNil(validator)
 						mockJWS := &mockJWS{}

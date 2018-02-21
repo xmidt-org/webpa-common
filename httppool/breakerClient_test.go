@@ -37,7 +37,7 @@ func TestDispatchWithBreaker(t *testing.T) {
 				defer wg.Done()
 
 				if resp == nil {
-					t.Error("Failed to obtain a response.  url: %v", u)
+					t.Errorf("Failed to obtain a response.  url: %v", u)
 				}
 			}
 		}(url, wg)

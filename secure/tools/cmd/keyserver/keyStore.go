@@ -7,8 +7,9 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"github.com/Comcast/webpa-common/secure/key"
 	"log"
+
+	"github.com/Comcast/webpa-common/secure/key"
 )
 
 // KeyStore provides a single access point for a set of keys, keyed by their key identifiers
@@ -90,7 +91,7 @@ func resolveKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[strin
 		if resolvedPair.HasPrivate() {
 			privateKeys[keyID] = resolvedPair.Private().(*rsa.PrivateKey)
 		} else {
-			return fmt.Errorf("The key %s did not resolve to an RSA private key")
+			return fmt.Errorf("The key %s did not resolve to an RSA private key", keyID)
 		}
 	}
 
