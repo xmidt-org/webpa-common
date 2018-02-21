@@ -4,10 +4,13 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -207,4 +210,179 @@ func TestNewStarter(t *testing.T) {
 	t.Run("Serve", testNewStarterServe)
 	t.Run("ListenAndServeTLS", testNewStarterListenAndServeTLS)
 	t.Run("ServeTLS", testNewStarterServeTLS)
+}
+
+func TestServerLogging(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+		server http.Server
+		option = ServerLogging("test")
+	)
+
+	require.NotNil(option)
+
+	option(logger, v, &server)
+	require.NotNil(server.ErrorLog)
+	require.NotNil(server.ConnState)
+
+	assert.NotPanics(func() {
+		server.ErrorLog.Println("test")
+	})
+
+	i, o := net.Pipe()
+	defer i.Close()
+	defer o.Close()
+
+	assert.NotPanics(func() {
+		server.ConnState(i, http.StateNew)
+	})
+}
+
+func testUnmarshalServerBasic(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, err := UnmarshalServer(logger, v)
+	require.NoError(err)
+	require.NotNil(server)
+
+	assert.Equal(":8080", server.Addr)
+	assert.Equal(30*time.Second, server.ReadTimeout)
+}
+
+func testUnmarshalServerUnmarshalError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "this is not a valid duration"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, err := UnmarshalServer(logger, v)
+	assert.Error(err)
+	assert.Nil(server)
+}
+
+func testUnmarshalServerGoodOptions(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+
+		optionCounter = 0
+		option        = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
+			optionCounter++
+			assert.Equal(logger, actualLogger)
+			assert.True(v == actualViper)
+			assert.NotNil(server)
+			return nil
+		}
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, err := UnmarshalServer(logger, v, option, option)
+	require.NoError(err)
+	require.NotNil(server)
+
+	assert.Equal(":8080", server.Addr)
+	assert.Equal(30*time.Second, server.ReadTimeout)
+	assert.Equal(2, optionCounter)
+}
+
+func testUnmarshalServerBadOption(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger        = logging.NewTestLogger(nil, t)
+		v             = viper.New()
+		expectedError = errors.New("expected")
+
+		firstCalled = false
+		first       = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
+			firstCalled = true
+			assert.Equal(logger, actualLogger)
+			assert.True(v == actualViper)
+			assert.NotNil(server)
+			return nil
+		}
+
+		secondCalled = false
+		second       = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
+			secondCalled = true
+			assert.Equal(logger, actualLogger)
+			assert.True(v == actualViper)
+			assert.NotNil(server)
+			return expectedError
+		}
+
+		third = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
+			assert.Fail("The third option should not have been called")
+			return nil
+		}
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, err := UnmarshalServer(logger, v, first, second, third)
+	assert.Nil(server)
+	assert.Equal(expectedError, err)
+	assert.True(firstCalled)
+	assert.True(secondCalled)
+}
+
+func TestUnmarshalServer(t *testing.T) {
+	t.Run("Basic", testUnmarshalServerBasic)
+	t.Run("UnmarshalError", testUnmarshalServerUnmarshalError)
+	t.Run("GoodOptions", testUnmarshalServerGoodOptions)
+	t.Run("BadOption", testUnmarshalServerBadOption)
 }
