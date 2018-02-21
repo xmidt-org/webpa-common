@@ -192,6 +192,8 @@ func NewServer(logger log.Logger, v *viper.Viper, o ...ServerOption) (*http.Serv
 	}
 
 	if err := v.Unmarshal(&so); err != nil {
+		// The listener has already been started
+		listener.Close()
 		return nil, nil, err
 	}
 

@@ -386,3 +386,146 @@ func TestUnmarshalServer(t *testing.T) {
 	t.Run("GoodOptions", testUnmarshalServerGoodOptions)
 	t.Run("BadOption", testUnmarshalServerBadOption)
 }
+
+func testNewServerUnmarshalServerError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "this is not a valid duration"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, starter, err := NewServer(logger, v)
+	assert.Error(err)
+	assert.Nil(server)
+	assert.Nil(starter)
+}
+
+func testNewServerUnmarshalListenerError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s",
+			"maxConnections": "this is not a valid integer"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, starter, err := NewServer(logger, v)
+	assert.Error(err)
+	assert.Nil(server)
+	assert.Nil(starter)
+}
+
+func testNewServerBadListenerConfiguration(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s",
+			"maxConnections": 30,
+			"network": "this can't be a valid network"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, starter, err := NewServer(logger, v)
+	assert.Error(err)
+	assert.Nil(server)
+	assert.Nil(starter)
+}
+
+func testNewServerUnmarshalStartOptionsError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s",
+			"maxConnections": 100,
+			"disableKeepAlives": "this is not a valid bool"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, starter, err := NewServer(logger, v)
+	assert.Error(err)
+	assert.Nil(server)
+	assert.Nil(starter)
+}
+
+func testNewServerSuccess(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger = logging.NewTestLogger(nil, t)
+		v      = viper.New()
+	)
+
+	v.SetConfigType("json")
+	err := v.ReadConfig(strings.NewReader(`
+		{
+			"address": ":8080",
+			"readTimeout": "30s",
+			"maxConnections": 100,
+			"certificateFile": "cert",
+			"keyFile": "key"
+		}
+	`))
+
+	require.NoError(err)
+
+	server, starter, err := NewServer(logger, v)
+	require.NotNil(server)
+	defer server.Close() // necessary since the listener was started by NewServer
+
+	assert.NotNil(starter)
+	assert.NoError(err)
+}
+
+func TestNewServer(t *testing.T) {
+	t.Run("UnmarshalServerError", testNewServerUnmarshalServerError)
+	t.Run("UnmarshalListenerError", testNewServerUnmarshalListenerError)
+	t.Run("BadListenerConfiguration", testNewServerBadListenerConfiguration)
+	t.Run("UnmarshalStartOptionsError", testNewServerUnmarshalStartOptionsError)
+	t.Run("Success", testNewServerSuccess)
+}
