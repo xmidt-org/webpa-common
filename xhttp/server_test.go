@@ -19,7 +19,7 @@ func testNewServerLogger(t *testing.T, logger log.Logger) {
 	var (
 		assert       = assert.New(t)
 		require      = require.New(t)
-		serverLogger = NewServerLogger(logger, "test")
+		serverLogger = NewServerLogger(logger)
 	)
 
 	require.NotNil(serverLogger)
@@ -34,7 +34,7 @@ func TestNewServerLogger(t *testing.T) {
 	})
 
 	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerLogger(t, logging.NewTestLogger(nil, t))
+		testNewServerLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
 	})
 }
 
@@ -42,7 +42,7 @@ func testNewServerConnStateLogger(t *testing.T, logger log.Logger) {
 	var (
 		assert    = assert.New(t)
 		require   = require.New(t)
-		connState = NewServerConnStateLogger(logger, "test")
+		connState = NewServerConnStateLogger(logger)
 	)
 
 	require.NotNil(connState)
@@ -57,7 +57,7 @@ func TestNewServerConnStateLogger(t *testing.T) {
 	})
 
 	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerConnStateLogger(t, logging.NewTestLogger(nil, t))
+		testNewServerConnStateLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
 	})
 }
 
@@ -212,7 +212,7 @@ func TestNewStarter(t *testing.T) {
 	t.Run("ServeTLS", testNewStarterServeTLS)
 }
 
-func TestServerLogging(t *testing.T) {
+func testServerLoggingCustom(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -220,12 +220,9 @@ func TestServerLogging(t *testing.T) {
 		logger = logging.NewTestLogger(nil, t)
 		v      = viper.New()
 		server http.Server
-		option = ServerLogging("test")
 	)
 
-	require.NotNil(option)
-
-	option(logger, v, &server)
+	ServerLogging(logger, v, &server)
 	require.NotNil(server.ErrorLog)
 	require.NotNil(server.ConnState)
 
@@ -240,6 +237,37 @@ func TestServerLogging(t *testing.T) {
 	assert.NotPanics(func() {
 		server.ConnState(i, http.StateNew)
 	})
+}
+
+func testServerLoggingDefault(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		v      = viper.New()
+		server http.Server
+	)
+
+	ServerLogging(nil, v, &server)
+	require.NotNil(server.ErrorLog)
+	require.NotNil(server.ConnState)
+
+	assert.NotPanics(func() {
+		server.ErrorLog.Println("test")
+	})
+
+	i, o := net.Pipe()
+	defer i.Close()
+	defer o.Close()
+
+	assert.NotPanics(func() {
+		server.ConnState(i, http.StateNew)
+	})
+}
+
+func TestServerLogging(t *testing.T) {
+	t.Run("Custom", testServerLoggingCustom)
+	t.Run("Default", testServerLoggingDefault)
 }
 
 func testUnmarshalServerBasic(t *testing.T) {

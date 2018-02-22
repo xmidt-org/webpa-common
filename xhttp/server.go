@@ -23,13 +23,13 @@ func ServerKey() interface{} {
 
 // NewServerLogger adapts a go-kit Logger onto a golang Logger in a way that is appropriate
 // for http.Server.ErrorLog.
-func NewServerLogger(logger log.Logger, serverName string) *stdlog.Logger {
+func NewServerLogger(logger log.Logger) *stdlog.Logger {
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
 
 	return stdlog.New(
-		log.NewStdlibAdapter(log.With(logger, ServerKey(), serverName)),
+		log.NewStdlibAdapter(logger),
 		"", // having a prefix gives the adapter trouble
 		stdlog.LstdFlags|stdlog.LUTC,
 	)
@@ -37,14 +37,13 @@ func NewServerLogger(logger log.Logger, serverName string) *stdlog.Logger {
 
 // NewServerConnStateLogger adapts a go-kit Logger onto a connection state handler appropriate
 // for http.Server.ConnState.
-func NewServerConnStateLogger(logger log.Logger, serverName string) func(net.Conn, http.ConnState) {
+func NewServerConnStateLogger(logger log.Logger) func(net.Conn, http.ConnState) {
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
 
 	return func(c net.Conn, cs http.ConnState) {
 		logger.Log(
-			ServerKey(), serverName,
 			"remoteAddress", c.RemoteAddr(),
 			"state", cs,
 		)
@@ -137,13 +136,15 @@ func NewStarter(o StartOptions, s httpServer) func() error {
 // ServerOption represents an optional configuration applied to a server after unmarshalling from Viper.
 type ServerOption func(log.Logger, *viper.Viper, *http.Server) error
 
-// ServerLogging creates a ServerOption that sets the ErrorLog and ConnState to objects that will log appropriate messages.
-func ServerLogging(serverName string) ServerOption {
-	return func(logger log.Logger, _ *viper.Viper, s *http.Server) error {
-		s.ErrorLog = NewServerLogger(logger, serverName)
-		s.ConnState = NewServerConnStateLogger(logger, serverName)
-		return nil
+// ServerLogging is a ServerOption that sets the ErrorLog and ConnState to objects that will log appropriate messages.
+func ServerLogging(logger log.Logger, _ *viper.Viper, s *http.Server) error {
+	if logger == nil {
+		logger = logging.DefaultLogger()
 	}
+
+	s.ErrorLog = NewServerLogger(logger)
+	s.ConnState = NewServerConnStateLogger(logger)
+	return nil
 }
 
 // UnmarshalServer unmarshals an http.Server instance from a Viper environment.  An optional
