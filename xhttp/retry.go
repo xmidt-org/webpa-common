@@ -99,7 +99,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		}
 
 		if err != nil {
-			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), "error", err, "retries", o.Retries)
+			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), logging.ErrorKey(), err, "retries", o.Retries)
 		}
 
 		return response, err
