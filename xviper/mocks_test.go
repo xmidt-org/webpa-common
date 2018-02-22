@@ -17,3 +17,11 @@ func (m *mockConfiger) SetConfigName(v string) {
 func (m *mockConfiger) SetConfigFile(v string) {
 	m.Called(v)
 }
+
+type mockUnmarshaler struct {
+	mock.Mock
+}
+
+func (m *mockUnmarshaler) Unmarshal(v interface{}) error {
+	return m.Called(v).Error(0)
+}
