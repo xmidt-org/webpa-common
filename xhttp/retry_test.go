@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/metrics/generic"
@@ -67,7 +68,7 @@ func testRetryTransactorNoRetries(t *testing.T) {
 	assert.True(transactorCalled)
 }
 
-func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
+func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configuredInterval time.Duration, retryCount int) {
 	var (
 		assert          = assert.New(t)
 		require         = require.New(t)
@@ -82,7 +83,20 @@ func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
 			return nil, expectedError
 		}
 
-		retry = RetryTransactor(RetryOptions{Logger: logging.NewTestLogger(nil, t), Retries: retryCount, Counter: counter}, transactor)
+		slept = 0
+		retry = RetryTransactor(
+			RetryOptions{
+				Logger:   logging.NewTestLogger(nil, t),
+				Retries:  retryCount,
+				Counter:  counter,
+				Interval: configuredInterval,
+				Sleep: func(actualInterval time.Duration) {
+					slept++
+					assert.Equal(expectedInterval, actualInterval)
+				},
+			},
+			transactor,
+		)
 	)
 
 	require.NotNil(retry)
@@ -90,7 +104,8 @@ func testRetryTransactorAllRetriesFail(t *testing.T, retryCount int) {
 	assert.Nil(actualResponse)
 	assert.Equal(expectedError, actualError)
 	assert.Equal(1+retryCount, transactorCount)
-	assert.Equal(float64(1+retryCount), counter.Value())
+	assert.Equal(float64(retryCount), counter.Value())
+	assert.Equal(retryCount, slept)
 }
 
 func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
@@ -108,7 +123,17 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 			return expectedResponse, nil
 		}
 
-		retry = RetryTransactor(RetryOptions{Logger: logging.NewTestLogger(nil, t), Retries: retryCount, Counter: counter}, transactor)
+		retry = RetryTransactor(
+			RetryOptions{
+				Logger:  logging.NewTestLogger(nil, t),
+				Retries: retryCount,
+				Counter: counter,
+				Sleep: func(d time.Duration) {
+					assert.Fail("Sleep should not have been called")
+				},
+			},
+			transactor,
+		)
 	)
 
 	require.NotNil(retry)
@@ -125,7 +150,10 @@ func TestRetryTransactor(t *testing.T) {
 
 	t.Run("AllRetriesFail", func(t *testing.T) {
 		for _, retryCount := range []int{1, 2, 5} {
-			t.Run(fmt.Sprintf("RetryCount=%d", retryCount), func(t *testing.T) { testRetryTransactorAllRetriesFail(t, retryCount) })
+			t.Run(fmt.Sprintf("RetryCount=%d", retryCount), func(t *testing.T) {
+				testRetryTransactorAllRetriesFail(t, time.Second, 0, retryCount)
+				testRetryTransactorAllRetriesFail(t, 10*time.Minute, 10*time.Minute, retryCount)
+			})
 		}
 	})
 
