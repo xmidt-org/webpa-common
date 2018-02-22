@@ -90,7 +90,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		// initial attempt:
 		response, err := next(request)
 
-		for r := 0; err != nil && o.ShouldRetry(err) && r < o.Retries; r++ {
+		for r := 0; err != nil && r < o.Retries && o.ShouldRetry(err); r++ {
 			o.Counter.Add(1.0)
 			o.Sleep(o.Interval)
 			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), "error", err, "retry", r+1)
