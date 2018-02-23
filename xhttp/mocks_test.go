@@ -6,6 +6,15 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type mockReader struct {
+	mock.Mock
+}
+
+func (m *mockReader) Read(b []byte) (int, error) {
+	arguments := m.Called(b)
+	return arguments.Int(0), arguments.Error(1)
+}
+
 type mockHTTPServer struct {
 	mock.Mock
 }
