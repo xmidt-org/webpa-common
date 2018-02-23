@@ -173,11 +173,12 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 		return nil, err
 	}
 
+	logger := o.logger()
 	var (
 		httpClient = &http.Client{
 			CheckRedirect: xhttp.CheckRedirect(
 				xhttp.RedirectPolicy{
-					Logger: o.logger(),
+					Logger: logger,
 				},
 			),
 			Transport: o.transport(),
@@ -201,7 +202,7 @@ func NewFanoutEndpoint(o *FanoutOptions) (endpoint.Endpoint, error) {
 				url,
 				ClientEncodeRequestBody(wrp.Msgpack, customHeader),
 				ClientDecodeResponseBody(wrp.Msgpack),
-				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(transporthttp.GetBody),
+				gokithttp.SetClient(httpClient), gokithttp.ClientBefore(transporthttp.GetBody(logger)),
 			).Endpoint()
 	}
 
