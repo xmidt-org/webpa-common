@@ -1,7 +1,10 @@
 package xhttp
 
 import (
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +14,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/metrics/generic"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -144,6 +148,64 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 	assert.Zero(counter.Value())
 }
 
+func testRetryTransactorNotRewindable(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		require       = require.New(t)
+		body          = new(mockReader)
+		expectedError = errors.New("expected")
+
+		retry = RetryTransactor(
+			RetryOptions{
+				Logger:  logging.NewTestLogger(nil, t),
+				Retries: 2,
+			},
+			func(*http.Request) (*http.Response, error) {
+				assert.Fail("The decorated transactor should not have been called")
+				return nil, nil
+			},
+		)
+	)
+
+	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
+	require.NotNil(retry)
+	response, actualError := retry(&http.Request{Body: ioutil.NopCloser(body)})
+	assert.Nil(response)
+	assert.Equal(expectedError, actualError)
+
+	body.AssertExpectations(t)
+}
+
+func testRetryTransactorRewindError(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		require       = require.New(t)
+		expectedError = errors.New("expected")
+
+		retry = RetryTransactor(
+			RetryOptions{
+				Logger:  logging.NewTestLogger(nil, t),
+				Retries: 2,
+				Sleep:   func(time.Duration) {},
+			},
+			func(*http.Request) (*http.Response, error) {
+				return nil, &net.DNSError{IsTemporary: true}
+			},
+		)
+
+		r = httptest.NewRequest("POST", "/", nil)
+	)
+
+	r.GetBody = func() (io.ReadCloser, error) {
+		return nil, expectedError
+	}
+
+	require.NotNil(retry)
+	response, actualError := retry(r)
+	assert.Nil(response)
+	assert.Equal(expectedError, actualError)
+}
+
 func TestRetryTransactor(t *testing.T) {
 	t.Run("DefaultLogger", testRetryTransactorDefaultLogger)
 	t.Run("NoRetries", testRetryTransactorNoRetries)
@@ -162,4 +224,7 @@ func TestRetryTransactor(t *testing.T) {
 			t.Run(fmt.Sprintf("RetryCount=%d", retryCount), func(t *testing.T) { testRetryTransactorFirstSucceeds(t, retryCount) })
 		}
 	})
+
+	t.Run("NotRewindable", testRetryTransactorNotRewindable)
+	t.Run("RewindError", testRetryTransactorRewindError)
 }
