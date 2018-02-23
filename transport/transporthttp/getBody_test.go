@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,10 +19,12 @@ func testGetBody(t *testing.T, expected []byte) {
 		require = require.New(t)
 
 		ctx     = context.WithValue(context.Background(), "foo", "bar")
+		getBody = GetBody(logging.NewTestLogger(nil, t))
 		request = httptest.NewRequest("GET", "/", bytes.NewReader(expected))
 	)
 
-	assert.Equal(ctx, GetBody(ctx, request))
+	require.NotNil(getBody)
+	assert.Equal(ctx, getBody(ctx, request))
 
 	require.NotNil(request.Body)
 	reread, err := ioutil.ReadAll(request.Body)
@@ -45,14 +48,14 @@ func testGetBody(t *testing.T, expected []byte) {
 func testGetBodyNilRequest(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		GetBody(context.Background(), nil)
+		GetBody(logging.NewTestLogger(nil, t))(context.Background(), nil)
 	})
 }
 
 func testGetBodyNilRequestBody(t *testing.T) {
 	assert := assert.New(t)
-	assert.Panics(func() {
-		GetBody(context.Background(), new(http.Request))
+	assert.NotPanics(func() {
+		GetBody(logging.NewTestLogger(nil, t))(context.Background(), new(http.Request))
 	})
 }
 
