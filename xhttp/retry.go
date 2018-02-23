@@ -87,6 +87,10 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 	}
 
 	return func(request *http.Request) (*http.Response, error) {
+		if err := EnsureRewindable(request); err != nil {
+			return nil, err
+		}
+
 		// initial attempt:
 		response, err := next(request)
 
@@ -94,6 +98,10 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 			o.Counter.Add(1.0)
 			o.Sleep(o.Interval)
 			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), "error", err, "retry", r+1)
+
+			if err := Rewind(request); err != nil {
+				return nil, err
+			}
 
 			response, err = next(request)
 		}
