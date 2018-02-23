@@ -15,19 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mustNewRequest invokes http.NewRequest, panicing if an error occurs.  This is important
-// for this package to use instead of httptest.NewRequest, as those two NewRequest functions
-// are slightly different.  This function ensures that the way code creates requests in
-// production is tested.
-func mustNewRequest(method, target string, body io.Reader) *http.Request {
-	r, err := http.NewRequest(method, target, body)
-	if err != nil {
-		panic(err)
-	}
-
-	return r
-}
-
 func TestNopCloser(t *testing.T) {
 	var (
 		assert        = assert.New(t)
