@@ -6,6 +6,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
+	"github.com/go-kit/kit/sd/zk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,8 +18,8 @@ func testOptionsDefault(t *testing.T) {
 
 		assert.NotNil(o.logger())
 		assert.Equal([]string{DefaultServer}, o.servers())
-		assert.Equal(DefaultConnectTimeout, o.connectTimeout())
-		assert.Equal(DefaultSessionTimeout, o.sessionTimeout())
+		assert.Equal(zk.DefaultConnectTimeout, o.connectTimeout())
+		assert.Equal(zk.DefaultSessionTimeout, o.sessionTimeout())
 		assert.Zero(o.updateDelay())
 		assert.Equal(DefaultPath, o.path())
 		assert.Equal(DefaultServiceName, o.serviceName())

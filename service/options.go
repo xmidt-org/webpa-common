@@ -6,15 +6,14 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
+	"github.com/go-kit/kit/sd/zk"
 )
 
 const (
-	DefaultServer         = "localhost:2181"
-	DefaultConnectTimeout = 5 * time.Second
-	DefaultSessionTimeout = 1 * time.Hour
-	DefaultPath           = "/xmidt"
-	DefaultServiceName    = "test"
-	DefaultVnodeCount     = 211
+	DefaultServer      = "localhost:2181"
+	DefaultPath        = "/xmidt"
+	DefaultServiceName = "test"
+	DefaultVnodeCount  = 211
 )
 
 // Options represents the set of configurable attributes for service discovery and registration
@@ -108,7 +107,7 @@ func (o *Options) connectTimeout() time.Duration {
 		return o.ConnectTimeout
 	}
 
-	return DefaultConnectTimeout
+	return zk.DefaultConnectTimeout
 }
 
 func (o *Options) sessionTimeout() time.Duration {
@@ -116,7 +115,7 @@ func (o *Options) sessionTimeout() time.Duration {
 		return o.SessionTimeout
 	}
 
-	return DefaultSessionTimeout
+	return zk.DefaultSessionTimeout
 }
 
 func (o *Options) updateDelay() time.Duration {
