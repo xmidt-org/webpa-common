@@ -30,12 +30,10 @@ const (
 	DefaultRegion = "local"
 	DefaultFlavor = "development"
 
-	//zero-value timeouts mean no timeout
-
-	DefaultIdleTimeout       time.Duration = 0
+	DefaultIdleTimeout       time.Duration = 15 * time.Second
 	DefaultReadHeaderTimeout time.Duration = 0
-	DefaultReadTimeout       time.Duration = 0
-	DefaultWriteTimeout      time.Duration = 0
+	DefaultReadTimeout       time.Duration = 5 * time.Second
+	DefaultWriteTimeout      time.Duration = 30 * time.Minute
 
 	DefaultMaxHeaderBytes = http.DefaultMaxHeaderBytes
 )
