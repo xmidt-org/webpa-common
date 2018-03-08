@@ -1,7 +1,0 @@
-{
-	"service": {
-		"servers": ["localhost:2181"],
-		"serviceName": "talaria",
-		"registration": "https://sample2:8081"
-	}
-}

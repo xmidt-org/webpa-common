@@ -28,18 +28,6 @@ type Monitor interface {
 // MonitorOption represents a configuration option for a Monitor
 type MonitorOption func(*monitor)
 
-// WithLoagger establishes a logger to use with a given Monitor.  If passed nil, this option
-// uses a default logger.
-func WithLogger(logger log.Logger) MonitorOption {
-	return func(m *monitor) {
-		if logger == nil {
-			m.logger = logging.DefaultLogger()
-		} else {
-			m.logger = logger
-		}
-	}
-}
-
 // WithMetricsProvider uses a given provider to create the metrics used by a Monitor.  If the provider is nil,
 // metrics are discarded.
 func WithMetricsProvider(p provider.Provider) MonitorOption {
@@ -96,7 +84,7 @@ func WithNow(f func() time.Time) MonitorOption {
 // StartMonitor begins monitoring one or more sd.Instancer objects, dispatching events to any Listeners that are configured.
 // This function returns an error if i is empty or nil.
 func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
-	if len(i) == 0 {
+	if i.Len() == 0 {
 		return nil, errors.New("No instancers to monitor")
 	}
 
@@ -104,7 +92,6 @@ func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
 		defaultMetricsProvider = provider.NewDiscardProvider()
 
 		m = &monitor{
-			logger:  logging.DefaultLogger(),
 			stopped: make(chan struct{}),
 			filter:  TrimAndSortFilter,
 			now:     time.Now,
@@ -121,9 +108,9 @@ func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
 		o(m)
 	}
 
-	for k, v := range i {
-		go m.dispatchEvents(k, v)
-	}
+	i.Each(func(k string, l log.Logger, v sd.Instancer) {
+		go m.dispatchEvents(k, l, v)
+	})
 
 	return m, nil
 }
@@ -131,7 +118,6 @@ func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
 // monitor is the internal implementation of Monitor.  This type is a shared context
 // among all goroutines that monitor a (key, instancer) pair.
 type monitor struct {
-	logger    log.Logger
 	filter    Filter
 	listeners Listeners
 	now       func() time.Time
@@ -164,18 +150,14 @@ func (m *monitor) timestamp() float64 {
 // dispatchEvents is a goroutine that consumes service discovery events from an sd.Instancer
 // and dispatches those events zero or more Listeners.  If configured, the filter is used to
 // preprocess the set of instances sent to the listener.
-func (m *monitor) dispatchEvents(key string, i sd.Instancer) {
+func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 	var (
 		eventCount              = 0
 		eventCounter log.Valuer = func() interface{} {
 			return eventCount
 		}
 
-		logger = log.With(
-			m.logger,
-			"instancer", key,
-			"eventCount", eventCounter,
-		)
+		logger = log.With(l, "eventCount", eventCounter)
 
 		events = make(chan sd.Event, 10)
 

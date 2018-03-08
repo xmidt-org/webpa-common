@@ -11,9 +11,10 @@ type Watch struct {
 }
 
 type Options struct {
-	Client        *api.Config                    `json:"client,omitempty"`
-	Registrations []api.AgentServiceRegistration `json:"registrations,omitempty"`
-	Watches       []Watch                        `json:"watches,omitempty"`
+	Client            *api.Config                    `json:"client,omitempty"`
+	DisableGenerateID bool                           `json:"disableGenerateID"`
+	Registrations     []api.AgentServiceRegistration `json:"registrations,omitempty"`
+	Watches           []Watch                        `json:"watches,omitempty"`
 }
 
 func (o *Options) config() *api.Config {
@@ -22,6 +23,14 @@ func (o *Options) config() *api.Config {
 	}
 
 	return api.DefaultConfig()
+}
+
+func (o *Options) disableGenerateID() bool {
+	if o != nil {
+		return o.DisableGenerateID
+	}
+
+	return false
 }
 
 func (o *Options) registrations() []api.AgentServiceRegistration {

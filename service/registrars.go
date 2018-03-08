@@ -31,9 +31,8 @@ type NopRegistrar struct{}
 func (nr NopRegistrar) Register()   {}
 func (nr NopRegistrar) Deregister() {}
 
-// Registrars is a aggregate sd.Registrar that allows for named registrars keyed
-// by some string, usually the service URL.  The zero value can be used as is.
-type Registrars map[string]sd.Registrar
+// Registrars is a aggregate sd.Registrar that allows allows composite registration and deregistration.
+type Registrars []sd.Registrar
 
 func (r Registrars) Register() {
 	for _, v := range r {
@@ -51,20 +50,6 @@ func (r Registrars) Len() int {
 	return len(r)
 }
 
-func (r Registrars) Has(key string) bool {
-	_, ok := r[key]
-	return ok
-}
-
-func (r Registrars) Get(key string) (sd.Registrar, bool) {
-	v, ok := r[key]
-	return v, ok
-}
-
-func (r *Registrars) Set(key string, value sd.Registrar) {
-	if *r == nil {
-		*r = make(Registrars)
-	}
-
-	(*r)[key] = value
+func (r *Registrars) Add(v ...sd.Registrar) {
+	*r = append(*r, v...)
 }

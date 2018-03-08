@@ -10,16 +10,16 @@ import (
 )
 
 func newService(r Registration) (string, gokitzk.Service) {
-	key := service.FormatURL(
+	url := service.FormatURL(
 		r.scheme(),
 		r.address(),
 		r.port(),
 	)
 
-	return key, gokitzk.Service{
+	return url, gokitzk.Service{
 		Path: r.path(),
 		Name: r.name(),
-		Data: []byte(key),
+		Data: []byte(url),
 	}
 }
 
@@ -32,34 +32,47 @@ func newClient(l log.Logger, zo Options) (gokitzk.Client, error) {
 	)
 }
 
-func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
+func newInstancer(base log.Logger, c gokitzk.Client, path string) (l log.Logger, i sd.Instancer, err error) {
+	l = log.With(base, "path", path)
+	i, err = gokitzk.NewInstancer(c, path, l)
+	return
+}
+
+func newInstancers(base log.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
 	for _, path := range zo.watches() {
 		if i.Has(path) {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "path", path)
+			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "path", path)
 			continue
 		}
 
-		var instancer sd.Instancer
-		instancer, err = gokitzk.NewInstancer(c, path, l)
+		var (
+			instancer sd.Instancer
+			logger    log.Logger
+		)
+
+		logger, instancer, err = newInstancer(base, c, path)
 		if err != nil {
 			return
 		}
 
-		i.Set(path, instancer)
+		i.Set(path, logger, instancer)
 	}
 
 	return
 }
 
-func newRegistrars(l log.Logger, c gokitzk.Client, zo Options) (r service.Registrars) {
+func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Registrars) {
+	dedupe := make(map[string]bool)
+
 	for _, registration := range zo.registrations() {
-		k, s := newService(registration)
-		if r.Has(k) {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "url", k)
+		endpoint, s := newService(registration)
+		if dedupe[endpoint] {
+			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "endpoint", endpoint)
 			continue
 		}
 
-		r.Set(k, gokitzk.NewRegistrar(c, s, l))
+		dedupe[endpoint] = true
+		r.Add(gokitzk.NewRegistrar(c, s, log.With(base, "endpoint", endpoint)))
 	}
 
 	return

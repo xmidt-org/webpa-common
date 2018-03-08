@@ -7,7 +7,6 @@ import (
 	"github.com/Comcast/webpa-common/xviper"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/go-kit/kit/sd"
 )
 
 func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, error) {
@@ -24,7 +23,7 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, er
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using a fixed set of instances for service discovery", "instances", o.Fixed)
 		return service.NewEnvironment(
 			service.WithVnodeCount(o.vnodeCount()),
-			service.WithInstancers(service.Instancers{"fixed": sd.FixedInstancer(o.Fixed)}),
+			service.WithInstancers(service.NewFixedInstancers(l, o.Fixed)),
 		), nil
 	}
 
