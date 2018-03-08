@@ -27,8 +27,7 @@ type RedirectHandler struct {
 	// Accessor produces instances given hash keys.  Note that a Subscription implements the Accessor interface.
 	Accessor Accessor
 
-	// RedirectCode is the HTTP status code sent as part of the redirect.  Normally clients set
-	// this to http.StatusTemporaryRedirect.
+	// RedirectCode is the HTTP status code sent as part of the redirect.  If not set, http.StatusTemporaryRedirect is used.
 	RedirectCode int
 }
 
@@ -47,8 +46,13 @@ func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http
 		return
 	}
 
-	instance += strings.TrimRight(request.RequestURI, "/") //keep original path with trailing '/' chars removed
-
+	instance += strings.TrimRight(request.RequestURI, "/")
 	rh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
-	http.Redirect(response, request, instance, rh.RedirectCode)
+
+	code := rh.RedirectCode
+	if code < 300 {
+		code = http.StatusTemporaryRedirect
+	}
+
+	http.Redirect(response, request, instance, code)
 }
