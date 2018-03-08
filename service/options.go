@@ -53,10 +53,6 @@ type Options struct {
 	// VnodeCount is used to tune the underlying consistent hash algorithm for servers.
 	VnodeCount uint `json:"vnodeCount"`
 
-	// InstancesFilter is the optional filter for discovered instances.  If not set,
-	// DefaultInstancesFilter will be used.
-	InstancesFilter InstancesFilter `json:"-"`
-
 	// AccessorFactory is the optional factory for Accessor instances.  If not set,
 	// ConsistentAccessorFactory will be used.
 	AccessorFactory AccessorFactory `json:"-"`
@@ -156,14 +152,6 @@ func (o *Options) vnodeCount() int {
 	}
 
 	return DefaultVnodeCount
-}
-
-func (o *Options) instancesFilter() InstancesFilter {
-	if o != nil && o.InstancesFilter != nil {
-		return o.InstancesFilter
-	}
-
-	return DefaultInstancesFilter
 }
 
 func (o *Options) accessorFactory() AccessorFactory {

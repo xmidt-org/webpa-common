@@ -1,6 +1,8 @@
-hash: 7e6376d54881bcaff2583f6ef9cf91a7403ae967cb1ddcb44e20f07031eab884
-updated: 2018-03-07T12:49:42.311854208-08:00
+hash: 150d5ca7514190afe8efaec78b15e486411eb74b8d4c7b9a6a4704a5cc4cdf97
+updated: 2018-03-07T21:41:02.102362443-08:00
 imports:
+- name: github.com/armon/go-metrics
+  version: 783273d703149aaeb9897cf58613d5af48861c25
 - name: github.com/aws/aws-sdk-go
   version: 7be45195c3af1b54a609812f90c05a7e492e2491
   subpackages:
@@ -90,6 +92,20 @@ imports:
   version: afe77393c53b66afe9212810d9b2013859d04ae6
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
+- name: github.com/hashicorp/consul
+  version: 9a494b5fb9c86180a5702e29c485df1507a47198
+  subpackages:
+  - api
+- name: github.com/hashicorp/go-cleanhttp
+  version: d5fe4b57a186c716b0e00b8c301cbd9b4182694d
+- name: github.com/hashicorp/go-immutable-radix
+  version: 7f3cd4390caab3250a57f30efdb2a65dd7649ecf
+- name: github.com/hashicorp/go-rootcerts
+  version: 6bb64b370b90e7ef1fa532be9e591a81c3493e00
+- name: github.com/hashicorp/golang-lru
+  version: 0fb14efe8c47ae851c0034ed7a448854d3d34cf3
+  subpackages:
+  - simplelru
 - name: github.com/hashicorp/hcl
   version: 23c074d0eceb2b8a5bfdbb271ab780cde70f05a8
   subpackages:
@@ -101,6 +117,10 @@ imports:
   - json/parser
   - json/scanner
   - json/token
+- name: github.com/hashicorp/serf
+  version: 3b250ce4404edb266330f53fcfc8ad0d0dacfae7
+  subpackages:
+  - coordinate
 - name: github.com/influxdata/influxdb
   version: 28f3912491a564677bfafc4602aa126023d1bfb2
   subpackages:
@@ -121,6 +141,8 @@ imports:
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
   - pbutil
+- name: github.com/mitchellh/go-homedir
+  version: b8bc1bf767474819792c23f32d8286a45736f1c6
 - name: github.com/mitchellh/mapstructure
   version: b4575eea38cca1123ec2dc90c26529b5c5acfcff
 - name: github.com/pelletier/go-toml

@@ -1,0 +1,41 @@
+package consul
+
+import (
+	"github.com/hashicorp/consul/api"
+)
+
+type Watch struct {
+	Service     string   `json:"service,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	PassingOnly bool     `json:"passingOnly"`
+}
+
+type Options struct {
+	Client        *api.Config                    `json:"client,omitempty"`
+	Registrations []api.AgentServiceRegistration `json:"registrations,omitempty"`
+	Watches       []Watch                        `json:"watches,omitempty"`
+}
+
+func (o *Options) config() *api.Config {
+	if o != nil && o.Client != nil {
+		return o.Client
+	}
+
+	return api.DefaultConfig()
+}
+
+func (o *Options) registrations() []api.AgentServiceRegistration {
+	if o != nil && len(o.Registrations) > 0 {
+		return o.Registrations
+	}
+
+	return nil
+}
+
+func (o *Options) watches() []Watch {
+	if o != nil && len(o.Watches) > 0 {
+		return o.Watches
+	}
+
+	return nil
+}
