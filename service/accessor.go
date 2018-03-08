@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DefaultVNodeCount = 211
+	DefaultVnodeCount = 211
 )
 
 var (
@@ -41,7 +41,7 @@ type AccessorFactory func([]string) Accessor
 // Instances are hashed as is.
 func ConsistentAccessorFactory(vnodeCount int) AccessorFactory {
 	if vnodeCount < 1 {
-		vnodeCount = DefaultVNodeCount
+		vnodeCount = DefaultVnodeCount
 	}
 
 	return func(instances []string) Accessor {
@@ -59,7 +59,7 @@ func ConsistentAccessorFactory(vnodeCount int) AccessorFactory {
 	}
 }
 
-var defaultAccessorFactory AccessorFactory = ConsistentAccessorFactory(DefaultVNodeCount)
+var defaultAccessorFactory AccessorFactory = ConsistentAccessorFactory(DefaultVnodeCount)
 
 // DefaultAccessorFactory returns a global default AccessorFactory
 func DefaultAccessorFactory() AccessorFactory {
