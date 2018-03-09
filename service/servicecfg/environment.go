@@ -19,17 +19,19 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, er
 		return nil, err
 	}
 
+	af := service.NewConsistentAccessorFactory(o.vnodeCount())
+
 	if len(o.Fixed) > 0 {
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using a fixed set of instances for service discovery", "instances", o.Fixed)
 		return service.NewEnvironment(
-			service.WithVnodeCount(o.vnodeCount()),
+			service.WithAccessorFactory(af),
 			service.WithInstancers(service.NewFixedInstancers(l, o.Fixed)),
 		), nil
 	}
 
 	if o.Zookeeper != nil {
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using zookeeper for service discovery")
-		return zk.NewEnvironment(l, *o.Zookeeper, service.WithVnodeCount(o.vnodeCount()))
+		return zk.NewEnvironment(l, *o.Zookeeper, service.WithAccessorFactory(af))
 	}
 
 	/*

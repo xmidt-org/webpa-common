@@ -84,7 +84,7 @@ func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Reg
 
 // NewEnvironment constructs a Zookeeper-based service.Environment using both a zookeeper Options (typically unmarshaled
 // from configuration) and an optional extra set of environment options.
-func NewEnvironment(l log.Logger, zo Options, eo ...service.EnvironmentOption) (service.Environment, error) {
+func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Environment, error) {
 	if l == nil {
 		l = logging.DefaultLogger()
 	}

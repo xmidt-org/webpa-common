@@ -1,4 +1,4 @@
-package service
+package monitor
 
 import (
 	"errors"
@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/go-kit/kit/sd"
 )
+
+var errNoInstances = errors.New("No instances to monitor")
 
 // Monitor represents an active monitor for one or more sd.Instancer objects.
 type Monitor interface {
@@ -25,32 +28,41 @@ type Monitor interface {
 	Stop()
 }
 
-// MonitorOption represents a configuration option for a Monitor
-type MonitorOption func(*monitor)
+// Option represents a configuration option for a Monitor
+type Option func(*monitor)
+
+// WithClosed sets an external channel that, when closed, will cause all goroutines spawned
+// by this monitor to exit.  This is useful when orchestrating multiple monitors, or when restarting
+// service discovery clients.
+func WithClosed(c <-chan struct{}) Option {
+	return func(m *monitor) {
+		m.closed = c
+	}
+}
 
 // WithMetricsProvider uses a given provider to create the metrics used by a Monitor.  If the provider is nil,
 // metrics are discarded.
-func WithMetricsProvider(p provider.Provider) MonitorOption {
+func WithMetricsProvider(p provider.Provider) Option {
 	return func(m *monitor) {
 		if p == nil {
 			p = provider.NewDiscardProvider()
 		}
 
-		m.errorCount = p.NewCounter(ErrorCount)
-		m.lastError = p.NewGauge(LastErrorTimestamp)
-		m.updateCount = p.NewCounter(UpdateCount)
-		m.lastUpdate = p.NewGauge(LastUpdateTimestamp)
-		m.instanceCount = p.NewGauge(InstanceCount)
+		m.errorCount = p.NewCounter(service.ErrorCount)
+		m.lastError = p.NewGauge(service.LastErrorTimestamp)
+		m.updateCount = p.NewCounter(service.UpdateCount)
+		m.lastUpdate = p.NewGauge(service.LastUpdateTimestamp)
+		m.instanceCount = p.NewGauge(service.InstanceCount)
 	}
 }
 
 // WithFilter establishes the filtering strategy for discovered service instances.  By default, TrimAndSortFilter is used.
 // If the filter is nil, filtering is disabled and every Listener will receive the raw, unfiltered instances from the
 // service discovery backend.
-func WithFilter(f Filter) MonitorOption {
+func WithFilter(f service.Filter) Option {
 	return func(m *monitor) {
 		if f == nil {
-			m.filter = NopFilter
+			m.filter = service.NopFilter
 		} else {
 			m.filter = f
 		}
@@ -59,10 +71,10 @@ func WithFilter(f Filter) MonitorOption {
 
 // WithListeners configures the monitor to dispatch to zero or more Listeners.  It is legal to start a Monitor
 // with no Listeners, as this is equivalent to just logging messages for the service discovery backend.
-func WithListeners(l ...Listener) MonitorOption {
+func WithListeners(l ...service.Listener) Option {
 	return func(m *monitor) {
 		if len(l) > 0 {
-			m.listeners = append(Listeners{}, l...)
+			m.listeners = append(service.Listeners{}, l...)
 		} else {
 			m.listeners = nil
 		}
@@ -71,7 +83,7 @@ func WithListeners(l ...Listener) MonitorOption {
 
 // WithNow establishes the closure used to fetch the system time.  By default, time.Now is used.  If passed nil,
 // this option uses time.Now.
-func WithNow(f func() time.Time) MonitorOption {
+func WithNow(f func() time.Time) Option {
 	return func(m *monitor) {
 		if f == nil {
 			m.now = time.Now
@@ -81,26 +93,36 @@ func WithNow(f func() time.Time) MonitorOption {
 	}
 }
 
-// StartMonitor begins monitoring one or more sd.Instancer objects, dispatching events to any Listeners that are configured.
-// This function returns an error if i is empty or nil.
-func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
-	if i.Len() == 0 {
-		return nil, errors.New("No instancers to monitor")
+// WithInstancers establishes the set of sd.Instancer objects to be monitored
+func WithInstancers(i service.Instancers) Option {
+	return func(m *monitor) {
+		m.instancers = i
 	}
+}
 
+func WithEnvironment(e service.Environment) Option {
+	return func(m *monitor) {
+		m.instancers = e.Instancers()
+		m.closed = e.Closed()
+	}
+}
+
+// New begins monitoring one or more sd.Instancer objects, dispatching events to any Listeners that are configured.
+// This function returns an error if i is empty or nil.
+func New(options ...Option) (Monitor, error) {
 	var (
 		defaultMetricsProvider = provider.NewDiscardProvider()
 
 		m = &monitor{
 			stopped: make(chan struct{}),
-			filter:  DefaultFilter,
+			filter:  service.DefaultFilter,
 			now:     time.Now,
 
-			errorCount:    defaultMetricsProvider.NewCounter(ErrorCount),
-			lastError:     defaultMetricsProvider.NewGauge(LastErrorTimestamp),
-			updateCount:   defaultMetricsProvider.NewCounter(UpdateCount),
-			lastUpdate:    defaultMetricsProvider.NewGauge(LastUpdateTimestamp),
-			instanceCount: defaultMetricsProvider.NewGauge(InstanceCount),
+			errorCount:    defaultMetricsProvider.NewCounter(service.ErrorCount),
+			lastError:     defaultMetricsProvider.NewGauge(service.LastErrorTimestamp),
+			updateCount:   defaultMetricsProvider.NewCounter(service.UpdateCount),
+			lastUpdate:    defaultMetricsProvider.NewGauge(service.LastUpdateTimestamp),
+			instanceCount: defaultMetricsProvider.NewGauge(service.InstanceCount),
 		}
 	)
 
@@ -108,9 +130,9 @@ func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
 		o(m)
 	}
 
-	i.Each(func(k string, l log.Logger, v sd.Instancer) {
-		go m.dispatchEvents(k, l, v)
-	})
+	if err := m.start(); err != nil {
+		return nil, err
+	}
 
 	return m, nil
 }
@@ -118,9 +140,10 @@ func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
 // monitor is the internal implementation of Monitor.  This type is a shared context
 // among all goroutines that monitor a (key, instancer) pair.
 type monitor struct {
-	filter    Filter
-	listeners Listeners
-	now       func() time.Time
+	instancers service.Instancers
+	filter     service.Filter
+	listeners  service.Listeners
+	now        func() time.Time
 
 	errorCount    metrics.Counter
 	lastError     metrics.Gauge
@@ -128,6 +151,7 @@ type monitor struct {
 	lastUpdate    metrics.Gauge
 	instanceCount metrics.Gauge
 
+	closed   <-chan struct{}
 	stopped  chan struct{}
 	stopOnce sync.Once
 }
@@ -140,6 +164,18 @@ func (m *monitor) Stop() {
 	m.stopOnce.Do(func() {
 		close(m.stopped)
 	})
+}
+
+func (m *monitor) start() error {
+	if m.instancers.Len() == 0 {
+		return errNoInstances
+	}
+
+	m.instancers.Each(func(k string, l log.Logger, v sd.Instancer) {
+		go m.dispatchEvents(k, l, v)
+	})
+
+	return nil
 }
 
 // timestamp is just a helper that returns the current Unix time as a float64
@@ -161,13 +197,13 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 
 		events = make(chan sd.Event, 10)
 
-		errorCount = m.errorCount.With(ServiceLabel, key)
-		lastError  = m.lastError.With(ServiceLabel, key)
+		errorCount = m.errorCount.With(service.ServiceLabel, key)
+		lastError  = m.lastError.With(service.ServiceLabel, key)
 
-		updateCount = m.updateCount.With(ServiceLabel, key)
-		lastUpdate  = m.lastUpdate.With(ServiceLabel, key)
+		updateCount = m.updateCount.With(service.ServiceLabel, key)
+		lastUpdate  = m.lastUpdate.With(service.ServiceLabel, key)
 
-		instanceCount = m.instanceCount.With(ServiceLabel, key)
+		instanceCount = m.instanceCount.With(service.ServiceLabel, key)
 	)
 
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor starting")
@@ -185,7 +221,7 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 				errorCount.Add(1.0)
 				lastError.Set(m.timestamp())
 
-				m.listeners.Dispatch(Event{Key: key, Err: event.Err})
+				m.listeners.Dispatch(service.Event{Key: key, Err: event.Err})
 			} else {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery update", "instances", event.Instances)
 				updateCount.Add(1.0)
@@ -193,11 +229,17 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 
 				i := m.filter(event.Instances)
 				instanceCount.Set(float64(len(i)))
-				m.listeners.Dispatch(Event{Key: key, Instances: i})
+				m.listeners.Dispatch(service.Event{Key: key, Instances: i})
 			}
 
 		case <-m.stopped:
-			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was shutdown")
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was stopped")
+			return
+
+		case <-m.closed:
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor exiting due to external closure")
+			// we want to ensure the stopped channel is closed, to allow properly signalling other goroutines
+			m.Stop()
 			return
 		}
 	}

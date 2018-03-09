@@ -4,63 +4,62 @@ import (
 	"io"
 	"sync"
 
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd"
 )
 
 func nopCloser() error { return nil }
 
+// Environment represents everything known about a service discovery backend.  It also
+// provide a central handle for tasks related to service discovery, such as Accessor hashing.
 type Environment interface {
 	sd.Registrar
 	io.Closer
 
-	AccessorFactory() AccessorFactory
-	StartMonitor(...MonitorOption) (Monitor, error)
+	Registrars() Registrars
+	Instancers() Instancers
+	Closed() <-chan struct{}
 }
 
-type EnvironmentOption func(*environment)
+type Option func(*environment)
 
-func WithRegistrars(r Registrars) EnvironmentOption {
+func WithRegistrars(r Registrars) Option {
 	return func(e *environment) {
-		e.r = r
+		e.registrars = r
 	}
 }
 
-func WithInstancers(i Instancers) EnvironmentOption {
+func WithInstancers(i Instancers) Option {
 	return func(e *environment) {
-		e.i = i
+		e.instancers = i
 	}
 }
 
-func WithCloser(c func() error) EnvironmentOption {
-	return func(e *environment) {
-		if c == nil {
-			e.c = nopCloser
-		} else {
-			e.c = c
-		}
-	}
-}
-
-func WithVnodeCount(v int) EnvironmentOption {
-	return func(e *environment) {
-		e.af = NewConsistentAccessorFactory(v)
-	}
-}
-
-func WithAccessorFactory(af AccessorFactory) EnvironmentOption {
+func WithAccessorFactory(af AccessorFactory) Option {
 	return func(e *environment) {
 		if af == nil {
-			e.af = DefaultAccessorFactory
+			e.accessorFactory = DefaultAccessorFactory
 		} else {
-			e.af = af
+			e.accessorFactory = af
 		}
 	}
 }
 
-func NewEnvironment(options ...EnvironmentOption) Environment {
+func WithCloser(f func() error) Option {
+	return func(e *environment) {
+		if f == nil {
+			e.closer = nopCloser
+		} else {
+			e.closer = f
+		}
+	}
+}
+
+func NewEnvironment(options ...Option) Environment {
 	e := &environment{
-		c:  nopCloser,
-		af: DefaultAccessorFactory,
+		accessorFactory: DefaultAccessorFactory,
+		closer:          nopCloser,
+		closed:          make(chan struct{}),
 	}
 
 	for _, o := range options {
@@ -71,34 +70,45 @@ func NewEnvironment(options ...EnvironmentOption) Environment {
 }
 
 type environment struct {
-	r  Registrars
-	i  Instancers
-	af AccessorFactory
-	c  func() error
+	registrars      Registrars
+	instancers      Instancers
+	accessorFactory AccessorFactory
 
 	closeOnce sync.Once
+	closer    func() error
+	closed    chan struct{}
+}
+
+func (e *environment) Registrars() Registrars {
+	return e.registrars
+}
+
+func (e *environment) Instancers() Instancers {
+	return e.instancers
 }
 
 func (e *environment) Register() {
-	e.r.Register()
+	e.registrars.Register()
 }
 
 func (e *environment) Deregister() {
-	e.r.Deregister()
+	e.registrars.Deregister()
+}
+
+func (e *environment) Closed() <-chan struct{} {
+	return e.closed
 }
 
 func (e *environment) Close() (err error) {
 	e.closeOnce.Do(func() {
-		err = e.c()
+		e.Deregister()
+
+		e.instancers.Each(func(_ string, _ log.Logger, i sd.Instancer) {
+			i.Stop()
+		})
+
+		err = e.closer()
 	})
 
 	return
-}
-
-func (e *environment) StartMonitor(options ...MonitorOption) (Monitor, error) {
-	return StartMonitor(e.i, options...)
-}
-
-func (e *environment) AccessorFactory() AccessorFactory {
-	return e.af
 }
