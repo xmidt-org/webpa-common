@@ -43,18 +43,14 @@ func WithCloser(c func() error) EnvironmentOption {
 
 func WithVnodeCount(v int) EnvironmentOption {
 	return func(e *environment) {
-		if v < 1 {
-			e.af = DefaultAccessorFactory()
-		} else {
-			e.af = ConsistentAccessorFactory(v)
-		}
+		e.af = NewConsistentAccessorFactory(v)
 	}
 }
 
 func WithAccessorFactory(af AccessorFactory) EnvironmentOption {
 	return func(e *environment) {
 		if af == nil {
-			e.af = DefaultAccessorFactory()
+			e.af = DefaultAccessorFactory
 		} else {
 			e.af = af
 		}
@@ -64,7 +60,7 @@ func WithAccessorFactory(af AccessorFactory) EnvironmentOption {
 func NewEnvironment(options ...EnvironmentOption) Environment {
 	e := &environment{
 		c:  nopCloser,
-		af: ConsistentAccessorFactory(DefaultVnodeCount),
+		af: DefaultAccessorFactory,
 	}
 
 	for _, o := range options {

@@ -13,10 +13,10 @@ func NopFilter(i []string) []string {
 	return i
 }
 
-// TrimAndSortFilter removes any blank strings (not just empty strings) from the array, which
+// DefaultFilter removes any blank strings (not just empty strings) from the array, which
 // seems to happen with some service discovery backends (e.g. zookeeper).  The returned slice
 // is distinct from the original and will be sorted consistently.
-func TrimAndSortFilter(original []string) []string {
+func DefaultFilter(original []string) []string {
 	filtered := make([]string, 0, len(original))
 
 	for _, o := range original {

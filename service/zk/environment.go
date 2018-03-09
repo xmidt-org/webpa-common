@@ -23,8 +23,12 @@ func newService(r Registration) (string, gokitzk.Service) {
 	}
 }
 
+// clientFactory is the factory function used to create a go-kit zookeeper Client.
+// Tests can change this for mocked behavior.
+var clientFactory = gokitzk.NewClient
+
 func newClient(l log.Logger, zo Options) (gokitzk.Client, error) {
-	return gokitzk.NewClient(
+	return clientFactory(
 		zo.servers(),
 		l,
 		gokitzk.ConnectTimeout(zo.connectTimeout()),

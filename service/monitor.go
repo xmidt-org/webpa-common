@@ -93,7 +93,7 @@ func StartMonitor(i Instancers, options ...MonitorOption) (Monitor, error) {
 
 		m = &monitor{
 			stopped: make(chan struct{}),
-			filter:  TrimAndSortFilter,
+			filter:  DefaultFilter,
 			now:     time.Now,
 
 			errorCount:    defaultMetricsProvider.NewCounter(ErrorCount),

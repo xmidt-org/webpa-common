@@ -2,13 +2,8 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"sync"
-
-	"github.com/billhathaway/consistentHash"
-)
-
-const (
-	DefaultVnodeCount = 211
 )
 
 var (
@@ -32,38 +27,16 @@ func EmptyAccessor() Accessor {
 	return emptyAccessor{}
 }
 
-// AccessorFactory defines the behavior of functions which can take a set
-// of nodes and turn them into an Accessor.
-type AccessorFactory func([]string) Accessor
+// MapAccessor is a static Accessor that honors a set of known keys.  Any other key
+// will result in an error.  Mostly useful for testing.
+type MapAccessor map[string]string
 
-// ConsistentAccessorFactory produces a factory which uses consistent hashing
-// of server nodes.  The returned factory does not modify instances passed to it.
-// Instances are hashed as is.
-func ConsistentAccessorFactory(vnodeCount int) AccessorFactory {
-	if vnodeCount < 1 {
-		vnodeCount = DefaultVnodeCount
+func (ma MapAccessor) Get(key []byte) (string, error) {
+	if v, ok := ma[string(key)]; ok {
+		return v, nil
+	} else {
+		return "", fmt.Errorf("No such key: %s", string(key))
 	}
-
-	return func(instances []string) Accessor {
-		if len(instances) == 0 {
-			return emptyAccessor{}
-		}
-
-		hasher := consistentHash.New()
-		hasher.SetVnodeCount(vnodeCount)
-		for _, i := range instances {
-			hasher.Add(i)
-		}
-
-		return hasher
-	}
-}
-
-var defaultAccessorFactory AccessorFactory = ConsistentAccessorFactory(DefaultVnodeCount)
-
-// DefaultAccessorFactory returns a global default AccessorFactory
-func DefaultAccessorFactory() AccessorFactory {
-	return defaultAccessorFactory
 }
 
 // UpdatableAccessor is an Accessor whose contents can be mutated safely under concurrency.
@@ -90,13 +63,16 @@ func (ua *UpdatableAccessor) Get(key []byte) (instance string, err error) {
 		instance, err = ua.current.Get(key)
 
 	default:
-		return "", errNoInstances
+		err = errNoInstances
 	}
 
 	ua.lock.RUnlock()
 	return
 }
 
+// SetError clears the instances being used by this instance and sets the error to be returned
+// by Get with every call.  This error will be returned by Get until an update with one or more instances
+// occurs.
 func (ua *UpdatableAccessor) SetError(err error) {
 	ua.lock.Lock()
 	ua.err = err
@@ -104,21 +80,19 @@ func (ua *UpdatableAccessor) SetError(err error) {
 	ua.lock.Unlock()
 }
 
-func (ua *UpdatableAccessor) Update(a Accessor) {
+// SetInstances changes the instances used by this UpdateAccessor, clearing any error.  Note that Get will
+// still return an error if a is nil or empty.
+func (ua *UpdatableAccessor) SetInstances(a Accessor) {
 	ua.lock.Lock()
 	ua.err = nil
 	ua.current = a
 	ua.lock.Unlock()
 }
 
-// NewUpdatableListener creates a Listener for service discovery events that updates a given
-// UpdatableAccessor.  The supplied factory is used to create Accessor instances.
-func NewUpdatableListener(f AccessorFactory, ua *UpdatableAccessor) Listener {
-	return func(e Event) {
-		if e.Err != nil {
-			ua.SetError(e.Err)
-		} else {
-			ua.Update(f(e.Instances))
-		}
-	}
+// Update sets both the instances and the Get error in a single, atomic call.
+func (ua *UpdatableAccessor) Update(a Accessor, err error) {
+	ua.lock.Lock()
+	ua.err = err
+	ua.current = a
+	ua.lock.Unlock()
 }
