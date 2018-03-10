@@ -29,8 +29,8 @@ func (is Instancers) Get(key string) (log.Logger, sd.Instancer, bool) {
 }
 
 func (is *Instancers) Set(key string, l log.Logger, i sd.Instancer) {
-	if is == nil {
-		*is = make(map[string]instancerEntry)
+	if *is == nil {
+		*is = make(Instancers)
 	}
 
 	if l == nil {
@@ -46,17 +46,15 @@ func (is Instancers) Each(f func(string, log.Logger, sd.Instancer)) {
 	}
 }
 
-func (is Instancers) Copy() Instancers {
-	if len(is) == 0 {
-		return nil
+func (is Instancers) Copy() (clone Instancers) {
+	if len(is) > 0 {
+		clone = make(Instancers, len(is))
+		for k, v := range is {
+			clone[k] = v
+		}
 	}
 
-	clone := make(Instancers, len(is))
-	for k, v := range is {
-		clone[k] = v
-	}
-
-	return clone
+	return
 }
 
 func (is Instancers) Stop() {
