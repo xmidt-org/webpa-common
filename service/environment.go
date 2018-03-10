@@ -8,7 +8,7 @@ import (
 	"github.com/go-kit/kit/sd"
 )
 
-func nopCloser() error { return nil }
+func NopCloser() error { return nil }
 
 // Environment represents everything known about a service discovery backend.  It also
 // provide a central handle for tasks related to service discovery, such as Accessor hashing.
@@ -16,25 +16,42 @@ type Environment interface {
 	sd.Registrar
 	io.Closer
 
-	Registrars() Registrars
+	// Instancers returns the set of sd.Instancer objects associated with this environment.
+	// This method can return nil or empty.
 	Instancers() Instancers
+
+	// AccessorFactory returns the creation strategy for Accessors used in this environment.
+	// Typically, this factory is set via configuration by some external source.
+	AccessorFactory() AccessorFactory
+
+	// Closed returns a channel that is closed when this Environment in closed.
 	Closed() <-chan struct{}
 }
 
+// Option represents a service discovery option for configuring an Environment
 type Option func(*environment)
 
+// WithRegistrars configures the set of sd.Registrar objects for use in the environment.
+// The Regisrars may be nil or empty for applications which have no need of registering themselves
+// with the service discovery backend.
 func WithRegistrars(r Registrars) Option {
 	return func(e *environment) {
 		e.registrars = r
 	}
 }
 
+// WithInstancers configures the set of sd.Instancer objects for use in the environment.
+// The Instancers may be nil or empty for applications which have no need of monitoring
+// discovered services.
 func WithInstancers(i Instancers) Option {
 	return func(e *environment) {
 		e.instancers = i
 	}
 }
 
+// WithAccessorFactory configures the creation strategy for Accessor objects.  By default,
+// DefaultAccessorFactory is used.  Passing nil via this option sets (or resets) the environment
+// back to using the DefaultAccessorFactory.
 func WithAccessorFactory(af AccessorFactory) Option {
 	return func(e *environment) {
 		if af == nil {
@@ -45,20 +62,25 @@ func WithAccessorFactory(af AccessorFactory) Option {
 	}
 }
 
+// WithCloser configures the function used to completely shut down the service discover backend.
+// By default, NopCloser is used.  Passing a nil function for this option sets (or resets)
+// the closer back to the NopCloser.
 func WithCloser(f func() error) Option {
 	return func(e *environment) {
 		if f == nil {
-			e.closer = nopCloser
+			e.closer = NopCloser
 		} else {
 			e.closer = f
 		}
 	}
 }
 
+// NewEnvironment constructs a new service discovery client environment.  It is possible to construct
+// an environment without any Registrars or Instancers, which essentially makes a no-op environment.
 func NewEnvironment(options ...Option) Environment {
 	e := &environment{
 		accessorFactory: DefaultAccessorFactory,
-		closer:          nopCloser,
+		closer:          NopCloser,
 		closed:          make(chan struct{}),
 	}
 
@@ -79,12 +101,12 @@ type environment struct {
 	closed    chan struct{}
 }
 
-func (e *environment) Registrars() Registrars {
-	return e.registrars
+func (e *environment) Instancers() Instancers {
+	return e.instancers.Copy()
 }
 
-func (e *environment) Instancers() Instancers {
-	return e.instancers
+func (e *environment) AccessorFactory() AccessorFactory {
+	return e.accessorFactory
 }
 
 func (e *environment) Register() {
@@ -99,6 +121,9 @@ func (e *environment) Closed() <-chan struct{} {
 	return e.closed
 }
 
+// Close completely shuts down this environment.  Any registrars are deregistered, all instancers are stopped,
+// the Closed() channel is closed, and any configured closer function is invoked.  This method is idempotent
+// and safe for concurrent execution.
 func (e *environment) Close() (err error) {
 	e.closeOnce.Do(func() {
 		e.Deregister()
@@ -107,6 +132,7 @@ func (e *environment) Close() (err error) {
 			i.Stop()
 		})
 
+		close(e.closed)
 		err = e.closer()
 	})
 

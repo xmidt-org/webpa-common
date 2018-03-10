@@ -1,29 +1,8 @@
 package service
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/go-kit/kit/sd"
 )
-
-// FormatURL creates a URL from a (scheme, address, port) tuple.  If the port is the default
-// for the scheme, it is not included.
-func FormatURL(scheme, address string, port int) string {
-	includePort := true
-	switch strings.ToLower(scheme) {
-	case "http":
-		includePort = (port != 80)
-	case "https":
-		includePort = (port != 443)
-	}
-
-	if includePort {
-		return fmt.Sprintf("%s://%s:%d", scheme, address, port)
-	}
-
-	return fmt.Sprintf("%s://%s", scheme, address)
-}
 
 // NopRegistrar is an sd.Registrar that simply does nothing.  Useful as an alternative to nil.
 type NopRegistrar struct{}

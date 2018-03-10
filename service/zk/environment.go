@@ -10,7 +10,7 @@ import (
 )
 
 func newService(r Registration) (string, gokitzk.Service) {
-	url := service.FormatURL(
+	url := service.FormatInstance(
 		r.scheme(),
 		r.address(),
 		r.port(),

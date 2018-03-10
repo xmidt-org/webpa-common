@@ -46,6 +46,19 @@ func (is Instancers) Each(f func(string, log.Logger, sd.Instancer)) {
 	}
 }
 
+func (is Instancers) Copy() Instancers {
+	if len(is) == 0 {
+		return nil
+	}
+
+	clone := make(Instancers, len(is))
+	for k, v := range is {
+		clone[k] = v
+	}
+
+	return clone
+}
+
 func (is Instancers) Stop() {
 	for _, v := range is {
 		v.i.Stop()
@@ -56,14 +69,14 @@ func (is Instancers) Stop() {
 // instances are constant, i.e. not updated by any service discovery backend.  If the logger is nil,
 // a default logger is used.  The logger associated with the instancer will be augmented with
 // contextual information.
-func NewFixedInstancers(l log.Logger, i []string) Instancers {
+func NewFixedInstancers(l log.Logger, key string, i []string) Instancers {
 	if l == nil {
 		l = logging.DefaultLogger()
 	}
 
 	var is Instancers
 	is.Set(
-		"fixed",
+		key,
 		log.With(l, "fixedInstances", i),
 		sd.FixedInstancer(i),
 	)

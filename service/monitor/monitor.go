@@ -16,8 +16,8 @@ import (
 
 var errNoInstances = errors.New("No instances to monitor")
 
-// Monitor represents an active monitor for one or more sd.Instancer objects.
-type Monitor interface {
+// Interface represents an active monitor for one or more sd.Instancer objects.
+type Interface interface {
 	// Stopped returns a channel that is closed when this Monitor is stopped.
 	// Semantics are equivalent to context.Context.Done().
 	Stopped() <-chan struct{}
@@ -59,10 +59,10 @@ func WithMetricsProvider(p provider.Provider) Option {
 // WithFilter establishes the filtering strategy for discovered service instances.  By default, TrimAndSortFilter is used.
 // If the filter is nil, filtering is disabled and every Listener will receive the raw, unfiltered instances from the
 // service discovery backend.
-func WithFilter(f service.Filter) Option {
+func WithFilter(f Filter) Option {
 	return func(m *monitor) {
 		if f == nil {
-			m.filter = service.NopFilter
+			m.filter = NopFilter
 		} else {
 			m.filter = f
 		}
@@ -71,10 +71,10 @@ func WithFilter(f service.Filter) Option {
 
 // WithListeners configures the monitor to dispatch to zero or more Listeners.  It is legal to start a Monitor
 // with no Listeners, as this is equivalent to just logging messages for the service discovery backend.
-func WithListeners(l ...service.Listener) Option {
+func WithListeners(l ...Listener) Option {
 	return func(m *monitor) {
 		if len(l) > 0 {
-			m.listeners = append(service.Listeners{}, l...)
+			m.listeners = append(Listeners{}, l...)
 		} else {
 			m.listeners = nil
 		}
@@ -109,13 +109,13 @@ func WithEnvironment(e service.Environment) Option {
 
 // New begins monitoring one or more sd.Instancer objects, dispatching events to any Listeners that are configured.
 // This function returns an error if i is empty or nil.
-func New(options ...Option) (Monitor, error) {
+func New(options ...Option) (Interface, error) {
 	var (
 		defaultMetricsProvider = provider.NewDiscardProvider()
 
 		m = &monitor{
 			stopped: make(chan struct{}),
-			filter:  service.DefaultFilter,
+			filter:  DefaultFilter(),
 			now:     time.Now,
 
 			errorCount:    defaultMetricsProvider.NewCounter(service.ErrorCount),
@@ -141,8 +141,8 @@ func New(options ...Option) (Monitor, error) {
 // among all goroutines that monitor a (key, instancer) pair.
 type monitor struct {
 	instancers service.Instancers
-	filter     service.Filter
-	listeners  service.Listeners
+	filter     Filter
+	listeners  Listeners
 	now        func() time.Time
 
 	errorCount    metrics.Counter
@@ -221,7 +221,7 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 				errorCount.Add(1.0)
 				lastError.Set(m.timestamp())
 
-				m.listeners.Dispatch(service.Event{Key: key, Err: event.Err})
+				m.listeners.Dispatch(Event{Key: key, Err: event.Err})
 			} else {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery update", "instances", event.Instances)
 				updateCount.Add(1.0)
@@ -229,17 +229,18 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 
 				i := m.filter(event.Instances)
 				instanceCount.Set(float64(len(i)))
-				m.listeners.Dispatch(service.Event{Key: key, Instances: i})
+				m.listeners.Dispatch(Event{Key: key, Instances: i})
 			}
 
 		case <-m.stopped:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was stopped")
+			m.listeners.Dispatch(Event{Key: key, Stopped: true})
 			return
 
 		case <-m.closed:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor exiting due to external closure")
-			// we want to ensure the stopped channel is closed, to allow properly signalling other goroutines
-			m.Stop()
+			m.Stop() // ensure that the Stopped state is correct
+			m.listeners.Dispatch(Event{Key: key, Stopped: true})
 			return
 		}
 	}

@@ -25,7 +25,7 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, er
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using a fixed set of instances for service discovery", "instances", o.Fixed)
 		return service.NewEnvironment(
 			service.WithAccessorFactory(af),
-			service.WithInstancers(service.NewFixedInstancers(l, o.Fixed)),
+			service.WithInstancers(service.NewFixedInstancers(l, "fixed", o.Fixed)),
 		), nil
 	}
 
