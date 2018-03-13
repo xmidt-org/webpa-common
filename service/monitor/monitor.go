@@ -28,8 +28,20 @@ type Interface interface {
 	Stop()
 }
 
-// Option represents a configuration option for a Monitor
+// Option represents a configuration option for a monitor
 type Option func(*monitor)
+
+// WithLogger sets a go-kit Logger for this monitor.  This logger will be enriched with information
+// about each instancer, if available.  If nil, the default logger is used instead.
+func WithLogger(l log.Logger) Option {
+	return func(m *monitor) {
+		if l == nil {
+			m.logger = logging.DefaultLogger()
+		} else {
+			m.logger = l
+		}
+	}
+}
 
 // WithClosed sets an external channel that, when closed, will cause all goroutines spawned
 // by this monitor to exit.  This is useful when orchestrating multiple monitors, or when restarting
@@ -114,6 +126,7 @@ func New(options ...Option) (Interface, error) {
 		defaultMetricsProvider = provider.NewDiscardProvider()
 
 		m = &monitor{
+			logger:  logging.DefaultLogger(),
 			stopped: make(chan struct{}),
 			filter:  DefaultFilter(),
 			now:     time.Now,
@@ -140,6 +153,7 @@ func New(options ...Option) (Interface, error) {
 // monitor is the internal implementation of Monitor.  This type is a shared context
 // among all goroutines that monitor a (key, instancer) pair.
 type monitor struct {
+	logger     log.Logger
 	instancers service.Instancers
 	filter     Filter
 	listeners  Listeners
@@ -171,9 +185,9 @@ func (m *monitor) start() error {
 		return errNoInstances
 	}
 
-	m.instancers.Each(func(k string, l log.Logger, v sd.Instancer) {
-		go m.dispatchEvents(k, l, v)
-	})
+	for k, v := range m.instancers {
+		go m.dispatchEvents(k, logging.Enrich(m.logger, v), v)
+	}
 
 	return nil
 }

@@ -42,22 +42,32 @@ func newClient(co Options) (gokitconsul.Client, error) {
 	return gokitconsul.NewClient(cc), nil
 }
 
-func newInstancer(base log.Logger, c gokitconsul.Client, w Watch) (l log.Logger, i sd.Instancer) {
-	l = log.With(l, "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly)
-	i = gokitconsul.NewInstancer(c, l, w.Service, w.Tags, w.PassingOnly)
-	return
+func newInstancer(l log.Logger, c gokitconsul.Client, w Watch) sd.Instancer {
+	return service.NewContextualInstancer(
+		gokitconsul.NewInstancer(
+			c,
+			log.With(l, "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly),
+			w.Service,
+			w.Tags,
+			w.PassingOnly,
+		),
+		map[string]interface{}{
+			"service":     w.Service,
+			"tags":        w.Tags,
+			"passingOnly": w.PassingOnly,
+		},
+	)
 }
 
-func newInstancers(base log.Logger, c gokitconsul.Client, co Options) (i service.Instancers) {
+func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.Instancers) {
 	for _, w := range co.watches() {
 		key := newInstancerKey(w)
 		if i.Has(key) {
-			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly)
+			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly)
 			continue
 		}
 
-		logger, instancer := newInstancer(base, c, w)
-		i.Set(key, logger, instancer)
+		i.Set(key, newInstancer(l, c, w))
 	}
 
 	return

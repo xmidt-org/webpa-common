@@ -36,30 +36,29 @@ func newClient(l log.Logger, zo Options) (gokitzk.Client, error) {
 	)
 }
 
-func newInstancer(base log.Logger, c gokitzk.Client, path string) (l log.Logger, i sd.Instancer, err error) {
-	l = log.With(base, "path", path)
+func newInstancer(l log.Logger, c gokitzk.Client, path string) (i sd.Instancer, err error) {
 	i, err = gokitzk.NewInstancer(c, path, l)
+	if err == nil {
+		i = service.NewContextualInstancer(i, map[string]interface{}{"path": path})
+	}
+
 	return
 }
 
-func newInstancers(base log.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
+func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
 	for _, path := range zo.watches() {
 		if i.Has(path) {
-			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "path", path)
+			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "path", path)
 			continue
 		}
 
-		var (
-			instancer sd.Instancer
-			logger    log.Logger
-		)
-
-		logger, instancer, err = newInstancer(base, c, path)
+		var instancer sd.Instancer
+		instancer, err = newInstancer(l, c, path)
 		if err != nil {
 			return
 		}
 
-		i.Set(path, logger, instancer)
+		i.Set(path, instancer)
 	}
 
 	return
@@ -108,7 +107,7 @@ func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Env
 
 	eo = append(
 		eo,
-		service.WithRegistrars(r),
+		service.WithRegistrar(r),
 		service.WithInstancers(i),
 		service.WithCloser(func() error { c.Stop(); return nil }),
 	)
