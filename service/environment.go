@@ -4,7 +4,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd"
 )
 
@@ -16,8 +15,7 @@ type Environment interface {
 	sd.Registrar
 	io.Closer
 
-	// Instancers returns the set of sd.Instancer objects associated with this environment.
-	// This method can return nil or empty.
+	// Instancers returns all the sd.Instancer objects for this environment
 	Instancers() Instancers
 
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
@@ -31,12 +29,10 @@ type Environment interface {
 // Option represents a service discovery option for configuring an Environment
 type Option func(*environment)
 
-// WithRegistrars configures the set of sd.Registrar objects for use in the environment.
-// The Regisrars may be nil or empty for applications which have no need of registering themselves
-// with the service discovery backend.
-func WithRegistrars(r Registrars) Option {
+// WithRegistrars configures the sd.Registrar object to use for service advertisement.
+func WithRegistrar(r sd.Registrar) Option {
 	return func(e *environment) {
-		e.registrars = r
+		e.registrar = r
 	}
 }
 
@@ -92,7 +88,7 @@ func NewEnvironment(options ...Option) Environment {
 }
 
 type environment struct {
-	registrars      Registrars
+	registrar       sd.Registrar
 	instancers      Instancers
 	accessorFactory AccessorFactory
 
@@ -102,7 +98,7 @@ type environment struct {
 }
 
 func (e *environment) Instancers() Instancers {
-	return e.instancers.Copy()
+	return e.instancers
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {
@@ -110,11 +106,15 @@ func (e *environment) AccessorFactory() AccessorFactory {
 }
 
 func (e *environment) Register() {
-	e.registrars.Register()
+	if e.registrar != nil {
+		e.registrar.Register()
+	}
 }
 
 func (e *environment) Deregister() {
-	e.registrars.Deregister()
+	if e.registrar != nil {
+		e.registrar.Deregister()
+	}
 }
 
 func (e *environment) Closed() <-chan struct{} {
@@ -127,10 +127,9 @@ func (e *environment) Closed() <-chan struct{} {
 func (e *environment) Close() (err error) {
 	e.closeOnce.Do(func() {
 		e.Deregister()
-
-		e.instancers.Each(func(_ string, _ log.Logger, i sd.Instancer) {
-			i.Stop()
-		})
+		for _, v := range e.instancers {
+			v.Stop()
+		}
 
 		close(e.closed)
 		err = e.closer()
