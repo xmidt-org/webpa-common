@@ -2,6 +2,7 @@ package servicecfg
 
 import (
 	"github.com/Comcast/webpa-common/service"
+	"github.com/Comcast/webpa-common/service/consul"
 	"github.com/Comcast/webpa-common/service/zk"
 )
 
@@ -10,9 +11,9 @@ type Options struct {
 	VnodeCount    int  `json:"vnodeCount,omitempty"`
 	DisableFilter bool `json:"disableFilter"`
 
-	Fixed     []string    `json:"fixed,omitempty"`
-	Zookeeper *zk.Options `json:"zookeeper,omitempty"`
-	Consul    interface{} `json:"consul,omitempty"`
+	Fixed     []string        `json:"fixed,omitempty"`
+	Zookeeper *zk.Options     `json:"zookeeper,omitempty"`
+	Consul    *consul.Options `json:"consul,omitempty"`
 }
 
 func (o *Options) vnodeCount() int {

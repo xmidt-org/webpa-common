@@ -74,8 +74,8 @@ func (r Registration) scheme() string {
 	return DefaultScheme
 }
 
-// Options represents the set of configurable attributes for Zookeeper
-type Options struct {
+// Client is the client portion of the options struct
+type Client struct {
 	// Connection is the comma-delimited Zookeeper connection string.  Both this and
 	// Servers may be set, and they will be merged together when connecting to Zookeeper.
 	Connection string `json:"connection,omitempty"`
@@ -89,27 +89,20 @@ type Options struct {
 
 	// SessionTimeout is the Zookeeper session timeout.
 	SessionTimeout time.Duration `json:"sessionTimeout"`
-
-	// Registrations are the ways in which the host process should be registered with zookeeper.
-	// There is no default for this field.
-	Registrations []Registration `json:"registrations,omitempty"`
-
-	// Watches are the zookeeper paths to watch for updates.  There is no default for this field.
-	Watches []string `json:"watches,omitempty"`
 }
 
-func (o *Options) servers() []string {
+func (c *Client) servers() []string {
 	servers := make([]string, 0, 10)
 
-	if o != nil {
-		if len(o.Connection) > 0 {
-			for _, server := range strings.Split(o.Connection, ",") {
+	if c != nil {
+		if len(c.Connection) > 0 {
+			for _, server := range strings.Split(c.Connection, ",") {
 				servers = append(servers, strings.TrimSpace(server))
 			}
 		}
 
-		if len(o.Servers) > 0 {
-			servers = append(servers, o.Servers...)
+		if len(c.Servers) > 0 {
+			servers = append(servers, c.Servers...)
 		}
 	}
 
@@ -120,20 +113,41 @@ func (o *Options) servers() []string {
 	return servers
 }
 
-func (o *Options) connectTimeout() time.Duration {
-	if o != nil && o.ConnectTimeout > 0 {
-		return o.ConnectTimeout
+func (c *Client) connectTimeout() time.Duration {
+	if c != nil && c.ConnectTimeout > 0 {
+		return c.ConnectTimeout
 	}
 
 	return DefaultConnectTimeout
 }
 
-func (o *Options) sessionTimeout() time.Duration {
-	if o != nil && o.SessionTimeout > 0 {
-		return o.SessionTimeout
+func (c *Client) sessionTimeout() time.Duration {
+	if c != nil && c.SessionTimeout > 0 {
+		return c.SessionTimeout
 	}
 
 	return DefaultSessionTimeout
+}
+
+// Options represents the set of configurable attributes for Zookeeper
+type Options struct {
+	// Client holds the zookeeper client options
+	Client Client `json:"client"`
+
+	// Registrations are the ways in which the host process should be registered with zookeeper.
+	// There is no default for this field.
+	Registrations []Registration `json:"registrations,omitempty"`
+
+	// Watches are the zookeeper paths to watch for updates.  There is no default for this field.
+	Watches []string `json:"watches,omitempty"`
+}
+
+func (o *Options) client() *Client {
+	if o != nil {
+		return &o.Client
+	}
+
+	return nil
 }
 
 func (o *Options) registrations() []Registration {

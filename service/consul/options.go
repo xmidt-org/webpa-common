@@ -11,7 +11,7 @@ type Watch struct {
 }
 
 type Options struct {
-	Client            *api.Config                    `json:"client,omitempty"`
+	Client            *api.Config                    `json:"client"`
 	DisableGenerateID bool                           `json:"disableGenerateID"`
 	Registrations     []api.AgentServiceRegistration `json:"registrations,omitempty"`
 	Watches           []Watch                        `json:"watches,omitempty"`

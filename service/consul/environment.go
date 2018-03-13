@@ -73,12 +73,12 @@ func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.In
 	return
 }
 
-func newRegistrars(base log.Logger, c gokitconsul.Client, co Options) (r service.Registrars) {
+func newRegistrars(l log.Logger, c gokitconsul.Client, co Options) (r service.Registrars) {
 	dedupe := make(map[string]bool)
 	for _, registration := range co.registrations() {
 		endpoint := fmt.Sprintf("%s:%d", registration.Address, registration.Port)
 		if dedupe[endpoint] {
-			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "endpoint", endpoint)
+			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "endpoint", endpoint)
 			continue
 		}
 
@@ -88,9 +88,32 @@ func newRegistrars(base log.Logger, c gokitconsul.Client, co Options) (r service
 		}
 
 		r.Add(
-			gokitconsul.NewRegistrar(c, &registration, log.With(base, "id", registration.ID, "endpoint", endpoint)),
+			gokitconsul.NewRegistrar(c, &registration, log.With(l, "id", registration.ID, "endpoint", endpoint)),
 		)
 	}
 
 	return
+}
+
+func NewEnvironment(l log.Logger, co Options, eo ...service.Option) (service.Environment, error) {
+	if l == nil {
+		l = logging.DefaultLogger()
+	}
+
+	if len(co.Watches) == 0 && len(co.Registrations) == 0 {
+		return nil, nil
+	}
+
+	c, err := newClient(co)
+	if err != nil {
+		return nil, err
+	}
+
+	return service.NewEnvironment(
+		append(
+			eo,
+			service.WithRegistrar(newRegistrars(l, c, co)),
+			service.WithInstancers(newInstancers(l, c, co)),
+		)...,
+	), nil
 }

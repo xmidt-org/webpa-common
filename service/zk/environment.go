@@ -28,11 +28,12 @@ func newService(r Registration) (string, gokitzk.Service) {
 var clientFactory = gokitzk.NewClient
 
 func newClient(l log.Logger, zo Options) (gokitzk.Client, error) {
+	client := zo.client()
 	return clientFactory(
-		zo.servers(),
+		client.servers(),
 		l,
-		gokitzk.ConnectTimeout(zo.connectTimeout()),
-		gokitzk.SessionTimeout(zo.sessionTimeout()),
+		gokitzk.ConnectTimeout(client.connectTimeout()),
+		gokitzk.SessionTimeout(client.sessionTimeout()),
 	)
 }
 
@@ -103,14 +104,12 @@ func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Env
 		return nil, err
 	}
 
-	r := newRegistrars(l, c, zo)
-
-	eo = append(
-		eo,
-		service.WithRegistrar(r),
-		service.WithInstancers(i),
-		service.WithCloser(func() error { c.Stop(); return nil }),
-	)
-
-	return service.NewEnvironment(eo...), nil
+	return service.NewEnvironment(
+		append(
+			eo,
+			service.WithRegistrar(newRegistrars(l, c, zo)),
+			service.WithInstancers(i),
+			service.WithCloser(func() error { c.Stop(); return nil }),
+		)...,
+	), nil
 }
