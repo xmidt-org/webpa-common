@@ -33,6 +33,8 @@ func newInstancerKey(w Watch) string {
 	)
 }
 
+var clientFactory = gokitconsul.NewClient
+
 func newClient(co Options) (gokitconsul.Client, error) {
 	cc, err := api.NewClient(co.config())
 	if err != nil {
