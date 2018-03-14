@@ -44,11 +44,7 @@ func (ls Listeners) MonitorEvent(e Event) {
 }
 
 // NewMetricsListener produces a monitor Listener that gathers metrics related to service discovery.
-func NewMetricsListener(p provider.Provider, now func() time.Time) Listener {
-	if now == nil {
-		now = time.Now
-	}
-
+func NewMetricsListener(p provider.Provider) Listener {
 	var (
 		errorCount    = p.NewCounter(service.ErrorCount)
 		lastError     = p.NewGauge(service.LastErrorTimestamp)
@@ -58,7 +54,7 @@ func NewMetricsListener(p provider.Provider, now func() time.Time) Listener {
 	)
 
 	return ListenerFunc(func(e Event) {
-		timestamp := float64(now().Unix())
+		timestamp := float64(time.Now().Unix())
 
 		if e.Err != nil {
 			errorCount.With(service.ServiceLabel, e.Key).Add(1.0)
