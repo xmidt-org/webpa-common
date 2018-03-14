@@ -81,9 +81,9 @@ func testNewStop(t *testing.T) {
 	sdEvents <- sd.Event{Err: expectedError}
 	select {
 	case event := <-monitorEvents:
+		assert.Equal("test", event.Key)
 		assert.Equal(expectedError, event.Err)
 		assert.Len(event.Instances, 0)
-		assert.Equal("test", event.Key)
 		assert.False(event.Stopped)
 
 	case <-time.After(5 * time.Second):
@@ -93,9 +93,9 @@ func testNewStop(t *testing.T) {
 	sdEvents <- sd.Event{Instances: expectedInstances}
 	select {
 	case event := <-monitorEvents:
+		assert.Equal("test", event.Key)
 		assert.NoError(event.Err)
 		assert.Equal(expectedInstances, event.Instances)
-		assert.Equal("test", event.Key)
 		assert.False(event.Stopped)
 
 	case <-time.After(5 * time.Second):
@@ -108,6 +108,17 @@ func testNewStop(t *testing.T) {
 		assert.Equal(sdEvents, deregistered)
 	case <-time.After(5 * time.Second):
 		assert.Fail("Failed to deregister")
+	}
+
+	select {
+	case finalEvent := <-monitorEvents:
+		assert.Equal("test", finalEvent.Key)
+		assert.NoError(finalEvent.Err)
+		assert.Len(finalEvent.Instances, 0)
+		assert.True(finalEvent.Stopped)
+
+	case <-time.After(5 * time.Second):
+		assert.Fail("No stopped event received")
 	}
 
 	select {
@@ -189,9 +200,9 @@ func testNewWithEnvironment(t *testing.T) {
 	sdEvents <- sd.Event{Err: expectedError}
 	select {
 	case event := <-monitorEvents:
+		assert.Equal("test", event.Key)
 		assert.Equal(expectedError, event.Err)
 		assert.Len(event.Instances, 0)
-		assert.Equal("test", event.Key)
 		assert.False(event.Stopped)
 
 	case <-time.After(5 * time.Second):
@@ -201,9 +212,9 @@ func testNewWithEnvironment(t *testing.T) {
 	sdEvents <- sd.Event{Instances: expectedInstances}
 	select {
 	case event := <-monitorEvents:
+		assert.Equal("test", event.Key)
 		assert.NoError(event.Err)
 		assert.Equal(expectedInstances, event.Instances)
-		assert.Equal("test", event.Key)
 		assert.False(event.Stopped)
 
 	case <-time.After(5 * time.Second):
@@ -216,6 +227,17 @@ func testNewWithEnvironment(t *testing.T) {
 		assert.Equal(sdEvents, deregistered)
 	case <-time.After(5 * time.Second):
 		assert.Fail("Failed to deregister")
+	}
+
+	select {
+	case finalEvent := <-monitorEvents:
+		assert.Equal("test", finalEvent.Key)
+		assert.NoError(finalEvent.Err)
+		assert.Len(finalEvent.Instances, 0)
+		assert.True(finalEvent.Stopped)
+
+	case <-time.After(5 * time.Second):
+		assert.Fail("No stopped event received")
 	}
 
 	select {
