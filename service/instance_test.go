@@ -21,6 +21,8 @@ func TestFormatInstance(t *testing.T) {
 			{"https", "somehost.com", 8080, "https://somehost.com:8080"},
 			{"https", "somehost.com", 80, "https://somehost.com:80"},
 			{"ftp", "somehost.com", 1234, "ftp://somehost.com:1234"},
+			{"http", "default.net", 0, "http://default.net"},
+			{"", "default.net", 0, "https://default.net"},
 		}
 	)
 
@@ -55,6 +57,9 @@ func TestNormalizeInstance(t *testing.T) {
 			{"https", " somehost.com:8080 ", "https://somehost.com:8080", false},
 			{"ftp", "somehost.com:8080", "ftp://somehost.com:8080", false},
 			{"ftp", " somehost.com:8080 ", "ftp://somehost.com:8080", false},
+			{"", "http://foobar.com", "http://foobar.com", false},
+			{"http", "http://foobar.com", "http://foobar.com", false},
+			{"https", "http://foobar.com", "http://foobar.com", false},
 		}
 	)
 

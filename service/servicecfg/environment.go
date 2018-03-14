@@ -11,6 +11,11 @@ import (
 	"github.com/go-kit/kit/sd"
 )
 
+var (
+	zookeeperEnvironmentFactory = zk.NewEnvironment
+	consulEnvironmentFactory    = consul.NewEnvironment
+)
+
 func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, error) {
 	if l == nil {
 		l = logging.DefaultLogger()
@@ -40,12 +45,12 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, er
 
 	if o.Zookeeper != nil {
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using zookeeper for service discovery")
-		return zk.NewEnvironment(l, *o.Zookeeper, service.WithAccessorFactory(af))
+		return zookeeperEnvironmentFactory(l, *o.Zookeeper, service.WithAccessorFactory(af))
 	}
 
 	if o.Consul != nil {
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using consul for service discovery")
-		return consul.NewEnvironment(l, *o.Consul)
+		return consulEnvironmentFactory(l, *o.Consul, service.WithAccessorFactory(af))
 	}
 
 	return nil, nil

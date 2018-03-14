@@ -12,21 +12,25 @@ import (
 const DefaultScheme = "https"
 
 // FormatInstance creates an instance string from a (scheme, address, port) tuple.  If the port is the default
-// for the scheme, it is not included.  If scheme is empty, DefaultScheme is used.
+// for the scheme, it is not included.  If scheme is empty, DefaultScheme is used.  If the port is nonpositive,
+// then it is ignored.
 func FormatInstance(scheme, address string, port int) string {
-	includePort := true
-	switch strings.ToLower(scheme) {
-	case "http":
-		includePort = (port != 80)
-	case "":
+	if len(scheme) == 0 {
 		scheme = DefaultScheme
-		includePort = (port != 443)
-	case "https":
-		includePort = (port != 443)
 	}
 
-	if includePort {
-		return fmt.Sprintf("%s://%s:%d", scheme, address, port)
+	if port > 0 {
+		includePort := true
+		switch strings.ToLower(scheme) {
+		case "http":
+			includePort = (port != 80)
+		case "https":
+			includePort = (port != 443)
+		}
+
+		if includePort {
+			return fmt.Sprintf("%s://%s:%d", scheme, address, port)
+		}
 	}
 
 	return fmt.Sprintf("%s://%s", scheme, address)
@@ -57,12 +61,6 @@ func NormalizeInstance(defaultScheme, instance string) (string, error) {
 		return instance, fmt.Errorf("Invalid instance: %s")
 	}
 
-	port, err := strconv.Atoi(submatches[5])
-	if err != nil {
-		// NOTE: Shouldn't ever hit this case, because the port is constrained by the regexp to be numeric
-		return instance, err
-	}
-
 	var (
 		scheme  = submatches[2]
 		address = submatches[3]
@@ -73,6 +71,16 @@ func NormalizeInstance(defaultScheme, instance string) (string, error) {
 			scheme = defaultScheme
 		} else {
 			scheme = DefaultScheme
+		}
+	}
+
+	var port int
+	if portValue := submatches[5]; len(portValue) > 0 {
+		var err error
+		port, err = strconv.Atoi(submatches[5])
+		if err != nil {
+			// NOTE: Shouldn't ever hit this case, because the port is constrained by the regexp to be numeric
+			return instance, err
 		}
 	}
 
