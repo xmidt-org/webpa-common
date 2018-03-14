@@ -49,12 +49,20 @@ func (c *counter) With(labelsAndValues ...string) metrics.Counter {
 	return nested
 }
 
-func (c *counter) Get(key LVKey) (interface{}, bool) {
+func (c *counter) Get(key LVKey) interface{} {
 	c.lock.Lock()
-	existing, ok := c.tree[key]
-	c.lock.Unlock()
+	metric, ok := c.tree[key]
+	if !ok {
+		metric = &nestedCounter{
+			Counter: generic.NewCounter(c.Name),
+			with:    c.With,
+		}
 
-	return existing, ok
+		c.tree[key] = metric
+	}
+
+	c.lock.Unlock()
+	return metric
 }
 
 // nestedCounter is a non-root counter created by With.
@@ -106,12 +114,20 @@ func (g *gauge) With(labelsAndValues ...string) metrics.Gauge {
 	return nested
 }
 
-func (g *gauge) Get(key LVKey) (interface{}, bool) {
+func (g *gauge) Get(key LVKey) interface{} {
 	g.lock.Lock()
-	existing, ok := g.tree[key]
-	g.lock.Unlock()
+	metric, ok := g.tree[key]
+	if !ok {
+		metric = &nestedGauge{
+			Gauge: generic.NewGauge(g.Name),
+			with:  g.With,
+		}
 
-	return existing, ok
+		g.tree[key] = metric
+	}
+
+	g.lock.Unlock()
+	return metric
 }
 
 // nestedGauge is a non-root gauge created by With.
@@ -165,12 +181,20 @@ func (h *histogram) With(labelsAndValues ...string) metrics.Histogram {
 	return nested
 }
 
-func (h *histogram) Get(key LVKey) (interface{}, bool) {
+func (h *histogram) Get(key LVKey) interface{} {
 	h.lock.Lock()
-	existing, ok := h.tree[key]
-	h.lock.Unlock()
+	metric, ok := h.tree[key]
+	if !ok {
+		metric = &nestedHistogram{
+			Histogram: generic.NewHistogram(h.Name, h.Buckets),
+			with:      h.With,
+		}
 
-	return existing, ok
+		h.tree[key] = metric
+	}
+
+	h.lock.Unlock()
+	return metric
 }
 
 // nestedHistogram is a non-root gauge created by With.

@@ -171,12 +171,7 @@ func (tp *testProvider) Assert(t testingT, name string, labelsAndValues ...strin
 			return false
 		}
 
-		metric, ok = metric.(Labeled).Get(lvKey)
-		if !ok {
-			t.Errorf("metric %s has no such label/value pairs: %s", name, lvKey)
-			return false
-		}
-
+		metric = metric.(Labeled).Get(lvKey)
 		result := true
 		for _, f := range e {
 			result = f(t, name, metric) && result
@@ -201,12 +196,7 @@ func (tp *testProvider) AssertExpectations(t testingT) bool {
 
 		labeled := root.(Labeled)
 		for lvKey, expectations := range labels {
-			metric, ok := labeled.Get(lvKey)
-			if !ok {
-				t.Errorf("metric %s has no such label/value pairs: %s", name, lvKey)
-				result = false
-				continue
-			}
+			metric := labeled.Get(lvKey)
 
 			for _, e := range expectations {
 				result = e(t, name, metric) && result

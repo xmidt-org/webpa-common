@@ -28,12 +28,6 @@ func TestNewCounter(t *testing.T) {
 	c.Add(1.0)
 	assert.Equal(1.0, c.(xmetrics.Valuer).Value())
 
-	{
-		nosuch, ok := c.(Labeled).Get("code=500")
-		assert.Nil(nosuch)
-		assert.False(ok)
-	}
-
 	child1 := c.With("code", "500")
 	require.NotNil(child1)
 	require.Implements((*xmetrics.Valuer)(nil), child1)
@@ -44,11 +38,11 @@ func TestNewCounter(t *testing.T) {
 	assert.True(child1 == child1.With("code", "500"))
 	assert.True(child1 == c.With("code", "500"))
 
-	{
-		child2, ok := c.(Labeled).Get("code=500")
-		assert.True(child1 == child2)
-		assert.True(ok)
-	}
+	child2 := c.(Labeled).Get("code=500")
+	assert.True(child1 == child2)
+
+	child3 := c.(Labeled).Get("nosuch=true")
+	assert.NotNil(child3)
 }
 
 func TestNewGauge(t *testing.T) {
@@ -73,12 +67,6 @@ func TestNewGauge(t *testing.T) {
 	g.Set(15.0)
 	assert.Equal(15.0, g.(xmetrics.Valuer).Value())
 
-	{
-		nosuch, ok := g.(Labeled).Get("code=500")
-		assert.Nil(nosuch)
-		assert.False(ok)
-	}
-
 	child1 := g.With("code", "500")
 	require.NotNil(child1)
 	require.Implements((*xmetrics.Valuer)(nil), child1)
@@ -93,11 +81,11 @@ func TestNewGauge(t *testing.T) {
 	assert.True(child1 == child1.With("code", "500"))
 	assert.True(child1 == g.With("code", "500"))
 
-	{
-		child2, ok := g.(Labeled).Get("code=500")
-		assert.True(child1 == child2)
-		assert.True(ok)
-	}
+	child2 := g.(Labeled).Get("code=500")
+	assert.True(child1 == child2)
+
+	child3 := g.(Labeled).Get("nosuch=true")
+	assert.NotNil(child3)
 }
 
 func TestNewHistogram(t *testing.T) {
@@ -117,12 +105,6 @@ func TestNewHistogram(t *testing.T) {
 
 	h.Observe(1.0)
 
-	{
-		nosuch, ok := h.(Labeled).Get("code=500")
-		assert.Nil(nosuch)
-		assert.False(ok)
-	}
-
 	child1 := h.With("code", "500")
 	require.NotNil(child1)
 	child1.Observe(2.0)
@@ -130,11 +112,11 @@ func TestNewHistogram(t *testing.T) {
 	assert.True(child1 == child1.With("code", "500"))
 	assert.True(child1 == h.With("code", "500"))
 
-	{
-		child2, ok := h.(Labeled).Get("code=500")
-		assert.True(child1 == child2)
-		assert.True(ok)
-	}
+	child2 := h.(Labeled).Get("code=500")
+	assert.True(child1 == child2)
+
+	child3 := h.(Labeled).Get("nosuch=true")
+	assert.NotNil(child3)
 }
 
 func testNewMetricMissingName(t *testing.T) {
