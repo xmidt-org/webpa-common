@@ -33,6 +33,25 @@ func Value(expected float64) expectation {
 	}
 }
 
+// Minimum returns an expectation for a metric to be at least a certain value.  The metric in question
+// must implement xmetrics.Valuer, as with the Value expectation.
+func Minimum(expected float64) expectation {
+	return func(t testingT, n string, m interface{}) bool {
+		v, ok := m.(xmetrics.Valuer)
+		if !ok {
+			t.Errorf("metric %s does not expose a value (i.e. is not a counter or gauge)", n)
+			return false
+		}
+
+		if actual := v.Value(); actual < expected {
+			t.Errorf("metric %s is smaller than the expected value %f.  actual value is %f", n, expected, actual)
+			return false
+		}
+
+		return true
+	}
+}
+
 // Counter is an expectation that a certain metric is a counter.  It must implement the go-kit metrics.Counter interface.
 func Counter(t testingT, n string, m interface{}) bool {
 	_, ok := m.(metrics.Counter)
