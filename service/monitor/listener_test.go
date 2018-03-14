@@ -8,6 +8,7 @@ import (
 	"github.com/Comcast/webpa-common/service"
 	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestListenerFunc(t *testing.T) {
@@ -105,4 +106,113 @@ func testNewMetricsListenerError(t *testing.T) {
 func TestNewMetricsListener(t *testing.T) {
 	t.Run("Update", testNewMetricsListenerUpdate)
 	t.Run("Error", testNewMetricsListenerError)
+}
+
+func testNewAccessorListenerMissingNext(t *testing.T) {
+	assert := assert.New(t)
+	assert.Panics(func() {
+		NewAccessorListener(service.DefaultAccessorFactory, nil)
+	})
+}
+
+func testNewAccessorListenerError(t *testing.T, f service.AccessorFactory) {
+	var (
+		assert        = assert.New(t)
+		require       = require.New(t)
+		expectedError = errors.New("expected")
+		nextCalled    = false
+
+		l = NewAccessorListener(
+			f,
+			func(a service.Accessor, err error) {
+				nextCalled = true
+				assert.Nil(a)
+				assert.Equal(expectedError, err)
+			},
+		)
+	)
+
+	require.NotNil(l)
+	l.MonitorEvent(Event{Err: expectedError})
+	assert.True(nextCalled)
+}
+
+func testNewAccessorListenerInstances(t *testing.T, f service.AccessorFactory) {
+	var (
+		assert     = assert.New(t)
+		require    = require.New(t)
+		nextCalled = false
+
+		l = NewAccessorListener(
+			nil,
+			func(a service.Accessor, err error) {
+				nextCalled = true
+				require.NotNil(a)
+				assert.NoError(err)
+
+				i, err := a.Get([]byte("asdfasdfasdfsdf"))
+				assert.Equal("instance1", i)
+				assert.NoError(err)
+			},
+		)
+	)
+
+	require.NotNil(l)
+	l.MonitorEvent(Event{Instances: []string{"instance1"}})
+	assert.True(nextCalled)
+}
+
+func testNewAccessorListenerEmpty(t *testing.T, f service.AccessorFactory) {
+	var (
+		assert     = assert.New(t)
+		require    = require.New(t)
+		nextCalled = false
+
+		l = NewAccessorListener(
+			nil,
+			func(a service.Accessor, err error) {
+				nextCalled = true
+				assert.Equal(service.EmptyAccessor(), a)
+				assert.NoError(err)
+			},
+		)
+	)
+
+	require.NotNil(l)
+	l.MonitorEvent(Event{})
+	assert.True(nextCalled)
+}
+
+func TestNewAccessorListener(t *testing.T) {
+	t.Run("MissingNext", testNewAccessorListenerMissingNext)
+
+	t.Run("DefaultAccessorFactory", func(t *testing.T) {
+		t.Run("Error", func(t *testing.T) {
+			testNewAccessorListenerError(t, service.DefaultAccessorFactory)
+		})
+
+		t.Run("Instances", func(t *testing.T) {
+			testNewAccessorListenerInstances(t, service.DefaultAccessorFactory)
+		})
+
+		t.Run("Empty", func(t *testing.T) {
+			testNewAccessorListenerEmpty(t, service.DefaultAccessorFactory)
+		})
+	})
+
+	t.Run("CustomAccessorFactory", func(t *testing.T) {
+		f := service.NewConsistentAccessorFactory(2)
+
+		t.Run("Error", func(t *testing.T) {
+			testNewAccessorListenerError(t, f)
+		})
+
+		t.Run("Instances", func(t *testing.T) {
+			testNewAccessorListenerInstances(t, f)
+		})
+
+		t.Run("Empty", func(t *testing.T) {
+			testNewAccessorListenerEmpty(t, f)
+		})
+	})
 }
