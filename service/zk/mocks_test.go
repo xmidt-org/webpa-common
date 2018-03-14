@@ -1,6 +1,7 @@
 package zk
 
 import (
+	"github.com/go-kit/kit/log"
 	gokitzk "github.com/go-kit/kit/sd/zk"
 	zkclient "github.com/samuel/go-zookeeper/zk"
 	"github.com/stretchr/testify/mock"
@@ -10,6 +11,25 @@ import (
 // to its original value.  This function is handy as a defer for tests.
 func resetClientFactory() {
 	clientFactory = gokitzk.NewClient
+}
+
+// prepareMockClientFactory creates a new mockClientFactory and sets up this package
+// to use it.
+func prepareMockClientFactory() *mockClientFactory {
+	m := new(mockClientFactory)
+	clientFactory = m.NewClient
+	return m
+}
+
+type mockClientFactory struct {
+	mock.Mock
+}
+
+func (m *mockClientFactory) NewClient(servers []string, logger log.Logger, options ...gokitzk.Option) (gokitzk.Client, error) {
+	arguments := m.Called(servers, logger, options)
+
+	first, _ := arguments.Get(0).(gokitzk.Client)
+	return first, arguments.Error(1)
 }
 
 type mockClient struct {

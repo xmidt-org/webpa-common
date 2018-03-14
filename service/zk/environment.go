@@ -56,6 +56,8 @@ func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instan
 		var instancer sd.Instancer
 		instancer, err = newInstancer(l, c, path)
 		if err != nil {
+			// ensure the previously create instancers are stopped
+			i.Stop()
 			return
 		}
 
