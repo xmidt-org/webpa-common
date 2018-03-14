@@ -25,7 +25,9 @@ type mockClientFactory struct {
 }
 
 func (m *mockClientFactory) NewClient(c *api.Client) gokitconsul.Client {
-	return m.Called(c).Get(0).(gokitconsul.Client)
+	arguments := m.Called(c)
+	first, _ := arguments.Get(0).(gokitconsul.Client)
+	return first
 }
 
 type mockClient struct {

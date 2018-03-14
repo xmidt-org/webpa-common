@@ -18,6 +18,7 @@ func generateServiceID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
+		// TODO: When does this ever happen?
 		panic(err)
 	}
 
@@ -41,7 +42,7 @@ func newClient(co Options) (gokitconsul.Client, error) {
 		return nil, err
 	}
 
-	return gokitconsul.NewClient(cc), nil
+	return clientFactory(cc), nil
 }
 
 func newInstancer(l log.Logger, c gokitconsul.Client, w Watch) sd.Instancer {
