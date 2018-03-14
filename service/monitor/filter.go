@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/Comcast/webpa-common/service"
@@ -25,8 +24,6 @@ func NewNormalizeFilter(defaultScheme string) Filter {
 		for _, o := range original {
 			if normalized, err := service.NormalizeInstance(defaultScheme, o); err == nil {
 				filtered = append(filtered, normalized)
-			} else {
-				fmt.Println(o, err)
 			}
 		}
 
