@@ -120,6 +120,24 @@ func (r *registry) removeIf(f func(d *device) bool) int {
 	return count
 }
 
+func (r *registry) removeAll() int {
+	defer r.lock.Unlock()
+	r.lock.Lock()
+
+	count := len(r.data)
+	if count > 0 {
+		for _, d := range r.data {
+			d.requestClose()
+		}
+
+		r.data = make(map[ID]*device)
+		r.disconnect.Add(float64(count))
+	}
+
+	r.count.Set(0.0)
+	return count
+}
+
 func (r *registry) visit(f func(d *device)) int {
 	defer r.lock.RUnlock()
 	r.lock.RLock()

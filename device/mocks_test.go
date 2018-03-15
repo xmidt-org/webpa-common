@@ -223,6 +223,10 @@ func (m *mockConnector) DisconnectIf(predicate func(ID) bool) int {
 	return m.Called(predicate).Int(0)
 }
 
+func (m *mockConnector) DisconnectAll() int {
+	return m.Called().Int(0)
+}
+
 type mockRegistry struct {
 	mock.Mock
 }

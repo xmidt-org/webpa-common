@@ -54,6 +54,10 @@ type Connector interface {
 	// No methods on this Manager should be called from within the predicate function, or
 	// a deadlock will likely occur.
 	DisconnectIf(func(ID) bool) int
+
+	// DisconnectAll disconnects all devices from this instance, and returns the count of
+	// devices disconnected.
+	DisconnectAll() int
 }
 
 // Router handles dispatching messages to devices.
@@ -430,6 +434,10 @@ func (m *manager) DisconnectIf(filter func(ID) bool) int {
 	return m.devices.removeIf(func(d *device) bool {
 		return filter(d.id)
 	})
+}
+
+func (m *manager) DisconnectAll() int {
+	return m.devices.removeAll()
 }
 
 func (m *manager) Get(id ID) (Interface, bool) {
