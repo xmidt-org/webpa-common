@@ -11,6 +11,7 @@ func testOptionsDefault(t *testing.T, o *Options) {
 	assert := assert.New(t)
 	assert.Equal(service.DefaultVnodeCount, o.vnodeCount())
 	assert.False(o.disableFilter())
+	assert.Equal(service.DefaultScheme, o.defaultScheme())
 }
 
 func testOptionsCustom(t *testing.T) {
@@ -20,11 +21,13 @@ func testOptionsCustom(t *testing.T) {
 		o = Options{
 			VnodeCount:    345234,
 			DisableFilter: true,
+			DefaultScheme: "ftp",
 		}
 	)
 
 	assert.Equal(345234, o.vnodeCount())
 	assert.True(o.disableFilter())
+	assert.Equal("ftp", o.defaultScheme())
 }
 
 func TestOptions(t *testing.T) {
