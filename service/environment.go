@@ -15,6 +15,10 @@ type Environment interface {
 	sd.Registrar
 	io.Closer
 
+	// DefaultScheme is the default URI scheme to assume for discovered service instances.  This is
+	// typically driven by configuration.
+	DefaultScheme() string
+
 	// Instancers returns all the sd.Instancer objects for this environment
 	Instancers() Instancers
 
@@ -28,6 +32,19 @@ type Environment interface {
 
 // Option represents a service discovery option for configuring an Environment
 type Option func(*environment)
+
+// WithDefaultScheme configures the default URI scheme for discovered instances that do not
+// specify a scheme.  Some service discovery backends do not have a way to advertise a particular
+// scheme that is revealed as part of the discovered instances.
+func WithDefaultScheme(s string) Option {
+	return func(e *environment) {
+		if len(s) > 0 {
+			e.defaultScheme = s
+		} else {
+			e.defaultScheme = DefaultScheme
+		}
+	}
+}
 
 // WithRegistrars configures the sd.Registrar object to use for service advertisement.
 func WithRegistrar(r sd.Registrar) Option {
@@ -75,6 +92,7 @@ func WithCloser(f func() error) Option {
 // an environment without any Registrars or Instancers, which essentially makes a no-op environment.
 func NewEnvironment(options ...Option) Environment {
 	e := &environment{
+		defaultScheme:   DefaultScheme,
 		accessorFactory: DefaultAccessorFactory,
 		closer:          NopCloser,
 		closed:          make(chan struct{}),
@@ -88,6 +106,7 @@ func NewEnvironment(options ...Option) Environment {
 }
 
 type environment struct {
+	defaultScheme   string
 	registrar       sd.Registrar
 	instancers      Instancers
 	accessorFactory AccessorFactory
@@ -95,6 +114,10 @@ type environment struct {
 	closeOnce sync.Once
 	closer    func() error
 	closed    chan struct{}
+}
+
+func (e *environment) DefaultScheme() string {
+	return e.defaultScheme
 }
 
 func (e *environment) Instancers() Instancers {

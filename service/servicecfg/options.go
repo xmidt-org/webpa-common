@@ -8,8 +8,9 @@ import (
 
 // Options contains the superset of all necessary options for initializing service discovery.
 type Options struct {
-	VnodeCount    int  `json:"vnodeCount,omitempty"`
-	DisableFilter bool `json:"disableFilter"`
+	VnodeCount    int    `json:"vnodeCount,omitempty"`
+	DisableFilter bool   `json:"disableFilter"`
+	DefaultScheme string `json:"defaultScheme"`
 
 	Fixed     []string        `json:"fixed,omitempty"`
 	Zookeeper *zk.Options     `json:"zookeeper,omitempty"`
@@ -30,4 +31,12 @@ func (o *Options) disableFilter() bool {
 	}
 
 	return false
+}
+
+func (o *Options) defaultScheme() string {
+	if o != nil && len(o.DefaultScheme) > 0 {
+		return o.DefaultScheme
+	}
+
+	return service.DefaultScheme
 }
