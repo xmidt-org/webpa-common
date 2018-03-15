@@ -14,6 +14,9 @@ func NopFilter(i []string) []string {
 	return i
 }
 
+// NewNormalizeFilter returns a Filter that uses service.NormalizeInstance to ensure that each instance
+// is a valid URI with scheme and port (where applicable).  The defaultScheme is used if an instance has
+// no scheme, e.g. "localhost:8080".
 func NewNormalizeFilter(defaultScheme string) Filter {
 	return func(original []string) []string {
 		if len(original) == 0 {
@@ -34,6 +37,7 @@ func NewNormalizeFilter(defaultScheme string) Filter {
 
 var defaultFilter = NewNormalizeFilter(service.DefaultScheme)
 
+// DefaultFilter returns the global default Filter instance.
 func DefaultFilter() Filter {
 	return defaultFilter
 }
