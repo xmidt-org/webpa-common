@@ -25,6 +25,7 @@ func testNewEnvironmentNoOptions(t *testing.T) {
 	)
 
 	require.NotNil(e)
+	assert.Equal(DefaultScheme, e.DefaultScheme())
 	assert.NotPanics(e.Register)
 	assert.NotPanics(e.Deregister)
 	assert.Equal(0, e.Instancers().Len())
@@ -79,6 +80,7 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 		}
 
 		e = NewEnvironment(
+			WithDefaultScheme("ftp"),
 			WithRegistrar(registrar),
 			WithInstancers(Instancers{"test": instancer}),
 			WithAccessorFactory(accessorFactory),
@@ -94,6 +96,7 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 
 	assert.NotPanics(e.Register)
 	assert.NotPanics(e.Deregister)
+	assert.Equal("ftp", e.DefaultScheme())
 	assert.Equal(Instancers{"test": instancer}, e.Instancers())
 	require.NotNil(e.AccessorFactory())
 	assert.NotNil(e.AccessorFactory()([]string{}))
@@ -162,9 +165,24 @@ func testNewEnvironmentExplicitNopCloser(t *testing.T) {
 	})
 }
 
+func testNewEnvironmentExplicitDefaultScheme(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		e = NewEnvironment(
+			WithDefaultScheme(""),
+		)
+	)
+
+	require.NotNil(e)
+	assert.Equal(DefaultScheme, e.DefaultScheme())
+}
+
 func TestNewEnvironment(t *testing.T) {
 	t.Run("NoOptions", testNewEnvironmentNoOptions)
 	t.Run("WithOptions", testNewEnvironmentWithOptions)
 	t.Run("ExplicitDefaultAccessorFactory", testNewEnvironmentExplicitDefaultAccessorFactory)
 	t.Run("ExplicitNopCloser", testNewEnvironmentExplicitNopCloser)
+	t.Run("ExplicitDefaultScheme", testNewEnvironmentExplicitDefaultScheme)
 }
