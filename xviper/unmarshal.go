@@ -5,6 +5,16 @@ type Unmarshaler interface {
 	Unmarshal(interface{}) error
 }
 
+// InvalidUnmarshaler is an Unmarshaler that simply returns an error.
+// Mostly useful for testing.
+type InvalidUnmarshaler struct {
+	Err error
+}
+
+func (iu InvalidUnmarshaler) Unmarshal(interface{}) error {
+	return iu.Err
+}
+
 // Unmarshal supplies a convenience for unmarshaling several values.  The first error
 // encountered is returned, and any remaining values are not unmarshaled.
 func Unmarshal(u Unmarshaler, v ...interface{}) error {

@@ -1,58 +1,99 @@
 package service
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestDefaultInstancesFilter(t *testing.T) {
+func TestEmptyAccessor(t *testing.T) {
 	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			original []string
-			expected []string
-		}{
-			{nil, []string{}},
-			{[]string{"", " abc.com:1212", "\t ", "def.net:8080  "}, []string{"abc.com:1212", "def.net:8080"}},
-			{[]string{"qrstuv.net", "", "  abc.com\t", "xyz.foo.net\r\n"}, []string{"abc.com", "qrstuv.net", "xyz.foo.net"}},
-		}
+		assert  = assert.New(t)
+		require = require.New(t)
+		ea      = EmptyAccessor()
 	)
 
-	for _, record := range testData {
-		t.Logf("%#v", record)
-
-		assert.Equal(record.expected, DefaultInstancesFilter(record.original))
-	}
+	require.NotNil(ea)
+	i, err := ea.Get([]byte("does not matter"))
+	assert.Empty(i)
+	assert.Error(err)
 }
 
-func TestConsistentAccessorFactory(t *testing.T) {
+func TestMapAccessor(t *testing.T) {
 	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			vnodeCount int
-			instances  []string
-		}{
-			{123, []string{}},
-			{0, []string{"abc.com"}},
-			{-47, []string{"abc.com"}},
-			{234, []string{"abc.com", "def.com"}},
-		}
+		assert = assert.New(t)
+		ma     = MapAccessor{"test": "a valid instance"}
 	)
 
-	for _, record := range testData {
-		t.Logf("%#v", record)
+	i, err := ma.Get([]byte("test"))
+	assert.Equal("a valid instance", i)
+	assert.NoError(err)
 
-		var (
-			factory  = ConsistentAccessorFactory(record.vnodeCount)
-			accessor = factory(record.instances)
-		)
+	i, err = ma.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Error(err)
+}
 
-		key, err := accessor.Get([]byte("random key"))
-		if len(record.instances) > 0 {
-			assert.Contains(record.instances, key)
-		} else {
-			assert.Error(err)
-		}
-	}
+func TestUpdatableAccessor(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		ua     = new(UpdatableAccessor)
+	)
+
+	i, err := ua.Get([]byte("test"))
+	assert.Empty(i)
+	assert.Error(err)
+
+	ua.SetInstances(MapAccessor{"test": "a valid instance"})
+	i, err = ua.Get([]byte("test"))
+	assert.Equal("a valid instance", i)
+	assert.NoError(err)
+	i, err = ua.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Error(err)
+
+	ua.SetInstances(EmptyAccessor())
+	i, err = ua.Get([]byte("test"))
+	assert.Empty(i)
+	assert.Error(err)
+	i, err = ua.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Error(err)
+
+	expectedError := errors.New("expected 1")
+	ua.SetError(expectedError)
+	i, err = ua.Get([]byte("test"))
+	assert.Empty(i)
+	assert.Equal(expectedError, err)
+	i, err = ua.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Equal(expectedError, err)
+
+	ua.Update(MapAccessor{"test": "a valid instance"}, nil)
+	i, err = ua.Get([]byte("test"))
+	assert.Equal("a valid instance", i)
+	assert.NoError(err)
+	i, err = ua.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Error(err)
+
+	expectedError = errors.New("expected 2")
+	ua.Update(MapAccessor{"test": "a valid instance"}, expectedError)
+	i, err = ua.Get([]byte("test"))
+	assert.Empty(i)
+	assert.Equal(expectedError, err)
+	i, err = ua.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Equal(expectedError, err)
+
+	expectedError = errors.New("expected 3")
+	ua.Update(nil, expectedError)
+	i, err = ua.Get([]byte("test"))
+	assert.Empty(i)
+	assert.Equal(expectedError, err)
+	i, err = ua.Get([]byte("nosuch"))
+	assert.Empty(i)
+	assert.Equal(expectedError, err)
 }

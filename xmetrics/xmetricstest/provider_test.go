@@ -299,12 +299,7 @@ func testProviderAssert(t *testing.T) {
 
 			nosuch = func(testingT, string, interface{}) bool {
 				assert.Fail("nosuch should not have been called")
-				return true
-			}
-
-			nolabels = func(testingT, string, interface{}) bool {
-				assert.Fail("nolabels should not have been called")
-				return true
+				return false
 			}
 
 			testingT = new(mockTestingT)
@@ -316,19 +311,16 @@ func testProviderAssert(t *testing.T) {
 			})
 		)
 
-		testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Times(4)
+		testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Times(3)
 
-		assert.False(p.Assert(testingT, "nosuch")(nosuch))
+		p.Assert(testingT, "nosuch")(nosuch)
 		testingT.AssertNumberOfCalls(t, "Errorf", 1)
 
 		assert.False(p.Assert(testingT, "preregistered_counter")(first, Gauge, Value(568.2), last))
-		testingT.AssertNumberOfCalls(t, "Errorf", 3)
 		assert.True(firstCalled)
 		assert.True(lastCalled)
 		firstCalled = false
 		lastCalled = false
-
-		assert.False(p.Assert(testingT, "preregistered_counter", "code", "500")(nolabels))
 
 		testingT.AssertExpectations(t)
 	})
@@ -409,11 +401,6 @@ func testProviderAssertExpectations(t *testing.T) {
 				return true
 			}
 
-			nolabels = func(testingT, string, interface{}) bool {
-				assert.Fail("nolabels should not have been called")
-				return true
-			}
-
 			testingT = new(mockTestingT)
 
 			p = NewProvider(nil, func() []xmetrics.Metric {
@@ -426,10 +413,9 @@ func testProviderAssertExpectations(t *testing.T) {
 		p.Expect("preregistered_counter")(first).
 			Expect("nosuch")(nosuch).
 			Expect("preregistered_counter")(Gauge, Value(568.2)).
-			Expect("preregistered_counter", "code", "500")(nolabels).
 			Expect("preregistered_counter")(last)
 
-		testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Times(4)
+		testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Times(3)
 		assert.False(p.AssertExpectations(testingT))
 		assert.True(firstCalled)
 		assert.True(lastCalled)

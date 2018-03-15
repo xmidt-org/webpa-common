@@ -1,8 +1,0 @@
-{
-	"service": {
-		"servers": ["localhost:2181"],
-		"path": "/xmidt/local",
-		"serviceName": "endpoint",
-		"registration": "http://sample1:1515"
-	}
-}

@@ -9,7 +9,7 @@ import:
   - jws
   - jwt
 - package: github.com/go-kit/kit
-  version: 0.5.0
+  version: 0.6.0
 - package: github.com/go-logfmt/logfmt
   version: v0.3.0
 - package: github.com/go-stack/stack
@@ -39,6 +39,10 @@ import:
   version: v1.0.0
 - package: github.com/samuel/go-zookeeper
   version: c4fab1ac1bec58281ad0667dc3f0907a9476ac47
+- package: github.com/hashicorp/consul
+  version: v1.0.6
+  subpackages:
+  - api
 - package: github.com/ugorji/go
   version: 00a57e09e383d445aeef6c6cd642969dc4360231
   subpackages:

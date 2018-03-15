@@ -13,10 +13,9 @@ const (
 
 // Labeled provides access to a metric's labeled "children".
 type Labeled interface {
-	// Get returns the nested metric associated with a set of label/value pairs, if such a nested metric exists.
-	// If the given key represents the root key, this same instance is returned.  The second return value will be
-	// true if and only if the first is non-nil.
-	Get(LVKey) (interface{}, bool)
+	// Get returns the nested metric associated with a set of label/value pairs, creating one if no such metric exists.
+	// If the given key represents the root key, this same instance is returned.
+	Get(LVKey) interface{}
 }
 
 var rootKey LVKey = ""

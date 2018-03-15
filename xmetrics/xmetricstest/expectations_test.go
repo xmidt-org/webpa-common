@@ -64,6 +64,65 @@ func TestValue(t *testing.T) {
 	t.Run("Success", testValueSuccess)
 }
 
+func testMinimumWrongMetricType(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testingT = new(mockTestingT)
+
+		wrongType bytes.Buffer // just something that isn't a Valuer
+	)
+
+	testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Once()
+	assert.False(
+		Minimum(1.0)(testingT, "test", wrongType),
+	)
+
+	testingT.AssertExpectations(t)
+}
+
+func testMinimumFail(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testingT = new(mockTestingT)
+
+		g = generic.NewGauge("test")
+	)
+
+	g.Set(1.0)
+	testingT.On("Errorf", mock.MatchedBy(AnyMessage), mock.MatchedBy(AnyArguments)).Once()
+	assert.False(
+		Minimum(2.0)(testingT, "test", g),
+	)
+
+	testingT.AssertExpectations(t)
+}
+
+func testMinimumSuccess(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		testingT = new(mockTestingT)
+
+		g = generic.NewGauge("test")
+	)
+
+	g.Set(1.0)
+	assert.True(
+		Minimum(1.0)(testingT, "test", g),
+	)
+
+	assert.True(
+		Minimum(0.0)(testingT, "test", g),
+	)
+
+	testingT.AssertExpectations(t)
+}
+
+func TestMinimum(t *testing.T) {
+	t.Run("WrongMetricType", testMinimumWrongMetricType)
+	t.Run("Fail", testMinimumFail)
+	t.Run("Success", testMinimumSuccess)
+}
+
 func testCounterFail(t *testing.T) {
 	var (
 		assert   = assert.New(t)

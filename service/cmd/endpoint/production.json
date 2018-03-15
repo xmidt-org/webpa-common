@@ -1,7 +1,0 @@
-{
-	"service": {
-		"servers": ["zk-highlife-rum.xmidt.comcast.net:2181","zk-highlife-coke.xmidt.comcast.net:2181","zk-highlife-ice.xmidt.comcast.net:2181"],
-		"path": "/xmidt/rum/prod/unused",
-		"serviceName": "talaria"
-	}
-}

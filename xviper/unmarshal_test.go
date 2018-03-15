@@ -7,6 +7,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestInvalidUnmarshaler(t *testing.T) {
+	var (
+		assert        = assert.New(t)
+		expectedError = errors.New("expected unmarshal error")
+	)
+
+	assert.NoError(InvalidUnmarshaler{}.Unmarshal(nil))
+	assert.Equal(
+		expectedError,
+		InvalidUnmarshaler{expectedError}.Unmarshal(nil),
+	)
+}
+
 func testUnmarshalSuccess(t *testing.T) {
 	var (
 		assert = assert.New(t)
