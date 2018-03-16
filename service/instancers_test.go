@@ -5,6 +5,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service/servicemock"
+	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -103,6 +104,14 @@ func testInstancers(t *testing.T, is Instancers) {
 	child2.On("Stop").Once()
 	assert.NotPanics(func() { is.Stop() })
 
+	assert.Equal(
+		map[string]sd.Instancer{
+			"child1": child1,
+			"child2": child2,
+		},
+		map[string]sd.Instancer(is.Copy()),
+	)
+
 	child1.AssertExpectations(t)
 	child2.AssertExpectations(t)
 }
@@ -110,9 +119,11 @@ func testInstancers(t *testing.T, is Instancers) {
 func TestInstancers(t *testing.T) {
 	t.Run("Empty", func(t *testing.T) {
 		testInstancers(t, Instancers{})
+		testInstancers(t, Instancers{}.Copy())
 	})
 
 	t.Run("Nil", func(t *testing.T) {
 		testInstancers(t, nil)
+		testInstancers(t, Instancers(nil).Copy())
 	})
 }
