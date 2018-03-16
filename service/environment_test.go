@@ -26,10 +26,10 @@ func testNewEnvironmentNoOptions(t *testing.T) {
 
 	require.NotNil(e)
 	assert.False(e.IsRegistered("localhost:8080"))
+	assert.Empty(e.Instancers())
 	assert.Equal(DefaultScheme, e.DefaultScheme())
 	assert.NotPanics(e.Register)
 	assert.NotPanics(e.Deregister)
-	assert.Equal(0, e.Instancers().Len())
 	assert.NotNil(e.AccessorFactory())
 
 	select {
@@ -64,8 +64,9 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		registrar = new(servicemock.Registrar)
-		instancer = new(servicemock.Instancer)
+		registrar  = new(servicemock.Registrar)
+		instancer  = new(servicemock.Instancer)
+		instancers = Instancers{"test": instancer}
 
 		accessorFactoryCalled = false
 		accessorFactory       = func(i []string) Accessor {
@@ -83,7 +84,7 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 		e = NewEnvironment(
 			WithDefaultScheme("ftp"),
 			WithRegistrars(Registrars{"test": registrar}),
-			WithInstancers(Instancers{"test": instancer}),
+			WithInstancers(instancers),
 			WithAccessorFactory(accessorFactory),
 			WithCloser(closer),
 		)
@@ -100,10 +101,15 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 	assert.True(e.IsRegistered("test"))
 	assert.False(e.IsRegistered("nosuch"))
 	assert.Equal("ftp", e.DefaultScheme())
-	assert.Equal(Instancers{"test": instancer}, e.Instancers())
 	require.NotNil(e.AccessorFactory())
 	assert.NotNil(e.AccessorFactory()([]string{}))
 	assert.True(accessorFactoryCalled)
+
+	assert.Equal(Instancers{"test": instancer}, e.Instancers())
+
+	// immutability
+	instancers["test2"] = instancer
+	assert.Equal(Instancers{"test": instancer}, e.Instancers())
 
 	select {
 	case <-e.Closed():

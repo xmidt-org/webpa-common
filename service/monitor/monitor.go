@@ -74,10 +74,11 @@ func WithListeners(l ...Listener) Option {
 	}
 }
 
-// WithInstancers establishes the set of sd.Instancer objects to be monitored
+// WithInstancers establishes the set of sd.Instancer objects to be monitored.  The given Instancers
+// is copied to maintain the monitor's immutability.
 func WithInstancers(i service.Instancers) Option {
 	return func(m *monitor) {
-		m.instancers = i
+		m.instancers = i.Copy()
 	}
 }
 
