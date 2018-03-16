@@ -15,6 +15,10 @@ type Environment interface {
 	sd.Registrar
 	io.Closer
 
+	// IsRegistered tests if the given instance is registered in this environment.  Useful for
+	// determining if an arbitrary instance refers to this process.
+	IsRegistered(string) bool
+
 	// DefaultScheme is the default URI scheme to assume for discovered service instances.  This is
 	// typically driven by configuration.
 	DefaultScheme() string
@@ -46,10 +50,11 @@ func WithDefaultScheme(s string) Option {
 	}
 }
 
-// WithRegistrars configures the sd.Registrar object to use for service advertisement.
-func WithRegistrar(r sd.Registrar) Option {
+// WithRegistrars configures the mapping of sd.Registrar objects to use for service
+// advertisement.
+func WithRegistrars(r Registrars) Option {
 	return func(e *environment) {
-		e.registrar = r
+		e.registrars = r
 	}
 }
 
@@ -107,13 +112,17 @@ func NewEnvironment(options ...Option) Environment {
 
 type environment struct {
 	defaultScheme   string
-	registrar       sd.Registrar
+	registrars      Registrars
 	instancers      Instancers
 	accessorFactory AccessorFactory
 
 	closeOnce sync.Once
 	closer    func() error
 	closed    chan struct{}
+}
+
+func (e *environment) IsRegistered(instance string) bool {
+	return e.registrars.Has(instance)
 }
 
 func (e *environment) DefaultScheme() string {
@@ -129,15 +138,11 @@ func (e *environment) AccessorFactory() AccessorFactory {
 }
 
 func (e *environment) Register() {
-	if e.registrar != nil {
-		e.registrar.Register()
-	}
+	e.registrars.Register()
 }
 
 func (e *environment) Deregister() {
-	if e.registrar != nil {
-		e.registrar.Deregister()
-	}
+	e.registrars.Deregister()
 }
 
 func (e *environment) Closed() <-chan struct{} {

@@ -25,6 +25,7 @@ func testNewEnvironmentNoOptions(t *testing.T) {
 	)
 
 	require.NotNil(e)
+	assert.False(e.IsRegistered("localhost:8080"))
 	assert.Equal(DefaultScheme, e.DefaultScheme())
 	assert.NotPanics(e.Register)
 	assert.NotPanics(e.Deregister)
@@ -81,7 +82,7 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 
 		e = NewEnvironment(
 			WithDefaultScheme("ftp"),
-			WithRegistrar(registrar),
+			WithRegistrars(Registrars{"test": registrar}),
 			WithInstancers(Instancers{"test": instancer}),
 			WithAccessorFactory(accessorFactory),
 			WithCloser(closer),
@@ -96,6 +97,8 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 
 	assert.NotPanics(e.Register)
 	assert.NotPanics(e.Deregister)
+	assert.True(e.IsRegistered("test"))
+	assert.False(e.IsRegistered("nosuch"))
 	assert.Equal("ftp", e.DefaultScheme())
 	assert.Equal(Instancers{"test": instancer}, e.Instancers())
 	require.NotNil(e.AccessorFactory())

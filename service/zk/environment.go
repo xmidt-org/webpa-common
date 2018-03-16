@@ -68,17 +68,14 @@ func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instan
 }
 
 func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Registrars) {
-	dedupe := make(map[string]bool)
-
 	for _, registration := range zo.registrations() {
-		endpoint, s := newService(registration)
-		if dedupe[endpoint] {
-			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "endpoint", endpoint)
+		instance, s := newService(registration)
+		if r.Has(instance) {
+			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "instance", instance)
 			continue
 		}
 
-		dedupe[endpoint] = true
-		r.Add(gokitzk.NewRegistrar(c, s, log.With(base, "endpoint", endpoint)))
+		r.Add(instance, gokitzk.NewRegistrar(c, s, log.With(base, "instance", instance)))
 	}
 
 	return
@@ -109,7 +106,7 @@ func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Env
 	return service.NewEnvironment(
 		append(
 			eo,
-			service.WithRegistrar(newRegistrars(l, c, zo)),
+			service.WithRegistrars(newRegistrars(l, c, zo)),
 			service.WithInstancers(i),
 			service.WithCloser(func() error { c.Stop(); return nil }),
 		)...,

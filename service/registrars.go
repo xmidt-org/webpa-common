@@ -4,14 +4,9 @@ import (
 	"github.com/go-kit/kit/sd"
 )
 
-// NopRegistrar is an sd.Registrar that simply does nothing.  Useful as an alternative to nil.
-type NopRegistrar struct{}
-
-func (nr NopRegistrar) Register()   {}
-func (nr NopRegistrar) Deregister() {}
-
 // Registrars is a aggregate sd.Registrar that allows allows composite registration and deregistration.
-type Registrars []sd.Registrar
+// Keys in this map type will be service advertisements or instances, e.g. "host.com:8080" or "https://foobar.com"
+type Registrars map[string]sd.Registrar
 
 func (r Registrars) Register() {
 	for _, v := range r {
@@ -25,10 +20,19 @@ func (r Registrars) Deregister() {
 	}
 }
 
+func (r Registrars) Has(key string) bool {
+	_, ok := r[key]
+	return ok
+}
+
 func (r Registrars) Len() int {
 	return len(r)
 }
 
-func (r *Registrars) Add(v ...sd.Registrar) {
-	*r = append(*r, v...)
+func (r *Registrars) Add(key string, v sd.Registrar) {
+	if *r == nil {
+		*r = make(Registrars)
+	}
+
+	(*r)[key] = v
 }

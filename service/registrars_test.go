@@ -7,16 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNopRegistrar(t *testing.T) {
-	var (
-		assert = assert.New(t)
-		r      = NopRegistrar{}
-	)
-
-	assert.NotPanics(func() { r.Register() })
-	assert.NotPanics(func() { r.Deregister() })
-}
-
 func testRegistrars(t *testing.T, r Registrars, expectedInitialLen int) {
 	assert := assert.New(t)
 
@@ -27,7 +17,7 @@ func testRegistrars(t *testing.T, r Registrars, expectedInitialLen int) {
 	child := new(servicemock.Registrar)
 	child.On("Register").Once()
 	child.On("Deregister").Once()
-	r.Add(child)
+	r.Add("child", child)
 
 	assert.Equal(expectedInitialLen+1, r.Len())
 	assert.NotPanics(func() { r.Register() })
@@ -43,9 +33,5 @@ func TestRegistrars(t *testing.T) {
 
 	t.Run("Empty", func(t *testing.T) {
 		testRegistrars(t, Registrars{}, 0)
-	})
-
-	t.Run("NonEmpty", func(t *testing.T) {
-		testRegistrars(t, Registrars{NopRegistrar{}}, 1)
 	})
 }
