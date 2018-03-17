@@ -7,6 +7,8 @@ import (
 	"github.com/go-kit/kit/sd"
 )
 
+// NopCloser is a closer function that does nothing.  It always returns a nil error.  Useful
+// for testing.  Also used internally for the Environment's closer function in place of nil.
 func NopCloser() error { return nil }
 
 // Environment represents everything known about a service discovery backend.  It also
@@ -15,11 +17,16 @@ type Environment interface {
 	sd.Registrar
 	io.Closer
 
+	// IsRegistered tests if the given instance is registered in this environment.  Useful for
+	// determining if an arbitrary instance refers to this process.
+	IsRegistered(string) bool
+
 	// DefaultScheme is the default URI scheme to assume for discovered service instances.  This is
 	// typically driven by configuration.
 	DefaultScheme() string
 
-	// Instancers returns all the sd.Instancer objects for this environment
+	// Instancers returns a copy of the internal set of Instancers this environment is configured to watch.
+	// Changing the returned Instancers will not result in changing this Environment's state.
 	Instancers() Instancers
 
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
@@ -46,10 +53,11 @@ func WithDefaultScheme(s string) Option {
 	}
 }
 
-// WithRegistrars configures the sd.Registrar object to use for service advertisement.
-func WithRegistrar(r sd.Registrar) Option {
+// WithRegistrars configures the mapping of sd.Registrar objects to use for service
+// advertisement.
+func WithRegistrars(r Registrars) Option {
 	return func(e *environment) {
-		e.registrar = r
+		e.registrars = r
 	}
 }
 
@@ -58,7 +66,7 @@ func WithRegistrar(r sd.Registrar) Option {
 // discovered services.
 func WithInstancers(i Instancers) Option {
 	return func(e *environment) {
-		e.instancers = i
+		e.instancers = i.Copy()
 	}
 }
 
@@ -107,7 +115,7 @@ func NewEnvironment(options ...Option) Environment {
 
 type environment struct {
 	defaultScheme   string
-	registrar       sd.Registrar
+	registrars      Registrars
 	instancers      Instancers
 	accessorFactory AccessorFactory
 
@@ -116,12 +124,16 @@ type environment struct {
 	closed    chan struct{}
 }
 
+func (e *environment) IsRegistered(instance string) bool {
+	return e.registrars.Has(instance)
+}
+
 func (e *environment) DefaultScheme() string {
 	return e.defaultScheme
 }
 
 func (e *environment) Instancers() Instancers {
-	return e.instancers
+	return e.instancers.Copy()
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {
@@ -129,15 +141,11 @@ func (e *environment) AccessorFactory() AccessorFactory {
 }
 
 func (e *environment) Register() {
-	if e.registrar != nil {
-		e.registrar.Register()
-	}
+	e.registrars.Register()
 }
 
 func (e *environment) Deregister() {
-	if e.registrar != nil {
-		e.registrar.Deregister()
-	}
+	e.registrars.Deregister()
 }
 
 func (e *environment) Closed() <-chan struct{} {

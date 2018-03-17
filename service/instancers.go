@@ -51,6 +51,19 @@ func (is *Instancers) Set(key string, i sd.Instancer) {
 	(*is)[key] = i
 }
 
+func (is Instancers) Copy() Instancers {
+	if len(is) > 0 {
+		clone := make(Instancers, len(is))
+		for k, v := range is {
+			clone[k] = v
+		}
+
+		return clone
+	}
+
+	return nil
+}
+
 func (is Instancers) Stop() {
 	for _, v := range is {
 		v.Stop()

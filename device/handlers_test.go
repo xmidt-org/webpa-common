@@ -550,7 +550,7 @@ func testConnectHandlerServeHTTP(t *testing.T, connectError error, responseHeade
 		assert = assert.New(t)
 
 		device    = new(mockDevice)
-		connector = new(mockConnector)
+		connector = new(MockConnector)
 		handler   = ConnectHandler{
 			Connector:      connector,
 			ResponseHeader: responseHeader,

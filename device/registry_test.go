@@ -266,6 +266,42 @@ func testRegistryRemoveIf(t *testing.T) {
 	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
 }
 
+func testRegistryRemoveAll(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		logger  = logging.NewTestLogger(nil, t)
+
+		devices = []*device{
+			newDevice(deviceOptions{ID: ID("1"), Logger: logger}),
+			newDevice(deviceOptions{ID: ID("2"), Logger: logger}),
+			newDevice(deviceOptions{ID: ID("3"), Logger: logger}),
+		}
+
+		p = xmetricstest.NewProvider(nil, Metrics)
+		r = newRegistry(registryOptions{
+			Logger:   logger,
+			Measures: NewMeasures(p),
+		})
+	)
+
+	require.NotNil(r)
+	for _, d := range devices {
+		require.NoError(r.add(d))
+	}
+
+	r.removeAll()
+	p.Assert(t, DeviceCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, ConnectCounter)(xmetricstest.Value(3.0))
+	p.Assert(t, DisconnectCounter)(xmetricstest.Value(3.0))
+	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
+	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
+
+	for _, d := range devices {
+		assert.True(d.Closed())
+	}
+}
+
 func testRegistryVisit(t *testing.T) {
 	var (
 		assert  = assert.New(t)
@@ -317,5 +353,6 @@ func TestRegistry(t *testing.T) {
 	t.Run("Add", testRegistryAdd)
 	t.Run("RemoveAndGet", testRegistryRemoveAndGet)
 	t.Run("RemoveIf", testRegistryRemoveIf)
+	t.Run("RemoveAll", testRegistryRemoveAll)
 	t.Run("Visit", testRegistryVisit)
 }
