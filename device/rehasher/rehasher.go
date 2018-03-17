@@ -37,34 +37,27 @@ func WithAccessorFactory(af service.AccessorFactory) Option {
 }
 
 // WithIsRegistered configures a rehasher with a strategy for determining if a discovered service instance
-// is registered as this process.  There is no default.  If nil, rehashing is disabled.
+// is registered as this process.  There is no default.
 func WithIsRegistered(f func(string) bool) Option {
 	return func(r *rehasher) {
 		r.isRegistered = f
 	}
 }
 
-// WithEnvironment configures a rehasher to use a service discovery environment.  If non-nil, the given environment's
-// accessor factory and IsRegistered strategy are used.  If nil, rehashing is disabled and the default
-// accessor factory is used.
+// WithEnvironment configures a rehasher to use a service discovery environment.
 func WithEnvironment(e service.Environment) Option {
 	return func(r *rehasher) {
-		if e == nil {
-			r.accessorFactory = service.DefaultAccessorFactory
-			r.isRegistered = nil
-		} else {
-			r.accessorFactory = e.AccessorFactory()
-			r.isRegistered = e.IsRegistered
-		}
+		r.accessorFactory = e.AccessorFactory()
+		r.isRegistered = e.IsRegistered
 	}
 }
 
 // New creates a monitor Listener which will rehash and disconnect devices in response to service discovery events.
-// This function panics if the connector is nil.
+// This function panics if the connector is nil or if no IsRegistered strategy is configured.
 //
-// If the returned listener encounters any service discovery error, all devices are disconnected.  If an IsRegistered
-// strategy is configured, typically via WithEnvironment, then devices that hash to an instance that is not this process
-// will be disconnected in response to service discovery updates.
+// If the returned listener encounters any service discovery error, all devices are disconnected.  Otherwise,
+// the IsRegistered strategy is used to determine which devices should still be connected to the Connector.  Devices
+// that hash to instances not registered in this environment are disconnected.
 func New(c device.Connector, options ...Option) monitor.Listener {
 	if c == nil {
 		panic("A device Connector is required")
@@ -80,11 +73,15 @@ func New(c device.Connector, options ...Option) monitor.Listener {
 		o(r)
 	}
 
+	if r.isRegistered == nil {
+		panic("No IsRegistered strategy configured.  Use WithIsRegistered or WithEnvironment.")
+	}
+
 	return r
 }
 
 // rehasher implements monitor.Listener and (1) disconnects all devices when any service discovery error occurs,
-// and (2) optionally rehashes devices in response to updated instances.
+// and (2) rehashes devices in response to updated instances.
 type rehasher struct {
 	logger          log.Logger
 	accessorFactory service.AccessorFactory
@@ -114,7 +111,7 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 			}
 
 			if !r.isRegistered(instance) {
-				r.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting device: rehashed to another instance", "instance", instance, "id", id)
+				r.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "disconnecting device: rehashed to another instance", "instance", instance, "id", id)
 				return true
 			}
 
