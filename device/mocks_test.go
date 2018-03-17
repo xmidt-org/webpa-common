@@ -1,7 +1,10 @@
 package device
 
 import (
+	"errors"
 	"net/http"
+	"net/http/httptest"
+	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -205,28 +208,6 @@ func (m *mockRouter) Route(request *Request) (*Response, error) {
 	return first, arguments.Error(1)
 }
 
-type mockConnector struct {
-	mock.Mock
-}
-
-func (m *mockConnector) Connect(response http.ResponseWriter, request *http.Request, header http.Header) (Interface, error) {
-	arguments := m.Called(response, request, header)
-	first, _ := arguments.Get(0).(Interface)
-	return first, arguments.Error(1)
-}
-
-func (m *mockConnector) Disconnect(id ID) bool {
-	return m.Called().Bool(0)
-}
-
-func (m *mockConnector) DisconnectIf(predicate func(ID) bool) int {
-	return m.Called(predicate).Int(0)
-}
-
-func (m *mockConnector) DisconnectAll() int {
-	return m.Called().Int(0)
-}
-
 type mockRegistry struct {
 	mock.Mock
 }
@@ -243,4 +224,50 @@ func (m *mockRegistry) VisitIf(predicate func(ID) bool, visitor func(Interface))
 
 func (m *mockRegistry) VisitAll(visitor func(Interface)) int {
 	return m.Called(visitor).Int(0)
+}
+
+func TestMockConnector(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		c = new(MockConnector)
+
+		response             = httptest.NewRecorder()
+		request              = httptest.NewRequest("GET", "/", nil)
+		header               = http.Header{"X-Something": {"foo"}}
+		expectedDevice       = new(mockDevice)
+		expectedConnectError = errors.New("expected connect error")
+
+		id1 = ID("test1")
+		id2 = ID("test2")
+
+		predicateCalled = false
+		predicate       = func(candidate ID) bool {
+			predicateCalled = true
+			return false
+		}
+	)
+
+	c.On("Connect", response, request, header).Return(expectedDevice, expectedConnectError).Once()
+	c.On("Disconnect", id1).Return(true).Once()
+	c.On("Disconnect", id2).Return(false).Once()
+	c.On("DisconnectIf", mock.MatchedBy(func(func(ID) bool) bool { return true })).Return(5).
+		Run(func(arguments mock.Arguments) {
+			arguments.Get(0).(func(ID) bool)(id1)
+		}).Once()
+	c.On("DisconnectAll").Return(12).Once()
+
+	actualDevice, actualConnectError := c.Connect(response, request, header)
+	assert.Equal(expectedDevice, actualDevice)
+	assert.Equal(expectedConnectError, actualConnectError)
+
+	assert.True(c.Disconnect(id1))
+	assert.False(c.Disconnect(id2))
+
+	assert.Equal(5, c.DisconnectIf(predicate))
+	assert.True(predicateCalled)
+
+	assert.Equal(12, c.DisconnectAll())
+
+	c.AssertExpectations(t)
 }
