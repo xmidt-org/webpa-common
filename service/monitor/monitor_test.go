@@ -7,7 +7,6 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/service/servicemock"
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -36,7 +35,7 @@ func testNewStop(t *testing.T) {
 		require = require.New(t)
 		logger  = logging.NewTestLogger(nil, t)
 
-		instancer         = new(servicemock.Instancer)
+		instancer         = new(service.MockInstancer)
 		listener          = new(mockListener)
 		registerQueue     = make(chan chan<- sd.Event, 1)
 		sdEvents          chan<- sd.Event
@@ -147,7 +146,7 @@ func testNewWithEnvironment(t *testing.T) {
 		require = require.New(t)
 		logger  = logging.NewTestLogger(nil, t)
 
-		instancer         = new(servicemock.Instancer)
+		instancer         = new(service.MockInstancer)
 		listener          = new(mockListener)
 		registerQueue     = make(chan chan<- sd.Event, 1)
 		sdEvents          chan<- sd.Event
