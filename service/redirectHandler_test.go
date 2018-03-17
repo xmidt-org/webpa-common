@@ -16,7 +16,7 @@ func testRedirectHandlerKeyFuncError(t *testing.T) {
 
 		expectedError = errors.New("expected")
 		keyFunc       = func(*http.Request) ([]byte, error) { return nil, expectedError }
-		accessor      = new(mockAccessor)
+		accessor      = new(MockAccessor)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("GET", "/", nil)
@@ -42,7 +42,7 @@ func testRedirectHandlerAccessorError(t *testing.T) {
 		expectedKey   = []byte("34589lkdjasd")
 		keyFunc       = func(*http.Request) ([]byte, error) { return expectedKey, nil }
 		expectedError = errors.New("expected")
-		accessor      = new(mockAccessor)
+		accessor      = new(MockAccessor)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("GET", "/", nil)
@@ -69,7 +69,7 @@ func testRedirectHandlerSuccess(t *testing.T) {
 		expectedKey      = []byte("asdfqwer")
 		expectedInstance = "https://ahost123.com:324"
 		keyFunc          = func(*http.Request) ([]byte, error) { return expectedKey, nil }
-		accessor         = new(mockAccessor)
+		accessor         = new(MockAccessor)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("GET", "/", nil)
@@ -99,7 +99,7 @@ func testRedirectHandlerSuccessWithPath(t *testing.T) {
 		requestURI          = "/this/awesome/path"
 		expectedRedirectURL = expectedInstance + requestURI
 		keyFunc             = func(*http.Request) ([]byte, error) { return expectedKey, nil }
-		accessor            = new(mockAccessor)
+		accessor            = new(MockAccessor)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("GET", "https://someIrrelevantHost.com"+requestURI, nil)

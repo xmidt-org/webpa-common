@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service/servicemock"
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,7 +12,7 @@ import (
 func testNewContextualInstancerEmpty(t *testing.T, m map[string]interface{}) {
 	var (
 		assert = assert.New(t)
-		next   = new(servicemock.Instancer)
+		next   = new(MockInstancer)
 	)
 
 	i := NewContextualInstancer(next, m)
@@ -29,7 +28,7 @@ func testNewContextualInstancerWithMetadata(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		next = new(servicemock.Instancer)
+		next = new(MockInstancer)
 		m    = map[string]interface{}{"key": "value"}
 	)
 
@@ -68,8 +67,8 @@ func testInstancers(t *testing.T, is Instancers) {
 	assert.NotPanics(func() { is.Stop() })
 
 	var (
-		child1 = new(servicemock.Instancer)
-		child2 = new(servicemock.Instancer)
+		child1 = new(MockInstancer)
+		child2 = new(MockInstancer)
 	)
 
 	is.Set("child1", child1)

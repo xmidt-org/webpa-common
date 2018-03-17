@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Comcast/webpa-common/service/servicemock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -64,8 +63,8 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		registrar  = new(servicemock.Registrar)
-		instancer  = new(servicemock.Instancer)
+		registrar  = new(MockRegistrar)
+		instancer  = new(MockInstancer)
 		instancers = Instancers{"test": instancer}
 
 		accessorFactoryCalled = false

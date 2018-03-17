@@ -3,7 +3,6 @@ package service
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/service/servicemock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,7 +13,7 @@ func testRegistrars(t *testing.T, r Registrars, expectedInitialLen int) {
 	assert.NotPanics(func() { r.Register() })
 	assert.NotPanics(func() { r.Deregister() })
 
-	child := new(servicemock.Registrar)
+	child := new(MockRegistrar)
 	child.On("Register").Once()
 	child.On("Deregister").Once()
 	r.Add("child", child)
