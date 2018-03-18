@@ -13,6 +13,10 @@ type Event struct {
 	// Key is the in-process identifier for the sd.Instancer that produced this event
 	Key string
 
+	// EventCount is the postive, ascending integer identifying this event's sequence, e.g. 1 refers to the first
+	// service discovery event.  Useful for logging and certain types of logic, such as ignoring the initial instances from a monitor.
+	EventCount int
+
 	// Instances are the filtered instances that came from the sd.Instancer.  If this is set,
 	// Err will be nil.
 	Instances []string

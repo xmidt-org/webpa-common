@@ -84,6 +84,7 @@ func testNewStop(t *testing.T) {
 		assert.Equal(expectedError, event.Err)
 		assert.Len(event.Instances, 0)
 		assert.False(event.Stopped)
+		assert.Equal(1, event.EventCount)
 
 	case <-time.After(5 * time.Second):
 		assert.Fail("Failed to receive monitor event")
@@ -96,6 +97,7 @@ func testNewStop(t *testing.T) {
 		assert.NoError(event.Err)
 		assert.Equal(expectedInstances, event.Instances)
 		assert.False(event.Stopped)
+		assert.Equal(2, event.EventCount)
 
 	case <-time.After(5 * time.Second):
 		assert.Fail("Failed to receive monitor event")
@@ -115,6 +117,7 @@ func testNewStop(t *testing.T) {
 		assert.NoError(finalEvent.Err)
 		assert.Len(finalEvent.Instances, 0)
 		assert.True(finalEvent.Stopped)
+		assert.Equal(2, finalEvent.EventCount)
 
 	case <-time.After(5 * time.Second):
 		assert.Fail("No stopped event received")
@@ -203,6 +206,7 @@ func testNewWithEnvironment(t *testing.T) {
 		assert.Equal(expectedError, event.Err)
 		assert.Len(event.Instances, 0)
 		assert.False(event.Stopped)
+		assert.Equal(1, event.EventCount)
 
 	case <-time.After(5 * time.Second):
 		assert.Fail("Failed to receive monitor event")
@@ -215,6 +219,7 @@ func testNewWithEnvironment(t *testing.T) {
 		assert.NoError(event.Err)
 		assert.Equal(expectedInstances, event.Instances)
 		assert.False(event.Stopped)
+		assert.Equal(2, event.EventCount)
 
 	case <-time.After(5 * time.Second):
 		assert.Fail("Failed to receive monitor event")
@@ -234,6 +239,7 @@ func testNewWithEnvironment(t *testing.T) {
 		assert.NoError(finalEvent.Err)
 		assert.Len(finalEvent.Instances, 0)
 		assert.True(finalEvent.Stopped)
+		assert.Equal(2, finalEvent.EventCount)
 
 	case <-time.After(5 * time.Second):
 		assert.Fail("No stopped event received")
