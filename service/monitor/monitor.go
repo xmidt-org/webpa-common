@@ -156,7 +156,7 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 			return eventCount
 		}
 
-		logger = log.With(l, "eventCount", eventCounter)
+		logger = log.With(l, EventCountKey(), eventCounter)
 		events = make(chan sd.Event, 10)
 	)
 
@@ -167,27 +167,35 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 
 	for {
 		select {
-		case event := <-events:
+		case sdEvent := <-events:
 			eventCount++
-
-			if event.Err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery error", logging.ErrorKey(), event.Err)
-				m.listeners.MonitorEvent(Event{Key: key, Err: event.Err})
-			} else {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery update", "instances", event.Instances)
-				i := m.filter(event.Instances)
-				m.listeners.MonitorEvent(Event{Key: key, Instances: i})
+			event := Event{
+				Key:        key,
+				Instancer:  i,
+				EventCount: eventCount,
 			}
+
+			if sdEvent.Err != nil {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery error", logging.ErrorKey(), sdEvent.Err)
+				event.Err = sdEvent.Err
+			} else {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery update", "instances", sdEvent.Instances)
+				if len(sdEvent.Instances) > 0 {
+					event.Instances = m.filter(sdEvent.Instances)
+				}
+			}
+
+			m.listeners.MonitorEvent(event)
 
 		case <-m.stopped:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was stopped")
-			m.listeners.MonitorEvent(Event{Key: key, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 
 		case <-m.closed:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor exiting due to external closure")
 			m.Stop() // ensure that the Stopped state is correct
-			m.listeners.MonitorEvent(Event{Key: key, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 		}
 	}
