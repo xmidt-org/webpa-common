@@ -90,38 +90,49 @@ type rehasher struct {
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
+	logger := logging.Enrich(
+		log.With(
+			r.logger,
+			monitor.EventCountKey(), e.EventCount,
+		),
+		e.Instancer,
+	)
+
 	switch {
 	case e.Err != nil:
-		r.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
 		r.connector.DisconnectAll()
 
 	case e.Stopped:
-		r.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
 		r.connector.DisconnectAll()
 
+	case e.EventCount == 1:
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
+
 	case len(e.Instances) > 0:
-		r.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehashing devices", "instances", e.Instances)
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehashing devices", "instances", e.Instances)
 
 		a := r.accessorFactory(e.Instances)
 		disconnectCount := r.connector.DisconnectIf(func(id device.ID) bool {
 			instance, err := a.Get(id.Bytes())
 			if err != nil {
-				r.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting device: error during rehash", logging.ErrorKey(), err, "id", id)
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting device: error during rehash", logging.ErrorKey(), err, "id", id)
 				return true
 			}
 
 			if !r.isRegistered(instance) {
-				r.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "disconnecting device: rehashed to another instance", "instance", instance, "id", id)
+				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "disconnecting device: rehashed to another instance", "instance", instance, "id", id)
 				return true
 			}
 
 			return true
 		})
 
-		r.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount)
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount)
 
 	default:
-		r.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
 		r.connector.DisconnectAll()
 	}
 }
