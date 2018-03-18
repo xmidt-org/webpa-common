@@ -81,6 +81,7 @@ func testNewStop(t *testing.T) {
 	select {
 	case event := <-monitorEvents:
 		assert.Equal("test", event.Key)
+		assert.Equal(instancer, event.Instancer)
 		assert.Equal(expectedError, event.Err)
 		assert.Len(event.Instances, 0)
 		assert.False(event.Stopped)
@@ -94,6 +95,7 @@ func testNewStop(t *testing.T) {
 	select {
 	case event := <-monitorEvents:
 		assert.Equal("test", event.Key)
+		assert.Equal(instancer, event.Instancer)
 		assert.NoError(event.Err)
 		assert.Equal(expectedInstances, event.Instances)
 		assert.False(event.Stopped)
@@ -114,6 +116,7 @@ func testNewStop(t *testing.T) {
 	select {
 	case finalEvent := <-monitorEvents:
 		assert.Equal("test", finalEvent.Key)
+		assert.Equal(instancer, finalEvent.Instancer)
 		assert.NoError(finalEvent.Err)
 		assert.Len(finalEvent.Instances, 0)
 		assert.True(finalEvent.Stopped)
@@ -203,6 +206,7 @@ func testNewWithEnvironment(t *testing.T) {
 	select {
 	case event := <-monitorEvents:
 		assert.Equal("test", event.Key)
+		assert.Equal(instancer, event.Instancer)
 		assert.Equal(expectedError, event.Err)
 		assert.Len(event.Instances, 0)
 		assert.False(event.Stopped)
@@ -216,6 +220,7 @@ func testNewWithEnvironment(t *testing.T) {
 	select {
 	case event := <-monitorEvents:
 		assert.Equal("test", event.Key)
+		assert.Equal(instancer, event.Instancer)
 		assert.NoError(event.Err)
 		assert.Equal(expectedInstances, event.Instances)
 		assert.False(event.Stopped)
@@ -236,6 +241,7 @@ func testNewWithEnvironment(t *testing.T) {
 	select {
 	case finalEvent := <-monitorEvents:
 		assert.Equal("test", finalEvent.Key)
+		assert.Equal(instancer, finalEvent.Instancer)
 		assert.NoError(finalEvent.Err)
 		assert.Len(finalEvent.Instances, 0)
 		assert.True(finalEvent.Stopped)

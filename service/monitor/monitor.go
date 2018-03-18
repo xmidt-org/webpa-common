@@ -156,7 +156,7 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 			return eventCount
 		}
 
-		logger = log.With(l, "eventCount", eventCounter)
+		logger = log.With(l, EventCountKey(), eventCounter)
 		events = make(chan sd.Event, 10)
 	)
 
@@ -171,6 +171,7 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 			eventCount++
 			event := Event{
 				Key:        key,
+				Instancer:  i,
 				EventCount: eventCount,
 			}
 
@@ -188,13 +189,13 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 
 		case <-m.stopped:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was stopped")
-			m.listeners.MonitorEvent(Event{Key: key, EventCount: eventCount, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 
 		case <-m.closed:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor exiting due to external closure")
 			m.Stop() // ensure that the Stopped state is correct
-			m.listeners.MonitorEvent(Event{Key: key, EventCount: eventCount, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 		}
 	}
