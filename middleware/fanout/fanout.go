@@ -43,7 +43,7 @@ func New(spanner tracing.Spanner, endpoints Components) endpoint.Endpoint {
 	return func(ctx context.Context, v interface{}) (interface{}, error) {
 
 		var (
-			logger  = logging.FromContext(ctx)
+			logger  = logging.GetLogger(ctx)
 			results = make(chan response, len(endpoints))
 		)
 
