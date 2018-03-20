@@ -45,7 +45,7 @@ func testOptionsDefaults(t *testing.T, o *Options) {
 	e := o.loggerMiddleware(func(ctx context.Context, actualRequest interface{}) (interface{}, error) {
 		endpointCalled = true
 		assert.Equal(expectedRequest, actualRequest)
-		assert.Equal(logging.DefaultLogger(), logging.FromContext(ctx))
+		assert.Equal(logging.DefaultLogger(), logging.GetLogger(ctx))
 		return expectedResponse, expectedError
 	})
 
@@ -105,7 +105,7 @@ func testOptionsConfigured(t *testing.T) {
 	e := o.loggerMiddleware(func(ctx context.Context, actualRequest interface{}) (interface{}, error) {
 		endpointCalled = true
 		assert.Equal(expectedRequest, actualRequest)
-		assert.Equal(expectedLogger, logging.FromContext(ctx))
+		assert.Equal(expectedLogger, logging.GetLogger(ctx))
 		return expectedResponse, expectedError
 	})
 
