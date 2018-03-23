@@ -32,7 +32,7 @@ const (
 
 	DefaultIdleTimeout       time.Duration = 15 * time.Second
 	DefaultReadHeaderTimeout time.Duration = 0
-	DefaultReadTimeout       time.Duration = 5 * time.Second
+	DefaultReadTimeout       time.Duration = 30 * time.Second
 	DefaultWriteTimeout      time.Duration = 30 * time.Minute
 
 	DefaultMaxHeaderBytes = http.DefaultMaxHeaderBytes
