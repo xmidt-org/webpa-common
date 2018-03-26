@@ -1,6 +1,8 @@
 package consul
 
 import (
+	"time"
+
 	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/mock"
@@ -28,6 +30,25 @@ func (m *mockClientFactory) NewClient(c *api.Client) (gokitconsul.Client, ttlUpd
 	arguments := m.Called(c)
 	return arguments.Get(0).(gokitconsul.Client),
 		arguments.Get(1).(ttlUpdater)
+}
+
+func resetTickerFactory() {
+	tickerFactory = defaultTickerFactory
+}
+
+func prepareMockTickerFactory() *mockTickerFactory {
+	m := new(mockTickerFactory)
+	tickerFactory = m.NewTicker
+	return m
+}
+
+type mockTickerFactory struct {
+	mock.Mock
+}
+
+func (m *mockTickerFactory) NewTicker(d time.Duration) (<-chan time.Time, func()) {
+	arguments := m.Called(d)
+	return arguments.Get(0).(<-chan time.Time), arguments.Get(1).(func())
 }
 
 type mockClient struct {

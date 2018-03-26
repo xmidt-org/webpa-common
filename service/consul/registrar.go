@@ -13,12 +13,12 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
-type tickerFactory func(time.Duration) (<-chan time.Time, func())
-
 func defaultTickerFactory(d time.Duration) (<-chan time.Time, func()) {
 	t := time.NewTicker(d)
 	return t.C, t.Stop
 }
+
+var tickerFactory = defaultTickerFactory
 
 // ttlUpdater represents any object which can update the TTL status on the remote consul cluster.
 // The consul api Client implements this interface.
@@ -69,7 +69,6 @@ type ttlRegistrar struct {
 	registrar sd.Registrar
 	updater   ttlUpdater
 	checks    []ttlCheck
-	tf        tickerFactory
 
 	lifecycleLock sync.Mutex
 	shutdown      chan struct{}
@@ -104,25 +103,23 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 			registrar: registrar,
 			updater:   u,
 			checks:    ttlChecks,
-			tf:        defaultTickerFactory,
 		}
 	}
 
 	return registrar, nil
 }
 
-func (tr *ttlRegistrar) updatePeriodically(tc ttlCheck, shutdown <-chan struct{}) {
-	ticker, stop := tr.tf(tc.interval)
+func (tr *ttlRegistrar) updatePeriodically(checkID string, ticker <-chan time.Time, stop func(), shutdown <-chan struct{}) {
 	defer stop()
 	defer func() {
-		tr.updater.UpdateTTL(tc.checkID, fmt.Sprintf("%s failed at %s", tr.serviceID, time.Now().UTC()), "fail")
+		tr.updater.UpdateTTL(checkID, fmt.Sprintf("%s failed at %s", tr.serviceID, time.Now().UTC()), "fail")
 	}()
 
 	for {
 		select {
 		case t := <-ticker:
-			if err := tr.updater.UpdateTTL(tc.checkID, fmt.Sprintf("%s passed at %s", tr.serviceID, t.UTC()), "pass"); err != nil {
-				tr.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to update TTL", logging.ErrorKey(), err)
+			if err := tr.updater.UpdateTTL(checkID, fmt.Sprintf("%s passed at %s", tr.serviceID, t.UTC()), "pass"); err != nil {
+				tr.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "update TTL error", logging.ErrorKey(), err)
 			}
 
 		case <-shutdown:
@@ -143,7 +140,8 @@ func (tr *ttlRegistrar) Register() {
 	tr.registrar.Register()
 	tr.shutdown = make(chan struct{})
 	for _, tc := range tr.checks {
-		go tr.updatePeriodically(tc, tr.shutdown)
+		ticker, stop := tickerFactory(tc.interval)
+		go tr.updatePeriodically(tc.checkID, ticker, stop, tr.shutdown)
 	}
 }
 
