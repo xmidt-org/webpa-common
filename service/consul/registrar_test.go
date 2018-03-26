@@ -246,15 +246,19 @@ func testNewRegistrarTTL(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		timer1      = make(chan time.Time, 1)
-		update1Done = make(chan struct{})
-		stop1       = func() {
+		timer1       = make(chan time.Time, 1)
+		timer1Ack    = make(chan struct{}, 1)
+		timer1AckRun = func(mock.Arguments) { timer1Ack <- struct{}{} }
+		update1Done  = make(chan struct{})
+		stop1        = func() {
 			close(update1Done)
 		}
 
-		timer2      = make(chan time.Time, 1)
-		update2Done = make(chan struct{})
-		stop2       = func() {
+		timer2       = make(chan time.Time, 1)
+		timer2Ack    = make(chan struct{}, 1)
+		timer2AckRun = func(mock.Arguments) { timer2Ack <- struct{}{} }
+		update2Done  = make(chan struct{})
+		stop2        = func() {
 			close(update2Done)
 		}
 
@@ -275,16 +279,16 @@ func testNewRegistrarTTL(t *testing.T) {
 		}
 	)
 
-	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once()
-	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check1 error")).Once()
+	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer1AckRun)
+	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check1 error")).Once().Run(timer1AckRun)
 	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "fail").Return(error(nil)).Once()
 
-	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once()
-	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check2 error")).Once()
+	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer2AckRun)
+	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check2 error")).Once().Run(timer2AckRun)
 	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "fail").Return(error(nil)).Once()
 
-	tickerFactory.On("NewTicker", (15*time.Second)/2).Return((<-chan time.Time)(timer1), stop1).Once()
-	tickerFactory.On("NewTicker", (30*time.Second)/2).Return((<-chan time.Time)(timer2), stop2).Once()
+	tickerFactory.On("NewTicker", (15*time.Second)/2).Return((<-chan time.Time)(timer1), stop1)
+	tickerFactory.On("NewTicker", (30*time.Second)/2).Return((<-chan time.Time)(timer2), stop2)
 
 	client.On("Register",
 		mock.MatchedBy(func(r *api.AgentServiceRegistration) bool {
@@ -307,10 +311,38 @@ func testNewRegistrarTTL(t *testing.T) {
 
 	// simulate some updates
 	now := time.Now()
+
 	timer1 <- now
+	select {
+	case <-timer1Ack:
+		// passing
+	case <-time.After(2 * time.Second):
+		require.Fail("Time event was not processed")
+	}
+
 	timer2 <- now
+	select {
+	case <-timer2Ack:
+		// passing
+	case <-time.After(2 * time.Second):
+		require.Fail("Time event was not processed")
+	}
+
 	timer1 <- now
+	select {
+	case <-timer1Ack:
+		// passing
+	case <-time.After(2 * time.Second):
+		require.Fail("Time event was not processed")
+	}
+
 	timer2 <- now
+	select {
+	case <-timer2Ack:
+		// passing
+	case <-time.After(2 * time.Second):
+		require.Fail("Time event was not processed")
+	}
 
 	r.Deregister()
 	r.Deregister() // idempotent

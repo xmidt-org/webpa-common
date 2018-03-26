@@ -109,21 +109,35 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 	return registrar, nil
 }
 
-func (tr *ttlRegistrar) updatePeriodically(checkID string, ticker <-chan time.Time, stop func(), shutdown <-chan struct{}) {
+func (tr *ttlRegistrar) updatePeriodically(tc ttlCheck, shutdown <-chan struct{}) {
+	var (
+		logger = log.With(
+			tr.logger,
+			"checkID", tc.checkID,
+			"interval", tc.interval.String(),
+		)
+
+		ticker, stop = tickerFactory(tc.interval)
+	)
+
 	defer stop()
 	defer func() {
-		tr.updater.UpdateTTL(checkID, fmt.Sprintf("%s failed at %s", tr.serviceID, time.Now().UTC()), "fail")
+		if err := tr.updater.UpdateTTL(tc.checkID, fmt.Sprintf("%s failed at %s", tr.serviceID, time.Now().UTC()), "fail"); err != nil {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to critical", logging.ErrorKey(), err)
+		}
 	}()
+
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting TTL updater")
 
 	for {
 		select {
 		case t := <-ticker:
-			if err := tr.updater.UpdateTTL(checkID, fmt.Sprintf("%s passed at %s", tr.serviceID, t.UTC()), "pass"); err != nil {
-				tr.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "update TTL error", logging.ErrorKey(), err)
+			if err := tr.updater.UpdateTTL(tc.checkID, fmt.Sprintf("%s passed at %s", tr.serviceID, t.UTC()), "pass"); err != nil {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to passing", logging.ErrorKey(), err)
 			}
 
 		case <-shutdown:
-			tr.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "TTL updater shutdown")
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "TTL updater shutdown")
 			return
 		}
 	}
@@ -140,8 +154,7 @@ func (tr *ttlRegistrar) Register() {
 	tr.registrar.Register()
 	tr.shutdown = make(chan struct{})
 	for _, tc := range tr.checks {
-		ticker, stop := tickerFactory(tc.interval)
-		go tr.updatePeriodically(tc.checkID, ticker, stop, tr.shutdown)
+		go tr.updatePeriodically(tc, tr.shutdown)
 	}
 }
 
