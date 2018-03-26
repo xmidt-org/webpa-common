@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
@@ -51,15 +50,20 @@ func newInstancerKey(w Watch) string {
 	)
 }
 
-var clientFactory = gokitconsul.NewClient
+func defaultClientFactory(client *api.Client) (gokitconsul.Client, ttlUpdater) {
+	return gokitconsul.NewClient(client), client.Agent()
+}
 
-func newClient(co Options) (gokitconsul.Client, error) {
-	cc, err := api.NewClient(co.config())
+var clientFactory = defaultClientFactory
+
+func newClient(co Options) (gokitconsul.Client, ttlUpdater, error) {
+	consulClient, err := api.NewClient(co.config())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return clientFactory(cc), nil
+	gokitClient, updater := clientFactory(consulClient)
+	return gokitClient, updater, nil
 }
 
 func newInstancer(l log.Logger, c gokitconsul.Client, w Watch) sd.Instancer {
@@ -93,12 +97,8 @@ func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.In
 	return
 }
 
-func newRegistrars(l log.Logger, c gokitconsul.Client, co Options) (r service.Registrars, closer func() error, err error) {
-	var (
-		ttlChecks    []api.AgentServiceCheck
-		ttlIntervals []time.Duration
-	)
-
+func newRegistrars(l log.Logger, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
+	var consulRegistrar sd.Registrar
 	for _, registration := range co.registrations() {
 		instance := fmt.Sprintf("%s:%d", registration.Address, registration.Port)
 		if r.Has(instance) {
@@ -110,49 +110,12 @@ func newRegistrars(l log.Logger, c gokitconsul.Client, co Options) (r service.Re
 			ensureIDs(&registration)
 		}
 
-		if registration.Check != nil && len(registration.Check.TTL) > 0 {
-			var interval time.Duration
-			if interval, err = time.ParseDuration(registration.Check.TTL); err != nil {
-				return
-			}
-
-			interval = interval / 2
-			if interval < 1 {
-				err = fmt.Errorf("TTL value %s is too small", registration.Check.TTL)
-				return
-			}
-
-			ttlChecks = append(ttlChecks, *registration.Check)
-			ttlIntervals = append(ttlIntervals, interval)
+		consulRegistrar, err = NewRegistrar(c, u, &registration, log.With(l, "id", registration.ID, "instance", instance))
+		if err != nil {
+			return
 		}
 
-		r.Add(
-			instance,
-			gokitconsul.NewRegistrar(c, &registration, log.With(l, "id", registration.ID, "instance", instance)),
-		)
-	}
-
-	if len(ttlChecks) > 0 {
-		quit := make(chan struct{})
-
-		for i := 0; i < len(ttlChecks); i++ {
-			go func(check api.AgentServiceCheck, interval time.Duration) {
-				ticker := time.NewTicker(interval)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-ticker.C:
-					case <-quit:
-						return
-					}
-				}
-			}(ttlChecks[i], ttlIntervals[i])
-		}
-
-		closer = func() error {
-			close(quit)
-			return nil
-		}
+		r.Add(instance, consulRegistrar)
 	}
 
 	return
@@ -167,12 +130,12 @@ func NewEnvironment(l log.Logger, co Options, eo ...service.Option) (service.Env
 		return nil, nil
 	}
 
-	c, err := newClient(co)
+	c, u, err := newClient(co)
 	if err != nil {
 		return nil, err
 	}
 
-	r, closer, err := newRegistrars(l, c, co)
+	r, closer, err := newRegistrars(l, c, u, co)
 	if err != nil {
 		return nil, err
 	}

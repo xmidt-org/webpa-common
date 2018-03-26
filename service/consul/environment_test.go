@@ -63,6 +63,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		logger        = logging.NewTestLogger(nil, t)
 		clientFactory = prepareMockClientFactory()
 		client        = new(mockClient)
+		ttlUpdater    = new(mockTTLUpdater)
 
 		co = Options{
 			Client: &api.Config{
@@ -71,10 +72,12 @@ func testNewEnvironmentFull(t *testing.T) {
 			},
 			Registrations: []api.AgentServiceRegistration{
 				api.AgentServiceRegistration{
+					ID:      "service1",
 					Address: "grubly.com",
 					Port:    1111,
 				},
 				api.AgentServiceRegistration{
+					ID:      "service2",
 					Address: "grubly.com",
 					Port:    1111,
 				}, // duplicates should be ignored
@@ -94,7 +97,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		}
 	)
 
-	clientFactory.On("NewClient", mock.MatchedBy(func(*api.Client) bool { return true })).Return(client, error(nil)).Once()
+	clientFactory.On("NewClient", mock.MatchedBy(func(*api.Client) bool { return true })).Return(client, ttlUpdater).Once()
 
 	client.On("Service",
 		"foobar",
@@ -126,6 +129,7 @@ func testNewEnvironmentFull(t *testing.T) {
 
 	clientFactory.AssertExpectations(t)
 	client.AssertExpectations(t)
+	ttlUpdater.AssertExpectations(t)
 }
 
 func TestNewEnvironment(t *testing.T) {
