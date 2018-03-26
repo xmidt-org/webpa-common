@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
-func generateServiceID() string {
+func generateID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
 	if err != nil {
@@ -23,6 +23,22 @@ func generateServiceID() string {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+func ensureIDs(r *api.AgentServiceRegistration) {
+	if len(r.ID) == 0 {
+		r.ID = generateID()
+	}
+
+	if r.Check != nil && len(r.Check.CheckID) == 0 {
+		r.Check.CheckID = generateID()
+	}
+
+	for _, check := range r.Checks {
+		if len(check.CheckID) == 0 {
+			check.CheckID = generateID()
+		}
+	}
 }
 
 func newInstancerKey(w Watch) string {
@@ -34,15 +50,20 @@ func newInstancerKey(w Watch) string {
 	)
 }
 
-var clientFactory = gokitconsul.NewClient
+func defaultClientFactory(client *api.Client) (gokitconsul.Client, ttlUpdater) {
+	return gokitconsul.NewClient(client), client.Agent()
+}
 
-func newClient(co Options) (gokitconsul.Client, error) {
-	cc, err := api.NewClient(co.config())
+var clientFactory = defaultClientFactory
+
+func newClient(co Options) (gokitconsul.Client, ttlUpdater, error) {
+	consulClient, err := api.NewClient(co.config())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return clientFactory(cc), nil
+	gokitClient, updater := clientFactory(consulClient)
+	return gokitClient, updater, nil
 }
 
 func newInstancer(l log.Logger, c gokitconsul.Client, w Watch) sd.Instancer {
@@ -76,7 +97,8 @@ func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.In
 	return
 }
 
-func newRegistrars(l log.Logger, c gokitconsul.Client, co Options) (r service.Registrars) {
+func newRegistrars(l log.Logger, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
+	var consulRegistrar sd.Registrar
 	for _, registration := range co.registrations() {
 		instance := fmt.Sprintf("%s:%d", registration.Address, registration.Port)
 		if r.Has(instance) {
@@ -84,14 +106,16 @@ func newRegistrars(l log.Logger, c gokitconsul.Client, co Options) (r service.Re
 			continue
 		}
 
-		if len(registration.ID) == 0 && !co.disableGenerateID() {
-			registration.ID = generateServiceID()
+		if !co.disableGenerateID() {
+			ensureIDs(&registration)
 		}
 
-		r.Add(
-			instance,
-			gokitconsul.NewRegistrar(c, &registration, log.With(l, "id", registration.ID, "instance", instance)),
-		)
+		consulRegistrar, err = NewRegistrar(c, u, &registration, log.With(l, "id", registration.ID, "instance", instance))
+		if err != nil {
+			return
+		}
+
+		r.Add(instance, consulRegistrar)
 	}
 
 	return
@@ -106,7 +130,12 @@ func NewEnvironment(l log.Logger, co Options, eo ...service.Option) (service.Env
 		return nil, nil
 	}
 
-	c, err := newClient(co)
+	c, u, err := newClient(co)
+	if err != nil {
+		return nil, err
+	}
+
+	r, closer, err := newRegistrars(l, c, u, co)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +143,9 @@ func NewEnvironment(l log.Logger, co Options, eo ...service.Option) (service.Env
 	return service.NewEnvironment(
 		append(
 			eo,
-			service.WithRegistrars(newRegistrars(l, c, co)),
+			service.WithRegistrars(r),
 			service.WithInstancers(newInstancers(l, c, co)),
+			service.WithCloser(closer),
 		)...,
 	), nil
 }
