@@ -13,6 +13,20 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
+// passFormat returns a closure that produces the output for a passing TTL, given the current system time
+func passFormat(serviceID string) func(time.Time) string {
+	return func(t time.Time) string {
+		return fmt.Sprintf("%s passed at %s", serviceID, t.UTC())
+	}
+}
+
+// failFormat returns a closure that produces the output for a critical TTL, given the current system time
+func failFormat(serviceID string) func(time.Time) string {
+	return func(t time.Time) string {
+		return fmt.Sprintf("%s failed at %s", serviceID, t.UTC())
+	}
+}
+
 func defaultTickerFactory(d time.Duration) (<-chan time.Time, func()) {
 	t := time.NewTicker(d)
 	return t.C, t.Stop
@@ -28,13 +42,41 @@ type ttlUpdater interface {
 
 // ttlCheck holds the relevant information for managing a TTL check
 type ttlCheck struct {
-	checkID  string
-	interval time.Duration
+	checkID    string
+	interval   time.Duration
+	logger     log.Logger
+	passFormat func(time.Time) string
+	failFormat func(time.Time) string
+}
+
+func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct{}) {
+	ticker, stop := tickerFactory(tc.interval)
+	defer stop()
+	defer func() {
+		if err := updater.UpdateTTL(tc.checkID, tc.failFormat(time.Now()), "fail"); err != nil {
+			tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to critical", logging.ErrorKey(), err)
+		}
+	}()
+
+	tc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting TTL updater")
+
+	for {
+		select {
+		case t := <-ticker:
+			if err := updater.UpdateTTL(tc.checkID, tc.passFormat(t), "pass"); err != nil {
+				tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to passing", logging.ErrorKey(), err)
+			}
+
+		case <-shutdown:
+			tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "TTL updater shutdown")
+			return
+		}
+	}
 }
 
 // appendTTLCheck conditionally creates a ttlCheck for the given agent check if and only if the agent check is configured with a TTL.
 // If the agent check is nil or has no TTL, this function returns ttlChecks unmodified with no error.
-func appendTTLCheck(agentCheck *api.AgentServiceCheck, ttlChecks []ttlCheck) ([]ttlCheck, error) {
+func appendTTLCheck(logger log.Logger, serviceID string, agentCheck *api.AgentServiceCheck, ttlChecks []ttlCheck) ([]ttlCheck, error) {
 	if agentCheck == nil || len(agentCheck.TTL) == 0 {
 		return ttlChecks, nil
 	}
@@ -54,6 +96,15 @@ func appendTTLCheck(agentCheck *api.AgentServiceCheck, ttlChecks []ttlCheck) ([]
 		ttlCheck{
 			checkID:  agentCheck.CheckID,
 			interval: interval,
+			logger: log.With(
+				logger,
+				"serviceID", serviceID,
+				"checkID", agentCheck.CheckID,
+				"ttl", agentCheck.TTL,
+				"interval", interval.String(),
+			),
+			passFormat: passFormat(serviceID),
+			failFormat: failFormat(serviceID),
 		},
 	)
 
@@ -81,13 +132,13 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 		err       error
 	)
 
-	ttlChecks, err = appendTTLCheck(r.Check, ttlChecks)
+	ttlChecks, err = appendTTLCheck(logger, r.ID, r.Check, ttlChecks)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, agentCheck := range r.Checks {
-		ttlChecks, err = appendTTLCheck(agentCheck, ttlChecks)
+		ttlChecks, err = appendTTLCheck(logger, r.ID, agentCheck, ttlChecks)
 		if err != nil {
 			return nil, err
 		}
@@ -109,40 +160,6 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 	return registrar, nil
 }
 
-func (tr *ttlRegistrar) updatePeriodically(tc ttlCheck, shutdown <-chan struct{}) {
-	var (
-		logger = log.With(
-			tr.logger,
-			"checkID", tc.checkID,
-			"interval", tc.interval.String(),
-		)
-
-		ticker, stop = tickerFactory(tc.interval)
-	)
-
-	defer stop()
-	defer func() {
-		if err := tr.updater.UpdateTTL(tc.checkID, fmt.Sprintf("%s failed at %s", tr.serviceID, time.Now().UTC()), "fail"); err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to critical", logging.ErrorKey(), err)
-		}
-	}()
-
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting TTL updater")
-
-	for {
-		select {
-		case t := <-ticker:
-			if err := tr.updater.UpdateTTL(tc.checkID, fmt.Sprintf("%s passed at %s", tr.serviceID, t.UTC()), "pass"); err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to passing", logging.ErrorKey(), err)
-			}
-
-		case <-shutdown:
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "TTL updater shutdown")
-			return
-		}
-	}
-}
-
 func (tr *ttlRegistrar) Register() {
 	defer tr.lifecycleLock.Unlock()
 	tr.lifecycleLock.Lock()
@@ -154,7 +171,7 @@ func (tr *ttlRegistrar) Register() {
 	tr.registrar.Register()
 	tr.shutdown = make(chan struct{})
 	for _, tc := range tr.checks {
-		go tr.updatePeriodically(tc, tr.shutdown)
+		go tc.updatePeriodically(tr.updater, tr.shutdown)
 	}
 }
 

@@ -12,6 +12,22 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestDefaultTickerFactory(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+	)
+
+	assert.Panics(func() {
+		defaultTickerFactory(-123123)
+	})
+
+	ticker, stop := defaultTickerFactory(20 * time.Second)
+	assert.NotNil(ticker)
+	require.NotNil(stop)
+	stop()
+}
+
 func testNewRegistrarNoChecks(t *testing.T) {
 	defer resetTickerFactory()
 
@@ -285,7 +301,7 @@ func testNewRegistrarTTL(t *testing.T) {
 
 	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer2AckRun)
 	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check2 error")).Once().Run(timer2AckRun)
-	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "fail").Return(error(nil)).Once()
+	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "fail").Return(errors.New("expected check2 fail error")).Once()
 
 	tickerFactory.On("NewTicker", (15*time.Second)/2).Return((<-chan time.Time)(timer1), stop1)
 	tickerFactory.On("NewTicker", (30*time.Second)/2).Return((<-chan time.Time)(timer2), stop2)
