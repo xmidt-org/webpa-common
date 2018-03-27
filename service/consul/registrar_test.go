@@ -297,10 +297,12 @@ func testNewRegistrarTTL(t *testing.T) {
 
 	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer1AckRun)
 	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check1 error")).Once().Run(timer1AckRun)
+	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer1AckRun)
 	ttlUpdater.On("UpdateTTL", "check1", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "fail").Return(error(nil)).Once()
 
 	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer2AckRun)
 	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(errors.New("expected check2 error")).Once().Run(timer2AckRun)
+	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "pass").Return(error(nil)).Once().Run(timer2AckRun)
 	ttlUpdater.On("UpdateTTL", "check2", mock.MatchedBy(func(v string) bool { return len(v) > 0 }), "fail").Return(errors.New("expected check2 fail error")).Once()
 
 	tickerFactory.On("NewTicker", (15*time.Second)/2).Return((<-chan time.Time)(timer1), stop1)
@@ -328,36 +330,23 @@ func testNewRegistrarTTL(t *testing.T) {
 	// simulate some updates
 	now := time.Now()
 
-	timer1 <- now
-	select {
-	case <-timer1Ack:
-		// passing
-	case <-time.After(2 * time.Second):
-		require.Fail("Time event was not processed")
-	}
+	// we have 3 pass updates expected for each TTL check above
+	for repeat := 0; repeat < 3; repeat++ {
+		timer1 <- now
+		select {
+		case <-timer1Ack:
+			// passing
+		case <-time.After(2 * time.Second):
+			require.Fail("Time event was not processed")
+		}
 
-	timer2 <- now
-	select {
-	case <-timer2Ack:
-		// passing
-	case <-time.After(2 * time.Second):
-		require.Fail("Time event was not processed")
-	}
-
-	timer1 <- now
-	select {
-	case <-timer1Ack:
-		// passing
-	case <-time.After(2 * time.Second):
-		require.Fail("Time event was not processed")
-	}
-
-	timer2 <- now
-	select {
-	case <-timer2Ack:
-		// passing
-	case <-time.After(2 * time.Second):
-		require.Fail("Time event was not processed")
+		timer2 <- now
+		select {
+		case <-timer2Ack:
+			// passing
+		case <-time.After(2 * time.Second):
+			require.Fail("Time event was not processed")
+		}
 	}
 
 	r.Deregister()
