@@ -60,11 +60,21 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 
 	tc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting TTL updater")
 
+	// we log an error only on the first error, and then an info message if and when the update recovers.
+	// this avoids filling up the server's logs with what are almost certainly just duplicate errors over and over.
+	successiveErrorCount := 0
+
 	for {
 		select {
 		case t := <-ticker:
 			if err := updater.UpdateTTL(tc.checkID, tc.passFormat(t), "pass"); err != nil {
-				tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to passing", logging.ErrorKey(), err)
+				successiveErrorCount++
+				if successiveErrorCount == 1 {
+					tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to passing", logging.ErrorKey(), err)
+				}
+			} else if successiveErrorCount > 0 {
+				tc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "update TTL success", "previousErrorCount", successiveErrorCount)
+				successiveErrorCount = 0
 			}
 
 		case <-shutdown:
