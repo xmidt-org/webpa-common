@@ -1,7 +1,7 @@
 package monitor
 
 import (
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
@@ -111,6 +111,11 @@ func NewAccessorListener(f service.AccessorFactory, next func(service.Accessor, 
 	})
 }
 
+const (
+	stateDeregistered uint32 = 0
+	stateRegistered   uint32 = 1
+)
+
 // NewRegistrarListener binds service registration to the lifecycle of a service discovery watch.
 // Upon the first successful update, or on any successful update following one or more errors, the given
 // registrar is registered.  Any error that follows a successful update, or on the first error, results
@@ -124,33 +129,25 @@ func NewRegistrarListener(logger log.Logger, r sd.Registrar) Listener {
 		panic("A registrar is required")
 	}
 
-	var (
-		// this listener can be called from multiple goroutines if more than one watch has been set
-		lock         sync.Mutex
-		hasSucceeded bool
-		errorCount   int
-	)
-
+	var state uint32 = stateDeregistered
 	return ListenerFunc(func(e Event) {
-		defer lock.Unlock()
-		lock.Lock()
-
-		if len(e.Instances) > 0 && e.Err == nil {
-			if !hasSucceeded || errorCount > 0 {
-				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "registering due to service discovery update")
+		var message string
+		if e.Err != nil {
+			message = "deregistering on service discover error"
+		} else if e.Stopped {
+			message = "deregistering due to monitor being stopped"
+		} else {
+			if atomic.CompareAndSwapUint32(&state, stateDeregistered, stateRegistered) {
+				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "registering on service discovery update")
 				r.Register()
 			}
 
-			hasSucceeded = true
-			errorCount = 0
 			return
-		} else if errorCount == 0 {
-			// if the first event is an error, this case will execute.
-			// this shouldn't be an issue, as Deregister is idempotent.
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "deregistering due to service discovery error", logging.ErrorKey(), e.Err, "instanceCount", len(e.Instances))
-			r.Deregister()
 		}
 
-		errorCount++
+		if atomic.CompareAndSwapUint32(&state, stateRegistered, stateDeregistered) {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), message, logging.ErrorKey(), e.Err, "stopped", e.Stopped)
+			r.Deregister()
+		}
 	})
 }

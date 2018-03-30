@@ -253,7 +253,7 @@ func testNewRegistrarListenerInitialSuccess(t *testing.T, logger log.Logger) {
 
 	listener.MonitorEvent(Event{})
 	registrar.AssertNumberOfCalls(t, "Register", 1)
-	registrar.AssertNumberOfCalls(t, "Deregister", 1)
+	registrar.AssertNumberOfCalls(t, "Deregister", 0)
 
 	listener.MonitorEvent(Event{Err: errors.New("expected")})
 	registrar.AssertNumberOfCalls(t, "Register", 1)
@@ -266,6 +266,14 @@ func testNewRegistrarListenerInitialSuccess(t *testing.T, logger log.Logger) {
 	listener.MonitorEvent(Event{Instances: []string{"instance2", "instance3"}})
 	registrar.AssertNumberOfCalls(t, "Register", 2)
 	registrar.AssertNumberOfCalls(t, "Deregister", 1)
+
+	listener.MonitorEvent(Event{Stopped: true})
+	registrar.AssertNumberOfCalls(t, "Register", 2)
+	registrar.AssertNumberOfCalls(t, "Deregister", 2)
+
+	listener.MonitorEvent(Event{Err: errors.New("expected")})
+	registrar.AssertNumberOfCalls(t, "Register", 2)
+	registrar.AssertNumberOfCalls(t, "Deregister", 2)
 
 	registrar.AssertExpectations(t)
 }
@@ -284,23 +292,39 @@ func testNewRegistrarListenerInitialError(t *testing.T, logger log.Logger) {
 
 	listener.MonitorEvent(Event{Err: errors.New("expected")})
 	registrar.AssertNumberOfCalls(t, "Register", 0)
-	registrar.AssertNumberOfCalls(t, "Deregister", 1)
+	registrar.AssertNumberOfCalls(t, "Deregister", 0)
 
 	listener.MonitorEvent(Event{Instances: []string{"instance2", "instance3"}})
+	registrar.AssertNumberOfCalls(t, "Register", 1)
+	registrar.AssertNumberOfCalls(t, "Deregister", 0)
+
+	listener.MonitorEvent(Event{Err: errors.New("expected")})
 	registrar.AssertNumberOfCalls(t, "Register", 1)
 	registrar.AssertNumberOfCalls(t, "Deregister", 1)
 
 	listener.MonitorEvent(Event{Instances: []string{"instance5", "instance6"}})
-	registrar.AssertNumberOfCalls(t, "Register", 1)
+	registrar.AssertNumberOfCalls(t, "Register", 2)
 	registrar.AssertNumberOfCalls(t, "Deregister", 1)
 
 	listener.MonitorEvent(Event{})
-	registrar.AssertNumberOfCalls(t, "Register", 1)
-	registrar.AssertNumberOfCalls(t, "Deregister", 2)
+	registrar.AssertNumberOfCalls(t, "Register", 2)
+	registrar.AssertNumberOfCalls(t, "Deregister", 1)
 
 	listener.MonitorEvent(Event{Err: errors.New("expected")})
-	registrar.AssertNumberOfCalls(t, "Register", 1)
+	registrar.AssertNumberOfCalls(t, "Register", 2)
 	registrar.AssertNumberOfCalls(t, "Deregister", 2)
+
+	listener.MonitorEvent(Event{})
+	registrar.AssertNumberOfCalls(t, "Register", 3)
+	registrar.AssertNumberOfCalls(t, "Deregister", 2)
+
+	listener.MonitorEvent(Event{Stopped: true})
+	registrar.AssertNumberOfCalls(t, "Register", 3)
+	registrar.AssertNumberOfCalls(t, "Deregister", 3)
+
+	listener.MonitorEvent(Event{Err: errors.New("expected")})
+	registrar.AssertNumberOfCalls(t, "Register", 3)
+	registrar.AssertNumberOfCalls(t, "Deregister", 3)
 
 	registrar.AssertExpectations(t)
 }
