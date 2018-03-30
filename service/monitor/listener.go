@@ -1,9 +1,13 @@
 package monitor
 
 import (
+	"sync"
 	"time"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/go-kit/kit/sd"
 )
@@ -104,5 +108,49 @@ func NewAccessorListener(f service.AccessorFactory, next func(service.Accessor, 
 		default:
 			next(service.EmptyAccessor(), nil)
 		}
+	})
+}
+
+// NewRegistrarListener binds service registration to the lifecycle of a service discovery watch.
+// Upon the first successful update, or on any successful update following one or more errors, the given
+// registrar is registered.  Any error that follows a successful update, or on the first error, results
+// in deregistration.
+func NewRegistrarListener(logger log.Logger, r sd.Registrar) Listener {
+	if logger == nil {
+		logger = logging.DefaultLogger()
+	}
+
+	if r == nil {
+		panic("A registrar is required")
+	}
+
+	var (
+		// this listener can be called from multiple goroutines if more than one watch has been set
+		lock         sync.Mutex
+		hasSucceeded bool
+		errorCount   int
+	)
+
+	return ListenerFunc(func(e Event) {
+		defer lock.Unlock()
+		lock.Lock()
+
+		if len(e.Instances) > 0 && e.Err == nil {
+			if !hasSucceeded || errorCount > 0 {
+				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "registering due to service discovery update")
+				r.Register()
+			}
+
+			hasSucceeded = true
+			errorCount = 0
+			return
+		} else if errorCount == 0 {
+			// if the first event is an error, this case will execute.
+			// this shouldn't be an issue, as Deregister is idempotent.
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "deregistering due to service discovery error", logging.ErrorKey(), e.Err, "instanceCount", len(e.Instances))
+			r.Deregister()
+		}
+
+		errorCount++
 	})
 }
