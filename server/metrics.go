@@ -11,6 +11,7 @@ const (
 	RequestSizeBytes         = "request_size_bytes"
 	ResponseSizeBytes        = "response_size_bytes"
 	TimeWritingHeaderSeconds = "time_writing_header_seconds"
+	MaxProcs                 = "maximum_processors"
 )
 
 // Metrics is the module function for this package that adds the default request handling metrics.
@@ -64,6 +65,12 @@ func Metrics() []xmetrics.Metric {
 			Type:    "histogram",
 			Help:    "A histogram of latencies for writing HTTP headers.",
 			Buckets: []float64{0, 1, 2, 3},
+		},
+		xmetrics.Metric{
+			Name:       MaxProcs,
+			Type:       "gauge",
+			Help:       "The number of current maximum processors this processes is allowed to use.",
+			LabelNames: []string{"server"},
 		},
 	}
 }
