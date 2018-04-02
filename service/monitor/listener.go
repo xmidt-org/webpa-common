@@ -120,7 +120,7 @@ const (
 // Upon the first successful update, or on any successful update following one or more errors, the given
 // registrar is registered.  Any error that follows a successful update, or on the first error, results
 // in deregistration.
-func NewRegistrarListener(logger log.Logger, r sd.Registrar) Listener {
+func NewRegistrarListener(logger log.Logger, r sd.Registrar, initiallyRegistered bool) Listener {
 	if logger == nil {
 		logger = logging.DefaultLogger()
 	}
@@ -130,10 +130,14 @@ func NewRegistrarListener(logger log.Logger, r sd.Registrar) Listener {
 	}
 
 	var state uint32 = stateDeregistered
+	if initiallyRegistered {
+		state = stateRegistered
+	}
+
 	return ListenerFunc(func(e Event) {
 		var message string
 		if e.Err != nil {
-			message = "deregistering on service discover error"
+			message = "deregistering on service discovery error"
 		} else if e.Stopped {
 			message = "deregistering due to monitor being stopped"
 		} else {
