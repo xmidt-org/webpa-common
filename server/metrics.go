@@ -70,7 +70,6 @@ func Metrics() []xmetrics.Metric {
 			Name:       MaxProcs,
 			Type:       "gauge",
 			Help:       "The number of current maximum processors this processes is allowed to use.",
-			LabelNames: []string{"server"},
 		},
 	}
 }

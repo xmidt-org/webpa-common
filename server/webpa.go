@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"runtime"
 	"sync"
 	"time"
 
@@ -530,8 +531,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		}
 		
 		// Output, to metrics, the maximum number of CPUs available to this process
-		maxProcs.With("server", "maximum").Add(runtime.GOMAXPROCS(0))
-		
+		maxProcs.Set(float64(runtime.GOMAXPROCS(0)))
 
 		return nil
 	})
