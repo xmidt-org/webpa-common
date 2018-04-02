@@ -3,7 +3,6 @@ package consul
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/service"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +13,6 @@ func testOptionsDefault(t *testing.T, o *Options) {
 
 	assert.NotNil(o.config())
 	assert.False(o.disableGenerateID())
-	assert.Equal(service.DefaultScheme, o.registrationScheme())
 	assert.Len(o.registrations(), 0)
 	assert.Len(o.watches(), 0)
 }
@@ -30,8 +28,7 @@ func testOptionsCustom(t *testing.T) {
 				Scheme:  "ftp",
 			},
 
-			DisableGenerateID:  true,
-			RegistrationScheme: "xyz",
+			DisableGenerateID: true,
 
 			Registrations: []api.AgentServiceRegistration{
 				api.AgentServiceRegistration{
@@ -56,7 +53,6 @@ func testOptionsCustom(t *testing.T) {
 	assert.Equal("ftp", c.Scheme)
 
 	assert.True(o.disableGenerateID())
-	assert.Equal("xyz", o.registrationScheme())
 
 	assert.Equal(
 		[]api.AgentServiceRegistration{

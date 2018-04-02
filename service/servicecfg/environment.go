@@ -56,7 +56,7 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, er
 
 	if o.Consul != nil {
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using consul for service discovery")
-		return consulEnvironmentFactory(l, *o.Consul, eo...)
+		return consulEnvironmentFactory(l, o.DefaultScheme, *o.Consul, eo...)
 	}
 
 	return nil, nil

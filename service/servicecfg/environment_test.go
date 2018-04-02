@@ -175,7 +175,7 @@ func testNewEnvironmentConsul(t *testing.T) {
 	v.SetConfigType("json")
 	require.NoError(v.ReadConfig(configuration))
 
-	consulEnvironmentFactory = func(l log.Logger, co consul.Options, eo ...service.Option) (service.Environment, error) {
+	consulEnvironmentFactory = func(l log.Logger, registrationScheme string, co consul.Options, eo ...service.Option) (service.Environment, error) {
 		assert.Equal(logger, l)
 		assert.Equal(
 			consul.Options{

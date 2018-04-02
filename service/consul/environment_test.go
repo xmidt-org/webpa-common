@@ -18,7 +18,7 @@ func testNewEnvironmentEmpty(t *testing.T) {
 		clientFactory = prepareMockClientFactory()
 	)
 
-	e, err := NewEnvironment(nil, Options{})
+	e, err := NewEnvironment(nil, "http", Options{})
 	assert.Nil(e)
 	assert.NoError(err)
 
@@ -46,7 +46,7 @@ func testNewEnvironmentClientError(t *testing.T) {
 		}
 	)
 
-	e, err := NewEnvironment(nil, co)
+	e, err := NewEnvironment(nil, "http", co)
 	assert.Nil(e)
 	assert.Error(err)
 
@@ -118,7 +118,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		}),
 	).Return(error(nil)).Twice()
 
-	e, err := NewEnvironment(logger, co)
+	e, err := NewEnvironment(logger, "", co)
 	require.NoError(err)
 	require.NotNil(e)
 
