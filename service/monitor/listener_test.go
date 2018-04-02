@@ -226,22 +226,29 @@ func testNewRegistrarListenerNilRegistrar(t *testing.T) {
 	)
 
 	assert.Panics(func() {
-		NewRegistrarListener(logger, nil)
+		NewRegistrarListener(logger, nil, true)
 	})
 
+	assert.Panics(func() {
+		NewRegistrarListener(logger, nil, false)
+	})
 }
 
-func testNewRegistrarListenerInitialSuccess(t *testing.T, logger log.Logger) {
+func testNewRegistrarListenerInitiallyDeregistered(t *testing.T, logger log.Logger) {
 	var (
 		require   = require.New(t)
 		registrar = new(service.MockRegistrar)
-		listener  = NewRegistrarListener(logger, registrar)
+		listener  = NewRegistrarListener(logger, registrar, false)
 	)
 
 	require.NotNil(listener)
 
 	registrar.On("Register")
 	registrar.On("Deregister")
+
+	listener.MonitorEvent(Event{Err: errors.New("initially expected")})
+	registrar.AssertNumberOfCalls(t, "Register", 0)
+	registrar.AssertNumberOfCalls(t, "Deregister", 0)
 
 	listener.MonitorEvent(Event{Instances: []string{"instance1"}})
 	registrar.AssertNumberOfCalls(t, "Register", 1)
@@ -278,11 +285,11 @@ func testNewRegistrarListenerInitialSuccess(t *testing.T, logger log.Logger) {
 	registrar.AssertExpectations(t)
 }
 
-func testNewRegistrarListenerInitialError(t *testing.T, logger log.Logger) {
+func testNewRegistrarListenerInitiallyRegistered(t *testing.T, logger log.Logger) {
 	var (
 		require   = require.New(t)
 		registrar = new(service.MockRegistrar)
-		listener  = NewRegistrarListener(logger, registrar)
+		listener  = NewRegistrarListener(logger, registrar, true)
 	)
 
 	require.NotNil(listener)
@@ -290,41 +297,37 @@ func testNewRegistrarListenerInitialError(t *testing.T, logger log.Logger) {
 	registrar.On("Register")
 	registrar.On("Deregister")
 
-	listener.MonitorEvent(Event{Err: errors.New("expected")})
+	listener.MonitorEvent(Event{Instances: []string{"instance1"}})
 	registrar.AssertNumberOfCalls(t, "Register", 0)
 	registrar.AssertNumberOfCalls(t, "Deregister", 0)
 
 	listener.MonitorEvent(Event{Instances: []string{"instance2", "instance3"}})
-	registrar.AssertNumberOfCalls(t, "Register", 1)
+	registrar.AssertNumberOfCalls(t, "Register", 0)
+	registrar.AssertNumberOfCalls(t, "Deregister", 0)
+
+	listener.MonitorEvent(Event{})
+	registrar.AssertNumberOfCalls(t, "Register", 0)
 	registrar.AssertNumberOfCalls(t, "Deregister", 0)
 
 	listener.MonitorEvent(Event{Err: errors.New("expected")})
+	registrar.AssertNumberOfCalls(t, "Register", 0)
+	registrar.AssertNumberOfCalls(t, "Deregister", 1)
+
+	listener.MonitorEvent(Event{Instances: []string{"instance1"}})
 	registrar.AssertNumberOfCalls(t, "Register", 1)
 	registrar.AssertNumberOfCalls(t, "Deregister", 1)
 
-	listener.MonitorEvent(Event{Instances: []string{"instance5", "instance6"}})
-	registrar.AssertNumberOfCalls(t, "Register", 2)
+	listener.MonitorEvent(Event{Instances: []string{"instance2", "instance3"}})
+	registrar.AssertNumberOfCalls(t, "Register", 1)
 	registrar.AssertNumberOfCalls(t, "Deregister", 1)
-
-	listener.MonitorEvent(Event{})
-	registrar.AssertNumberOfCalls(t, "Register", 2)
-	registrar.AssertNumberOfCalls(t, "Deregister", 1)
-
-	listener.MonitorEvent(Event{Err: errors.New("expected")})
-	registrar.AssertNumberOfCalls(t, "Register", 2)
-	registrar.AssertNumberOfCalls(t, "Deregister", 2)
-
-	listener.MonitorEvent(Event{})
-	registrar.AssertNumberOfCalls(t, "Register", 3)
-	registrar.AssertNumberOfCalls(t, "Deregister", 2)
 
 	listener.MonitorEvent(Event{Stopped: true})
-	registrar.AssertNumberOfCalls(t, "Register", 3)
-	registrar.AssertNumberOfCalls(t, "Deregister", 3)
+	registrar.AssertNumberOfCalls(t, "Register", 1)
+	registrar.AssertNumberOfCalls(t, "Deregister", 2)
 
 	listener.MonitorEvent(Event{Err: errors.New("expected")})
-	registrar.AssertNumberOfCalls(t, "Register", 3)
-	registrar.AssertNumberOfCalls(t, "Deregister", 3)
+	registrar.AssertNumberOfCalls(t, "Register", 1)
+	registrar.AssertNumberOfCalls(t, "Deregister", 2)
 
 	registrar.AssertExpectations(t)
 }
@@ -332,23 +335,23 @@ func testNewRegistrarListenerInitialError(t *testing.T, logger log.Logger) {
 func TestNewRegistrarListener(t *testing.T) {
 	t.Run("NilRegistrar", testNewRegistrarListenerNilRegistrar)
 
-	t.Run("InitialSuccess", func(t *testing.T) {
+	t.Run("InitiallyDeregistered", func(t *testing.T) {
 		t.Run("NilLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitialSuccess(t, nil)
+			testNewRegistrarListenerInitiallyDeregistered(t, nil)
 		})
 
 		t.Run("WithLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitialSuccess(t, logging.NewTestLogger(nil, t))
+			testNewRegistrarListenerInitiallyDeregistered(t, logging.NewTestLogger(nil, t))
 		})
 	})
 
-	t.Run("InitialError", func(t *testing.T) {
+	t.Run("InitiallyRegistered", func(t *testing.T) {
 		t.Run("NilLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitialError(t, nil)
+			testNewRegistrarListenerInitiallyRegistered(t, nil)
 		})
 
 		t.Run("WithLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitialError(t, logging.NewTestLogger(nil, t))
+			testNewRegistrarListenerInitiallyRegistered(t, logging.NewTestLogger(nil, t))
 		})
 	})
 }
