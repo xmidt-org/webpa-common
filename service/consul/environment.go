@@ -97,12 +97,8 @@ func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.In
 	return
 }
 
-func newRegistrars(l log.Logger, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
-	var (
-		consulRegistrar    sd.Registrar
-		registrationScheme = co.registrationScheme()
-	)
-
+func newRegistrars(l log.Logger, registrationScheme string, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
+	var consulRegistrar sd.Registrar
 	for _, registration := range co.registrations() {
 		instance := service.FormatInstance(registrationScheme, registration.Address, registration.Port)
 		if r.Has(instance) {
@@ -125,7 +121,7 @@ func newRegistrars(l log.Logger, c gokitconsul.Client, u ttlUpdater, co Options)
 	return
 }
 
-func NewEnvironment(l log.Logger, co Options, eo ...service.Option) (service.Environment, error) {
+func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...service.Option) (service.Environment, error) {
 	if l == nil {
 		l = logging.DefaultLogger()
 	}
@@ -139,7 +135,7 @@ func NewEnvironment(l log.Logger, co Options, eo ...service.Option) (service.Env
 		return nil, err
 	}
 
-	r, closer, err := newRegistrars(l, c, u, co)
+	r, closer, err := newRegistrars(l, registrationScheme, c, u, co)
 	if err != nil {
 		return nil, err
 	}
