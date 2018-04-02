@@ -98,9 +98,13 @@ func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.In
 }
 
 func newRegistrars(l log.Logger, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
-	var consulRegistrar sd.Registrar
+	var (
+		consulRegistrar    sd.Registrar
+		registrationScheme = co.registrationScheme()
+	)
+
 	for _, registration := range co.registrations() {
-		instance := fmt.Sprintf("%s:%d", registration.Address, registration.Port)
+		instance := service.FormatInstance(registrationScheme, registration.Address, registration.Port)
 		if r.Has(instance) {
 			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "instance", instance)
 			continue
