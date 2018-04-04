@@ -11,7 +11,6 @@ import (
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/websocket"
 )
 
@@ -156,9 +155,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	d := newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
 	if convey, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
-		d.debugLog.Log(level.Key(), level.DebugValue(), "id", id, "convey", convey)
+		d.infoLog.Log("convey", convey)
 	} else if err != conveyhttp.ErrMissingHeader {
-		d.errorLog.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "badly formatted convey data", "id", id, logging.ErrorKey(), err)
+		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
