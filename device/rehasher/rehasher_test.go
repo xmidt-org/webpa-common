@@ -36,6 +36,7 @@ func testNewMissingIsRegistered(t *testing.T) {
 
 func testNewWithIsRegistered(t *testing.T) {
 	var (
+		assert  = assert.New(t)
 		require = require.New(t)
 
 		c = new(device.MockConnector)
@@ -78,9 +79,9 @@ func testNewWithIsRegistered(t *testing.T) {
 
 	select {
 	case predicate := <-predicateCapture:
-		predicate(errorID)
-		predicate(keepID)
-		predicate(disconnectID)
+		assert.True(predicate(errorID))
+		assert.False(predicate(keepID))
+		assert.True(predicate(disconnectID))
 	case <-time.After(time.Second):
 		require.Fail("No predicate sent")
 	}
@@ -93,6 +94,7 @@ func testNewWithIsRegistered(t *testing.T) {
 
 func testNewWithEnvironment(t *testing.T) {
 	var (
+		assert  = assert.New(t)
 		require = require.New(t)
 
 		c  = new(device.MockConnector)
@@ -139,9 +141,9 @@ func testNewWithEnvironment(t *testing.T) {
 
 	select {
 	case predicate := <-predicateCapture:
-		predicate(errorID)
-		predicate(keepID)
-		predicate(disconnectID)
+		assert.True(predicate(errorID))
+		assert.False(predicate(keepID))
+		assert.True(predicate(disconnectID))
 	case <-time.After(time.Second):
 		require.Fail("No predicate sent")
 	}

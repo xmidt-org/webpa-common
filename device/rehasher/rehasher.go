@@ -126,7 +126,8 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 				return true
 			}
 
-			return true
+			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "instance", instance, "id", id)
+			return false
 		})
 
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount)
