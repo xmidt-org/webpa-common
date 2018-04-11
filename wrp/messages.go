@@ -79,6 +79,7 @@ type Message struct {
 	Payload                 []byte            `wrp:"payload,omitempty"`
 	ServiceName             string            `wrp:"service_name,omitempty"`
 	URL                     string            `wrp:"url,omitempty"`
+	PartnerIDs              []string          `wrp:"partner_ids,omitempty"`
 }
 
 func (msg *Message) MessageType() MessageType {
@@ -167,6 +168,7 @@ type SimpleRequestResponse struct {
 	Spans                   [][]string        `wrp:"spans,omitempty"`
 	IncludeSpans            *bool             `wrp:"include_spans,omitempty"`
 	Payload                 []byte            `wrp:"payload,omitempty"`
+	PartnerIDs              []string          `wrp:"partner_ids,omitempty"`
 }
 
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
@@ -239,6 +241,7 @@ type SimpleEvent struct {
 	Headers     []string          `wrp:"headers,omitempty"`
 	Metadata    map[string]string `wrp:"metadata,omitempty"`
 	Payload     []byte            `wrp:"payload,omitempty"`
+	PartnerIDs  []string          `wrp:"partner_ids,omitempty"`
 }
 
 func (msg *SimpleEvent) BeforeEncode() error {
@@ -294,6 +297,7 @@ type CRUD struct {
 	RequestDeliveryResponse *int64            `wrp:"rdr,omitempty"`
 	Path                    string            `wrp:"path"`
 	Payload                 []byte            `wrp:"payload,omitempty"`
+	PartnerIDs              []string          `wrp:"partner_ids,omitempty"`
 }
 
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
