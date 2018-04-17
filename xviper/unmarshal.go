@@ -5,6 +5,11 @@ type Unmarshaler interface {
 	Unmarshal(interface{}) error
 }
 
+// KeyUnmarshaler describes the subset of Viper behavior for unmarshaling an arbitrary configuration key.
+type KeyUnmarshaler interface {
+	UnmarshalKey(string, interface{}) error
+}
+
 // InvalidUnmarshaler is an Unmarshaler that simply returns an error.
 // Mostly useful for testing.
 type InvalidUnmarshaler struct {
@@ -15,20 +20,16 @@ func (iu InvalidUnmarshaler) Unmarshal(interface{}) error {
 	return iu.Err
 }
 
-// Unmarshal supplies a convenience for unmarshaling several values.  The first error
-// encountered is returned, and any remaining values are not unmarshaled.
-func Unmarshal(u Unmarshaler, v ...interface{}) error {
-	var err error
-	for i := 0; err == nil && i < len(v); i++ {
-		err = u.Unmarshal(v[i])
+// MustUnmarshal attempts to unmarshal the value, panicing on any error.
+func MustUnmarshal(u Unmarshaler, v interface{}) {
+	if err := u.Unmarshal(v); err != nil {
+		panic(err)
 	}
-
-	return err
 }
 
-// MustUnmarshal is like Unmarshal, except that it panics when any error is encountered.
-func MustUnmarshal(u Unmarshaler, v ...interface{}) {
-	if err := Unmarshal(u, v...); err != nil {
+// MustKeyUnmarshal attempts to unmarshal the given key, panicing on any error
+func MustKeyUnmarshal(u KeyUnmarshaler, k string, v interface{}) {
+	if err := u.UnmarshalKey(k, v); err != nil {
 		panic(err)
 	}
 }

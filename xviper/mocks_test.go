@@ -25,3 +25,11 @@ type mockUnmarshaler struct {
 func (m *mockUnmarshaler) Unmarshal(v interface{}) error {
 	return m.Called(v).Error(0)
 }
+
+type mockKeyUnmarshaler struct {
+	mock.Mock
+}
+
+func (m *mockKeyUnmarshaler) UnmarshalKey(k string, v interface{}) error {
+	return m.Called(k, v).Error(0)
+}

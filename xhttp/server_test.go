@@ -4,13 +4,11 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -212,348 +210,61 @@ func TestNewStarter(t *testing.T) {
 	t.Run("ServeTLS", testNewStarterServeTLS)
 }
 
-func testServerLoggingCustom(t *testing.T) {
+func TestServerOptions(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
+		assert   = assert.New(t)
+		logger   = logging.NewTestLogger(nil, t)
+		listener = new(mockListener)
 
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-		server http.Server
-	)
-
-	ServerLogging(logger, v, &server)
-	require.NotNil(server.ErrorLog)
-	require.NotNil(server.ConnState)
-
-	assert.NotPanics(func() {
-		server.ErrorLog.Println("test")
-	})
-
-	i, o := net.Pipe()
-	defer i.Close()
-	defer o.Close()
-
-	assert.NotPanics(func() {
-		server.ConnState(i, http.StateNew)
-	})
-}
-
-func testServerLoggingDefault(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		v      = viper.New()
-		server http.Server
-	)
-
-	ServerLogging(nil, v, &server)
-	require.NotNil(server.ErrorLog)
-	require.NotNil(server.ConnState)
-
-	assert.NotPanics(func() {
-		server.ErrorLog.Println("test")
-	})
-
-	i, o := net.Pipe()
-	defer i.Close()
-	defer o.Close()
-
-	assert.NotPanics(func() {
-		server.ConnState(i, http.StateNew)
-	})
-}
-
-func TestServerLogging(t *testing.T) {
-	t.Run("Custom", testServerLoggingCustom)
-	t.Run("Default", testServerLoggingDefault)
-}
-
-func testUnmarshalServerBasic(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, err := UnmarshalServer(logger, v)
-	require.NoError(err)
-	require.NotNil(server)
-
-	assert.Equal(":8080", server.Addr)
-	assert.Equal(30*time.Second, server.ReadTimeout)
-}
-
-func testUnmarshalServerUnmarshalError(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "this is not a valid duration"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, err := UnmarshalServer(logger, v)
-	assert.Error(err)
-	assert.Nil(server)
-}
-
-func testUnmarshalServerGoodOptions(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-
-		optionCounter = 0
-		option        = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
-			optionCounter++
-			assert.Equal(logger, actualLogger)
-			assert.True(v == actualViper)
-			assert.NotNil(server)
-			return nil
+		o = ServerOptions{
+			Logger:            logger,
+			Listener:          listener,
+			DisableKeepAlives: true,
+			CertificateFile:   "cert.pem",
+			KeyFile:           "key.pem",
 		}
 	)
 
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, err := UnmarshalServer(logger, v, option, option)
-	require.NoError(err)
-	require.NotNil(server)
-
-	assert.Equal(":8080", server.Addr)
-	assert.Equal(30*time.Second, server.ReadTimeout)
-	assert.Equal(2, optionCounter)
-}
-
-func testUnmarshalServerBadOption(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger        = logging.NewTestLogger(nil, t)
-		v             = viper.New()
-		expectedError = errors.New("expected")
-
-		firstCalled = false
-		first       = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
-			firstCalled = true
-			assert.Equal(logger, actualLogger)
-			assert.True(v == actualViper)
-			assert.NotNil(server)
-			return nil
-		}
-
-		secondCalled = false
-		second       = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
-			secondCalled = true
-			assert.Equal(logger, actualLogger)
-			assert.True(v == actualViper)
-			assert.NotNil(server)
-			return expectedError
-		}
-
-		third = func(actualLogger log.Logger, actualViper *viper.Viper, server *http.Server) error {
-			assert.Fail("The third option should not have been called")
-			return nil
-		}
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, err := UnmarshalServer(logger, v, first, second, third)
-	assert.Nil(server)
-	assert.Equal(expectedError, err)
-	assert.True(firstCalled)
-	assert.True(secondCalled)
-}
-
-func TestUnmarshalServer(t *testing.T) {
-	t.Run("Basic", testUnmarshalServerBasic)
-	t.Run("UnmarshalError", testUnmarshalServerUnmarshalError)
-	t.Run("GoodOptions", testUnmarshalServerGoodOptions)
-	t.Run("BadOption", testUnmarshalServerBadOption)
-}
-
-func testNewServerUnmarshalServerError(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "this is not a valid duration"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, starter, err := NewServer(logger, v)
-	assert.Error(err)
-	assert.Nil(server)
-	assert.Nil(starter)
-}
-
-func testNewServerUnmarshalListenerError(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s",
-			"maxConnections": "this is not a valid integer"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, starter, err := NewServer(logger, v)
-	assert.Error(err)
-	assert.Nil(server)
-	assert.Nil(starter)
-}
-
-func testNewServerBadListenerConfiguration(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s",
-			"maxConnections": 30,
-			"network": "this can't be a valid network"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, starter, err := NewServer(logger, v)
-	assert.Error(err)
-	assert.Nil(server)
-	assert.Nil(starter)
-}
-
-func testNewServerUnmarshalStartOptionsError(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s",
-			"maxConnections": 100,
-			"disableKeepAlives": "this is not a valid bool"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, starter, err := NewServer(logger, v)
-	assert.Error(err)
-	assert.Nil(server)
-	assert.Nil(starter)
-}
-
-func testNewServerSuccess(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		logger = logging.NewTestLogger(nil, t)
-		v      = viper.New()
-	)
-
-	v.SetConfigType("json")
-	err := v.ReadConfig(strings.NewReader(`
-		{
-			"address": ":8080",
-			"readTimeout": "30s",
-			"maxConnections": 100,
-			"certificateFile": "cert",
-			"keyFile": "key"
-		}
-	`))
-
-	require.NoError(err)
-
-	server, starter, err := NewServer(logger, v)
-	require.NotNil(server)
-	defer server.Close() // necessary since the listener was started by NewServer
-
-	assert.NotNil(starter)
-	assert.NoError(err)
+	so := o.StartOptions()
+	assert.Equal(logger, so.Logger)
+	assert.Equal(listener, so.Listener)
+	assert.True(so.DisableKeepAlives)
+	assert.Equal("cert.pem", so.CertificateFile)
+	assert.Equal("key.pem", so.KeyFile)
+	listener.AssertExpectations(t)
 }
 
 func TestNewServer(t *testing.T) {
-	t.Run("UnmarshalServerError", testNewServerUnmarshalServerError)
-	t.Run("UnmarshalListenerError", testNewServerUnmarshalListenerError)
-	t.Run("BadListenerConfiguration", testNewServerBadListenerConfiguration)
-	t.Run("UnmarshalStartOptionsError", testNewServerUnmarshalStartOptionsError)
-	t.Run("Success", testNewServerSuccess)
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		logger   = logging.NewTestLogger(nil, t)
+		listener = new(mockListener)
+
+		o = ServerOptions{
+			Logger:            logger,
+			Address:           "localhost:1234",
+			ReadTimeout:       31 * time.Hour,
+			ReadHeaderTimeout: 12356 * time.Second,
+			WriteTimeout:      391 * time.Minute,
+			IdleTimeout:       102 * time.Millisecond,
+			MaxHeaderBytes:    48287231,
+			Listener:          listener,
+			DisableKeepAlives: true,
+			CertificateFile:   "cert.pem",
+			KeyFile:           "key.pem",
+		}
+	)
+
+	s := NewServer(o)
+	require.NotNil(s)
+
+	assert.Equal("localhost:1234", s.Addr)
+	assert.Equal(31*time.Hour, s.ReadTimeout)
+	assert.Equal(12356*time.Second, s.ReadHeaderTimeout)
+	assert.Equal(391*time.Minute, s.WriteTimeout)
+	assert.Equal(102*time.Millisecond, s.IdleTimeout)
+	assert.Equal(48287231, s.MaxHeaderBytes)
+	assert.NotNil(s.ErrorLog)
+	assert.NotNil(s.ConnState)
 }
