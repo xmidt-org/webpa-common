@@ -51,9 +51,6 @@ func StatusCodeForError(err error) int {
 	switch v := err.(type) {
 	case gokithttp.StatusCoder:
 		code := v.StatusCode()
-		if code >= 500 {
-			return http.StatusServiceUnavailable
-		}
 
 		return code
 
@@ -64,19 +61,22 @@ func StatusCodeForError(err error) int {
 		}
 
 		if spans := v.Spans(); len(spans) > 0 {
+			largestCode := 0
 			for _, s := range spans {
 				if e := s.Error(); e != nil {
 					// recurse over the nested errors for each span
-					// if any of these are in turn span errors, they'll be translated into
-					// service unavailable for any timeouts
 					code := StatusCodeForError(e)
-					if code < 500 {
-						return code
+					if code > largestCode {
+						largestCode = code
 					}
 				}
 			}
-
-			// if all spans indicate a 5XX error, then return service unavailable
+			
+			if largestCode > 0 {
+				return largestCode
+			}
+			
+			// if largestCode is still 0 then StatusServiceUnavailable
 			return http.StatusServiceUnavailable
 		} else {
 			// if the cause is not a context cancellation and there are no spans,

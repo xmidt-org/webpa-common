@@ -27,7 +27,7 @@ func TestServerErrorEncoder(t *testing.T) {
 			{tracing.NewSpanError(nil), http.StatusInternalServerError, http.Header{}},
 			{tracing.NewSpanError(errors.New("random error")), http.StatusInternalServerError, http.Header{}},
 			{tracing.NewSpanError(context.DeadlineExceeded), http.StatusGatewayTimeout, http.Header{}},
-			{tracing.NewSpanError(&xhttp.Error{Code: 512, Header: http.Header{"Foo": []string{"Bar"}}}), http.StatusServiceUnavailable, http.Header{"Foo": []string{"Bar"}}},
+			{tracing.NewSpanError(&xhttp.Error{Code: 512, Header: http.Header{"Foo": []string{"Bar"}}}), 512, http.Header{"Foo": []string{"Bar"}}},
 		}
 	)
 
@@ -91,7 +91,7 @@ func TestStatusCodeForError(t *testing.T) {
 				tracing.NewSpanError(errors.New("random error"),
 					spanner.Start("1")(context.DeadlineExceeded),
 				),
-				http.StatusServiceUnavailable,
+				http.StatusGatewayTimeout,
 			},
 
 			{
@@ -100,14 +100,14 @@ func TestStatusCodeForError(t *testing.T) {
 					spanner.Start("2")(&xhttp.Error{Code: http.StatusGatewayTimeout}),
 					spanner.Start("3")(&xhttp.Error{Code: http.StatusInternalServerError}),
 				),
-				http.StatusServiceUnavailable,
+				http.StatusGatewayTimeout,
 			},
 
 			{
 				tracing.NewSpanError(errors.New("random error"),
 					spanner.Start("1")(&xhttp.Error{Code: http.StatusGatewayTimeout}),
 				),
-				http.StatusServiceUnavailable,
+				http.StatusGatewayTimeout,
 			},
 
 			{
@@ -116,7 +116,7 @@ func TestStatusCodeForError(t *testing.T) {
 					spanner.Start("2")(&xhttp.Error{Code: http.StatusGatewayTimeout}),
 					spanner.Start("3")(&xhttp.Error{Code: http.StatusGatewayTimeout}),
 				),
-				http.StatusServiceUnavailable,
+				http.StatusGatewayTimeout,
 			},
 
 			{
@@ -124,7 +124,7 @@ func TestStatusCodeForError(t *testing.T) {
 					spanner.Start("1")(context.DeadlineExceeded),
 					spanner.Start("2")(&xhttp.Error{Code: http.StatusNotFound}),
 				),
-				http.StatusNotFound,
+				http.StatusGatewayTimeout,
 			},
 
 			{
@@ -133,7 +133,7 @@ func TestStatusCodeForError(t *testing.T) {
 					spanner.Start("2")(&xhttp.Error{Code: http.StatusGatewayTimeout}),
 					spanner.Start("3")(&xhttp.Error{Code: http.StatusInternalServerError}),
 				),
-				http.StatusNotFound,
+				http.StatusGatewayTimeout,
 			},
 
 			{
@@ -142,7 +142,7 @@ func TestStatusCodeForError(t *testing.T) {
 					spanner.Start("2")(&xhttp.Error{Code: http.StatusNotFound}),
 					spanner.Start("3")(&xhttp.Error{Code: http.StatusInternalServerError}),
 				),
-				http.StatusNotFound,
+				http.StatusGatewayTimeout,
 			},
 
 			{
@@ -151,7 +151,7 @@ func TestStatusCodeForError(t *testing.T) {
 					spanner.Start("2")(&xhttp.Error{Code: http.StatusGatewayTimeout}),
 					spanner.Start("3")(&xhttp.Error{Code: http.StatusNotFound}),
 				),
-				http.StatusNotFound,
+				http.StatusGatewayTimeout,
 			},
 		}
 	)
