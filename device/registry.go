@@ -20,10 +20,11 @@ type registryOptions struct {
 // registry is the internal lookup map for devices.  it is bounded by an optional maximum number
 // of connected devices.
 type registry struct {
-	logger log.Logger
-	lock   sync.RWMutex
-	limit  int
-	data   map[ID]*device
+	logger          log.Logger
+	lock            sync.RWMutex
+	limit           int
+	initialCapacity int
+	data            map[ID]*device
 
 	count        xmetrics.Setter
 	limitReached xmetrics.Incrementer
@@ -38,14 +39,15 @@ func newRegistry(o registryOptions) *registry {
 	}
 
 	return &registry{
-		logger:       o.Logger,
-		data:         make(map[ID]*device, o.InitialCapacity),
-		limit:        o.Limit,
-		count:        o.Measures.Device,
-		limitReached: o.Measures.LimitReached,
-		connect:      o.Measures.Connect,
-		disconnect:   o.Measures.Disconnect,
-		duplicates:   o.Measures.Duplicates,
+		logger:          o.Logger,
+		initialCapacity: o.InitialCapacity,
+		data:            make(map[ID]*device, o.InitialCapacity),
+		limit:           o.Limit,
+		count:           o.Measures.Device,
+		limitReached:    o.Measures.LimitReached,
+		connect:         o.Measures.Connect,
+		disconnect:      o.Measures.Disconnect,
+		duplicates:      o.Measures.Duplicates,
 	}
 }
 
@@ -100,13 +102,37 @@ func (r *registry) remove(id ID) (*device, bool) {
 }
 
 func (r *registry) removeIf(f func(d *device) bool) int {
-	defer r.lock.Unlock()
-	r.lock.Lock()
-
-	count := 0
-	for id, d := range r.data {
+	// first, gather up all the devices that match the predicate
+	matched := make([]*device, 0, 100)
+	r.lock.RLock()
+	for _, d := range r.data {
 		if f(d) {
-			delete(r.data, id)
+			matched = append(matched, d)
+		}
+	}
+
+	r.lock.RUnlock()
+
+	if len(matched) == 0 {
+		return 0
+	}
+
+	// now, remove each device one at a time, releasing the write
+	// lock in between
+	count := 0
+	for _, d := range matched {
+		r.lock.Lock()
+
+		// allow for barging
+		_, ok := r.data[d.ID()]
+		if ok {
+			delete(r.data, d.ID())
+			r.count.Set(float64(len(r.data)))
+		}
+
+		r.lock.Unlock()
+
+		if ok {
 			count++
 			d.requestClose()
 		}
@@ -114,27 +140,24 @@ func (r *registry) removeIf(f func(d *device) bool) int {
 
 	if count > 0 {
 		r.disconnect.Add(float64(count))
-		r.count.Set(float64(len(r.data)))
 	}
 
 	return count
 }
 
 func (r *registry) removeAll() int {
-	defer r.lock.Unlock()
 	r.lock.Lock()
+	original := r.data
+	r.data = make(map[ID]*device, r.initialCapacity)
+	r.count.Set(0.0)
+	r.lock.Unlock()
 
-	count := len(r.data)
-	if count > 0 {
-		for _, d := range r.data {
-			d.requestClose()
-		}
-
-		r.data = make(map[ID]*device)
-		r.disconnect.Add(float64(count))
+	count := len(original)
+	for _, d := range original {
+		d.requestClose()
 	}
 
-	r.count.Set(0.0)
+	r.disconnect.Add(float64(count))
 	return count
 }
 

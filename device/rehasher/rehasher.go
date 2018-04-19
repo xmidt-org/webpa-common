@@ -1,6 +1,8 @@
 package rehasher
 
 import (
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
@@ -58,15 +60,21 @@ func WithEnvironment(e service.Environment) Option {
 // If the returned listener encounters any service discovery error, all devices are disconnected.  Otherwise,
 // the IsRegistered strategy is used to determine which devices should still be connected to the Connector.  Devices
 // that hash to instances not registered in this environment are disconnected.
-func New(c device.Connector, options ...Option) monitor.Listener {
-	if c == nil {
+func New(connector device.Connector, registry device.Registry, options ...Option) monitor.Listener {
+	if connector == nil {
 		panic("A device Connector is required")
+	}
+
+	if registry == nil {
+		panic("A device Registry is required")
 	}
 
 	r := &rehasher{
 		logger:          logging.DefaultLogger(),
 		accessorFactory: service.DefaultAccessorFactory,
-		connector:       c,
+		connector:       connector,
+		registry:        registry,
+		now:             time.Now,
 	}
 
 	for _, o := range options {
@@ -87,6 +95,43 @@ type rehasher struct {
 	accessorFactory service.AccessorFactory
 	isRegistered    func(string) bool
 	connector       device.Connector
+	registry        device.Registry
+	now             func() time.Time
+}
+
+func (r *rehasher) rehash(logger log.Logger, accessor service.Accessor) {
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash starting")
+
+	var (
+		disconnectQueue = make([]device.ID, 0, 100)
+		start           = r.now()
+	)
+
+	r.registry.VisitAll(func(d device.Interface) {
+		var (
+			id            = d.ID()
+			instance, err = accessor.Get(id.Bytes())
+		)
+
+		if err != nil {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error during rehash", logging.ErrorKey(), err, "id", id)
+			disconnectQueue = append(disconnectQueue, id)
+		} else if !r.isRegistered(instance) {
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehashed to another instance", "instance", instance, "id", id)
+			disconnectQueue = append(disconnectQueue, id)
+		}
+	})
+
+	disconnectCount := 0
+	for _, id := range disconnectQueue {
+		if r.connector.Disconnect(id) {
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "disconnected device", "id", id)
+			disconnectCount++
+		}
+	}
+
+	elapsedTimeMilliseconds := r.now().Sub(start)
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "elapsedTimeMilliseconds", elapsedTimeMilliseconds)
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
@@ -111,26 +156,8 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
 
 	case len(e.Instances) > 0:
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehashing devices", "instances", e.Instances)
-
-		a := r.accessorFactory(e.Instances)
-		disconnectCount := r.connector.DisconnectIf(func(id device.ID) bool {
-			instance, err := a.Get(id.Bytes())
-			if err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting device: error during rehash", logging.ErrorKey(), err, "id", id)
-				return true
-			}
-
-			if !r.isRegistered(instance) {
-				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "disconnecting device: rehashed to another instance", "instance", instance, "id", id)
-				return true
-			}
-
-			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "instance", instance, "id", id)
-			return false
-		})
-
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount)
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "spawning rehash", "instances", e.Instances)
+		go r.rehash(logger, r.accessorFactory(e.Instances))
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
