@@ -5,6 +5,8 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/provider"
 
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
@@ -54,6 +56,22 @@ func WithEnvironment(e service.Environment) Option {
 	}
 }
 
+// WithMetricsProvider configures a metrics subsystem the resulting rehasher will use to track things.
+// A nil provider passed to this option means to discard all metrics.
+func WithMetricsProvider(p provider.Provider) Option {
+	return func(r *rehasher) {
+		if p == nil {
+			p = provider.NewDiscardProvider()
+		}
+
+		r.keep = p.NewGauge(RehashKeepDevice)
+		r.disconnect = p.NewGauge(RehashDisconnectDevice)
+		r.disconnectAllCounter = p.NewCounter(RehashDisconnectAllCounter)
+		r.timestamp = p.NewGauge(RehashTimestamp)
+		r.duration = p.NewGauge(RehashDurationMilliseconds)
+	}
+}
+
 // New creates a monitor Listener which will rehash and disconnect devices in response to service discovery events.
 // This function panics if the connector is nil or if no IsRegistered strategy is configured.
 //
@@ -65,12 +83,22 @@ func New(connector device.Connector, options ...Option) monitor.Listener {
 		panic("A device Connector is required")
 	}
 
-	r := &rehasher{
-		logger:          logging.DefaultLogger(),
-		accessorFactory: service.DefaultAccessorFactory,
-		connector:       connector,
-		now:             time.Now,
-	}
+	var (
+		defaultProvider = provider.NewDiscardProvider()
+
+		r = &rehasher{
+			logger:          logging.DefaultLogger(),
+			accessorFactory: service.DefaultAccessorFactory,
+			connector:       connector,
+			now:             time.Now,
+
+			keep:                 defaultProvider.NewGauge(RehashKeepDevice),
+			disconnect:           defaultProvider.NewGauge(RehashDisconnectDevice),
+			disconnectAllCounter: defaultProvider.NewCounter(RehashDisconnectAllCounter),
+			timestamp:            defaultProvider.NewGauge(RehashTimestamp),
+			duration:             defaultProvider.NewGauge(RehashDurationMilliseconds),
+		}
+	)
 
 	for _, o := range options {
 		o(r)
@@ -91,13 +119,22 @@ type rehasher struct {
 	isRegistered    func(string) bool
 	connector       device.Connector
 	now             func() time.Time
+
+	keep                 metrics.Gauge
+	disconnect           metrics.Gauge
+	disconnectAllCounter metrics.Counter
+	timestamp            metrics.Gauge
+	duration             metrics.Gauge
 }
 
-func (r *rehasher) rehash(logger log.Logger, accessor service.Accessor) {
+func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Accessor) {
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash starting")
 
+	start := r.now()
+	r.timestamp.With(service.ServiceLabel, key).Set(float64(start.UTC().Unix()))
+
 	var (
-		start = r.now()
+		keepCount = 0
 
 		disconnectCount = r.connector.DisconnectIf(func(candidate device.ID) bool {
 			instance, err := accessor.Get(candidate.Bytes())
@@ -122,14 +159,18 @@ func (r *rehasher) rehash(logger log.Logger, accessor service.Accessor) {
 
 			default:
 				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "id", candidate)
+				keepCount++
 				return false
 			}
 		})
 
-		elapsed = r.now().Sub(start)
+		duration = r.now().Sub(start)
 	)
 
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "elapsed", elapsed)
+	r.keep.With(service.ServiceLabel, key).Set(float64(keepCount))
+	r.disconnect.With(service.ServiceLabel, key).Set(float64(disconnectCount))
+	r.duration.With(service.ServiceLabel, key).Set(float64(duration / time.Millisecond))
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "duration", duration)
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
@@ -145,19 +186,22 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 	case e.Err != nil:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
 		r.connector.DisconnectAll()
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
 
 	case e.Stopped:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
 		r.connector.DisconnectAll()
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
 
 	case e.EventCount == 1:
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
 
 	case len(e.Instances) > 0:
-		r.rehash(logger, r.accessorFactory(e.Instances))
+		r.rehash(e.Key, logger, r.accessorFactory(e.Instances))
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
 		r.connector.DisconnectAll()
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
 	}
 }
