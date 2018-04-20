@@ -1,6 +1,8 @@
 package rehasher
 
 import (
+	"time"
+
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
@@ -58,15 +60,16 @@ func WithEnvironment(e service.Environment) Option {
 // If the returned listener encounters any service discovery error, all devices are disconnected.  Otherwise,
 // the IsRegistered strategy is used to determine which devices should still be connected to the Connector.  Devices
 // that hash to instances not registered in this environment are disconnected.
-func New(c device.Connector, options ...Option) monitor.Listener {
-	if c == nil {
+func New(connector device.Connector, options ...Option) monitor.Listener {
+	if connector == nil {
 		panic("A device Connector is required")
 	}
 
 	r := &rehasher{
 		logger:          logging.DefaultLogger(),
 		accessorFactory: service.DefaultAccessorFactory,
-		connector:       c,
+		connector:       connector,
+		now:             time.Now,
 	}
 
 	for _, o := range options {
@@ -87,6 +90,46 @@ type rehasher struct {
 	accessorFactory service.AccessorFactory
 	isRegistered    func(string) bool
 	connector       device.Connector
+	now             func() time.Time
+}
+
+func (r *rehasher) rehash(logger log.Logger, accessor service.Accessor) {
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash starting")
+
+	var (
+		start = r.now()
+
+		disconnectCount = r.connector.DisconnectIf(func(candidate device.ID) bool {
+			instance, err := accessor.Get(candidate.Bytes())
+			switch {
+			case err != nil:
+				logger.Log(level.Key(), level.ErrorValue(),
+					logging.MessageKey(), "disconnecting device: error during rehash",
+					logging.ErrorKey(), err,
+					"id", candidate,
+				)
+
+				return true
+
+			case !r.isRegistered(instance):
+				logger.Log(level.Key(), level.InfoValue(),
+					logging.MessageKey(), "disconnecting device: rehashed to another instance",
+					"instance", instance,
+					"id", candidate,
+				)
+
+				return true
+
+			default:
+				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "id", candidate)
+				return false
+			}
+		})
+
+		elapsed = r.now().Sub(start)
+	)
+
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "elapsed", elapsed)
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
@@ -111,26 +154,7 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
 
 	case len(e.Instances) > 0:
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehashing devices", "instances", e.Instances)
-
-		a := r.accessorFactory(e.Instances)
-		disconnectCount := r.connector.DisconnectIf(func(id device.ID) bool {
-			instance, err := a.Get(id.Bytes())
-			if err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting device: error during rehash", logging.ErrorKey(), err, "id", id)
-				return true
-			}
-
-			if !r.isRegistered(instance) {
-				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "disconnecting device: rehashed to another instance", "instance", instance, "id", id)
-				return true
-			}
-
-			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "instance", instance, "id", id)
-			return false
-		})
-
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount)
+		r.rehash(logger, r.accessorFactory(e.Instances))
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")

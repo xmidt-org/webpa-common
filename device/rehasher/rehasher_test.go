@@ -98,6 +98,7 @@ func testNewWithEnvironment(t *testing.T) {
 		require = require.New(t)
 
 		c  = new(device.MockConnector)
+		r  = new(device.MockRegistry)
 		e  = new(service.MockEnvironment)
 		a  = new(service.MockAccessor)
 		af = service.AccessorFactory(func([]string) service.Accessor {
@@ -150,6 +151,7 @@ func testNewWithEnvironment(t *testing.T) {
 
 	a.AssertExpectations(t)
 	c.AssertExpectations(t)
+	r.AssertExpectations(t)
 	e.AssertExpectations(t)
 	i.AssertExpectations(t)
 }

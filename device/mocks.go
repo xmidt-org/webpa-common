@@ -29,3 +29,19 @@ func (m *MockConnector) DisconnectIf(predicate func(ID) bool) int {
 func (m *MockConnector) DisconnectAll() int {
 	return m.Called().Int(0)
 }
+
+type MockRegistry struct {
+	mock.Mock
+}
+
+var _ Registry = (*MockRegistry)(nil)
+
+func (m *MockRegistry) Get(id ID) (Interface, bool) {
+	arguments := m.Called(id)
+	first, _ := arguments.Get(0).(Interface)
+	return first, arguments.Bool(1)
+}
+
+func (m *MockRegistry) VisitAll(f func(Interface)) int {
+	return m.Called(f).Int(0)
+}
