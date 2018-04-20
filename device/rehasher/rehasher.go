@@ -154,8 +154,7 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
 
 	case len(e.Instances) > 0:
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "spawning rehash", "instances", e.Instances)
-		go r.rehash(logger, r.accessorFactory(e.Instances))
+		r.rehash(logger, r.accessorFactory(e.Instances))
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
