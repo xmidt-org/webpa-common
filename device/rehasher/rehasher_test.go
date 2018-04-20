@@ -15,40 +15,20 @@ import (
 )
 
 func testNewNilConnector(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		registry = new(device.MockRegistry)
-	)
-
+	assert := assert.New(t)
 	assert.Panics(func() {
-		New(nil, registry, WithAccessorFactory(nil), WithIsRegistered(func(string) bool { return true }))
+		New(nil, WithAccessorFactory(nil), WithIsRegistered(func(string) bool { return true }))
 	})
-
-	registry.AssertExpectations(t)
-}
-
-func testNewNilRegistry(t *testing.T) {
-	var (
-		assert    = assert.New(t)
-		connector = new(device.MockConnector)
-	)
-
-	assert.Panics(func() {
-		New(connector, nil, WithAccessorFactory(nil), WithIsRegistered(func(string) bool { return true }))
-	})
-
-	connector.AssertExpectations(t)
 }
 
 func testNewMissingIsRegistered(t *testing.T) {
 	var (
 		assert = assert.New(t)
 		c      = new(device.MockConnector)
-		r      = new(device.MockRegistry)
 	)
 
 	assert.Panics(func() {
-		New(c, r, WithAccessorFactory(nil))
+		New(c, WithAccessorFactory(nil))
 	})
 
 	c.AssertExpectations(t)
@@ -60,7 +40,6 @@ func testNewWithIsRegistered(t *testing.T) {
 		require = require.New(t)
 
 		c = new(device.MockConnector)
-		r = new(device.MockRegistry)
 		e = new(service.MockEnvironment)
 		a = new(service.MockAccessor)
 
@@ -89,7 +68,7 @@ func testNewWithIsRegistered(t *testing.T) {
 			predicateCapture <- arguments.Get(0).(func(device.ID) bool)
 		})
 
-	l := New(c, r, WithLogger(nil), WithAccessorFactory(func([]string) service.Accessor { return a }), WithIsRegistered(e.IsRegistered))
+	l := New(c, WithLogger(nil), WithAccessorFactory(func([]string) service.Accessor { return a }), WithIsRegistered(e.IsRegistered))
 	require.NotNil(l)
 
 	l.MonitorEvent(monitor.Event{Key: "testNewWithIsRegistered", Instancer: contextualInstancer, EventCount: 1})
@@ -109,7 +88,6 @@ func testNewWithIsRegistered(t *testing.T) {
 
 	a.AssertExpectations(t)
 	c.AssertExpectations(t)
-	r.AssertExpectations(t)
 	e.AssertExpectations(t)
 	i.AssertExpectations(t)
 }
@@ -153,7 +131,7 @@ func testNewWithEnvironment(t *testing.T) {
 			predicateCapture <- arguments.Get(0).(func(device.ID) bool)
 		})
 
-	l := New(c, r, WithLogger(logging.NewTestLogger(nil, t)), WithEnvironment(e))
+	l := New(c, WithLogger(logging.NewTestLogger(nil, t)), WithEnvironment(e))
 	require.NotNil(l)
 
 	l.MonitorEvent(monitor.Event{Key: "testNewWithEnvironment", Instancer: contextualInstancer, EventCount: 1})
@@ -180,7 +158,6 @@ func testNewWithEnvironment(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	t.Run("NilConnector", testNewNilConnector)
-	t.Run("NilRegistry", testNewNilRegistry)
 	t.Run("MissingIsRegistered", testNewMissingIsRegistered)
 	t.Run("WithIsRegistered", testNewWithIsRegistered)
 	t.Run("WithEnvironment", testNewWithEnvironment)
