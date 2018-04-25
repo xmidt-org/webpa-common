@@ -46,7 +46,7 @@ func Metrics() []xmetrics.Metric {
 			Name:    RequestDurationSeconds,
 			Type:    "histogram",
 			Help:    "A histogram of latencies for requests.",
-			Buckets: []float64{.25, .5, 1, 2.5, 5, 10},
+			Buckets: []float64{0.0625, 0.125, .25, .5, 1, 5, 10, 20, 40, 80, 160},
 		},
 		xmetrics.Metric{
 			Name:    RequestSizeBytes,
@@ -67,9 +67,9 @@ func Metrics() []xmetrics.Metric {
 			Buckets: []float64{0, 1, 2, 3},
 		},
 		xmetrics.Metric{
-			Name:       MaxProcs,
-			Type:       "gauge",
-			Help:       "The number of current maximum processors this processes is allowed to use.",
+			Name: MaxProcs,
+			Type: "gauge",
+			Help: "The number of current maximum processors this processes is allowed to use.",
 		},
 	}
 }
