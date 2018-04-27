@@ -168,3 +168,44 @@ func TestGetCurrentSystemsHooks(t *testing.T) {
 		t.Errorf("expected hooks returned to be nil.  got %v", r.Hooks)
 	}
 }
+
+func TestMakeRequestAuthorizationHeader(t *testing.T) {
+	sc := NewStartFactory(nil)
+	sc.client = testClient(t, "Making Requests")
+
+	t.Run("MakeRequestWithoutBearerToken", func(t *testing.T) {
+		sc.Sat.Token = ""
+		sc.AuthHeader = "TheAuthHeader"
+		resp, err := sc.makeRequest()
+
+		if err != nil {
+			t.Errorf("error return while performing request: %v", err)
+		}
+		if resp == nil {
+			t.Error("response returned was nil")
+		}
+
+		var authorizationHeader = resp.Request.Header.Get("Authorization")
+		if authorizationHeader != "Basic TheAuthHeader" {
+			t.Error("authorization header was not \"Basic TheAuthHeader\"")
+		}
+	})
+
+	t.Run("MakeRequestWithBearerToken", func(t *testing.T) {
+		sc.Sat.Token = "TheBearerToken"
+		sc.AuthHeader = "TheAuthHeader"
+		resp, err := sc.makeRequest()
+
+		if err != nil {
+			t.Errorf("error return while performing request: %v", err)
+		}
+		if resp == nil {
+			t.Error("response returned was nil")
+		}
+
+		var authorizationHeader = resp.Request.Header.Get("Authorization")
+		if authorizationHeader != "Bearer TheBearerToken" {
+			t.Error("authorization header was not \"Bearer TheBearerToken\"")
+		}
+	})
+}
