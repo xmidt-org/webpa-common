@@ -7,7 +7,7 @@
 ## Environment Setup Instructions
 
 **Assumptions:**
-  - Go with version >= 1.8.0 https://golang.org/dl/
+  - Go with version >= 1.10 https://golang.org/dl/
   - Latest version of Glide https://github.com/Masterminds/glide
 
 
