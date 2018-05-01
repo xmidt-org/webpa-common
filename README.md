@@ -28,7 +28,7 @@ mkdir -p $GOPATH/github.com/Comcast
 **4)** Get Dependencies
  ```
  cd webpa-common
- glide install
+ glide install --strip-vendor
  ```
  
 **5)** Try running the tests!
