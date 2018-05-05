@@ -55,7 +55,7 @@ func OriginalHeaders(headers ...string) FanoutRequestFunc {
 }
 
 // FanoutResponseFunc is a strategy applied to the termination fanout response.
-type FanoutResponseFunc func(ctx context.Context, response http.ResponseWriter, fanout *http.Response, err error) context.Context
+type FanoutResponseFunc func(ctx context.Context, response http.ResponseWriter, result Result) context.Context
 
 // FanoutHeaders copies zero or more headers from the fanout response into the top-level HTTP response.
 func FanoutHeaders(headers ...string) FanoutResponseFunc {
@@ -64,11 +64,11 @@ func FanoutHeaders(headers ...string) FanoutResponseFunc {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
 	}
 
-	return func(ctx context.Context, response http.ResponseWriter, fanout *http.Response, _ error) context.Context {
-		if fanout != nil {
+	return func(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
+		if result.Response != nil {
 			header := response.Header()
 			for _, key := range canonicalizedHeaders {
-				if values := fanout.Header[key]; len(values) > 0 {
+				if values := result.Response.Header[key]; len(values) > 0 {
 					header[key] = append(header[key], values...)
 				}
 			}

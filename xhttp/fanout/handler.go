@@ -79,13 +79,10 @@ func WithClientBefore(before ...gokithttp.RequestFunc) Option {
 	}
 }
 
-// fanoutResult is the result from a single fanout HTTP transaction
-type fanoutResult struct {
-	statusCode int
-	response   *http.Response
-	body       []byte
-	err        error
-	span       tracing.Span
+func WithFanoutAfter(after ...FanoutResponseFunc) Option {
+	return func(h *Handler) {
+		h.after = append(h.after, after...)
+	}
 }
 
 // Handler is the http.Handler that fans out HTTP requests using the configured Endpoints strategy.
@@ -100,6 +97,9 @@ type Handler struct {
 
 // New creates a fanout Handler.  The Endpoints strategy is required, and this constructor function will
 // panic if it is nil.
+//
+// By default, all fanout requests have the same HTTP method as the original request, but no body is set..  Clients must use the OriginalBody
+// strategy to set the original request's body on each fanout request.
 func New(e Endpoints, options ...Option) *Handler {
 	if e == nil {
 		panic("An Endpoints strategy is required")
@@ -160,52 +160,50 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 
 // execute performs a single fanout HTTP transaction and sends the result on a channel.  This method is invoked
 // as a goroutine.  It takes care of draining the fanout's response prior to returning.
-func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results chan<- fanoutResult, request *http.Request) {
+func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results chan<- Result, request *http.Request) {
 	var (
 		finisher = spanner.Start(request.URL.String())
-		result   fanoutResult
+		result   = Result{
+			Request: request,
+		}
 	)
 
-	result.response, result.err = h.transactor(request)
+	result.Response, result.Err = h.transactor(request)
 	switch {
-	case result.response != nil:
-		result.statusCode = result.response.StatusCode
+	case result.Response != nil:
+		result.StatusCode = result.Response.StatusCode
 		var err error
-		if result.body, err = ioutil.ReadAll(result.response.Body); err != nil {
+		if result.Body, err = ioutil.ReadAll(result.Response.Body); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error reading fanout response body", logging.ErrorKey(), err)
 		}
 
-		if err = result.response.Body.Close(); err != nil {
+		if err = result.Response.Body.Close(); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error closing fanout response body", logging.ErrorKey(), err)
 		}
 
-	case result.err != nil:
-		if result.err == context.Canceled || result.err == context.DeadlineExceeded {
-			result.statusCode = http.StatusGatewayTimeout
+	case result.Err != nil:
+		if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
+			result.StatusCode = http.StatusGatewayTimeout
 		} else {
-			result.statusCode = http.StatusServiceUnavailable
+			result.StatusCode = http.StatusServiceUnavailable
 		}
 	}
 
-	result.span = finisher(result.err)
+	result.Span = finisher(result.Err)
 	results <- result
 }
 
 // finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
 // is only invoked when a particular fanout response terminates the fanout, i.e. is considered successful.
-func (h *Handler) finish(logger log.Logger, ctx context.Context, response http.ResponseWriter, result fanoutResult) {
-	if result.response != nil {
-		// if there was a response, use the original request's context, as it may have extra information
-		ctx = result.response.Request.Context()
-	}
-
+func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result Result) {
+	ctx := result.Request.Context()
 	for _, rf := range h.after {
-		ctx = rf(ctx, response, result.response, result.err)
+		ctx = rf(ctx, response, result)
 	}
 
-	response.Header().Set("Content-Type", result.response.Header.Get("Content-Type"))
-	response.WriteHeader(result.statusCode)
-	if _, err := response.Write(result.body); err != nil {
+	response.Header().Set("Content-Type", result.Response.Header.Get("Content-Type"))
+	response.WriteHeader(result.StatusCode)
+	if _, err := response.Write(result.Body); err != nil {
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error writing response body", logging.ErrorKey(), err)
 	}
 }
@@ -224,7 +222,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 	var (
 		spanner = tracing.NewSpanner()
-		results = make(chan fanoutResult, len(requests))
+		results = make(chan Result, len(requests))
 	)
 
 	for _, r := range requests {
@@ -239,16 +237,16 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 			return
 
 		case r := <-results:
-			tracinghttp.HeadersForSpans("", response.Header(), r.span)
+			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
 
-			if h.shouldTerminate(r.response, r.err) {
+			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer
-				h.finish(logger, fanoutCtx, response, r)
+				h.finish(logger, response, r)
 				return
 			}
 
-			if statusCode < r.statusCode {
-				statusCode = r.statusCode
+			if statusCode < r.StatusCode {
+				statusCode = r.StatusCode
 			}
 		}
 	}
