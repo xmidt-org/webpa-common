@@ -18,8 +18,11 @@ var (
 	errNoFanoutEndpoints = errors.New("No fanout endpoints")
 )
 
+// Options is a configuration option for a fanout Handler
 type Option func(*Handler)
 
+// WithShouldTerminate configures a custom termination predicate for the fanout.  If terminate
+// is nil, DefaultShouldTerminate is used.
 func WithShouldTerminate(terminate ShouldTerminateFunc) Option {
 	return func(h *Handler) {
 		if terminate != nil {
@@ -30,6 +33,8 @@ func WithShouldTerminate(terminate ShouldTerminateFunc) Option {
 	}
 }
 
+// WithErrorEncoder configures a custom error encoder for errors that occur during fanout setup.
+// If encoder is nil, go-kit's DefaultErrorEncoder is used.
 func WithErrorEncoder(encoder gokithttp.ErrorEncoder) Option {
 	return func(h *Handler) {
 		if encoder != nil {
@@ -40,6 +45,8 @@ func WithErrorEncoder(encoder gokithttp.ErrorEncoder) Option {
 	}
 }
 
+// WithTransactor configures a custom HTTP client transaction function.  If transactor is nil,
+// http.DefaultClient.Do is used as the transactor.
 func WithTransactor(transactor func(*http.Request) (*http.Response, error)) Option {
 	return func(h *Handler) {
 		if transactor != nil {
@@ -50,27 +57,49 @@ func WithTransactor(transactor func(*http.Request) (*http.Response, error)) Opti
 	}
 }
 
+// WithFanoutBefore adds zero or more request functions that will tailor each fanout request.
 func WithFanoutBefore(before ...FanoutRequestFunc) Option {
 	return func(h *Handler) {
 		h.before = append(h.before, before...)
 	}
 }
 
-type fanoutResult struct {
-	response *http.Response
-	body     []byte
-	err      error
-	span     tracing.Span
+// WithClientBefore adds zero or more go-kit RequestFunc functions that will be applied to
+// each fanout request.
+func WithClientBefore(before ...gokithttp.RequestFunc) Option {
+	return func(h *Handler) {
+		for _, rf := range before {
+			h.before = append(
+				h.before,
+				func(ctx context.Context, _, fanout *http.Request, _ []byte) context.Context {
+					return rf(ctx, fanout)
+				},
+			)
+		}
+	}
 }
 
+// fanoutResult is the result from a single fanout HTTP transaction
+type fanoutResult struct {
+	statusCode int
+	response   *http.Response
+	body       []byte
+	err        error
+	span       tracing.Span
+}
+
+// Handler is the http.Handler that fans out HTTP requests using the configured Endpoints strategy.
 type Handler struct {
 	endpoints       Endpoints
 	errorEncoder    gokithttp.ErrorEncoder
 	before          []FanoutRequestFunc
+	after           []FanoutResponseFunc
 	shouldTerminate ShouldTerminateFunc
 	transactor      func(*http.Request) (*http.Response, error)
 }
 
+// New creates a fanout Handler.  The Endpoints strategy is required, and this constructor function will
+// panic if it is nil.
 func New(e Endpoints, options ...Option) *Handler {
 	if e == nil {
 		panic("An Endpoints strategy is required")
@@ -90,6 +119,9 @@ func New(e Endpoints, options ...Option) *Handler {
 	return h
 }
 
+// newFanoutRequests uses the Endpoints strategy and builds (1) HTTP request for each endpoint.  The configured
+// FanoutRequestFunc options are used to build each request.  This method returns an error if no endpoints were returned
+// by the strategy or if an error reading the original request body occurred.
 func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Request) ([]*http.Request, error) {
 	body, err := ioutil.ReadAll(original.Body)
 	if err != nil {
@@ -126,6 +158,8 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 	return requests, nil
 }
 
+// execute performs a single fanout HTTP transaction and sends the result on a channel.  This method is invoked
+// as a goroutine.  It takes care of draining the fanout's response prior to returning.
 func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results chan<- fanoutResult, request *http.Request) {
 	var (
 		finisher = spanner.Start(request.URL.String())
@@ -133,7 +167,9 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 	)
 
 	result.response, result.err = h.transactor(request)
-	if result.response != nil && result.response.Body != nil {
+	switch {
+	case result.response != nil:
+		result.statusCode = result.response.StatusCode
 		var err error
 		if result.body, err = ioutil.ReadAll(result.response.Body); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error reading fanout response body", logging.ErrorKey(), err)
@@ -142,12 +178,36 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		if err = result.response.Body.Close(); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error closing fanout response body", logging.ErrorKey(), err)
 		}
-	} else if result.err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error during fanout transaction", logging.ErrorKey(), result.err)
+
+	case result.err != nil:
+		if result.err == context.Canceled || result.err == context.DeadlineExceeded {
+			result.statusCode = http.StatusGatewayTimeout
+		} else {
+			result.statusCode = http.StatusServiceUnavailable
+		}
 	}
 
 	result.span = finisher(result.err)
 	results <- result
+}
+
+// finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
+// is only invoked when a particular fanout response terminates the fanout, i.e. is considered successful.
+func (h *Handler) finish(logger log.Logger, ctx context.Context, response http.ResponseWriter, result fanoutResult) {
+	if result.response != nil {
+		// if there was a response, use the original request's context, as it may have extra information
+		ctx = result.response.Request.Context()
+	}
+
+	for _, rf := range h.after {
+		ctx = rf(ctx, response, result.response, result.err)
+	}
+
+	response.Header().Set("Content-Type", result.response.Header.Get("Content-Type"))
+	response.WriteHeader(result.statusCode)
+	if _, err := response.Write(result.body); err != nil {
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error writing response body", logging.ErrorKey(), err)
+	}
 }
 
 func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request) {
@@ -171,7 +231,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 		go h.execute(logger, spanner, results, r)
 	}
 
-	largestCode := 0
+	statusCode := 0
 	for i := 0; i < len(requests); i++ {
 		select {
 		case <-fanoutCtx.Done():
@@ -182,28 +242,16 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 			tracinghttp.HeadersForSpans("", response.Header(), r.span)
 
 			if h.shouldTerminate(r.response, r.err) {
-				response.Header().Set("Content-Type", r.response.Header.Get("Content-Type"))
-				response.WriteHeader(r.response.StatusCode)
-				if _, err := response.Write(r.body); err != nil {
-					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error writing response body", logging.ErrorKey(), err)
-				}
-
+				// this was a "success", so no reason to wait any longer
+				h.finish(logger, fanoutCtx, response, r)
 				return
-			} else if r.err == context.Canceled || r.err == context.DeadlineExceeded || fanoutCtx.Err() != nil {
-				// consider a context cancellation just like a gateway timeout
-				if http.StatusGatewayTimeout > largestCode {
-					largestCode = http.StatusGatewayTimeout
-				}
-			} else if r.response != nil && r.response.StatusCode > largestCode {
-				largestCode = r.response.StatusCode
+			}
+
+			if statusCode < r.statusCode {
+				statusCode = r.statusCode
 			}
 		}
 	}
 
-	if largestCode > 0 {
-		response.WriteHeader(largestCode)
-	} else {
-		// nothing completed with a status code
-		response.WriteHeader(http.StatusServiceUnavailable)
-	}
+	response.WriteHeader(statusCode)
 }
