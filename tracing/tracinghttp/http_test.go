@@ -54,7 +54,7 @@ func TestHeadersForSpans(t *testing.T) {
 		t.Logf("%#v", record)
 
 		actualHeader := make(http.Header)
-		HeadersForSpans(record.spans, record.timeLayout, actualHeader)
+		HeadersForSpans(record.timeLayout, actualHeader, record.spans...)
 		assert.Equal(record.expectedHeader, actualHeader)
 	}
 }
