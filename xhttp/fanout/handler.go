@@ -216,6 +216,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	)
 
 	if err != nil {
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to create fanout", logging.ErrorKey(), err)
 		h.errorEncoder(fanoutCtx, err, response)
 		return
 	}
