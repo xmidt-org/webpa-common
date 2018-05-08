@@ -16,6 +16,7 @@ import (
 
 var (
 	errNoFanoutEndpoints = errors.New("No fanout endpoints")
+	errBadTransactor     = errors.New("Transactor did not conform to stdlib API")
 )
 
 // Options is a configuration option for a fanout Handler
@@ -187,6 +188,11 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		} else {
 			result.StatusCode = http.StatusServiceUnavailable
 		}
+
+	default:
+		// this "should" never happen, but just in case set a known status code
+		result.StatusCode = http.StatusInternalServerError
+		result.Err = errBadTransactor
 	}
 
 	result.Span = finisher(result.Err)
@@ -234,11 +240,13 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	for i := 0; i < len(requests); i++ {
 		select {
 		case <-fanoutCtx.Done():
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout operation canceled or timed out", logging.ErrorKey(), fanoutCtx.Err())
 			response.WriteHeader(http.StatusGatewayTimeout)
 			return
 
 		case r := <-results:
 			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
+			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "fanout operation complete", "statusCode", r.StatusCode, "url", r.Request.URL)
 
 			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer

@@ -1,14 +1,17 @@
 package fanout
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/Comcast/webpa-common/xhttp/xhttptest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,28 +20,23 @@ func testHandlerBodyError(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		expectedError = errors.New("body read error")
-		body          = new(mockBody)
-		errorEncoder  = new(mockErrorEncoder)
+		expectedError = &xhttp.Error{Code: 599, Text: "body read error"}
+		body          = new(xhttptest.MockBody)
+		logger        = logging.NewTestLogger(nil, t)
+		ctx           = logging.WithLogger(context.Background(), logger)
+		original      = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
+		response      = httptest.NewRecorder()
 
-		original = httptest.NewRequest("POST", "/something", body)
-		response = httptest.NewRecorder()
-		handler  = New(FixedEndpoints{}, WithErrorEncoder(errorEncoder.Encode))
+		handler = New(FixedEndpoints{})
 	)
 
 	require.NotNil(handler)
-	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Once().Return(0, expectedError)
-	errorEncoder.On("Encode", original.Context(), expectedError, response).Once().
-		Run(func(arguments mock.Arguments) {
-			response := arguments.Get(2).(http.ResponseWriter)
-			response.WriteHeader(599)
-		})
+	body.OnReadError(expectedError).Once()
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
 	body.AssertExpectations(t)
-	errorEncoder.AssertExpectations(t)
 }
 
 func testHandlerNoEndpoints(t *testing.T) {
@@ -46,27 +44,24 @@ func testHandlerNoEndpoints(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		body         = new(mockBody)
-		errorEncoder = new(mockErrorEncoder)
-
-		original = httptest.NewRequest("POST", "/something", body)
+		body     = new(xhttptest.MockBody)
+		logger   = logging.NewTestLogger(nil, t)
+		ctx      = logging.WithLogger(context.Background(), logger)
+		original = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response = httptest.NewRecorder()
-		handler  = New(FixedEndpoints{}, WithErrorEncoder(errorEncoder.Encode))
+
+		handler = New(FixedEndpoints{}, WithErrorEncoder(func(_ context.Context, err error, response http.ResponseWriter) {
+			response.WriteHeader(599)
+		}))
 	)
 
 	require.NotNil(handler)
-	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Once().Return(0, io.EOF)
-	errorEncoder.On("Encode", original.Context(), errNoFanoutEndpoints, response).Once().
-		Run(func(arguments mock.Arguments) {
-			response := arguments.Get(2).(http.ResponseWriter)
-			response.WriteHeader(599)
-		})
+	body.OnReadError(io.EOF).Once()
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
 	body.AssertExpectations(t)
-	errorEncoder.AssertExpectations(t)
 }
 
 func testHandlerEndpointsError(t *testing.T) {
@@ -75,35 +70,86 @@ func testHandlerEndpointsError(t *testing.T) {
 		require = require.New(t)
 
 		expectedError = errors.New("endpoints error")
-		body          = new(mockBody)
-		errorEncoder  = new(mockErrorEncoder)
+		body          = new(xhttptest.MockBody)
 		endpoints     = new(mockEndpoints)
 
-		original = httptest.NewRequest("POST", "/something", body)
+		logger   = logging.NewTestLogger(nil, t)
+		ctx      = logging.WithLogger(context.Background(), logger)
+		original = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response = httptest.NewRecorder()
-		handler  = New(endpoints, WithErrorEncoder(errorEncoder.Encode))
+
+		handler = New(endpoints, WithErrorEncoder(func(_ context.Context, err error, response http.ResponseWriter) {
+			response.WriteHeader(599)
+		}))
 	)
 
 	require.NotNil(handler)
-	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Once().Return(0, io.EOF)
-	errorEncoder.On("Encode", original.Context(), expectedError, response).Once().
-		Run(func(arguments mock.Arguments) {
-			response := arguments.Get(2).(http.ResponseWriter)
-			response.WriteHeader(599)
-		})
+	body.OnReadError(io.EOF).Once()
 	endpoints.On("NewEndpoints", original).Once().Return(nil, expectedError)
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
 	body.AssertExpectations(t)
-	errorEncoder.AssertExpectations(t)
+}
+
+func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		logger   = logging.NewTestLogger(nil, t)
+		ctx      = logging.WithLogger(context.Background(), logger)
+		original = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
+		response = httptest.NewRecorder()
+
+		endpoints  = generateEndpoints(len(expectedResponses))
+		transactor = new(xhttptest.MockTransactor)
+		handler    = New(endpoints, WithTransactor(transactor.Do))
+	)
+
+	require.NotNil(handler)
+	for i, er := range expectedResponses {
+		transactor.OnDo(
+			xhttptest.MatchMethod("GET"),
+			xhttptest.MatchURLString(endpoints[i].String()+"/api/v2/something"),
+		).Respond(er).Once()
+	}
+
+	handler.ServeHTTP(response, original)
+	assert.Equal(expectedStatusCode, response.Code)
+
+	transactor.AssertExpectations(t)
 }
 
 func TestHandler(t *testing.T) {
 	t.Run("BodyError", testHandlerBodyError)
 	t.Run("NoEndpoints", testHandlerNoEndpoints)
 	t.Run("EndpointsError", testHandlerEndpointsError)
+
+	testData := []struct {
+		expectedResponses  []xhttptest.ExpectedResponse
+		expectedStatusCode int
+	}{
+		{
+			[]xhttptest.ExpectedResponse{
+				{Err: errors.New("expected")},
+			},
+			http.StatusServiceUnavailable,
+		},
+		{
+			[]xhttptest.ExpectedResponse{
+				{Response: xhttptest.NewResponse(504, nil)},
+			},
+			504,
+		},
+	}
+
+	t.Run("GET", func(t *testing.T) {
+		for _, record := range testData {
+			testHandlerGet(t, record.expectedResponses, record.expectedStatusCode)
+		}
+	})
 }
 
 func testNewNilEndpoints(t *testing.T) {

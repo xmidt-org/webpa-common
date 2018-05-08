@@ -17,6 +17,16 @@ func (ef EndpointsFunc) NewEndpoints(original *http.Request) ([]*url.URL, error)
 	return ef(original)
 }
 
+// MustNewEndpoints invokes NewEndpoints on the given Endpoints instance, and panics if there's an error.
+func MustNewEndpoints(e Endpoints, original *http.Request) []*url.URL {
+	endpointURLs, err := e.NewEndpoints(original)
+	if err != nil {
+		panic(err)
+	}
+
+	return endpointURLs
+}
+
 // FixedEndpoints represents a set of URLs that act as base URLs for a fanout.
 type FixedEndpoints []*url.URL
 
@@ -35,6 +45,16 @@ func NewFixedEndpoints(urls ...string) (FixedEndpoints, error) {
 	}
 
 	return fe, nil
+}
+
+// MustNewFixedEndpoints is like NewFixedEndpoints, except that it panics instead of returning an error.
+func MustNewFixedEndpoints(urls ...string) FixedEndpoints {
+	fe, err := NewFixedEndpoints(urls...)
+	if err != nil {
+		panic(err)
+	}
+
+	return fe
 }
 
 func (fe FixedEndpoints) NewEndpoints(original *http.Request) ([]*url.URL, error) {
