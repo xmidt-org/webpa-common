@@ -15,8 +15,10 @@ import (
 // ExpectedResponse is a tuple of the expected return values from transactor.Do.  This struct provides
 // a simple unit to build table-driven tests from.
 type ExpectedResponse struct {
-	Response *http.Response
-	Err      error
+	StatusCode int
+	Body       []byte
+	Header     http.Header
+	Err        error
 }
 
 // TransactCall is a stretchr mock Call with some extra behavior to make mocking out HTTP client behavior easier
@@ -24,24 +26,23 @@ type TransactCall struct {
 	*mock.Call
 }
 
-func (dc *TransactCall) Respond(er ExpectedResponse) *TransactCall {
-	dc.Return(er.Response, er.Err)
-	return dc
+// RespondWith creates an (*http.Response, error) tuple from an ExpectedResponse.  If the Err field is nil,
+// an *http.Response is created from the other fields.  If the Err field is not nil, a nil *http.Response is used.
+func (dc *TransactCall) RespondWith(er ExpectedResponse) *TransactCall {
+	var response *http.Response
+	if er.Err == nil {
+		response = NewResponse(er.StatusCode, er.Body)
+		for key, values := range er.Header {
+			response.Header[key] = values
+		}
+	}
+
+	return dc.Respond(response, er.Err)
 }
 
-// RespondWithError is a convenience for setting a return of (nil, err).
-// Note that if err is nil, this may result in strange behavior as returning (nil, nil)
-// violates the general constract of http.Client.Do and http.RoundTripper.RoundTrip.
-func (dc *TransactCall) RespondWithError(err error) *TransactCall {
-	dc.Return((*http.Response)(nil), err)
-	return dc
-}
-
-// RespondWith is a convenience for setting a return of (response, nil).  Note that if response is
-// nil, this may result in strange behavior as returning (nil, nil) violates the general
-// constract of http.Client.Do and http.RoundTripper.RoundTrip.
-func (dc *TransactCall) RespondWith(response *http.Response) *TransactCall {
-	dc.Return(response, nil)
+// Respond is a convenience for setting a Return(response, err)
+func (dc *TransactCall) Respond(response *http.Response, err error) *TransactCall {
+	dc.Return(response, err)
 	return dc
 }
 
@@ -162,6 +163,10 @@ func MatchBody(expected []byte) func(*http.Request) bool {
 
 		return true
 	}
+}
+
+func MatchBodyString(expected string) func(*http.Request) bool {
+	return MatchBody([]byte(expected))
 }
 
 // MatchHeader returns a request matcher that matches against a request header

@@ -80,9 +80,25 @@ func WithClientBefore(before ...gokithttp.RequestFunc) Option {
 	}
 }
 
+// WithFanoutAfter adds zero or more response functions that are invoked to tailor the response
+// when a successful (i.e. terminating) fanout response is received.
 func WithFanoutAfter(after ...FanoutResponseFunc) Option {
 	return func(h *Handler) {
 		h.after = append(h.after, after...)
+	}
+}
+
+// WithClientAfter allows zero or more go-kit ClientResponseFuncs to be used as fanout after functions.
+func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
+	return func(h *Handler) {
+		for _, rf := range after {
+			h.after = append(
+				h.after,
+				func(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
+					return rf(ctx, result.Response)
+				},
+			)
+		}
 	}
 }
 
@@ -204,13 +220,17 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result Result) {
 	ctx := result.Request.Context()
 	for _, rf := range h.after {
+		// NOTE: we don't use the context for anything here,
+		// but to preserve go-kit semantics we pass it to each after function
 		ctx = rf(ctx, response, result)
 	}
 
 	response.Header().Set("Content-Type", result.Response.Header.Get("Content-Type"))
 	response.WriteHeader(result.StatusCode)
-	if _, err := response.Write(result.Body); err != nil {
+	if count, err := response.Write(result.Body); err != nil {
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error writing response body", logging.ErrorKey(), err)
+	} else {
+		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "bytes", count)
 	}
 }
 
