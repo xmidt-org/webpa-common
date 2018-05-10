@@ -133,7 +133,7 @@ func testHandlerBadTransactor(t *testing.T) {
 	transactor.AssertExpectations(t)
 }
 
-func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string) {
+func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string, expectAfter bool) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -143,12 +143,37 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 		original = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
 		response = httptest.NewRecorder()
 
+		fanoutAfterCalled = false
+		fanoutAfter       = func(actualCtx context.Context, actualResponse http.ResponseWriter, result Result) context.Context {
+			assert.False(fanoutAfterCalled)
+			fanoutAfterCalled = true
+			assert.Equal(ctx, actualCtx)
+			assert.Equal(response, actualResponse)
+			if assert.NotNil(result.Response) {
+				assert.Equal(expectedStatusCode, result.Response.StatusCode)
+			}
+
+			return actualCtx
+		}
+
+		clientAfterCalled = false
+		clientAfter       = func(actualCtx context.Context, actualResponse *http.Response) context.Context {
+			assert.False(clientAfterCalled)
+			clientAfterCalled = true
+			assert.Equal(ctx, actualCtx)
+			assert.Equal(expectedStatusCode, actualResponse.StatusCode)
+			return actualCtx
+		}
+
 		endpoints  = generateEndpoints(len(expectedResponses))
 		transactor = new(xhttptest.MockTransactor)
 		complete   = make(chan struct{}, len(expectedResponses))
-		handler    = New(endpoints,
+
+		handler = New(endpoints,
 			WithTransactor(transactor.Do),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
+			WithFanoutAfter(fanoutAfter),
+			WithClientAfter(clientAfter),
 		)
 	)
 
@@ -175,10 +200,11 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 		}
 	}
 
+	assert.Equal(expectAfter, clientAfterCalled)
 	transactor.AssertExpectations(t)
 }
 
-func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string) {
+func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string, expectAfter bool) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -189,6 +215,28 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		original            = httptest.NewRequest("POST", "/api/v2/something", strings.NewReader(expectedRequestBody)).WithContext(ctx)
 		response            = httptest.NewRecorder()
 
+		fanoutAfterCalled = false
+		fanoutAfter       = func(actualCtx context.Context, actualResponse http.ResponseWriter, result Result) context.Context {
+			assert.False(fanoutAfterCalled)
+			fanoutAfterCalled = true
+			assert.Equal(ctx, actualCtx)
+			assert.Equal(response, actualResponse)
+			if assert.NotNil(result.Response) {
+				assert.Equal(expectedStatusCode, result.Response.StatusCode)
+			}
+
+			return actualCtx
+		}
+
+		clientAfterCalled = false
+		clientAfter       = func(actualCtx context.Context, actualResponse *http.Response) context.Context {
+			assert.False(clientAfterCalled)
+			clientAfterCalled = true
+			assert.Equal(ctx, actualCtx)
+			assert.Equal(expectedStatusCode, actualResponse.StatusCode)
+			return actualCtx
+		}
+
 		endpoints  = generateEndpoints(len(expectedResponses))
 		transactor = new(xhttptest.MockTransactor)
 		complete   = make(chan struct{}, len(expectedResponses))
@@ -196,6 +244,8 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 			WithTransactor(transactor.Do),
 			WithFanoutBefore(OriginalBody(true)),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
+			WithFanoutAfter(fanoutAfter),
+			WithClientAfter(clientAfter),
 		)
 	)
 
@@ -290,79 +340,90 @@ func TestHandler(t *testing.T) {
 	t.Run("EndpointsError", testHandlerEndpointsError)
 	t.Run("BadTransactor", testHandlerBadTransactor)
 
-	testData := []struct {
-		statusCodes          []xhttptest.ExpectedResponse
-		expectedStatusCode   int
-		expectedResponseBody string
-	}{
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 504},
+	t.Run("Fanout", func(t *testing.T) {
+		testData := []struct {
+			statusCodes          []xhttptest.ExpectedResponse
+			expectedStatusCode   int
+			expectedResponseBody string
+			expectAfter          bool
+		}{
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 504},
+				},
+				504,
+				"",
+				false,
 			},
-			504,
-			"",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 500}, {StatusCode: 501}, {StatusCode: 502}, {StatusCode: 503}, {StatusCode: 504},
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 500}, {StatusCode: 501}, {StatusCode: 502}, {StatusCode: 503}, {StatusCode: 504},
+				},
+				504,
+				"",
+				false,
 			},
-			504,
-			"",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 504}, {StatusCode: 503}, {StatusCode: 502}, {StatusCode: 501}, {StatusCode: 500},
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 504}, {StatusCode: 503}, {StatusCode: 502}, {StatusCode: 501}, {StatusCode: 500},
+				},
+				504,
+				"",
+				false,
 			},
-			504,
-			"",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{Err: errors.New("expected")},
+			{
+				[]xhttptest.ExpectedResponse{
+					{Err: errors.New("expected")},
+				},
+				http.StatusServiceUnavailable,
+				"",
+				false,
 			},
-			http.StatusServiceUnavailable,
-			"",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 500}, {Err: errors.New("expected")},
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 500}, {Err: errors.New("expected")},
+				},
+				http.StatusServiceUnavailable,
+				"",
+				false,
 			},
-			http.StatusServiceUnavailable,
-			"",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 599}, {Err: errors.New("expected")},
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 599}, {Err: errors.New("expected")},
+				},
+				599,
+				"",
+				false,
 			},
-			599,
-			"",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 200, Body: []byte("expected body")},
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 200, Body: []byte("expected body")},
+				},
+				200,
+				"expected body",
+				true,
 			},
-			200,
-			"expected body",
-		},
-		{
-			[]xhttptest.ExpectedResponse{
-				{StatusCode: 404}, {StatusCode: 200, Body: []byte("expected body")}, {StatusCode: 503},
+			{
+				[]xhttptest.ExpectedResponse{
+					{StatusCode: 404}, {StatusCode: 200, Body: []byte("expected body")}, {StatusCode: 503},
+				},
+				200,
+				"expected body",
+				true,
 			},
-			200,
-			"expected body",
-		},
-	}
-
-	t.Run("GET", func(t *testing.T) {
-		for _, record := range testData {
-			testHandlerGet(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody)
 		}
-	})
 
-	t.Run("POST", func(t *testing.T) {
-		for _, record := range testData {
-			testHandlerPost(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody)
-		}
+		t.Run("GET", func(t *testing.T) {
+			for _, record := range testData {
+				testHandlerGet(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody, record.expectAfter)
+			}
+		})
+
+		t.Run("POST", func(t *testing.T) {
+			for _, record := range testData {
+				testHandlerPost(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody, record.expectAfter)
+			}
+		})
 	})
 
 	t.Run("Timeout", func(t *testing.T) {
@@ -420,8 +481,29 @@ func testNewNoOptions(t *testing.T) {
 	assert.Empty(handler.after)
 }
 
+func testNewShouldTerminate(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		shouldTerminateCalled = false
+		shouldTerminate       = func(Result) bool {
+			assert.False(shouldTerminateCalled)
+			shouldTerminateCalled = true
+			return true
+		}
+
+		handler = New(FixedEndpoints{}, WithShouldTerminate(shouldTerminate))
+	)
+
+	require.NotNil(handler)
+	assert.True(handler.shouldTerminate(Result{}))
+	assert.True(shouldTerminateCalled)
+}
+
 func TestNew(t *testing.T) {
 	t.Run("NilEndpoints", testNewNilEndpoints)
 	t.Run("NilOptions", testNewNilOptions)
 	t.Run("NoOptions", testNewNoOptions)
+	t.Run("ShouldTerminate", testNewShouldTerminate)
 }
