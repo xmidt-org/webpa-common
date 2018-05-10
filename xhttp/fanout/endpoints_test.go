@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,6 +29,40 @@ func TestEndpointsFunc(t *testing.T) {
 	actualURLs, actualError := ef.NewEndpoints(original)
 	assert.Equal(expectedURLs, actualURLs)
 	assert.Equal(expectedError, actualError)
+}
+
+func testMustNewEndpointsPanics(t *testing.T) {
+	var (
+		assert    = assert.New(t)
+		endpoints = new(mockEndpoints)
+	)
+
+	endpoints.On("NewEndpoints", mock.MatchedBy(func(*http.Request) bool { return true })).Return(nil, errors.New("expected")).Once()
+	assert.Panics(func() {
+		MustNewEndpoints(endpoints, httptest.NewRequest("GET", "/", nil))
+	})
+
+	endpoints.AssertExpectations(t)
+}
+
+func testMustNewEndpointsSuccess(t *testing.T) {
+	var (
+		assert       = assert.New(t)
+		expectedURLs = []*url.URL{new(url.URL)}
+		endpoints    = new(mockEndpoints)
+	)
+
+	endpoints.On("NewEndpoints", mock.MatchedBy(func(*http.Request) bool { return true })).Return(expectedURLs, error(nil)).Once()
+	assert.NotPanics(func() {
+		assert.Equal(expectedURLs, MustNewEndpoints(endpoints, httptest.NewRequest("GET", "/", nil)))
+	})
+
+	endpoints.AssertExpectations(t)
+}
+
+func TestMustNewEndpoints(t *testing.T) {
+	t.Run("Panics", testMustNewEndpointsPanics)
+	t.Run("Success", testMustNewEndpointsSuccess)
 }
 
 func testNewFixedEndpointsEmpty(t *testing.T) {
@@ -100,4 +135,25 @@ func TestNewFixedEndpoints(t *testing.T) {
 			testNewFixedEndpointsValid(t, record.urls, record.originalURL, record.expected)
 		}
 	})
+}
+
+func testMustNewFixedEndpointsPanics(t *testing.T) {
+	assert := assert.New(t)
+	assert.Panics(func() {
+		MustNewFixedEndpoints("%%")
+	})
+}
+
+func testMustNewFixedEndpointsSuccess(t *testing.T) {
+	assert := assert.New(t)
+	assert.NotPanics(func() {
+		fe := MustNewFixedEndpoints("http://foobar.com")
+		assert.Len(fe, 1)
+		assert.Equal("http://foobar.com", fe[0].String())
+	})
+}
+
+func TestMustNewFixedEndpoints(t *testing.T) {
+	t.Run("Panics", testMustNewFixedEndpointsPanics)
+	t.Run("Success", testMustNewFixedEndpointsSuccess)
 }
