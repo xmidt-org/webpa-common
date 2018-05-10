@@ -2,6 +2,7 @@ package xhttptest
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -58,14 +59,20 @@ type MockTransactor struct {
 
 // Do is a mocked HTTP transaction call.  Use On or OnRequest to setup behaviors for this method.
 func (mt *MockTransactor) Do(request *http.Request) (*http.Response, error) {
-	arguments := mt.Called(request)
+	// HACK: Because of the way Called works, there is a race condition involving the http.Request's Context object.
+	// Called performs a printf, which bypasses the context's mutex to produce the string.  We have to replace
+	// the context with a known, immutable value so that no race conditions occur.
+	arguments := mt.Called(request.WithContext(context.Background()))
 	response, _ := arguments.Get(0).(*http.Response)
 	return response, arguments.Error(1)
 }
 
 // RoundTrip is a mocked HTTP transaction call.  Use On or OnRoundTrip to setup behaviors for this method.
 func (mt *MockTransactor) RoundTrip(request *http.Request) (*http.Response, error) {
-	arguments := mt.Called(request)
+	// HACK: Because of the way Called works, there is a race condition involving the http.Request's Context object.
+	// Called performs a printf, which bypasses the context's mutex to produce the string.  We have to replace
+	// the context with a known, immutable value so that no race conditions occur.
+	arguments := mt.Called(request.WithContext(context.Background()))
 	response, _ := arguments.Get(0).(*http.Response)
 	return response, arguments.Error(1)
 }
