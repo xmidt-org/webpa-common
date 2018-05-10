@@ -50,7 +50,7 @@ import:
 - package: github.com/c9s/goprocinfo
   version: 19cb9f127a9c8d2034cf59ccb683cdb94b9deb6c
 - package: github.com/stretchr/testify
-  version: 890a5c3458b43e6104ff5da8dfa139d013d77544
+  version: v1.2.1
   subpackages:
   - assert
   - require
