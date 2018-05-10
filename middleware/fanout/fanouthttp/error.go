@@ -35,7 +35,7 @@ func HeadersForError(err error, timeLayout string, h http.Header) {
 		}
 
 	case tracing.SpanError:
-		tracinghttp.HeadersForSpans(v.Spans(), timeLayout, h)
+		tracinghttp.HeadersForSpans(timeLayout, h, v.Spans()...)
 		HeadersForError(v.Err(), timeLayout, h)
 	}
 }
@@ -71,11 +71,11 @@ func StatusCodeForError(err error) int {
 					}
 				}
 			}
-			
+
 			if largestCode > 0 {
 				return largestCode
 			}
-			
+
 			// if largestCode is still 0 then StatusServiceUnavailable
 			return http.StatusServiceUnavailable
 		} else {

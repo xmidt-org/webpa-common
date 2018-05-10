@@ -102,7 +102,7 @@ func ServerEncodeResponseBody(timeLayout string, format wrp.Format) gokithttp.En
 			output      bytes.Buffer
 		)
 
-		tracinghttp.HeadersForSpans(wrpResponse.Spans(), timeLayout, httpResponse.Header())
+		tracinghttp.HeadersForSpans(timeLayout, httpResponse.Header(), wrpResponse.Spans()...)
 
 		if err := wrpResponse.Encode(&output, format); err != nil {
 			return err
@@ -119,7 +119,7 @@ func ServerEncodeResponseBody(timeLayout string, format wrp.Format) gokithttp.En
 func ServerEncodeResponseHeaders(timeLayout string) gokithttp.EncodeResponseFunc {
 	return func(ctx context.Context, httpResponse http.ResponseWriter, value interface{}) error {
 		wrpResponse := value.(wrpendpoint.Response)
-		tracinghttp.HeadersForSpans(wrpResponse.Spans(), timeLayout, httpResponse.Header())
+		tracinghttp.HeadersForSpans(timeLayout, httpResponse.Header(), wrpResponse.Spans()...)
 		AddMessageHeaders(httpResponse.Header(), wrpResponse.Message())
 		return WriteMessagePayload(httpResponse.Header(), httpResponse, wrpResponse.Message())
 	}
