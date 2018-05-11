@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/spf13/viper"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
 )
 
 type token string
@@ -20,6 +21,8 @@ type StartConfig struct {
 
 	// path to query for current hooks
 	ApiPath string `json:"apiPath"`
+
+	AuthHeader string `json:"authHeader"`
 
 	// sat configuration data for requesting token
 	Sat struct {
@@ -129,7 +132,12 @@ func (sc *StartConfig) makeRequest() (resp *http.Response, err error) {
 		return
 	}
 	req.Header.Set("content-type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sc.Sat.Token))
+
+	if len(sc.Sat.Token) < 1 && len(sc.AuthHeader) > 0 {
+		req.Header.Set("Authorization", fmt.Sprintf("Basic %s", sc.AuthHeader))
+	} else {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", sc.Sat.Token))
+	}
 
 	resp, err = sc.client.Do(req)
 	if err != nil {
