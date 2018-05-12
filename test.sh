@@ -3,7 +3,7 @@
 set -e
 coverage_script="$1"
 
--rm -f *.txt
+rm -f *.txt
 
 # ./... ignores vendor: https://golang.org/doc/go1.9#vendor-dotdotdot
 go test -race -coverprofile="coverage.txt" ./...
