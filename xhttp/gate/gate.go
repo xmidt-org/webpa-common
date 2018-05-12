@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/Comcast/webpa-common/xmetrics"
@@ -8,59 +9,72 @@ import (
 )
 
 const (
-	gateOpen uint32 = iota
-	gateClosed
+	// Open indicates a gate that allows traffic
+	Open uint32 = iota
+
+	// Closed indicates a gate that disallows traffic
+	Closed
+)
+
+const (
+	// GaugeOpen is the value a gauge is set to that indicates the gate is open
+	GaugeOpen float64 = 1.0
+
+	// GaugeClosed is the value a gauge is set to that indicates the gate is closed
+	GaugeClosed float64 = 0.0
 )
 
 // Interface represents a concurrent condition indicating whether HTTP traffic should be allowed.
+// This type essentially represents an atomic boolean with some extra functionality, such as metrics gathering.
 type Interface interface {
-	// Raise opens this gate.  Any handlers decorated via this gate will begin to receive traffic.
-	// By default, gates are initially open.  Use WithInitiallyClosed to create a gate in the closed state.
-	Raise()
+	fmt.Stringer
 
-	// Lower closes this gate.  Any HTTP traffic that would otherwise go to a decorated handler will instead
-	// receive the configured status code, text, and headers.
-	Lower()
+	// Raise opens this gate.  If the gate was raised as a result, this method returns true.  If the
+	// gate was already raised, this method returns false.
+	Raise() bool
+
+	// Lower closes this gate.  If the gate was lowered as a result, this method returns true.  If the
+	// gate was already lowered, this method returns false.
+	Lower() bool
 
 	// IsOpen tests if this gate is open
 	IsOpen() bool
 }
 
-// Option is a configuration option for a gate Interface
-type Option func(*gate)
+// GateOption is a configuration option for a gate Interface
+type GateOption func(*gate)
 
-func WithInitiallyClosed() Option {
-	return func(g *gate) {
-		g.state = gateClosed
-	}
-}
-
-func WithClosedGauge(gauge xmetrics.Setter) Option {
+// WithGauge configures a gate with a metrics Gauge that tracks the state of the gate.
+func WithGauge(gauge xmetrics.Setter) GateOption {
 	return func(g *gate) {
 		if gauge != nil {
-			g.closedGauge = gauge
+			g.gauge = gauge
 		} else {
-			g.closedGauge = discard.NewGauge()
+			g.gauge = discard.NewGauge()
 		}
 	}
 }
 
-// New constructs a gate Interface with zero or more options.  By default, the returned
-// gate is initially open and has a closed gauge that simply discards all metrics.
-func New(options ...Option) Interface {
+// New constructs a gate Interface with zero or more options.  The returned gate takes on the given
+// initial state, and any configured gauge is updated to reflect this initial state.
+func New(initial uint32, options ...GateOption) Interface {
+	if initial != Open && initial != Closed {
+		panic("invalid initial state")
+	}
+
 	g := &gate{
-		state:       gateOpen,
-		closedGauge: discard.NewGauge(),
+		state: initial,
+		gauge: discard.NewGauge(),
 	}
 
 	for _, o := range options {
 		o(g)
 	}
 
-	if g.state == gateOpen {
-		g.closedGauge.Set(0.0)
+	if g.state == Open {
+		g.gauge.Set(GaugeOpen)
 	} else {
-		g.closedGauge.Set(1.0)
+		g.gauge.Set(GaugeClosed)
 	}
 
 	return g
@@ -68,22 +82,36 @@ func New(options ...Option) Interface {
 
 // gate is the internal Interface implementation
 type gate struct {
-	state       uint32
-	closedGauge xmetrics.Setter
+	state uint32
+	gauge xmetrics.Setter
 }
 
-func (g *gate) Raise() {
-	if atomic.CompareAndSwapUint32(&g.state, gateClosed, gateOpen) {
-		g.closedGauge.Set(0.0)
+func (g *gate) Raise() bool {
+	if atomic.CompareAndSwapUint32(&g.state, Closed, Open) {
+		g.gauge.Set(GaugeOpen)
+		return true
 	}
+
+	return false
 }
 
-func (g *gate) Lower() {
-	if atomic.CompareAndSwapUint32(&g.state, gateOpen, gateClosed) {
-		g.closedGauge.Set(1.0)
+func (g *gate) Lower() bool {
+	if atomic.CompareAndSwapUint32(&g.state, Open, Closed) {
+		g.gauge.Set(GaugeClosed)
+		return true
 	}
+
+	return false
 }
 
 func (g *gate) IsOpen() bool {
-	return atomic.LoadUint32(&g.state) == gateOpen
+	return atomic.LoadUint32(&g.state) == Open
+}
+
+func (g *gate) String() string {
+	if g.IsOpen() {
+		return "open"
+	} else {
+		return "closed"
+	}
 }
