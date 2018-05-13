@@ -17,7 +17,6 @@ func testRedirectPolicyDefault(t *testing.T) {
 		p       = RedirectPolicy{}
 	)
 
-	assert.Equal(logging.DefaultLogger(), p.logger())
 	assert.Equal(DefaultMaxRedirects, p.maxRedirects())
 
 	f := p.headerFilter()
@@ -38,7 +37,6 @@ func testRedirectPolicyCustom(t *testing.T) {
 		}
 	)
 
-	assert.Equal(expectedLogger, p.logger())
 	assert.Equal(7, p.maxRedirects())
 
 	f := p.headerFilter()
@@ -63,7 +61,6 @@ func testCheckRedirectMaxRedirects(t *testing.T) {
 
 		checkRedirect = CheckRedirect(
 			RedirectPolicy{
-				Logger:       logging.NewTestLogger(nil, t),
 				MaxRedirects: 2,
 			},
 		)
