@@ -1,10 +1,14 @@
 package fanout
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/Comcast/webpa-common/xhttp/xcontext"
+	gokithttp "github.com/go-kit/kit/transport/http"
+	"github.com/justinas/alice"
 )
 
 const (
@@ -114,10 +118,24 @@ func (o *Options) checkRedirect() func(*http.Request, []*http.Request) error {
 	})
 }
 
+// NewTransactor constructs an HTTP client transaction function from a set of fanout options.
 func NewTransactor(o Options) func(*http.Request) (*http.Response, error) {
 	return (&http.Client{
 		Transport:     o.transport(),
 		CheckRedirect: o.checkRedirect(),
 		Timeout:       o.clientTimeout(),
 	}).Do
+}
+
+// NewChain constructs an Alice constructor Chain from a set of fanout options and zero or
+// more application-layer request functions.
+func NewChain(o Options, rf ...func(context.Context, *http.Request) context.Context) alice.Chain {
+	if len(o.Authorization) > 0 {
+		rf = append(rf, gokithttp.SetRequestHeader("Authorization", o.Authorization))
+	}
+
+	return alice.New(
+		xcontext.Populate(o.fanoutTimeout(), rf...),
+		xhttp.Busy(o.concurrency()),
+	)
 }

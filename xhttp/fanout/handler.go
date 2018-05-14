@@ -102,6 +102,19 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
+// WithOptions uses a set of (possibly injected) fanout options to configure a Handler.
+func WithOptions(o Options) Option {
+	return func(h *Handler) {
+		WithTransactor(NewTransactor(o))(h)
+
+		// TODO: allow injection of an arbitrary Endpoints instance here, for example
+		// one driven by service discovery
+		if endpoints := o.endpoints(); len(endpoints) > 0 {
+			h.endpoints = MustNewFixedEndpoints(endpoints...)
+		}
+	}
+}
+
 // Handler is the http.Handler that fans out HTTP requests using the configured Endpoints strategy.
 type Handler struct {
 	endpoints       Endpoints
