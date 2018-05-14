@@ -1,6 +1,7 @@
 package device
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -286,6 +287,68 @@ func testManagerRouteDeviceNotFound(t *testing.T) {
 	response, err := manager.Route(request)
 	assert.Nil(response)
 	assert.Equal(ErrorDeviceNotFound, err)
+}
+
+func testManagerConnectIncludesConvey(t *testing.T) {
+	var (
+		assert      = assert.New(t)
+		connectWait = new(sync.WaitGroup)
+		contents    = make(chan []byte, 1)
+
+		options = &Options{
+			Logger: logging.NewTestLogger(nil, t),
+			Listeners: []Listener{
+				func(event *Event) {
+					if event.Type == Connect {
+						defer connectWait.Done()
+						select {
+						case contents <- event.Contents:
+						default:
+							assert.Fail("The connect listener should not block")
+						}
+					}
+				},
+			},
+		}
+
+		_, server, connectURL = startWebsocketServer(options)
+	)
+
+	defer server.Close()
+	connectWait.Add(1)
+
+	dialer := DefaultDialer()
+
+	/*
+		Convey header in base 64:
+			{
+				"hw-serial-number":123456789,
+				"webpa-protocol":"WebPA-1.6"
+			}
+	*/
+	header := &http.Header{
+		"X-Webpa-Convey": {"eyAgDQogICAiaHctc2VyaWFsLW51bWJlciI6MTIzNDU2Nzg5LA0KICAgIndlYnBhLXByb3RvY29sIjoiV2ViUEEtMS42Ig0KfQ=="},
+	}
+
+	deviceConnection, _, err := dialer.DialDevice(string(testDeviceIDs[0]), connectURL, *header)
+	if err != nil {
+		assert.Fail("Unable to dial test device: %s", err)
+	}
+
+	defer assert.Nil(deviceConnection.Close())
+
+	connectWait.Wait()
+	close(contents)
+	assert.Equal(1, len(contents))
+
+	content := <-contents
+	convey := make(map[string]interface{})
+	err = json.Unmarshal(content, convey)
+
+	assert.Nil(err)
+	assert.Equal(2, len(convey))
+	assert.Equal(123456789, convey["hw-serial-number"])
+	assert.Equal("WebPA-1.6", convey["webpa-protocol"])
 }
 
 func TestManager(t *testing.T) {
