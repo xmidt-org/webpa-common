@@ -3,9 +3,11 @@ package logginghttp
 import (
 	"context"
 	"net/http"
+	"net/textproto"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/gorilla/mux"
 )
 
 var (
@@ -43,6 +45,39 @@ func StandardKeyValues(kv []interface{}, request *http.Request) []interface{} {
 		remoteAddrKey, request.RemoteAddr,
 	)
 
+}
+
+// Header returns a logger func that extracts the value of a header and inserts it as the
+// value of a logging key.  If the header is not present in the request, a blank string
+// is set as the logging key's value.
+func Header(headerName, keyName string) LoggerFunc {
+	headerName = textproto.CanonicalMIMEHeaderKey(headerName)
+
+	return func(kv []interface{}, request *http.Request) []interface{} {
+		values := request.Header[headerName]
+		switch len(values) {
+		case 0:
+			return append(kv, keyName, "")
+		case 1:
+			return append(kv, keyName, values[0])
+		default:
+			return append(kv, keyName, values)
+		}
+	}
+}
+
+// PathVariable returns a LoggerFunc that extracts the value of a gorilla/mux path variable and inserts
+// it into the value of a logging key.  If the variable is not present, a blank string is
+// set as the logging key's value.
+func PathVariable(variableName, keyName string) LoggerFunc {
+	return func(kv []interface{}, request *http.Request) []interface{} {
+		variables := mux.Vars(request)
+		if len(variables) > 0 {
+			return append(kv, keyName, variables[variableName])
+		}
+
+		return append(kv, keyName, "")
+	}
 }
 
 // SetLogger produces a go-kit RequestFunc that inserts a go-kit Logger into the context.
