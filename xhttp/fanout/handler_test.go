@@ -506,7 +506,7 @@ func testNewWithInjectedOptions(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		expectedEndpoints = MustNewFixedEndpoints("http://foobar.com:8080")
+		expectedEndpoints = MustParseURLs("http://foobar.com:8080")
 
 		handler = New(
 			expectedEndpoints,

@@ -65,12 +65,12 @@ func TestMustFanoutURLs(t *testing.T) {
 	t.Run("Success", testMustFanoutURLsSuccess)
 }
 
-func testNewFixedEndpointsEmpty(t *testing.T) {
+func testParseURLsEmpty(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		fe, err = NewFixedEndpoints()
+		fe, err = ParseURLs()
 	)
 
 	require.NotNil(fe)
@@ -78,22 +78,22 @@ func testNewFixedEndpointsEmpty(t *testing.T) {
 	assert.NoError(err)
 }
 
-func testNewFixedEndpointsInvalid(t *testing.T) {
+func testParseURLsInvalid(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		fe, err = NewFixedEndpoints("%%")
+		fe, err = ParseURLs("%%")
 	)
 
 	assert.Empty(fe)
 	assert.Error(err)
 }
 
-func testNewFixedEndpointsValid(t *testing.T, urls []string, originalURL string, expected []string) {
+func testParseURLsValid(t *testing.T, urls []string, originalURL string, expected []string) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		fe, err = NewFixedEndpoints(urls...)
+		fe, err = ParseURLs(urls...)
 	)
 
 	require.NotNil(fe)
@@ -109,9 +109,9 @@ func testNewFixedEndpointsValid(t *testing.T, urls []string, originalURL string,
 	}
 }
 
-func TestNewFixedEndpoints(t *testing.T) {
-	t.Run("Empty", testNewFixedEndpointsEmpty)
-	t.Run("Invalid", testNewFixedEndpointsInvalid)
+func TestParseURLs(t *testing.T) {
+	t.Run("Empty", testParseURLsEmpty)
+	t.Run("Invalid", testParseURLsInvalid)
 
 	t.Run("Valid", func(t *testing.T) {
 		testData := []struct {
@@ -132,30 +132,30 @@ func TestNewFixedEndpoints(t *testing.T) {
 		}
 
 		for _, record := range testData {
-			testNewFixedEndpointsValid(t, record.urls, record.originalURL, record.expected)
+			testParseURLsValid(t, record.urls, record.originalURL, record.expected)
 		}
 	})
 }
 
-func testMustNewFixedEndpointsPanics(t *testing.T) {
+func testMustParseURLsPanics(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		MustNewFixedEndpoints("%%")
+		MustParseURLs("%%")
 	})
 }
 
-func testMustNewFixedEndpointsSuccess(t *testing.T) {
+func testMustParseURLsSuccess(t *testing.T) {
 	assert := assert.New(t)
 	assert.NotPanics(func() {
-		fe := MustNewFixedEndpoints("http://foobar.com")
+		fe := MustParseURLs("http://foobar.com")
 		assert.Len(fe, 1)
 		assert.Equal("http://foobar.com", fe[0].String())
 	})
 }
 
-func TestMustNewFixedEndpoints(t *testing.T) {
-	t.Run("Panics", testMustNewFixedEndpointsPanics)
-	t.Run("Success", testMustNewFixedEndpointsSuccess)
+func TestMustParseURLs(t *testing.T) {
+	t.Run("Panics", testMustParseURLsPanics)
+	t.Run("Success", testMustParseURLsSuccess)
 }
 
 func testNewEndpointsInvalidOptions(t *testing.T) {
@@ -179,7 +179,7 @@ func testNewEndpointsUseAlternate(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		expected    = MustNewFixedEndpoints("http://localhost:1234")
+		expected    = MustParseURLs("http://localhost:1234")
 		actual, err = NewEndpoints(
 			Options{},
 			func() (Endpoints, error) {
@@ -218,7 +218,7 @@ func testMustNewEndpointsPanics(t *testing.T) {
 func testMustNewEndpointsSuccess(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		expected = MustNewFixedEndpoints("http://foobar.com:1010")
+		expected = MustParseURLs("http://foobar.com:1010")
 	)
 
 	assert.NotPanics(func() {

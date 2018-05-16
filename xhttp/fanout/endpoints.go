@@ -38,9 +38,9 @@ func MustFanoutURLs(e Endpoints, original *http.Request) []*url.URL {
 // FixedEndpoints represents a set of URLs that act as base URLs for a fanout.
 type FixedEndpoints []*url.URL
 
-// NewFixedEndpoints parses each URL to produce a FixedEndpoints.  Each supplied URL should have a scheme
+// ParseURLs parses each URL to produce a FixedEndpoints.  Each supplied URL should have a scheme
 // instead of being abbreviated, e.g. "http://hostname" or "http://hostname:1234" instead of "hostname" or "hostname:1234"
-func NewFixedEndpoints(urls ...string) (FixedEndpoints, error) {
+func ParseURLs(urls ...string) (FixedEndpoints, error) {
 	fe := make(FixedEndpoints, 0, len(urls))
 
 	for _, u := range urls {
@@ -55,9 +55,9 @@ func NewFixedEndpoints(urls ...string) (FixedEndpoints, error) {
 	return fe, nil
 }
 
-// MustNewFixedEndpoints is like NewFixedEndpoints, except that it panics instead of returning an error.
-func MustNewFixedEndpoints(urls ...string) FixedEndpoints {
-	fe, err := NewFixedEndpoints(urls...)
+// MustParseURLs is like ParseURLs, except that it panics instead of returning an error.
+func MustParseURLs(urls ...string) FixedEndpoints {
+	fe, err := ParseURLs(urls...)
 	if err != nil {
 		panic(err)
 	}
@@ -89,7 +89,7 @@ func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) 
 // endpoints are not present.
 func NewEndpoints(o Options, alternate func() (Endpoints, error)) (Endpoints, error) {
 	if endpoints := o.endpoints(); len(endpoints) > 0 {
-		return NewFixedEndpoints(endpoints...)
+		return ParseURLs(endpoints...)
 	}
 
 	if alternate != nil {
