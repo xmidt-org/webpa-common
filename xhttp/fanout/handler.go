@@ -107,6 +107,11 @@ func WithOptions(o Options) Option {
 	return func(h *Handler) {
 		WithTransactor(NewTransactor(o))(h)
 
+		authorization := o.authorization()
+		if len(authorization) > 0 {
+			WithClientBefore(gokithttp.SetRequestHeader("Authorization", authorization))(h)
+		}
+
 		// TODO: allow injection of an arbitrary Endpoints instance here, for example
 		// one driven by service discovery
 		if endpoints := o.endpoints(); len(endpoints) > 0 {

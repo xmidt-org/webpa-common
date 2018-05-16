@@ -7,7 +7,6 @@ import (
 
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xhttp/xcontext"
-	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/justinas/alice"
 )
 
@@ -130,10 +129,6 @@ func NewTransactor(o Options) func(*http.Request) (*http.Response, error) {
 // NewChain constructs an Alice constructor Chain from a set of fanout options and zero or
 // more application-layer request functions.
 func NewChain(o Options, rf ...func(context.Context, *http.Request) context.Context) alice.Chain {
-	if len(o.Authorization) > 0 {
-		rf = append(rf, gokithttp.SetRequestHeader("Authorization", o.Authorization))
-	}
-
 	return alice.New(
 		xcontext.Populate(o.fanoutTimeout(), rf...),
 		xhttp.Busy(o.concurrency()),
