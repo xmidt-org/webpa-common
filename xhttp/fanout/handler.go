@@ -103,6 +103,7 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 }
 
 // WithOptions uses a set of (possibly injected) fanout options to configure a Handler.
+// Use of this option will not override the configured Endpoints instance.
 func WithOptions(o Options) Option {
 	return func(h *Handler) {
 		WithTransactor(NewTransactor(o))(h)
@@ -110,12 +111,6 @@ func WithOptions(o Options) Option {
 		authorization := o.authorization()
 		if len(authorization) > 0 {
 			WithClientBefore(gokithttp.SetRequestHeader("Authorization", authorization))(h)
-		}
-
-		// TODO: allow injection of an arbitrary Endpoints instance here, for example
-		// one driven by service discovery
-		if endpoints := o.endpoints(); len(endpoints) > 0 {
-			h.endpoints = MustNewFixedEndpoints(endpoints...)
 		}
 	}
 }

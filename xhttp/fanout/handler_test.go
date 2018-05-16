@@ -506,7 +506,10 @@ func testNewWithInjectedOptions(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		handler = New(FixedEndpoints{},
+		expectedEndpoints = MustNewFixedEndpoints("http://foobar.com:8080")
+
+		handler = New(
+			expectedEndpoints,
 			WithOptions(Options{
 				Endpoints:     []string{"localhost:1234"},
 				Authorization: "deadbeef",
@@ -517,7 +520,7 @@ func testNewWithInjectedOptions(t *testing.T) {
 	require.NotNil(handler)
 	assert.NotNil(handler.transactor)
 	assert.Len(handler.before, 1)
-	assert.Equal(MustNewFixedEndpoints("localhost:1234"), handler.endpoints)
+	assert.Equal(expectedEndpoints, handler.endpoints)
 }
 
 func TestNew(t *testing.T) {

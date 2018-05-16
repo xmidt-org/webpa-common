@@ -1,8 +1,13 @@
 package fanout
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
+)
+
+var (
+	errNoConfiguredEndpoints = errors.New("No configured endpoints")
 )
 
 // Endpoints is a strategy interface for determining the set of HTTP URL endpoints that a fanout
@@ -73,4 +78,33 @@ func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) 
 	}
 
 	return endpoints, nil
+}
+
+// NewEndpoints accepts a set of Options, typically injected via configuration, and an alternate function
+// that can create an Endpoints.  If Options has a fixed set of endpoints, this function returns a
+// FixedEndpoints built from those URLs.  Otherwise, the alternate function is invoked to produce
+// and Endpoints instance to return.
+//
+// This function allows an application-layer Endpoints, returned by alternate, to be used when injected
+// endpoints are not present.
+func NewEndpoints(o Options, alternate func() (Endpoints, error)) (Endpoints, error) {
+	if endpoints := o.endpoints(); len(endpoints) > 0 {
+		return NewFixedEndpoints(endpoints...)
+	}
+
+	if alternate != nil {
+		return alternate()
+	}
+
+	return nil, errNoConfiguredEndpoints
+}
+
+// MustNewEndpoints is like NewEndpoints, save that it panics upon any error.
+func MustNewEndpoints(o Options, alternate func() (Endpoints, error)) Endpoints {
+	e, err := NewEndpoints(o, alternate)
+	if err != nil {
+		panic(err)
+	}
+
+	return e
 }

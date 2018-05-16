@@ -157,3 +157,79 @@ func TestMustNewFixedEndpoints(t *testing.T) {
 	t.Run("Panics", testMustNewFixedEndpointsPanics)
 	t.Run("Success", testMustNewFixedEndpointsSuccess)
 }
+
+func testNewEndpointsInvalidOptions(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		e, err = NewEndpoints(
+			Options{Endpoints: []string{"%%"}},
+			func() (Endpoints, error) {
+				assert.Fail("The alternate function should not have been called")
+				return nil, nil
+			},
+		)
+	)
+
+	assert.Nil(e)
+	assert.Error(err)
+}
+
+func testNewEndpointsUseAlternate(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		expected    = MustNewFixedEndpoints("http://localhost:1234")
+		actual, err = NewEndpoints(
+			Options{},
+			func() (Endpoints, error) {
+				return expected, nil
+			},
+		)
+	)
+
+	assert.Equal(expected, actual)
+	assert.NoError(err)
+}
+
+func testNewEndpointsNoneConfigured(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		e, err = NewEndpoints(Options{}, nil)
+	)
+
+	assert.Nil(e)
+	assert.Error(err)
+}
+
+func TestNewEndpoints(t *testing.T) {
+	t.Run("InvalidOptions", testNewEndpointsInvalidOptions)
+	t.Run("UseAlternate", testNewEndpointsUseAlternate)
+	t.Run("NoneConfigured", testNewEndpointsNoneConfigured)
+}
+
+func testMustNewEndpointsPanics(t *testing.T) {
+	assert := assert.New(t)
+	assert.Panics(func() {
+		MustNewEndpoints(Options{}, nil)
+	})
+}
+
+func testMustNewEndpointsSuccess(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		expected = MustNewFixedEndpoints("http://foobar.com:1010")
+	)
+
+	assert.NotPanics(func() {
+		assert.Equal(
+			expected,
+			MustNewEndpoints(Options{}, func() (Endpoints, error) { return expected, nil }),
+		)
+	})
+}
+
+func TestMustNewEndpoints(t *testing.T) {
+	t.Run("Panics", testMustNewEndpointsPanics)
+	t.Run("Success", testMustNewEndpointsSuccess)
+}
