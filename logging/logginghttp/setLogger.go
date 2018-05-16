@@ -37,8 +37,8 @@ func RemoteAddrKey() interface{} {
 // the new slice.
 type LoggerFunc func([]interface{}, *http.Request) []interface{}
 
-// StandardKeyValues is a LoggerFunc that adds the request information described by logging keys in this package.
-func StandardKeyValues(kv []interface{}, request *http.Request) []interface{} {
+// RequestInfo is a LoggerFunc that adds the request information described by logging keys in this package.
+func RequestInfo(kv []interface{}, request *http.Request) []interface{} {
 	return append(kv,
 		requestMethodKey, request.Method,
 		requestURIKey, request.RequestURI,
@@ -83,7 +83,7 @@ func PathVariable(variableName, keyName string) LoggerFunc {
 // SetLogger produces a go-kit RequestFunc that inserts a go-kit Logger into the context.
 // Zero or more LoggerFuncs can be provided to added key/values.  Note that nothing is added to
 // the base logger by default.  If no LoggerFuncs are supplied, the base Logger is added to the
-// context as is.  In particular, StandardKeyValues must be used to inject the request method, uri, etc.
+// context as is.  In particular, RequestInfo must be used to inject the request method, uri, etc.
 //
 // The base logger must be non-nil.  There is no default applied.
 //
