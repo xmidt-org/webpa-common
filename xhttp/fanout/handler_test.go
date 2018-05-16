@@ -501,9 +501,29 @@ func testNewShouldTerminate(t *testing.T) {
 	assert.True(shouldTerminateCalled)
 }
 
+func testNewWithInjectedOptions(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		handler = New(FixedEndpoints{},
+			WithOptions(Options{
+				Endpoints:     []string{"localhost:1234"},
+				Authorization: "deadbeef",
+			}),
+		)
+	)
+
+	require.NotNil(handler)
+	assert.NotNil(handler.transactor)
+	assert.Len(handler.before, 1)
+	assert.Equal(MustNewFixedEndpoints("localhost:1234"), handler.endpoints)
+}
+
 func TestNew(t *testing.T) {
 	t.Run("NilEndpoints", testNewNilEndpoints)
 	t.Run("NilOptions", testNewNilOptions)
 	t.Run("NoOptions", testNewNoOptions)
 	t.Run("ShouldTerminate", testNewShouldTerminate)
+	t.Run("WithInjectedOptions", testNewWithInjectedOptions)
 }
