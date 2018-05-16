@@ -12,7 +12,7 @@ type mockEndpoints struct {
 	mock.Mock
 }
 
-func (m *mockEndpoints) NewEndpoints(original *http.Request) ([]*url.URL, error) {
+func (m *mockEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 	arguments := m.Called(original)
 	first, _ := arguments.Get(0).([]*url.URL)
 	return first, arguments.Error(1)

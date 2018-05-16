@@ -90,7 +90,7 @@ func testHandlerEndpointsError(t *testing.T) {
 
 	require.NotNil(handler)
 	body.OnReadError(io.EOF).Once()
-	endpoints.On("NewEndpoints", original).Once().Return(nil, expectedError)
+	endpoints.On("FanoutURLs", original).Once().Return(nil, expectedError)
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)

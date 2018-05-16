@@ -6,20 +6,23 @@ import (
 )
 
 // Endpoints is a strategy interface for determining the set of HTTP URL endpoints that a fanout
-// should use.  Each returned endpoint will be associated with a single http.Request object and transaction.
+// should use.
 type Endpoints interface {
-	NewEndpoints(*http.Request) ([]*url.URL, error)
+	// FanoutURLs determines the URLs that an original request should be dispatched
+	// to as part of a fanout.  Each returned URL will be associated with a single http.Request
+	// object and transaction.
+	FanoutURLs(*http.Request) ([]*url.URL, error)
 }
 
 type EndpointsFunc func(*http.Request) ([]*url.URL, error)
 
-func (ef EndpointsFunc) NewEndpoints(original *http.Request) ([]*url.URL, error) {
+func (ef EndpointsFunc) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 	return ef(original)
 }
 
-// MustNewEndpoints invokes NewEndpoints on the given Endpoints instance, and panics if there's an error.
-func MustNewEndpoints(e Endpoints, original *http.Request) []*url.URL {
-	endpointURLs, err := e.NewEndpoints(original)
+// MustFanoutURLs invokes FanoutURLs on the given Endpoints instance, and panics if there's an error.
+func MustFanoutURLs(e Endpoints, original *http.Request) []*url.URL {
+	endpointURLs, err := e.FanoutURLs(original)
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +60,7 @@ func MustNewFixedEndpoints(urls ...string) FixedEndpoints {
 	return fe
 }
 
-func (fe FixedEndpoints) NewEndpoints(original *http.Request) ([]*url.URL, error) {
+func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 	endpoints := make([]*url.URL, len(fe))
 	for i := 0; i < len(fe); i++ {
 		endpoints[i] = new(url.URL)

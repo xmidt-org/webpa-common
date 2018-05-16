@@ -26,43 +26,43 @@ func TestEndpointsFunc(t *testing.T) {
 		})
 	)
 
-	actualURLs, actualError := ef.NewEndpoints(original)
+	actualURLs, actualError := ef.FanoutURLs(original)
 	assert.Equal(expectedURLs, actualURLs)
 	assert.Equal(expectedError, actualError)
 }
 
-func testMustNewEndpointsPanics(t *testing.T) {
+func testMustFanoutURLsPanics(t *testing.T) {
 	var (
 		assert    = assert.New(t)
 		endpoints = new(mockEndpoints)
 	)
 
-	endpoints.On("NewEndpoints", mock.MatchedBy(func(*http.Request) bool { return true })).Return(nil, errors.New("expected")).Once()
+	endpoints.On("FanoutURLs", mock.MatchedBy(func(*http.Request) bool { return true })).Return(nil, errors.New("expected")).Once()
 	assert.Panics(func() {
-		MustNewEndpoints(endpoints, httptest.NewRequest("GET", "/", nil))
+		MustFanoutURLs(endpoints, httptest.NewRequest("GET", "/", nil))
 	})
 
 	endpoints.AssertExpectations(t)
 }
 
-func testMustNewEndpointsSuccess(t *testing.T) {
+func testMustFanoutURLsSuccess(t *testing.T) {
 	var (
 		assert       = assert.New(t)
 		expectedURLs = []*url.URL{new(url.URL)}
 		endpoints    = new(mockEndpoints)
 	)
 
-	endpoints.On("NewEndpoints", mock.MatchedBy(func(*http.Request) bool { return true })).Return(expectedURLs, error(nil)).Once()
+	endpoints.On("FanoutURLs", mock.MatchedBy(func(*http.Request) bool { return true })).Return(expectedURLs, error(nil)).Once()
 	assert.NotPanics(func() {
-		assert.Equal(expectedURLs, MustNewEndpoints(endpoints, httptest.NewRequest("GET", "/", nil)))
+		assert.Equal(expectedURLs, MustFanoutURLs(endpoints, httptest.NewRequest("GET", "/", nil)))
 	})
 
 	endpoints.AssertExpectations(t)
 }
 
-func TestMustNewEndpoints(t *testing.T) {
-	t.Run("Panics", testMustNewEndpointsPanics)
-	t.Run("Success", testMustNewEndpointsSuccess)
+func TestMustFanoutURLs(t *testing.T) {
+	t.Run("Panics", testMustFanoutURLsPanics)
+	t.Run("Success", testMustFanoutURLsSuccess)
 }
 
 func testNewFixedEndpointsEmpty(t *testing.T) {
@@ -100,7 +100,7 @@ func testNewFixedEndpointsValid(t *testing.T, urls []string, originalURL string,
 	require.Len(fe, len(urls))
 	require.NoError(err)
 
-	actual, err := fe.NewEndpoints(httptest.NewRequest("GET", originalURL, nil))
+	actual, err := fe.FanoutURLs(httptest.NewRequest("GET", originalURL, nil))
 	require.Equal(len(expected), len(actual))
 	require.NoError(err)
 
