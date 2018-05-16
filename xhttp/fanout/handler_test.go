@@ -90,7 +90,7 @@ func testHandlerEndpointsError(t *testing.T) {
 
 	require.NotNil(handler)
 	body.OnReadError(io.EOF).Once()
-	endpoints.On("NewEndpoints", original).Once().Return(nil, expectedError)
+	endpoints.On("FanoutURLs", original).Once().Return(nil, expectedError)
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
@@ -242,7 +242,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		complete   = make(chan struct{}, len(expectedResponses))
 		handler    = New(endpoints,
 			WithTransactor(transactor.Do),
-			WithFanoutBefore(OriginalBody(true)),
+			WithFanoutBefore(ForwardBody(true)),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
@@ -501,9 +501,32 @@ func testNewShouldTerminate(t *testing.T) {
 	assert.True(shouldTerminateCalled)
 }
 
+func testNewWithInjectedOptions(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		expectedEndpoints = MustParseURLs("http://foobar.com:8080")
+
+		handler = New(
+			expectedEndpoints,
+			WithOptions(Options{
+				Endpoints:     []string{"localhost:1234"},
+				Authorization: "deadbeef",
+			}),
+		)
+	)
+
+	require.NotNil(handler)
+	assert.NotNil(handler.transactor)
+	assert.Len(handler.before, 1)
+	assert.Equal(expectedEndpoints, handler.endpoints)
+}
+
 func TestNew(t *testing.T) {
 	t.Run("NilEndpoints", testNewNilEndpoints)
 	t.Run("NilOptions", testNewNilOptions)
 	t.Run("NoOptions", testNewNoOptions)
 	t.Run("ShouldTerminate", testNewShouldTerminate)
+	t.Run("WithInjectedOptions", testNewWithInjectedOptions)
 }

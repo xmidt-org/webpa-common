@@ -16,7 +16,7 @@ const (
 
 // RedirectPolicy is the configurable policy for handling redirects
 type RedirectPolicy struct {
-	// Logger is the go-kit Logger used for logging.  If unset, logging.DefaultLogger() is used.
+	// Logger is the go-kit Logger used for logging.  If unset, the request context's logger is used.
 	Logger log.Logger
 
 	// MaxRedirects is the maximum number of redirects to follow.  If unset, DefaultMaxRedirects is used.
@@ -24,15 +24,6 @@ type RedirectPolicy struct {
 
 	// ExcludeHeaders is the blacklist of headers that should not be copied from previous requests.
 	ExcludeHeaders []string
-}
-
-// logger returns the go-kit logger for output
-func (p RedirectPolicy) logger() log.Logger {
-	if p.Logger != nil {
-		return p.Logger
-	}
-
-	return logging.DefaultLogger()
 }
 
 // maxRedirects returns the maximum number of redirects to follow
@@ -65,12 +56,16 @@ func (p RedirectPolicy) headerFilter() func(string) bool {
 // CheckRedirect produces a redirect policy function given a policy descriptor
 func CheckRedirect(p RedirectPolicy) func(*http.Request, []*http.Request) error {
 	var (
-		logger       = p.logger()
 		maxRedirects = p.maxRedirects()
 		headerFilter = p.headerFilter()
 	)
 
 	return func(r *http.Request, via []*http.Request) error {
+		logger := p.Logger
+		if logger == nil {
+			logger = logging.GetLogger(r.Context())
+		}
+
 		if len(via) >= maxRedirects {
 			err := fmt.Errorf("stopped after %d redirect(s)", maxRedirects)
 			logger.Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), err)

@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	errNoFanoutEndpoints = errors.New("No fanout endpoints")
-	errBadTransactor     = errors.New("Transactor did not conform to stdlib API")
+	errNoFanoutURLs  = errors.New("No fanout URLs")
+	errBadTransactor = errors.New("Transactor did not conform to stdlib API")
 )
 
 // Options is a configuration option for a fanout Handler
@@ -102,6 +102,19 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
+// WithOptions uses a set of (possibly injected) fanout options to configure a Handler.
+// Use of this option will not override the configured Endpoints instance.
+func WithOptions(o Options) Option {
+	return func(h *Handler) {
+		WithTransactor(NewTransactor(o))(h)
+
+		authorization := o.authorization()
+		if len(authorization) > 0 {
+			WithClientBefore(gokithttp.SetRequestHeader("Authorization", authorization))(h)
+		}
+	}
+}
+
 // Handler is the http.Handler that fans out HTTP requests using the configured Endpoints strategy.
 type Handler struct {
 	endpoints       Endpoints
@@ -145,23 +158,23 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 		return nil, err
 	}
 
-	endpoints, err := h.endpoints.NewEndpoints(original)
+	urls, err := h.endpoints.FanoutURLs(original)
 	if err != nil {
 		return nil, err
-	} else if len(endpoints) == 0 {
-		return nil, errNoFanoutEndpoints
+	} else if len(urls) == 0 {
+		return nil, errNoFanoutURLs
 	}
 
-	requests := make([]*http.Request, len(endpoints))
-	for i := 0; i < len(endpoints); i++ {
+	requests := make([]*http.Request, len(urls))
+	for i := 0; i < len(urls); i++ {
 		fanout := &http.Request{
 			Method:     original.Method,
-			URL:        endpoints[i],
+			URL:        urls[i],
 			Proto:      "HTTP/1.1",
 			ProtoMajor: 1,
 			ProtoMinor: 1,
 			Header:     make(http.Header),
-			Host:       endpoints[i].Host,
+			Host:       urls[i].Host,
 		}
 
 		endpointCtx := fanoutCtx

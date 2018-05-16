@@ -1,25 +1,33 @@
 package fanout
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 )
 
+var (
+	errNoConfiguredEndpoints = errors.New("No configured endpoints")
+)
+
 // Endpoints is a strategy interface for determining the set of HTTP URL endpoints that a fanout
-// should use.  Each returned endpoint will be associated with a single http.Request object and transaction.
+// should use.
 type Endpoints interface {
-	NewEndpoints(*http.Request) ([]*url.URL, error)
+	// FanoutURLs determines the URLs that an original request should be dispatched
+	// to as part of a fanout.  Each returned URL will be associated with a single http.Request
+	// object and transaction.
+	FanoutURLs(*http.Request) ([]*url.URL, error)
 }
 
 type EndpointsFunc func(*http.Request) ([]*url.URL, error)
 
-func (ef EndpointsFunc) NewEndpoints(original *http.Request) ([]*url.URL, error) {
+func (ef EndpointsFunc) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 	return ef(original)
 }
 
-// MustNewEndpoints invokes NewEndpoints on the given Endpoints instance, and panics if there's an error.
-func MustNewEndpoints(e Endpoints, original *http.Request) []*url.URL {
-	endpointURLs, err := e.NewEndpoints(original)
+// MustFanoutURLs invokes FanoutURLs on the given Endpoints instance, and panics if there's an error.
+func MustFanoutURLs(e Endpoints, original *http.Request) []*url.URL {
+	endpointURLs, err := e.FanoutURLs(original)
 	if err != nil {
 		panic(err)
 	}
@@ -30,9 +38,9 @@ func MustNewEndpoints(e Endpoints, original *http.Request) []*url.URL {
 // FixedEndpoints represents a set of URLs that act as base URLs for a fanout.
 type FixedEndpoints []*url.URL
 
-// NewFixedEndpoints parses each URL to produce a FixedEndpoints.  Each supplied URL should have a scheme
+// ParseURLs parses each URL to produce a FixedEndpoints.  Each supplied URL should have a scheme
 // instead of being abbreviated, e.g. "http://hostname" or "http://hostname:1234" instead of "hostname" or "hostname:1234"
-func NewFixedEndpoints(urls ...string) (FixedEndpoints, error) {
+func ParseURLs(urls ...string) (FixedEndpoints, error) {
 	fe := make(FixedEndpoints, 0, len(urls))
 
 	for _, u := range urls {
@@ -47,9 +55,9 @@ func NewFixedEndpoints(urls ...string) (FixedEndpoints, error) {
 	return fe, nil
 }
 
-// MustNewFixedEndpoints is like NewFixedEndpoints, except that it panics instead of returning an error.
-func MustNewFixedEndpoints(urls ...string) FixedEndpoints {
-	fe, err := NewFixedEndpoints(urls...)
+// MustParseURLs is like ParseURLs, except that it panics instead of returning an error.
+func MustParseURLs(urls ...string) FixedEndpoints {
+	fe, err := ParseURLs(urls...)
 	if err != nil {
 		panic(err)
 	}
@@ -57,7 +65,7 @@ func MustNewFixedEndpoints(urls ...string) FixedEndpoints {
 	return fe
 }
 
-func (fe FixedEndpoints) NewEndpoints(original *http.Request) ([]*url.URL, error) {
+func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 	endpoints := make([]*url.URL, len(fe))
 	for i := 0; i < len(fe); i++ {
 		endpoints[i] = new(url.URL)
@@ -70,4 +78,33 @@ func (fe FixedEndpoints) NewEndpoints(original *http.Request) ([]*url.URL, error
 	}
 
 	return endpoints, nil
+}
+
+// NewEndpoints accepts a set of Options, typically injected via configuration, and an alternate function
+// that can create an Endpoints.  If Options has a fixed set of endpoints, this function returns a
+// FixedEndpoints built from those URLs.  Otherwise, the alternate function is invoked to produce
+// and Endpoints instance to return.
+//
+// This function allows an application-layer Endpoints, returned by alternate, to be used when injected
+// endpoints are not present.
+func NewEndpoints(o Options, alternate func() (Endpoints, error)) (Endpoints, error) {
+	if endpoints := o.endpoints(); len(endpoints) > 0 {
+		return ParseURLs(endpoints...)
+	}
+
+	if alternate != nil {
+		return alternate()
+	}
+
+	return nil, errNoConfiguredEndpoints
+}
+
+// MustNewEndpoints is like NewEndpoints, save that it panics upon any error.
+func MustNewEndpoints(o Options, alternate func() (Endpoints, error)) Endpoints {
+	e, err := NewEndpoints(o, alternate)
+	if err != nil {
+		panic(err)
+	}
+
+	return e
 }
