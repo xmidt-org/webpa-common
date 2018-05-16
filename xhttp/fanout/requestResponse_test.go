@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testOriginalBodyNoBody(t *testing.T, originalBody []byte) {
+func testForwardBodyNoBody(t *testing.T, originalBody []byte) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -31,7 +31,7 @@ func testOriginalBodyNoBody(t *testing.T, originalBody []byte) {
 				return nil, nil
 			},
 		}
-		rf = OriginalBody(true)
+		rf = ForwardBody(true)
 	)
 
 	require.NotNil(rf)
@@ -43,7 +43,7 @@ func testOriginalBodyNoBody(t *testing.T, originalBody []byte) {
 	assert.Nil(fanout.GetBody)
 }
 
-func testOriginalBodyFollowRedirects(t *testing.T) {
+func testForwardBodyFollowRedirects(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -61,7 +61,7 @@ func testOriginalBodyFollowRedirects(t *testing.T) {
 				return nil, nil
 			},
 		}
-		rf = OriginalBody(true)
+		rf = ForwardBody(true)
 	)
 
 	require.NotNil(rf)
@@ -85,7 +85,7 @@ func testOriginalBodyFollowRedirects(t *testing.T) {
 	assert.Equal(originalBody, string(actualBody))
 }
 
-func testOriginalBodyNoFollowRedirects(t *testing.T) {
+func testForwardBodyNoFollowRedirects(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -103,7 +103,7 @@ func testOriginalBodyNoFollowRedirects(t *testing.T) {
 				return nil, nil
 			},
 		}
-		rf = OriginalBody(false)
+		rf = ForwardBody(false)
 	)
 
 	require.NotNil(rf)
@@ -121,14 +121,14 @@ func testOriginalBodyNoFollowRedirects(t *testing.T) {
 	assert.Nil(fanout.GetBody)
 }
 
-func TestOriginalBody(t *testing.T) {
-	t.Run("NilBody", func(t *testing.T) { testOriginalBodyNoBody(t, nil) })
-	t.Run("EmptyBody", func(t *testing.T) { testOriginalBodyNoBody(t, make([]byte, 0)) })
-	t.Run("FollowRedirects=true", testOriginalBodyFollowRedirects)
-	t.Run("FollowRedirects=false", testOriginalBodyNoFollowRedirects)
+func TestForwardBody(t *testing.T) {
+	t.Run("NilBody", func(t *testing.T) { testForwardBodyNoBody(t, nil) })
+	t.Run("EmptyBody", func(t *testing.T) { testForwardBodyNoBody(t, make([]byte, 0)) })
+	t.Run("FollowRedirects=true", testForwardBodyFollowRedirects)
+	t.Run("FollowRedirects=false", testForwardBodyNoFollowRedirects)
 }
 
-func testOriginalHeaders(t *testing.T, originalHeader http.Header, headersToCopy []string, expectedFanoutHeader http.Header) {
+func testForwardHeaders(t *testing.T, originalHeader http.Header, headersToCopy []string, expectedFanoutHeader http.Header) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -142,7 +142,7 @@ func testOriginalHeaders(t *testing.T, originalHeader http.Header, headersToCopy
 			Header: make(http.Header),
 		}
 
-		rf = OriginalHeaders(headersToCopy...)
+		rf = ForwardHeaders(headersToCopy...)
 	)
 
 	require.NotNil(rf)
@@ -150,7 +150,7 @@ func testOriginalHeaders(t *testing.T, originalHeader http.Header, headersToCopy
 	assert.Equal(expectedFanoutHeader, fanout.Header)
 }
 
-func TestOriginalHeaders(t *testing.T) {
+func TestForwardHeaders(t *testing.T) {
 	testData := []struct {
 		originalHeader       http.Header
 		headersToCopy        []string
@@ -206,12 +206,12 @@ func TestOriginalHeaders(t *testing.T) {
 	for i, record := range testData {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Logf("%#v", record)
-			testOriginalHeaders(t, record.originalHeader, record.headersToCopy, record.expectedFanoutHeader)
+			testForwardHeaders(t, record.originalHeader, record.headersToCopy, record.expectedFanoutHeader)
 		})
 	}
 }
 
-func testPathVariableToHeaderMissing(t *testing.T) {
+func testForwardVariableAsHeaderMissing(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -219,7 +219,7 @@ func testPathVariableToHeaderMissing(t *testing.T) {
 		ctx      = context.WithValue(context.Background(), "foo", "bar")
 		original = httptest.NewRequest("GET", "/", nil)
 		fanout   = httptest.NewRequest("GET", "/", nil)
-		rf       = PathVariableToHeader("test", "X-Test")
+		rf       = ForwardVariableAsHeader("test", "X-Test")
 	)
 
 	require.NotNil(rf)
@@ -227,7 +227,7 @@ func testPathVariableToHeaderMissing(t *testing.T) {
 	assert.Equal("", fanout.Header.Get("X-Test"))
 }
 
-func testPathVariableToHeaderValue(t *testing.T) {
+func testForwardVariableAsHeaderValue(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -243,7 +243,7 @@ func testPathVariableToHeaderValue(t *testing.T) {
 		)
 
 		fanout = httptest.NewRequest("GET", "/", nil)
-		rf     = PathVariableToHeader("test", "X-Test")
+		rf     = ForwardVariableAsHeader("test", "X-Test")
 	)
 
 	require.NotNil(rf)
@@ -251,19 +251,19 @@ func testPathVariableToHeaderValue(t *testing.T) {
 	assert.Equal("foobar", fanout.Header.Get("X-Test"))
 }
 
-func TestPathVariableToHeader(t *testing.T) {
-	t.Run("Missing", testPathVariableToHeaderMissing)
-	t.Run("Value", testPathVariableToHeaderValue)
+func TestForwardVariableAsHeader(t *testing.T) {
+	t.Run("Missing", testForwardVariableAsHeaderMissing)
+	t.Run("Value", testForwardVariableAsHeaderValue)
 }
 
-func testFanoutHeaders(t *testing.T, fanoutResponse *http.Response, headersToCopy []string, expectedResponseHeader http.Header) {
+func testReturnHeaders(t *testing.T, fanoutResponse *http.Response, headersToCopy []string, expectedResponseHeader http.Header) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
 		ctx     = context.WithValue(context.Background(), "foo", "bar")
 
 		response = httptest.NewRecorder()
-		rf       = FanoutHeaders(headersToCopy...)
+		rf       = ReturnHeaders(headersToCopy...)
 	)
 
 	require.NotNil(rf)
@@ -271,7 +271,7 @@ func testFanoutHeaders(t *testing.T, fanoutResponse *http.Response, headersToCop
 	assert.Equal(expectedResponseHeader, response.Header())
 }
 
-func TestFanoutHeaders(t *testing.T) {
+func TestReturnHeaders(t *testing.T) {
 	testData := []struct {
 		fanoutResponse         *http.Response
 		headersToCopy          []string
@@ -332,7 +332,7 @@ func TestFanoutHeaders(t *testing.T) {
 	for i, record := range testData {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Logf("%#v", record)
-			testFanoutHeaders(t, record.fanoutResponse, record.headersToCopy, record.expectedResponseHeader)
+			testReturnHeaders(t, record.fanoutResponse, record.headersToCopy, record.expectedResponseHeader)
 		})
 	}
 }

@@ -242,7 +242,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		complete   = make(chan struct{}, len(expectedResponses))
 		handler    = New(endpoints,
 			WithTransactor(transactor.Do),
-			WithFanoutBefore(OriginalBody(true)),
+			WithFanoutBefore(ForwardBody(true)),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
