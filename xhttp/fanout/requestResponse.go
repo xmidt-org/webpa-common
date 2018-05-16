@@ -6,6 +6,7 @@ import (
 	"net/textproto"
 
 	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/gorilla/mux"
 )
 
 // FanoutRequestFunc is invoked to build a fanout request.  It can transfer information from the original request,
@@ -48,6 +49,24 @@ func OriginalHeaders(headers ...string) FanoutRequestFunc {
 			if values := original.Header[key]; len(values) > 0 {
 				fanout.Header[key] = append(fanout.Header[key], values...)
 			}
+		}
+
+		return ctx
+	}
+}
+
+// PathVariableToHeader returns a request function that copies the value of a gorilla/mux path variable
+// from the original HTTP request into an HTTP header on each fanout request.
+//
+// The fanout request will always have the given header.  If no path variable is supplied (or no path variables
+// are found), the fanout request will have the header associated with an empty string.
+func PathVariableToHeader(variable, header string) FanoutRequestFunc {
+	return func(ctx context.Context, original, fanout *http.Request, _ []byte) context.Context {
+		variables := mux.Vars(original)
+		if len(variables) > 0 {
+			fanout.Header.Add(header, variables[variable])
+		} else {
+			fanout.Header.Add(header, "")
 		}
 
 		return ctx

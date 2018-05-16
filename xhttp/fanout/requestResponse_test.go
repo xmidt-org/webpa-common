@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -208,6 +209,51 @@ func TestOriginalHeaders(t *testing.T) {
 			testOriginalHeaders(t, record.originalHeader, record.headersToCopy, record.expectedFanoutHeader)
 		})
 	}
+}
+
+func testPathVariableToHeaderMissing(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		ctx      = context.WithValue(context.Background(), "foo", "bar")
+		original = httptest.NewRequest("GET", "/", nil)
+		fanout   = httptest.NewRequest("GET", "/", nil)
+		rf       = PathVariableToHeader("test", "X-Test")
+	)
+
+	require.NotNil(rf)
+	assert.Equal(ctx, rf(ctx, original, fanout, nil))
+	assert.Equal("", fanout.Header.Get("X-Test"))
+}
+
+func testPathVariableToHeaderValue(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		ctx       = context.WithValue(context.Background(), "foo", "bar")
+		variables = map[string]string{
+			"test": "foobar",
+		}
+
+		original = mux.SetURLVars(
+			httptest.NewRequest("GET", "/", nil),
+			variables,
+		)
+
+		fanout = httptest.NewRequest("GET", "/", nil)
+		rf     = PathVariableToHeader("test", "X-Test")
+	)
+
+	require.NotNil(rf)
+	assert.Equal(ctx, rf(ctx, original, fanout, nil))
+	assert.Equal("foobar", fanout.Header.Get("X-Test"))
+}
+
+func TestPathVariableToHeader(t *testing.T) {
+	t.Run("Missing", testPathVariableToHeaderMissing)
+	t.Run("Value", testPathVariableToHeaderValue)
 }
 
 func testFanoutHeaders(t *testing.T, fanoutResponse *http.Response, headersToCopy []string, expectedResponseHeader http.Header) {
