@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+
+	"github.com/Comcast/webpa-common/xhttp"
 )
 
 var (
@@ -40,19 +42,13 @@ type FixedEndpoints []*url.URL
 
 // ParseURLs parses each URL to produce a FixedEndpoints.  Each supplied URL should have a scheme
 // instead of being abbreviated, e.g. "http://hostname" or "http://hostname:1234" instead of "hostname" or "hostname:1234"
-func ParseURLs(urls ...string) (FixedEndpoints, error) {
-	fe := make(FixedEndpoints, 0, len(urls))
-
-	for _, u := range urls {
-		parsed, err := url.Parse(u)
-		if err != nil {
-			return nil, err
-		}
-
-		fe = append(fe, parsed)
+func ParseURLs(values ...string) (FixedEndpoints, error) {
+	urls, err := xhttp.ApplyURLParser(url.Parse, values...)
+	if err != nil {
+		return nil, err
 	}
 
-	return fe, nil
+	return FixedEndpoints(urls), nil
 }
 
 // MustParseURLs is like ParseURLs, except that it panics instead of returning an error.
