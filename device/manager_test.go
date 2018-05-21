@@ -325,6 +325,7 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 				"hw-serial-number":123456789,
 				"webpa-protocol":"WebPA-1.6"
 			}
+
 	*/
 	header := &http.Header{
 		"X-Webpa-Convey": {"eyAgDQogICAiaHctc2VyaWFsLW51bWJlciI6MTIzNDU2Nzg5LA0KICAgIndlYnBhLXByb3RvY29sIjoiV2ViUEEtMS42Ig0KfQ=="},
@@ -343,11 +344,11 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 
 	content := <-contents
 	convey := make(map[string]interface{})
-	err = json.Unmarshal(content, convey)
+	err = json.Unmarshal(content, &convey)
 
 	assert.Nil(err)
 	assert.Equal(2, len(convey))
-	assert.Equal(123456789, convey["hw-serial-number"])
+	assert.Equal(float64(123456789), convey["hw-serial-number"])
 	assert.Equal("WebPA-1.6", convey["webpa-protocol"])
 }
 
@@ -356,6 +357,7 @@ func TestManager(t *testing.T) {
 		t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
 		t.Run("UpgradeError", testManagerConnectUpgradeError)
 		t.Run("Visit", testManagerConnectVisit)
+		t.Run("IncludesConvey", testManagerConnectIncludesConvey)
 	})
 
 	t.Run("Route", func(t *testing.T) {

@@ -190,9 +190,11 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	if conveyErr == nil {
 		bytes, err := json.Marshal(convey)
-		if err != nil {
+		if err == nil {
 			event.Format = wrp.JSON
 			event.Contents = bytes
+		} else {
+			d.errorLog.Log(logging.MessageKey(), "unable to marshal the convey header", logging.ErrorKey(), err)
 		}
 	}
 
