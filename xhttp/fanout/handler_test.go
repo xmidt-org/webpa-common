@@ -442,7 +442,7 @@ func testNewNilEndpoints(t *testing.T) {
 	})
 }
 
-func testNewNilOptions(t *testing.T) {
+func testNewNilConfiguration(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -465,7 +465,7 @@ func testNewNilOptions(t *testing.T) {
 	assert.Empty(handler.after)
 }
 
-func testNewNoOptions(t *testing.T) {
+func testNewNoConfiguration(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -501,7 +501,7 @@ func testNewShouldTerminate(t *testing.T) {
 	assert.True(shouldTerminateCalled)
 }
 
-func testNewWithInjectedOptions(t *testing.T) {
+func testNewWithInjectedConfiguration(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -510,7 +510,7 @@ func testNewWithInjectedOptions(t *testing.T) {
 
 		handler = New(
 			expectedEndpoints,
-			WithOptions(Options{
+			WithConfiguration(Configuration{
 				Endpoints:     []string{"localhost:1234"},
 				Authorization: "deadbeef",
 			}),
@@ -525,8 +525,8 @@ func testNewWithInjectedOptions(t *testing.T) {
 
 func TestNew(t *testing.T) {
 	t.Run("NilEndpoints", testNewNilEndpoints)
-	t.Run("NilOptions", testNewNilOptions)
-	t.Run("NoOptions", testNewNoOptions)
+	t.Run("NilConfiguration", testNewNilConfiguration)
+	t.Run("NoConfiguration", testNewNoConfiguration)
 	t.Run("ShouldTerminate", testNewShouldTerminate)
-	t.Run("WithInjectedOptions", testNewWithInjectedOptions)
+	t.Run("WithInjectedConfiguration", testNewWithInjectedConfiguration)
 }

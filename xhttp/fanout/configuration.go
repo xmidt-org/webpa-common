@@ -16,8 +16,8 @@ const (
 	DefaultConcurrency                 = 1000
 )
 
-// Options defines the configuration structure for externally configuring a fanout.
-type Options struct {
+// Configuration defines the configuration structure for externally configuring a fanout.
+type Configuration struct {
 	// Endpoints are the URLs for each endpoint to fan out to.  If unset, the default is supplied
 	// by application code, which is normally a set of endpoints driven by service discovery.
 	Endpoints []string `json:"endpoints,omitempty"`
@@ -44,93 +44,93 @@ type Options struct {
 	RedirectExcludeHeaders []string `json:"redirectExcludeHeaders,omitempty"`
 }
 
-func (o *Options) endpoints() []string {
-	if o != nil {
-		return o.Endpoints
+func (c *Configuration) endpoints() []string {
+	if c != nil {
+		return c.Endpoints
 	}
 
 	return nil
 }
 
-func (o *Options) authorization() string {
-	if o != nil && len(o.Authorization) > 0 {
-		return o.Authorization
+func (c *Configuration) authorization() string {
+	if c != nil && len(c.Authorization) > 0 {
+		return c.Authorization
 	}
 
 	return ""
 }
 
-func (o *Options) fanoutTimeout() time.Duration {
-	if o != nil && o.FanoutTimeout > 0 {
-		return o.FanoutTimeout
+func (c *Configuration) fanoutTimeout() time.Duration {
+	if c != nil && c.FanoutTimeout > 0 {
+		return c.FanoutTimeout
 	}
 
 	return DefaultFanoutTimeout
 }
 
-func (o *Options) clientTimeout() time.Duration {
-	if o != nil && o.ClientTimeout > 0 {
-		return o.ClientTimeout
+func (c *Configuration) clientTimeout() time.Duration {
+	if c != nil && c.ClientTimeout > 0 {
+		return c.ClientTimeout
 	}
 
 	return DefaultClientTimeout
 }
 
-func (o *Options) transport() *http.Transport {
+func (c *Configuration) transport() *http.Transport {
 	transport := new(http.Transport)
 
-	if o != nil {
-		*transport = o.Transport
+	if c != nil {
+		*transport = c.Transport
 	}
 
 	return transport
 }
 
-func (o *Options) concurrency() int {
-	if o != nil && o.Concurrency > 0 {
-		return o.Concurrency
+func (c *Configuration) concurrency() int {
+	if c != nil && c.Concurrency > 0 {
+		return c.Concurrency
 	}
 
 	return DefaultConcurrency
 }
 
-func (o *Options) maxRedirects() int {
-	if o != nil {
-		return o.MaxRedirects
+func (c *Configuration) maxRedirects() int {
+	if c != nil {
+		return c.MaxRedirects
 	}
 
 	return 0
 }
 
-func (o *Options) redirectExcludeHeaders() []string {
-	if o != nil {
-		return o.RedirectExcludeHeaders
+func (c *Configuration) redirectExcludeHeaders() []string {
+	if c != nil {
+		return c.RedirectExcludeHeaders
 	}
 
 	return nil
 }
 
-func (o *Options) checkRedirect() func(*http.Request, []*http.Request) error {
+func (c *Configuration) checkRedirect() func(*http.Request, []*http.Request) error {
 	return xhttp.CheckRedirect(xhttp.RedirectPolicy{
-		MaxRedirects:   o.maxRedirects(),
-		ExcludeHeaders: o.redirectExcludeHeaders(),
+		MaxRedirects:   c.maxRedirects(),
+		ExcludeHeaders: c.redirectExcludeHeaders(),
 	})
 }
 
 // NewTransactor constructs an HTTP client transaction function from a set of fanout options.
-func NewTransactor(o Options) func(*http.Request) (*http.Response, error) {
+func NewTransactor(c Configuration) func(*http.Request) (*http.Response, error) {
 	return (&http.Client{
-		Transport:     o.transport(),
-		CheckRedirect: o.checkRedirect(),
-		Timeout:       o.clientTimeout(),
+		Transport:     c.transport(),
+		CheckRedirect: c.checkRedirect(),
+		Timeout:       c.clientTimeout(),
 	}).Do
 }
 
 // NewChain constructs an Alice constructor Chain from a set of fanout options and zero or
 // more application-layer request functions.
-func NewChain(o Options, rf ...func(context.Context, *http.Request) context.Context) alice.Chain {
+func NewChain(c Configuration, rf ...func(context.Context, *http.Request) context.Context) alice.Chain {
 	return alice.New(
-		xcontext.Populate(o.fanoutTimeout(), rf...),
-		xhttp.Busy(o.concurrency()),
+		xcontext.Populate(c.fanoutTimeout(), rf...),
+		xhttp.Busy(c.concurrency()),
 	)
 }
