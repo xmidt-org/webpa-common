@@ -72,8 +72,8 @@ func WithClientBefore(before ...gokithttp.RequestFunc) Option {
 		for _, rf := range before {
 			h.before = append(
 				h.before,
-				func(ctx context.Context, _, fanout *http.Request, _ []byte) context.Context {
-					return rf(ctx, fanout)
+				func(ctx context.Context, _, fanout *http.Request, _ []byte) (context.Context, error) {
+					return rf(ctx, fanout), nil
 				},
 			)
 		}
@@ -178,8 +178,12 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 		}
 
 		endpointCtx := fanoutCtx
+		var err error
 		for _, rf := range h.before {
-			endpointCtx = rf(endpointCtx, original, fanout, body)
+			endpointCtx, err = rf(endpointCtx, original, fanout, body)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		requests[i] = fanout.WithContext(endpointCtx)
