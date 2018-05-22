@@ -34,6 +34,7 @@ type SNSConfig struct {
 	Region   string `json:"region"`
 	TopicArn string `json:"topicArn"`
 	UrlPath  string `json:"urlPath"` //uri path to register mux
+	AwsEndpoint string `json:"awsEndpoint"`
 }
 
 type SNSServer struct {
@@ -75,6 +76,7 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 
 	sess, aws_err := session.NewSession(&aws.Config{
 		Region:      aws.String(cfg.Sns.Region),
+		Endpoint:    aws.String(cfg.Sns.AwsEndpoint),
 		Credentials: cred,
 	})
 	if aws_err != nil {

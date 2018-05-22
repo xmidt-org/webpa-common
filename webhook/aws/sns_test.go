@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
-	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -53,6 +53,7 @@ func TestNewSNSServerSuccess(t *testing.T) {
 	assert.NotNil(ss.SNSValidator)
 	assert.Equal("test", ss.Config.Env)
 	assert.Equal("us-east-1", ss.Config.Sns.Region)
+	assert.Equal("http://example.com", ss.Config.Sns.AwsEndpoint)
 }
 
 func TestNewSNSServerAWSConfigError(t *testing.T) {
@@ -77,6 +78,7 @@ func TestNewSNSServerViperNil(t *testing.T) {
 	assert.NotNil(ss.Config)
 	assert.Equal(ss.Config.AccessKey, "test-accessKey")
 	assert.Equal(ss.Config.Sns.TopicArn, "arn:aws:sns:us-east-1:1234:test-topic")
+	assert.Equal("", ss.Config.Sns.AwsEndpoint)
 	assert.NotNil(ss.SNSValidator)
 }
 

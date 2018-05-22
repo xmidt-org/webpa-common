@@ -19,7 +19,8 @@ const (
 	        "region" : "us-east-1",
             "protocol" : "http",
 			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic", 
-			"urlPath" : "/api/v2/aws/sns"
+			"urlPath" : "/api/v2/aws/sns",
+			"awsEndpoint" : "http://example.com"
     } } }`
 	TEST_SUB_MSG = `{
 	"Type" : "SubscriptionConfirmation",
