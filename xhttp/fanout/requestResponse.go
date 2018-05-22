@@ -11,14 +11,14 @@ import (
 
 // FanoutRequestFunc is invoked to build a fanout request.  It can transfer information from the original request,
 // set the body, update the context, etc.  This is the analog of go-kit's RequestFunc.
-type FanoutRequestFunc func(ctx context.Context, original, fanout *http.Request, body []byte) context.Context
+type FanoutRequestFunc func(ctx context.Context, original, fanout *http.Request, body []byte) (context.Context, error)
 
 // ForwardBody creates a FanoutRequestFunc that sends the original request's body to each fanout.
 // If followRedirects is true, this function also sets fanout.GetBody so that the same body is read for redirects.
 //
 // This function also sets the ContentLength and Content-Type header appropriately.
 func ForwardBody(followRedirects bool) FanoutRequestFunc {
-	return func(ctx context.Context, original, fanout *http.Request, originalBody []byte) context.Context {
+	return func(ctx context.Context, original, fanout *http.Request, originalBody []byte) (context.Context, error) {
 		fanout.ContentLength = int64(len(originalBody))
 		fanout.Body = nil
 		fanout.GetBody = nil
@@ -33,7 +33,7 @@ func ForwardBody(followRedirects bool) FanoutRequestFunc {
 			}
 		}
 
-		return ctx
+		return ctx, nil
 	}
 }
 
@@ -44,14 +44,14 @@ func ForwardHeaders(headers ...string) FanoutRequestFunc {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
 	}
 
-	return func(ctx context.Context, original, fanout *http.Request, _ []byte) context.Context {
+	return func(ctx context.Context, original, fanout *http.Request, _ []byte) (context.Context, error) {
 		for _, key := range canonicalizedHeaders {
 			if values := original.Header[key]; len(values) > 0 {
 				fanout.Header[key] = append(fanout.Header[key], values...)
 			}
 		}
 
-		return ctx
+		return ctx, nil
 	}
 }
 
@@ -61,7 +61,7 @@ func ForwardHeaders(headers ...string) FanoutRequestFunc {
 // The fanout request will always have the given header.  If no path variable is supplied (or no path variables
 // are found), the fanout request will have the header associated with an empty string.
 func ForwardVariableAsHeader(variable, header string) FanoutRequestFunc {
-	return func(ctx context.Context, original, fanout *http.Request, _ []byte) context.Context {
+	return func(ctx context.Context, original, fanout *http.Request, _ []byte) (context.Context, error) {
 		variables := mux.Vars(original)
 		if len(variables) > 0 {
 			fanout.Header.Add(header, variables[variable])
@@ -69,7 +69,7 @@ func ForwardVariableAsHeader(variable, header string) FanoutRequestFunc {
 			fanout.Header.Add(header, "")
 		}
 
-		return ctx
+		return ctx, nil
 	}
 }
 

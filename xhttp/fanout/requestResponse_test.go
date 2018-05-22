@@ -36,7 +36,9 @@ func testForwardBodyNoBody(t *testing.T, originalBody []byte) {
 
 	require.NotNil(rf)
 
-	assert.Equal(ctx, rf(ctx, original, fanout, originalBody))
+	returnedCtx, err := rf(ctx, original, fanout, originalBody)
+	assert.Equal(ctx, returnedCtx)
+	assert.NoError(err)
 	assert.Empty(fanout.Header.Get("Content-Type"))
 	assert.Zero(fanout.ContentLength)
 	assert.Nil(fanout.Body)
@@ -67,7 +69,9 @@ func testForwardBodyFollowRedirects(t *testing.T) {
 	require.NotNil(rf)
 	original.Header.Set("Content-Type", "text/plain")
 
-	assert.Equal(ctx, rf(ctx, original, fanout, []byte(originalBody)))
+	returnedCtx, err := rf(ctx, original, fanout, []byte(originalBody))
+	assert.Equal(ctx, returnedCtx)
+	assert.NoError(err)
 	assert.Equal("text/plain", fanout.Header.Get("Content-Type"))
 	assert.Equal(int64(len(originalBody)), fanout.ContentLength)
 
@@ -109,7 +113,9 @@ func testForwardBodyNoFollowRedirects(t *testing.T) {
 	require.NotNil(rf)
 	original.Header.Set("Content-Type", "text/plain")
 
-	assert.Equal(ctx, rf(ctx, original, fanout, []byte(originalBody)))
+	returnedCtx, err := rf(ctx, original, fanout, []byte(originalBody))
+	assert.Equal(ctx, returnedCtx)
+	assert.NoError(err)
 	assert.Equal("text/plain", fanout.Header.Get("Content-Type"))
 	assert.Equal(int64(len(originalBody)), fanout.ContentLength)
 
@@ -146,7 +152,9 @@ func testForwardHeaders(t *testing.T, originalHeader http.Header, headersToCopy 
 	)
 
 	require.NotNil(rf)
-	assert.Equal(ctx, rf(ctx, original, fanout, nil))
+	returnedCtx, err := rf(ctx, original, fanout, nil)
+	assert.Equal(ctx, returnedCtx)
+	assert.NoError(err)
 	assert.Equal(expectedFanoutHeader, fanout.Header)
 }
 
@@ -223,7 +231,9 @@ func testForwardVariableAsHeaderMissing(t *testing.T) {
 	)
 
 	require.NotNil(rf)
-	assert.Equal(ctx, rf(ctx, original, fanout, nil))
+	returnedCtx, err := rf(ctx, original, fanout, nil)
+	assert.Equal(ctx, returnedCtx)
+	assert.NoError(err)
 	assert.Equal("", fanout.Header.Get("X-Test"))
 }
 
@@ -247,7 +257,9 @@ func testForwardVariableAsHeaderValue(t *testing.T) {
 	)
 
 	require.NotNil(rf)
-	assert.Equal(ctx, rf(ctx, original, fanout, nil))
+	returnedCtx, err := rf(ctx, original, fanout, nil)
+	assert.Equal(ctx, returnedCtx)
+	assert.NoError(err)
 	assert.Equal("foobar", fanout.Header.Get("X-Test"))
 }
 
