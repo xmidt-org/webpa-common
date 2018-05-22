@@ -29,7 +29,7 @@ type Configuration struct {
 	Transport http.Transport `json:"transport"`
 
 	// FanoutTimeout is the timeout for the entire fanout operation.  If not supplied, DefaultFanoutTimeout is used.
-	FanoutTimeout time.Duration `json:"timeout"`
+	FanoutTimeout time.Duration `json:"fanoutTimeout"`
 
 	// ClientTimeout is the http.Client Timeout.  If not set, DefaultClientTimeout is used.
 	ClientTimeout time.Duration `json:"clientTimeout"`
