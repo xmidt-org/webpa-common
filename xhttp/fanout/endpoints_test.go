@@ -158,12 +158,12 @@ func TestMustParseURLs(t *testing.T) {
 	t.Run("Success", testMustParseURLsSuccess)
 }
 
-func testNewEndpointsInvalidOptions(t *testing.T) {
+func testNewEndpointsInvalidConfiguration(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
 		e, err = NewEndpoints(
-			Options{Endpoints: []string{"%%"}},
+			Configuration{Endpoints: []string{"%%"}},
 			func() (Endpoints, error) {
 				assert.Fail("The alternate function should not have been called")
 				return nil, nil
@@ -181,7 +181,7 @@ func testNewEndpointsUseAlternate(t *testing.T) {
 
 		expected    = MustParseURLs("http://localhost:1234")
 		actual, err = NewEndpoints(
-			Options{},
+			Configuration{},
 			func() (Endpoints, error) {
 				return expected, nil
 			},
@@ -195,7 +195,7 @@ func testNewEndpointsUseAlternate(t *testing.T) {
 func testNewEndpointsNoneConfigured(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		e, err = NewEndpoints(Options{}, nil)
+		e, err = NewEndpoints(Configuration{}, nil)
 	)
 
 	assert.Nil(e)
@@ -203,7 +203,7 @@ func testNewEndpointsNoneConfigured(t *testing.T) {
 }
 
 func TestNewEndpoints(t *testing.T) {
-	t.Run("InvalidOptions", testNewEndpointsInvalidOptions)
+	t.Run("InvalidConfiguration", testNewEndpointsInvalidConfiguration)
 	t.Run("UseAlternate", testNewEndpointsUseAlternate)
 	t.Run("NoneConfigured", testNewEndpointsNoneConfigured)
 }
@@ -211,7 +211,7 @@ func TestNewEndpoints(t *testing.T) {
 func testMustNewEndpointsPanics(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		MustNewEndpoints(Options{}, nil)
+		MustNewEndpoints(Configuration{}, nil)
 	})
 }
 
@@ -224,7 +224,7 @@ func testMustNewEndpointsSuccess(t *testing.T) {
 	assert.NotPanics(func() {
 		assert.Equal(
 			expected,
-			MustNewEndpoints(Options{}, func() (Endpoints, error) { return expected, nil }),
+			MustNewEndpoints(Configuration{}, func() (Endpoints, error) { return expected, nil }),
 		)
 	})
 }

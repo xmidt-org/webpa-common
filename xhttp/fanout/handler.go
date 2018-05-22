@@ -19,7 +19,7 @@ var (
 	errBadTransactor = errors.New("Transactor did not conform to stdlib API")
 )
 
-// Options is a configuration option for a fanout Handler
+// Option provides a single configuration option for a fanout Handler
 type Option func(*Handler)
 
 // WithShouldTerminate configures a custom termination predicate for the fanout.  If terminate
@@ -102,13 +102,13 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
-// WithOptions uses a set of (possibly injected) fanout options to configure a Handler.
+// WithConfiguration uses a set of (typically injected) fanout configuration options to configure a Handler.
 // Use of this option will not override the configured Endpoints instance.
-func WithOptions(o Options) Option {
+func WithConfiguration(c Configuration) Option {
 	return func(h *Handler) {
-		WithTransactor(NewTransactor(o))(h)
+		WithTransactor(NewTransactor(c))(h)
 
-		authorization := o.authorization()
+		authorization := c.authorization()
 		if len(authorization) > 0 {
 			WithClientBefore(gokithttp.SetRequestHeader("Authorization", authorization))(h)
 		}
