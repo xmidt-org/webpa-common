@@ -55,11 +55,12 @@ func ForwardHeaders(headers ...string) FanoutRequestFunc {
 	}
 }
 
-// FanoutPath sets a constant URI path for every fanout request.  Essentially, this replaces the original URL's
-// path with the configured value.
-func FanoutPath(path string) FanoutRequestFunc {
+// UsePath sets a constant URI path for every fanout request.  Essentially, this replaces the original URL's
+// Path with the configured value.
+func UsePath(path string) FanoutRequestFunc {
 	return func(ctx context.Context, original, fanout *http.Request, _ []byte) (context.Context, error) {
 		fanout.URL.Path = path
+		fanout.URL.RawPath = ""
 		return ctx, nil
 	}
 }
