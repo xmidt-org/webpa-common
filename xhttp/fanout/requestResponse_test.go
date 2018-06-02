@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -215,6 +217,52 @@ func TestForwardHeaders(t *testing.T) {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Logf("%#v", record)
 			testForwardHeaders(t, record.originalHeader, record.headersToCopy, record.expectedFanoutHeader)
+		})
+	}
+}
+
+func testUsePathPanics(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		rf = UsePath("/foo")
+	)
+
+	require.NotNil(rf)
+	assert.Panics(func() {
+		rf(context.Background(), httptest.NewRequest("GET", "/", nil), new(http.Request), nil)
+	})
+}
+
+func testUsePath(t *testing.T, fanout http.Request) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		rf = UsePath("/api/v1/device/foo/bar")
+	)
+
+	require.NotNil(rf)
+
+	rf(context.Background(), httptest.NewRequest("GET", "/", nil), &fanout, nil)
+	assert.Equal("/api/v1/device/foo/bar", fanout.URL.Path)
+	assert.Empty(fanout.URL.RawPath)
+}
+
+func TestUsePath(t *testing.T) {
+	t.Run("Panics", testUsePathPanics)
+
+	testData := []http.Request{
+		{URL: new(url.URL)},
+		{URL: &url.URL{Host: "foobar.com:8080", Path: "/original"}},
+		{URL: &url.URL{Host: "foobar.com:8080", Path: "/something", RawPath: "this is a raw path"}},
+		{URL: &url.URL{Host: "foobar.com:8080", RawPath: "this is a raw path"}},
+	}
+
+	for i, fanout := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			testUsePath(t, fanout)
 		})
 	}
 }
