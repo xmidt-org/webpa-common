@@ -10,18 +10,6 @@ import (
 	"github.com/go-kit/kit/log"
 )
 
-type contextKey struct{}
-
-//handlerValuesKey is the key to set/get context values in this package
-var handlerValuesKey = contextKey{}
-
-//ContextValues contains the values shared under the satClientIDKey from this package
-type ContextValues struct {
-	SatClientID string
-	Method      string
-	Path        string
-}
-
 const (
 	// The Content-Type value for JSON
 	JsonContentType string = "application/json; charset=UTF-8"

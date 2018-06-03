@@ -228,7 +228,7 @@ func TestAuthorizationHandlerSuccess(t *testing.T) {
 
 		inputRequest := request.WithContext(request.Context())
 
-		inputCtx := context.WithValue(inputRequest.Context(), handlerValuesKey, inputCtxValue)
+		inputCtx := context.WithValue(inputRequest.Context(), contextKey{}, inputCtxValue)
 
 		token, _ := secure.ParseAuthorization(authorizationValue)
 
@@ -297,7 +297,7 @@ func TestAuthorizationHandlerFailure(t *testing.T) {
 			Method:      request.Method,
 		}
 
-		inputCtx := context.WithValue(request.Context(), handlerValuesKey, inputCtxValue)
+		inputCtx := context.WithValue(request.Context(), contextKey{}, inputCtxValue)
 
 		token, _ := secure.ParseAuthorization(authorizationValue)
 
