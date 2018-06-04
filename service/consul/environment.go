@@ -100,19 +100,19 @@ func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.In
 func newRegistrars(l log.Logger, registrationScheme string, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
 	var consulRegistrar sd.Registrar
 	for _, registration := range co.registrations() {
-		localRegistration := registration
+		registration := registration
 
-		instance := service.FormatInstance(registrationScheme, localRegistration.Address, localRegistration.Port)
+		instance := service.FormatInstance(registrationScheme, registration.Address, registration.Port)
 		if r.Has(instance) {
 			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "instance", instance)
 			continue
 		}
 
 		if !co.disableGenerateID() {
-			ensureIDs(&localRegistration)
+			ensureIDs(&registration)
 		}
 
-		consulRegistrar, err = NewRegistrar(c, u, &localRegistration, log.With(l, "id", localRegistration.ID, "instance", instance))
+		consulRegistrar, err = NewRegistrar(c, u, &registration, log.With(l, "id", registration.ID, "instance", instance))
 		if err != nil {
 			return
 		}
