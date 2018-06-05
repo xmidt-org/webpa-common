@@ -23,7 +23,7 @@ func TestFromContextSatID(t *testing.T) {
 			Path:        "foo",
 			Method:      "GET",
 		}
-		inputContext := context.WithValue(context.Background(), handlerValuesKey, inputCtxValues)
+		inputContext := context.WithValue(context.Background(), contextKey{}, inputCtxValues)
 		val, ofType := FromContext(inputContext)
 
 		assert.True(ofType)
@@ -38,7 +38,7 @@ func TestNewContext(t *testing.T) {
 		Path:        "foo",
 		Method:      "GET",
 	}
-	expectedContext := context.WithValue(context.Background(), handlerValuesKey, inputCtxValues)
+	expectedContext := context.WithValue(context.Background(), contextKey{}, inputCtxValues)
 	actualContext := NewContextWithValue(context.Background(), inputCtxValues)
 
 	assert.EqualValues(expectedContext, actualContext)

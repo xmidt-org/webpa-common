@@ -1,26 +1,16 @@
 package handler
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
-
-type contextKey struct{}
-
-//handlerValuesKey is the key to set/get context values in this package
-var handlerValuesKey = contextKey{}
-
-//ContextValues contains the values shared under the satClientIDKey from this package
-type ContextValues struct {
-	SatClientID string
-	Method      string
-	Path        string
-}
 
 const (
 	// The Content-Type value for JSON
@@ -35,16 +25,6 @@ const (
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
 )
-
-// WriteJsonError writes a standard JSON error to the response
-func WriteJsonError(response http.ResponseWriter, code int, message string) error {
-	response.Header().Set(ContentTypeHeader, JsonContentType)
-	response.Header().Set(ContentTypeOptionsHeader, NoSniff)
-
-	response.WriteHeader(code)
-	_, err := fmt.Fprintf(response, `{"message": "%s"}`, message)
-	return err
-}
 
 // AuthorizationHandler provides decoration for http.Handler instances and will
 // ensure that requests pass the validator.  Note that secure.Validators is a Validator
@@ -104,7 +84,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		headerValue := request.Header.Get(headerName)
 		if len(headerValue) == 0 {
 			errorLog.Log(logging.MessageKey(), "missing header", "name", headerName)
-			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("missing header: %s", headerName))
+			xhttp.WriteErrorf(response, forbiddenStatusCode, "missing header: %s", headerName)
 
 			if a.measures != nil {
 				a.measures.ValidationReason.With("reason", "missing_header").Add(1)
@@ -115,7 +95,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
 			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, "token", headerValue, logging.ErrorKey(), err)
-			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error()))
+			xhttp.WriteErrorf(response, forbiddenStatusCode, "Invalid authorization header [%s]: %s", headerName, err.Error())
 
 			if a.measures != nil {
 				a.measures.ValidationReason.With("reason", "invalid_header").Add(1)
@@ -124,18 +104,19 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		}
 
 		contextValues := &ContextValues{
-			Method:      request.Method,
-			Path:        request.URL.Path,
-			SatClientID: extractSatClientID(token, logger),
+			Method: request.Method,
+			Path:   request.URL.Path,
 		}
 
 		sharedContext := NewContextWithValue(request.Context(), contextValues)
 
 		valid, err := a.Validator.Validate(sharedContext, token)
 		if err == nil && valid {
-			request = request.WithContext(sharedContext)
-			// if any validator approves, stop and invoke the delegate
-			delegate.ServeHTTP(response, request)
+			if err := populateContextValues(token, contextValues); err != nil {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to populate context", logging.ErrorKey(), err)
+			}
+
+			delegate.ServeHTTP(response, request.WithContext(sharedContext))
 			return
 		}
 
@@ -152,7 +133,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			"remoteAddress", request.RemoteAddr,
 		)
 
-		WriteJsonError(response, forbiddenStatusCode, "request denied")
+		xhttp.WriteError(response, forbiddenStatusCode, "request denied")
 	})
 }
 
@@ -161,20 +142,37 @@ func (a *AuthorizationHandler) DefineMeasures(m *secure.JWTValidationMeasures) {
 	a.measures = m
 }
 
-func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID string) {
-	satClientID = "N/A"
-	if token.Type() == secure.Bearer {
-		if jwsObj, errJWSParse := secure.DefaultJWSParser.ParseJWS(token); errJWSParse == nil {
-			if claims, ok := jwsObj.Payload().(jws.Claims); ok {
-				if satClientIDStr, isString := claims.Get("sub").(string); isString {
-					satClientID = satClientIDStr
-				} else {
-					logging.Error(logger).Log(logging.MessageKey(), "JWT Claim value was not of string type")
+func populateContextValues(token *secure.Token, values *ContextValues) error {
+	values.SatClientID = "N/A"
+
+	if token.Type() != secure.Bearer {
+		return nil
+	}
+
+	jwsToken, err := secure.DefaultJWSParser.ParseJWS(token)
+	if err != nil {
+		return err
+	}
+
+	claims, ok := jwsToken.Payload().(jws.Claims)
+	if !ok {
+		return errors.New("no claims")
+	}
+
+	if sub, ok := claims.Get("sub").(string); ok {
+		values.SatClientID = sub
+	}
+
+	if allowedResources, ok := claims.Get("allowedResources").(map[string]interface{}); ok {
+		if allowedPartners, ok := allowedResources["allowedPartners"].([]interface{}); ok {
+			values.PartnerIDs = make([]string, 0, len(allowedPartners))
+			for i := 0; i < len(allowedPartners); i++ {
+				if value, ok := allowedPartners[i].(string); ok {
+					values.PartnerIDs = append(values.PartnerIDs, value)
 				}
 			}
-		} else {
-			logging.Error(logger).Log(logging.MessageKey(), "Unexpected non-fatal JWS parse error", logging.ErrorKey(), errJWSParse)
 		}
 	}
-	return
+
+	return nil
 }
