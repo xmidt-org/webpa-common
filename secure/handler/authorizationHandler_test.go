@@ -1,13 +1,16 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,247 +41,211 @@ func testAuthorizationHandlerNoDecoration(t *testing.T) {
 	assert.True(nextCalled)
 }
 
-/*
-func testAuthorizationHandlerNoAuthorizationHeader(t *testing.T) {
+func testAuthorizationHandlerNoAuthorization(t *testing.T, expectedStatusCode, configuredStatusCode int) {
 	var (
-		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		assert  = assert.New(t)
+		require = require.New(t)
 
-		testData = []struct {
-			handler            AuthorizationHandler
-			expectedStatusCode int
-		}{
-			{
-				handler: AuthorizationHandler{
-					Validator: &secure.MockValidator{},
-				},
-				expectedStatusCode: http.StatusForbidden,
-			},
-			{
-				handler: AuthorizationHandler{
-					Validator:           &secure.MockValidator{},
-					HeaderName:          "X-Custom-Authorization",
-					ForbiddenStatusCode: 512,
-					Logger:              logger,
-				},
-				expectedStatusCode: 512,
-			},
+		nextCalled = false
+		next       = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			nextCalled = true
+		})
+
+		validator = new(secure.MockValidator)
+		handler   = AuthorizationHandler{
+			Logger:              logging.NewTestLogger(nil, t),
+			ForbiddenStatusCode: configuredStatusCode,
+			Validator:           validator,
 		}
+
+		response  = httptest.NewRecorder()
+		request   = httptest.NewRequest("GET", "/", nil)
+		decorated = handler.Decorate(next)
 	)
 
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		mockHttpHandler := &mockHttpHandler{}
-		decorated := record.handler.Decorate(mockHttpHandler)
-		assert.NotNil(decorated)
-
-		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
-		response := httptest.NewRecorder()
-		decorated.ServeHTTP(response, request)
-		assert.Equal(response.Code, record.expectedStatusCode)
-		assert.Contains(response.HeaderMap.Get("Content-Type"), "application/json")
-
-		body := response.Body.Bytes()
-		t.Logf("response body: %s", body)
-		message := make(map[string]interface{})
-		jsonError := json.Unmarshal(body, &message)
-		assert.NotEmpty(message)
-		assert.Nil(jsonError)
-
-		record.handler.Validator.(*secure.MockValidator).AssertExpectations(t)
-		mockHttpHandler.AssertExpectations(t)
-	}
+	require.NotNil(decorated)
+	decorated.ServeHTTP(response, request)
+	assert.Equal(expectedStatusCode, response.Code)
+	assert.False(nextCalled)
+	validator.AssertExpectations(t)
 }
 
-func testAuthorizationHandlerInvalidAuthorizationHeader(t *testing.T) {
-	assert := assert.New(t)
-	logger := logging.NewTestLogger(nil, t)
-
-	var testData = []struct {
-		handler            AuthorizationHandler
-		headerName         string
-		expectedStatusCode int
-	}{
-		{
-			handler: AuthorizationHandler{
-				Validator: &secure.MockValidator{},
-			},
-			headerName:         secure.AuthorizationHeader,
-			expectedStatusCode: http.StatusForbidden,
-		},
-		{
-			handler: AuthorizationHandler{
-				Validator:           &secure.MockValidator{},
-				HeaderName:          "X-Custom-Authorization",
-				ForbiddenStatusCode: 512,
-				Logger:              logger,
-			},
-			headerName:         "X-Custom-Authorization",
-			expectedStatusCode: 512,
-		},
-	}
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		mockHttpHandler := &mockHttpHandler{}
-		decorated := record.handler.Decorate(mockHttpHandler)
-		assert.NotNil(decorated)
-
-		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
-		request.Header.Set(record.headerName, "BadToken 123")
-		response := httptest.NewRecorder()
-		decorated.ServeHTTP(response, request)
-		assert.Equal(response.Code, record.expectedStatusCode)
-		assert.Contains(response.HeaderMap.Get("Content-Type"), "application/json")
-
-		body := response.Body.Bytes()
-		t.Logf("response body: %s", body)
-		message := make(map[string]interface{})
-		jsonError := json.Unmarshal(body, &message)
-		assert.NotEmpty(message)
-		assert.Nil(jsonError)
-
-		record.handler.Validator.(*secure.MockValidator).AssertExpectations(t)
-		mockHttpHandler.AssertExpectations(t)
-	}
-}
-
-func testAuthorizationHandlerSuccess(t *testing.T) {
+func testAuthorizationHandlerMalformedAuthorization(t *testing.T, expectedStatusCode, configuredStatusCode int, expectedHeader, configuredHeader string) {
 	var (
-		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		assert  = assert.New(t)
+		require = require.New(t)
 
-		testData = []struct {
-			handler            AuthorizationHandler
-			headerName         string
-			expectedStatusCode int
-		}{
-			{
-				handler: AuthorizationHandler{
-					Validator: &secure.MockValidator{},
-				},
-				headerName:         secure.AuthorizationHeader,
-				expectedStatusCode: 222,
-			},
-			{
-				handler: AuthorizationHandler{
-					Validator:           &secure.MockValidator{},
-					HeaderName:          "X-Custom-Authorization",
-					ForbiddenStatusCode: 512,
-					Logger:              logger,
-				},
-				headerName:         "X-Custom-Authorization",
-				expectedStatusCode: 222,
-			},
+		nextCalled = false
+		next       = http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			nextCalled = true
+		})
+
+		validator = new(secure.MockValidator)
+		handler   = AuthorizationHandler{
+			Logger:              logging.NewTestLogger(nil, t),
+			HeaderName:          configuredHeader,
+			ForbiddenStatusCode: configuredStatusCode,
+			Validator:           validator,
 		}
+
+		response  = httptest.NewRecorder()
+		request   = httptest.NewRequest("GET", "/", nil)
+		decorated = handler.Decorate(next)
 	)
 
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		mockValidator := record.handler.Validator.(*secure.MockValidator)
-
-		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
-		request.Header.Set(record.headerName, authorizationValue)
-		response := httptest.NewRecorder()
-
-		inputCtxValue := &ContextValues{
-			SatClientID: "N/A",
-			Path:        request.URL.Path,
-			Method:      request.Method,
-		}
-
-		inputRequest := request.WithContext(request.Context())
-
-		inputCtx := context.WithValue(inputRequest.Context(), contextKey{}, inputCtxValue)
-
-		token, _ := secure.ParseAuthorization(authorizationValue)
-
-		mockValidator.On("Validate", inputCtx, token).Return(true, nil).Once()
-
-		request = request.WithContext(inputCtx) //request has this context after Decorate() is called
-
-		mockHttpHandler := &mockHttpHandler{}
-		mockHttpHandler.On("ServeHTTP", response, request).
-			Run(func(arguments mock.Arguments) {
-				response := arguments.Get(0).(http.ResponseWriter)
-				response.WriteHeader(record.expectedStatusCode)
-			}).
-			Once()
-
-		decorated := record.handler.Decorate(mockHttpHandler)
-		assert.NotNil(decorated)
-		decorated.ServeHTTP(response, inputRequest)
-		assert.Equal(response.Code, record.expectedStatusCode)
-
-		mockValidator.AssertExpectations(t)
-		mockHttpHandler.AssertExpectations(t)
-	}
+	require.NotNil(decorated)
+	request.Header.Set(expectedHeader, "there is no way this is a valid authorization header")
+	decorated.ServeHTTP(response, request)
+	assert.Equal(expectedStatusCode, response.Code)
+	assert.False(nextCalled)
+	validator.AssertExpectations(t)
 }
 
-func testAuthorizationHandlerFailure(t *testing.T) {
+func testAuthorizationHandlerValid(t *testing.T, expectedHeader, configuredHeader string) {
 	var (
-		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		assert  = assert.New(t)
+		require = require.New(t)
 
-		testData = []struct {
-			handler            AuthorizationHandler
-			headerName         string
-			expectedStatusCode int
-		}{
-			{
-				handler: AuthorizationHandler{
-					Validator: &secure.MockValidator{},
-				},
-				headerName:         secure.AuthorizationHeader,
-				expectedStatusCode: http.StatusForbidden,
-			},
-			{
-				handler: AuthorizationHandler{
-					Validator:           &secure.MockValidator{},
-					HeaderName:          "X-Custom-Authorization",
-					ForbiddenStatusCode: 512,
-					Logger:              logger,
-				},
-				headerName:         "X-Custom-Authorization",
-				expectedStatusCode: 512,
-			},
+		nextCalled = false
+		next       = http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+			nextCalled = true
+			values, ok := FromContext(request.Context())
+			require.True(ok)
+			require.NotNil(values)
+
+			assert.Equal("x1:webpa-internal:5f0183", values.SatClientID)
+			assert.Equal([]string{"comcast"}, values.PartnerIDs)
+		})
+
+		validator = new(secure.MockValidator)
+		handler   = AuthorizationHandler{
+			Logger:     logging.NewTestLogger(nil, t),
+			HeaderName: configuredHeader,
+			Validator:  validator,
 		}
+
+		response  = httptest.NewRecorder()
+		request   = httptest.NewRequest("GET", "/", nil)
+		decorated = handler.Decorate(next)
 	)
 
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		mockValidator := record.handler.Validator.(*secure.MockValidator)
+	require.NotNil(decorated)
+	request.Header.Set(expectedHeader, "Bearer eyJhbGciOiJub25lIiwia2lkIjoidGhlbWlzLTIwMTcwMSIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4ZjA0MmIyOS03ZDE2LTRjMWYtYjBmOS1mNTJhMGFhZDI5YmMiLCJpc3MiOiJzYXRzLXByb2R1Y3Rpb24iLCJzdWIiOiJ4MTp3ZWJwYS1pbnRlcm5hbDo1ZjAxODMiLCJpYXQiOjE1Mjc3MzAwOTYsIm5iZiI6MTUyNzczMDA5NiwiZXhwIjoxNTI3NzczMjk5LCJ2ZXJzaW9uIjoiMS4wIiwiYWxsb3dlZFJlc291cmNlcyI6eyJhbGxvd2VkUGFydG5lcnMiOlsiY29tY2FzdCJdfSwiY2FwYWJpbGl0aWVzIjpbIngxOndlYnBhOmFwaTouKjphbGwiXSwiYXVkIjpbXX0.")
 
-		request, _ := http.NewRequest("GET", "http://test.com/foo", nil)
-		request.Header.Set(record.headerName, authorizationValue)
+	validator.On("Validate", mock.MatchedBy(func(context.Context) bool { return true }), mock.MatchedBy(func(*secure.Token) bool { return true })).Return(true, error(nil)).Once()
+	decorated.ServeHTTP(response, request)
+	assert.Equal(200, response.Code)
+	assert.True(nextCalled)
+	validator.AssertExpectations(t)
+}
 
-		inputCtxValue := &ContextValues{
-			SatClientID: "N/A",
-			Path:        request.URL.Path,
-			Method:      request.Method,
+func testAuthorizationHandlerInvalid(t *testing.T, expectedStatusCode, configuredStatusCode int, expectedHeader, configuredHeader string) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		nextCalled = false
+		next       = http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+			nextCalled = true
+		})
+
+		validator = new(secure.MockValidator)
+		handler   = AuthorizationHandler{
+			Logger:              logging.NewTestLogger(nil, t),
+			HeaderName:          configuredHeader,
+			ForbiddenStatusCode: configuredStatusCode,
+			Validator:           validator,
 		}
 
-		inputCtx := context.WithValue(request.Context(), contextKey{}, inputCtxValue)
+		response  = httptest.NewRecorder()
+		request   = httptest.NewRequest("GET", "/", nil)
+		decorated = handler.Decorate(next)
+	)
 
-		token, _ := secure.ParseAuthorization(authorizationValue)
+	require.NotNil(decorated)
+	request.Header.Set(expectedHeader, "Basic YWxsYWRpbjpvcGVuc2VzYW1l")
 
-		mockValidator.On("Validate", inputCtx, token).Return(false, errors.New("expected")).Once()
-
-		response := httptest.NewRecorder()
-		mockHttpHandler := &mockHttpHandler{}
-
-		decorated := record.handler.Decorate(mockHttpHandler)
-		assert.NotNil(decorated)
-		decorated.ServeHTTP(response, request)
-		assert.Equal(response.Code, record.expectedStatusCode)
-
-		mockValidator.AssertExpectations(t)
-		mockHttpHandler.AssertExpectations(t)
-	}
+	validator.On("Validate", mock.MatchedBy(func(context.Context) bool { return true }), mock.MatchedBy(func(*secure.Token) bool { return true })).Return(false, error(nil)).Once()
+	decorated.ServeHTTP(response, request)
+	assert.Equal(expectedStatusCode, response.Code)
+	assert.False(nextCalled)
+	validator.AssertExpectations(t)
 }
-*/
+
 func TestAuthorizationHandler(t *testing.T) {
 	t.Run("NoDecoration", testAuthorizationHandlerNoDecoration)
+
+	t.Run("NoAuthorization", func(t *testing.T) {
+		testData := []struct {
+			expectedStatusCode   int
+			configuredStatusCode int
+		}{
+			{http.StatusForbidden, 0},
+			{http.StatusForbidden, http.StatusForbidden},
+			{599, 599},
+		}
+
+		for i, record := range testData {
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
+				testAuthorizationHandlerNoAuthorization(t, record.expectedStatusCode, record.configuredStatusCode)
+			})
+		}
+	})
+
+	t.Run("MalformedAuthorization", func(t *testing.T) {
+		testData := []struct {
+			expectedStatusCode   int
+			configuredStatusCode int
+			expectedHeader       string
+			configuredHeader     string
+		}{
+			{http.StatusForbidden, 0, "Authorization", ""},
+			{http.StatusForbidden, http.StatusForbidden, "Authorization", "Authorization"},
+			{599, 599, "X-Custom", "X-Custom"},
+		}
+
+		for i, record := range testData {
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
+				testAuthorizationHandlerMalformedAuthorization(t, record.expectedStatusCode, record.configuredStatusCode, record.expectedHeader, record.configuredHeader)
+			})
+		}
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		testData := []struct {
+			expectedHeader   string
+			configuredHeader string
+		}{
+			{"Authorization", ""},
+			{"Authorization", "Authorization"},
+			{"X-Custom", "X-Custom"},
+		}
+
+		for i, record := range testData {
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
+				testAuthorizationHandlerValid(t, record.expectedHeader, record.configuredHeader)
+			})
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		testData := []struct {
+			expectedStatusCode   int
+			configuredStatusCode int
+			expectedHeader       string
+			configuredHeader     string
+		}{
+			{http.StatusForbidden, 0, "Authorization", ""},
+			{http.StatusForbidden, http.StatusForbidden, "Authorization", "Authorization"},
+			{599, 599, "X-Custom", "X-Custom"},
+		}
+
+		for i, record := range testData {
+			t.Run(strconv.Itoa(i), func(t *testing.T) {
+				testAuthorizationHandlerInvalid(t, record.expectedStatusCode, record.configuredStatusCode, record.expectedHeader, record.configuredHeader)
+			})
+		}
+	})
 }
 
 func testPopulateContextValuesNoJWT(t *testing.T) {

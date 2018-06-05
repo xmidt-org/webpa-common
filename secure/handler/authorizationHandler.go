@@ -116,8 +116,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to populate context", logging.ErrorKey(), err)
 			}
 
-			request = request.WithContext(sharedContext)
-			delegate.ServeHTTP(response, request)
+			delegate.ServeHTTP(response, request.WithContext(sharedContext))
 			return
 		}
 
@@ -165,8 +164,13 @@ func populateContextValues(token *secure.Token, values *ContextValues) error {
 	}
 
 	if allowedResources, ok := claims.Get("allowedResources").(map[string]interface{}); ok {
-		if allowedPartners, ok := allowedResources["allowedPartners"].([]string); ok {
-			values.PartnerIDs = allowedPartners
+		if allowedPartners, ok := allowedResources["allowedPartners"].([]interface{}); ok {
+			values.PartnerIDs = make([]string, 0, len(allowedPartners))
+			for i := 0; i < len(allowedPartners); i++ {
+				if value, ok := allowedPartners[i].(string); ok {
+					values.PartnerIDs = append(values.PartnerIDs, value)
+				}
+			}
 		}
 	}
 
