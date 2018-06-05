@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/Comcast/webpa-common/secure"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 )
 
 const (
@@ -112,17 +114,19 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		}
 
 		contextValues := &ContextValues{
-			Method:      request.Method,
-			Path:        request.URL.Path,
-			SatClientID: extractSatClientID(token, logger),
+			Method: request.Method,
+			Path:   request.URL.Path,
 		}
 
 		sharedContext := NewContextWithValue(request.Context(), contextValues)
 
 		valid, err := a.Validator.Validate(sharedContext, token)
 		if err == nil && valid {
+			if err := populateContextValues(token, contextValues); err != nil {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to populate context", logging.ErrorKey(), err)
+			}
+
 			request = request.WithContext(sharedContext)
-			// if any validator approves, stop and invoke the delegate
 			delegate.ServeHTTP(response, request)
 			return
 		}
@@ -149,20 +153,32 @@ func (a *AuthorizationHandler) DefineMeasures(m *secure.JWTValidationMeasures) {
 	a.measures = m
 }
 
-func extractSatClientID(token *secure.Token, logger log.Logger) (satClientID string) {
-	satClientID = "N/A"
-	if token.Type() == secure.Bearer {
-		if jwsObj, errJWSParse := secure.DefaultJWSParser.ParseJWS(token); errJWSParse == nil {
-			if claims, ok := jwsObj.Payload().(jws.Claims); ok {
-				if satClientIDStr, isString := claims.Get("sub").(string); isString {
-					satClientID = satClientIDStr
-				} else {
-					logging.Error(logger).Log(logging.MessageKey(), "JWT Claim value was not of string type")
-				}
-			}
-		} else {
-			logging.Error(logger).Log(logging.MessageKey(), "Unexpected non-fatal JWS parse error", logging.ErrorKey(), errJWSParse)
+func populateContextValues(token *secure.Token, values *ContextValues) error {
+	values.SatClientID = "N/A"
+
+	if token.Type() != secure.Bearer {
+		return nil
+	}
+
+	jwsToken, err := secure.DefaultJWSParser.ParseJWS(token)
+	if err != nil {
+		return err
+	}
+
+	claims, ok := jwsToken.Payload().(jws.Claims)
+	if !ok {
+		return errors.New("no claims")
+	}
+
+	if sub, ok := claims.Get("sub").(string); ok {
+		values.SatClientID = sub
+	}
+
+	if allowedResources, ok := claims.Get("allowedResources").(map[string]interface{}); ok {
+		if allowedPartners, ok := allowedResources["allowedPartners"].([]string); ok {
+			values.PartnerIDs = allowedPartners
 		}
 	}
-	return
+
+	return nil
 }
