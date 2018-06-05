@@ -2,11 +2,11 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/secure"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -25,16 +25,6 @@ const (
 	// NoSniff is the value used for content options for errors written by this package
 	NoSniff string = "nosniff"
 )
-
-// WriteJsonError writes a standard JSON error to the response
-func WriteJsonError(response http.ResponseWriter, code int, message string) error {
-	response.Header().Set(ContentTypeHeader, JsonContentType)
-	response.Header().Set(ContentTypeOptionsHeader, NoSniff)
-
-	response.WriteHeader(code)
-	_, err := fmt.Fprintf(response, `{"message": "%s"}`, message)
-	return err
-}
 
 // AuthorizationHandler provides decoration for http.Handler instances and will
 // ensure that requests pass the validator.  Note that secure.Validators is a Validator
@@ -94,7 +84,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		headerValue := request.Header.Get(headerName)
 		if len(headerValue) == 0 {
 			errorLog.Log(logging.MessageKey(), "missing header", "name", headerName)
-			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("missing header: %s", headerName))
+			xhttp.WriteErrorf(response, forbiddenStatusCode, "missing header: %s", headerName)
 
 			if a.measures != nil {
 				a.measures.ValidationReason.With("reason", "missing_header").Add(1)
@@ -105,7 +95,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
 			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, "token", headerValue, logging.ErrorKey(), err)
-			WriteJsonError(response, forbiddenStatusCode, fmt.Sprintf("Invalid authorization header [%s]: %s", headerName, err.Error()))
+			xhttp.WriteErrorf(response, forbiddenStatusCode, "Invalid authorization header [%s]: %s", headerName, err.Error())
 
 			if a.measures != nil {
 				a.measures.ValidationReason.With("reason", "invalid_header").Add(1)
@@ -144,7 +134,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			"remoteAddress", request.RemoteAddr,
 		)
 
-		WriteJsonError(response, forbiddenStatusCode, "request denied")
+		xhttp.WriteError(response, forbiddenStatusCode, "request denied")
 	})
 }
 
