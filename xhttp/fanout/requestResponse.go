@@ -9,15 +9,15 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// FanoutRequestFunc is invoked to build a fanout request.  It can transfer information from the original request,
+// RequestFunc is invoked to build a fanout request.  It can transfer information from the original request,
 // set the body, update the context, etc.  This is the analog of go-kit's RequestFunc.
-type FanoutRequestFunc func(ctx context.Context, original, fanout *http.Request, body []byte) (context.Context, error)
+type RequestFunc func(ctx context.Context, original, fanout *http.Request, body []byte) (context.Context, error)
 
-// ForwardBody creates a FanoutRequestFunc that sends the original request's body to each fanout.
+// ForwardBody creates a RequestFunc that sends the original request's body to each fanout.
 // If followRedirects is true, this function also sets fanout.GetBody so that the same body is read for redirects.
 //
 // This function also sets the ContentLength and Content-Type header appropriately.
-func ForwardBody(followRedirects bool) FanoutRequestFunc {
+func ForwardBody(followRedirects bool) RequestFunc {
 	return func(ctx context.Context, original, fanout *http.Request, originalBody []byte) (context.Context, error) {
 		fanout.ContentLength = int64(len(originalBody))
 		fanout.Body = nil
@@ -37,8 +37,8 @@ func ForwardBody(followRedirects bool) FanoutRequestFunc {
 	}
 }
 
-// ForwardHeaders creates a FanoutRequestFunc that copies headers from the original request onto each fanout request
-func ForwardHeaders(headers ...string) FanoutRequestFunc {
+// ForwardHeaders creates a RequestFunc that copies headers from the original request onto each fanout request
+func ForwardHeaders(headers ...string) RequestFunc {
 	canonicalizedHeaders := make([]string, len(headers))
 	for i := 0; i < len(headers); i++ {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
@@ -57,7 +57,7 @@ func ForwardHeaders(headers ...string) FanoutRequestFunc {
 
 // UsePath sets a constant URI path for every fanout request.  Essentially, this replaces the original URL's
 // Path with the configured value.
-func UsePath(path string) FanoutRequestFunc {
+func UsePath(path string) RequestFunc {
 	return func(ctx context.Context, original, fanout *http.Request, _ []byte) (context.Context, error) {
 		fanout.URL.Path = path
 		fanout.URL.RawPath = ""
@@ -70,7 +70,7 @@ func UsePath(path string) FanoutRequestFunc {
 //
 // The fanout request will always have the given header.  If no path variable is supplied (or no path variables
 // are found), the fanout request will have the header associated with an empty string.
-func ForwardVariableAsHeader(variable, header string) FanoutRequestFunc {
+func ForwardVariableAsHeader(variable, header string) RequestFunc {
 	return func(ctx context.Context, original, fanout *http.Request, _ []byte) (context.Context, error) {
 		variables := mux.Vars(original)
 		if len(variables) > 0 {
@@ -83,11 +83,11 @@ func ForwardVariableAsHeader(variable, header string) FanoutRequestFunc {
 	}
 }
 
-// FanoutResponseFunc is a strategy applied to the termination fanout response.
-type FanoutResponseFunc func(ctx context.Context, response http.ResponseWriter, result Result) context.Context
+// ResponseFunc is a strategy applied to the termination fanout response.
+type ResponseFunc func(ctx context.Context, response http.ResponseWriter, result Result) context.Context
 
 // ReturnHeaders copies zero or more headers from the fanout response into the top-level HTTP response.
-func ReturnHeaders(headers ...string) FanoutResponseFunc {
+func ReturnHeaders(headers ...string) ResponseFunc {
 	canonicalizedHeaders := make([]string, len(headers))
 	for i := 0; i < len(headers); i++ {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])

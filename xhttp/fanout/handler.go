@@ -58,8 +58,10 @@ func WithTransactor(transactor func(*http.Request) (*http.Response, error)) Opti
 	}
 }
 
-// WithFanoutBefore adds zero or more request functions that will tailor each fanout request.
-func WithFanoutBefore(before ...FanoutRequestFunc) Option {
+// WithFanoutBefore adds zero or more fanout request functions that will tailor each fanout request.
+//
+// To apply one or more go-kit RequestFuncs, use WithClientBefore.
+func WithFanoutBefore(before ...RequestFunc) Option {
 	return func(h *Handler) {
 		h.before = append(h.before, before...)
 	}
@@ -82,7 +84,9 @@ func WithClientBefore(before ...gokithttp.RequestFunc) Option {
 
 // WithFanoutAfter adds zero or more response functions that are invoked to tailor the response
 // when a successful (i.e. terminating) fanout response is received.
-func WithFanoutAfter(after ...FanoutResponseFunc) Option {
+//
+// To apply one or more go-kit ClientResponseFuncs, use WithClientAfter.
+func WithFanoutAfter(after ...ResponseFunc) Option {
 	return func(h *Handler) {
 		h.after = append(h.after, after...)
 	}
@@ -110,7 +114,7 @@ func WithConfiguration(c Configuration) Option {
 
 		authorization := c.authorization()
 		if len(authorization) > 0 {
-			WithClientBefore(gokithttp.SetRequestHeader("Authorization", authorization))(h)
+			WithClientBefore(gokithttp.SetRequestHeader("Authorization", "Basic "+authorization))(h)
 		}
 	}
 }
@@ -119,8 +123,8 @@ func WithConfiguration(c Configuration) Option {
 type Handler struct {
 	endpoints       Endpoints
 	errorEncoder    gokithttp.ErrorEncoder
-	before          []FanoutRequestFunc
-	after           []FanoutResponseFunc
+	before          []RequestFunc
+	after           []ResponseFunc
 	shouldTerminate ShouldTerminateFunc
 	transactor      func(*http.Request) (*http.Response, error)
 }
@@ -150,7 +154,7 @@ func New(e Endpoints, options ...Option) *Handler {
 }
 
 // newFanoutRequests uses the Endpoints strategy and builds (1) HTTP request for each endpoint.  The configured
-// FanoutRequestFunc options are used to build each request.  This method returns an error if no endpoints were returned
+// RequestFunc options are used to build each request.  This method returns an error if no endpoints were returned
 // by the strategy or if an error reading the original request body occurred.
 func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Request) ([]*http.Request, error) {
 	body, err := ioutil.ReadAll(original.Body)
