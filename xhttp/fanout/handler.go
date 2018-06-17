@@ -110,9 +110,20 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 
 // WithConfiguration uses a set of (typically injected) fanout configuration options to configure a Handler.
 // Use of this option will not override the configured Endpoints instance.
+//
+// One of the aspects tailored by the returned Option is the HTTP client transactor strategy.  The returned
+// option will use the same transactor every time it is applied to a fanout.  If different transactors are
+// desired, invoke this function for each fanout.  For example:
+//
+//    var cfg Configuration
+//    option := WithConfiguration(cfg)
+//    fanout1 := New(option)
+//    fanout2 := New(option) // same transactor as fanout1
+//    fanout3 := New(WithConfiguration(cfg)) // different transactor than fanout1
 func WithConfiguration(c Configuration) Option {
+	transactor := NewTransactor(c)
 	return func(h *Handler) {
-		WithTransactor(NewTransactor(c))(h)
+		WithTransactor(transactor)(h)
 
 		authorization := c.authorization()
 		if len(authorization) > 0 {
