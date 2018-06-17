@@ -47,14 +47,17 @@ func TestParseID(t *testing.T) {
 		{"invalid:a-BB-44-55", "", true},
 		{"mac:11-aa-BB-44-55", "", true},
 		{"MAC:invalid45566", "", true},
+		{"mac:481d70187fef", "mac:481d70187fef", false},
+		{"mac:481d70187fef/parodus/tag/test0", "mac:481d70187fef", false},
 	}
 
 	for _, record := range testData {
-		t.Logf("%#v", record)
-		id, err := ParseID(record.id)
-		assert.Equal(record.expected, id)
-		assert.Equal(record.expectsError, err != nil)
-		assert.Equal([]byte(record.expected), id.Bytes())
+		t.Run(record.id, func(t *testing.T) {
+			id, err := ParseID(record.id)
+			assert.Equal(record.expected, id)
+			assert.Equal(record.expectsError, err != nil)
+			assert.Equal([]byte(record.expected), id.Bytes())
+		})
 	}
 }
 
