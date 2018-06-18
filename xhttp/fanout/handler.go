@@ -283,7 +283,12 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 		case r := <-results:
 			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
-			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "fanout operation complete", "statusCode", r.StatusCode, "url", r.Request.URL)
+			logLevel := level.DebugValue()
+			if r.Err != nil {
+				logLevel = level.ErrorValue()
+			}
+
+			logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout operation complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
 
 			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer
