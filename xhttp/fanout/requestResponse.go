@@ -2,12 +2,27 @@ package fanout
 
 import (
 	"context"
+	"io/ioutil"
 	"net/http"
 	"net/textproto"
 
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/gorilla/mux"
 )
+
+// BodyFunc is the strategy used to extract the body to send to each fanout endpoint
+type BodyFunc func(context.Context, *http.Request) (context.Context, []byte, error)
+
+// DefaultBodyFunc is the default strategy for extracting the body for each fanout request.
+// This function simply extracts all the bytes from the original body.
+func DefaultBodyFunc(ctx context.Context, original *http.Request) (context.Context, []byte, error) {
+	if original.Body != nil {
+		body, err := ioutil.ReadAll(original.Body)
+		return ctx, body, err
+	}
+
+	return ctx, nil, nil
+}
 
 // RequestFunc is invoked to build a fanout request.  It can transfer information from the original request,
 // set the body, update the context, etc.  This is the analog of go-kit's RequestFunc.
