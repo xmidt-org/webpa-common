@@ -210,20 +210,14 @@ func (m *manager) dispatch(e *Event) {
 // dispatches message failed events for any messages that were waiting to be delivered
 // at the time of pump closure.
 func (m *manager) pumpClose(d *device, c io.Closer, pumpError error) {
-	if pumpError != nil {
-		d.errorLog.Log(logging.MessageKey(), "pump close due to error", logging.ErrorKey(), pumpError)
-	} else {
-		d.debugLog.Log(logging.MessageKey(), "pump close")
-	}
-
 	// remove will invoke requestClose()
 	m.devices.remove(d.id)
 
-	if closeError := c.Close(); closeError != nil {
-		d.errorLog.Log(logging.MessageKey(), "Error closing device connection", logging.ErrorKey(), closeError)
-	} else {
-		d.debugLog.Log(logging.MessageKey(), "Closed device connection")
-	}
+	closeError := c.Close()
+
+	d.errorLog.Log(logging.MessageKey(), "Closed device connection",
+		"closeError", closeError, "pumpError", pumpError,
+		"finalStatistics", d.Statistics().String())
 
 	m.dispatch(
 		&Event{
