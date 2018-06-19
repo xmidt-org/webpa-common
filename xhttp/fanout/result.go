@@ -21,6 +21,9 @@ type Result struct {
 	// Err is the error returned by the fanout HTTP transaction.  If set, Response will be nil.
 	Err error
 
+	// ContentType is the MIME type of the Body
+	ContentType string
+
 	// Body is the HTTP response entity returned by the fanout HTTP transaction.  This can be nil or empty.
 	Body []byte
 

@@ -208,6 +208,8 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 	switch {
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
+		result.ContentType = result.Response.Header.Get("Content-Type")
+
 		var err error
 		if result.Body, err = ioutil.ReadAll(result.Response.Body); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error reading fanout response body", logging.ErrorKey(), err)
@@ -219,7 +221,10 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 	case result.Err != nil:
 		result.Body = []byte(fmt.Sprintf("%s", result.Err))
+		result.ContentType = "text/plain"
+
 		if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
+			// unwrap the URL error
 			result.Err = ue.Err
 		}
 
@@ -233,6 +238,8 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		// this "should" never happen, but just in case set a known status code
 		result.StatusCode = http.StatusInternalServerError
 		result.Err = errBadTransactor
+		result.Body = []byte(errBadTransactor.Error())
+		result.ContentType = "test/plain"
 	}
 
 	result.Span = finisher(result.Err)
@@ -249,9 +256,11 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		ctx = rf(ctx, response, result)
 	}
 
-	response.Header().Set("Content-Type", result.Response.Header.Get("Content-Type"))
-	response.WriteHeader(result.StatusCode)
+	if len(result.ContentType) > 0 {
+		response.Header().Set("Content-Type", result.ContentType)
+	}
 
+	response.WriteHeader(result.StatusCode)
 	count, err := response.Write(result.Body)
 	logLevel := level.DebugValue()
 	if err != nil {
