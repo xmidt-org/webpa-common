@@ -221,17 +221,10 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		result.Body = []byte(fmt.Sprintf("%s", result.Err))
 		if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
 			result.Err = ue.Err
-			if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
-				result.StatusCode = http.StatusGatewayTimeout
-			}
 		}
 
 		if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
 			result.StatusCode = http.StatusGatewayTimeout
-		} else if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
-			// unpack the root error
-			result.Err = ue.Err
-
 		} else {
 			result.StatusCode = http.StatusServiceUnavailable
 		}
