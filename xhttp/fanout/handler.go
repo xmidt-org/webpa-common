@@ -209,9 +209,6 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
 		result.ContentType = result.Response.Header.Get("Content-Type")
-		if len(result.ContentType) == 0 {
-			result.ContentType = "application/octet-stream"
-		}
 
 		var err error
 		if result.Body, err = ioutil.ReadAll(result.Response.Body); err != nil {
@@ -259,8 +256,13 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		ctx = rf(ctx, response, result)
 	}
 
-	if len(result.Body) > 0 && len(result.ContentType) > 0 {
-		response.Header().Set("Content-Type", result.ContentType)
+	if len(result.Body) > 0 {
+		if len(result.ContentType) > 0 {
+			response.Header().Set("Content-Type", result.ContentType)
+		} else {
+			response.Header().Set("Content-Type", "application/octet-stream")
+		}
+
 		response.WriteHeader(result.StatusCode)
 		count, err := response.Write(result.Body)
 		logLevel := level.DebugValue()
