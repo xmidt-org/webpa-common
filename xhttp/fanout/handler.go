@@ -3,8 +3,10 @@ package fanout
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
@@ -216,8 +218,20 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		}
 
 	case result.Err != nil:
+		result.Body = []byte(fmt.Sprintf("%s", result.Err))
+		if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
+			result.Err = ue.Err
+			if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
+				result.StatusCode = http.StatusGatewayTimeout
+			}
+		}
+
 		if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
 			result.StatusCode = http.StatusGatewayTimeout
+		} else if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
+			// unpack the root error
+			result.Err = ue.Err
+
 		} else {
 			result.StatusCode = http.StatusServiceUnavailable
 		}
@@ -244,11 +258,14 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 
 	response.Header().Set("Content-Type", result.Response.Header.Get("Content-Type"))
 	response.WriteHeader(result.StatusCode)
-	if count, err := response.Write(result.Body); err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error writing response body", logging.ErrorKey(), err)
-	} else {
-		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "bytes", count)
+
+	count, err := response.Write(result.Body)
+	logLevel := level.DebugValue()
+	if err != nil {
+		logLevel = level.ErrorValue()
 	}
+
+	logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
 }
 
 func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request) {
