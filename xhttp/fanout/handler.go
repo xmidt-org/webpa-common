@@ -302,7 +302,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	for i := 0; i < len(requests); i++ {
 		select {
 		case <-fanoutCtx.Done():
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout operation canceled or timed out", logging.ErrorKey(), fanoutCtx.Err())
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout operation canceled or timed out", "statusCode", http.StatusGatewayTimeout, "url", original.URL, logging.ErrorKey(), fanoutCtx.Err())
 			response.WriteHeader(http.StatusGatewayTimeout)
 			return
 
@@ -313,7 +313,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 				logLevel = level.ErrorValue()
 			}
 
-			logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout operation complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
+			logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
 
 			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer
@@ -327,5 +327,6 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 		}
 	}
 
+	logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "all fanout requests failed", "statusCode", statusCode, "url", original.URL)
 	response.WriteHeader(statusCode)
 }
