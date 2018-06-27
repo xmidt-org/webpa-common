@@ -11,6 +11,7 @@ import (
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/tracing/tracinghttp"
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -76,7 +77,7 @@ func WithClientBefore(before ...gokithttp.RequestFunc) Option {
 		for _, rf := range before {
 			h.before = append(
 				h.before,
-				func(ctx context.Context, _, fanout *http.Request, _ []byte) (context.Context, error) {
+				func(ctx context.Context, _, fanout *http.Request) (context.Context, error) {
 					return rf(ctx, fanout), nil
 				},
 			)
@@ -136,6 +137,7 @@ func WithConfiguration(c Configuration) Option {
 type Handler struct {
 	endpoints       Endpoints
 	errorEncoder    gokithttp.ErrorEncoder
+	decoder         DecoderFunc
 	before          []RequestFunc
 	after           []ResponseFunc
 	shouldTerminate ShouldTerminateFunc
@@ -155,6 +157,7 @@ func New(e Endpoints, options ...Option) *Handler {
 	h := &Handler{
 		endpoints:       e,
 		errorEncoder:    gokithttp.DefaultErrorEncoder,
+		decoder:         DefaultDecoderFunc,
 		shouldTerminate: DefaultShouldTerminate,
 		transactor:      http.DefaultClient.Do,
 	}
@@ -170,16 +173,17 @@ func New(e Endpoints, options ...Option) *Handler {
 // RequestFunc options are used to build each request.  This method returns an error if no endpoints were returned
 // by the strategy or if an error reading the original request body occurred.
 func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Request) ([]*http.Request, error) {
-	body, err := ioutil.ReadAll(original.Body)
-	if err != nil {
-		return nil, err
-	}
-
 	urls, err := h.endpoints.FanoutURLs(original)
 	if err != nil {
 		return nil, err
 	} else if len(urls) == 0 {
 		return nil, errNoFanoutURLs
+	}
+
+	fanoutHeader := make(http.Header)
+	ctx, fanoutBody, err := h.decoder(original.Context(), original, fanoutHeader)
+	if err != nil {
+		return nil, err
 	}
 
 	requests := make([]*http.Request, len(urls))
@@ -194,16 +198,23 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 			Host:       urls[i].Host,
 		}
 
-		endpointCtx := fanoutCtx
+		fanout.Body, fanout.GetBody = xhttp.NewRewindBytes(fanoutBody)
+		for k, values := range fanoutHeader {
+			for _, v := range values {
+				fanout.Header.Add(k, v)
+			}
+		}
+
+		fanoutCtx := ctx
 		var err error
 		for _, rf := range h.before {
-			endpointCtx, err = rf(endpointCtx, original, fanout, body)
+			fanoutCtx, err = rf(fanoutCtx, original, fanout)
 			if err != nil {
 				return nil, err
 			}
 		}
 
-		requests[i] = fanout.WithContext(endpointCtx)
+		requests[i] = fanout.WithContext(fanoutCtx)
 	}
 
 	return requests, nil
@@ -263,7 +274,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 // finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
 // is only invoked when a particular fanout response terminates the fanout, i.e. is considered successful.
-func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result Result) {
+func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, original *http.Request, result Result) {
 	ctx := result.Request.Context()
 	for _, rf := range h.after {
 		// NOTE: we don't use the context for anything here,
@@ -332,7 +343,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer
-				h.finish(logger, response, r)
+				h.finish(logger, response, original, r)
 				return
 			}
 
