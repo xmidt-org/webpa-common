@@ -10,7 +10,12 @@ import (
 	"github.com/Comcast/webpa-common/xhttp/fanout"
 )
 
-func DecodeHeaders(output wrp.Format) fanout.RequestFunc {
+type Processor func(context.Context, *http.Request, *wrp.Message) error
+
+// DecodeHeaders produces a fanout request function that decodes the original request's headers
+// using the wrphttp package.  After applying any optional processors, that message is then encoded
+// using the supplied output format into the fanout request.
+func DecodeHeaders(output wrp.Format, p ...Processor) fanout.RequestFunc {
 	return func(ctx context.Context, original, fanout *http.Request, originalBody []byte) (context.Context, error) {
 		var message wrp.Message
 		if err := wrphttp.SetMessageFromHeaders(original.Header, &message); err != nil {
@@ -29,6 +34,12 @@ func DecodeHeaders(output wrp.Format) fanout.RequestFunc {
 			return ctx, err
 		}
 
+		for _, f := range p {
+			if err := f(ctx, original, &message); err != nil {
+				return ctx, err
+			}
+		}
+
 		fanout.Header.Set("Content-Type", output.ContentType())
 		fanout.Body, fanout.GetBody = xhttp.NewRewindBytes(buffer)
 		fanout.ContentLength = int64(len(buffer))
@@ -36,6 +47,7 @@ func DecodeHeaders(output wrp.Format) fanout.RequestFunc {
 	}
 }
 
+// DecodeBody returns a fanout request function that uses the original request's body as a fully formed WRP message.
 func DecodeBody(output wrp.Format) fanout.RequestFunc {
 	return func(ctx context.Context, original, fanout *http.Request, originalBody []byte) (context.Context, error) {
 		return ctx, nil
