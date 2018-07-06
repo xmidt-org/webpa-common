@@ -9,16 +9,16 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// DecoderFunc is the strategy used to decode the original request's message.  This decoder is passed a http.Header
+// Decoder is the strategy used to decode the original request's message.  This decoder is passed a http.Header
 // that can be modified.
 //
-// The DecoderFunc will be invoked once per HTTP request.  The returned byte slice and modified header will be passed
+// The Decoder will be invoked once per HTTP request.  The returned byte slice and modified header will be passed
 // to each fanout request.
-type DecoderFunc func(ctx context.Context, original *http.Request, fanout http.Header) (context.Context, []byte, error)
+type Decoder func(ctx context.Context, original *http.Request, fanout http.Header) (context.Context, []byte, error)
 
-// DefaultDecoderFunc is the default decoder strategy.  This returns the raw byte contents of the original request,
+// DefaultDecoder is the default decoder strategy.  This returns the raw byte contents of the original request,
 // and sets the Content-Type fanout header to the same value as the original request.
-func DefaultDecoderFunc(ctx context.Context, original *http.Request, fanout http.Header) (context.Context, []byte, error) {
+func DefaultDecoder(ctx context.Context, original *http.Request, fanout http.Header) (context.Context, []byte, error) {
 	body, err := ioutil.ReadAll(original.Body)
 	if err != nil {
 		return ctx, nil, err
@@ -30,6 +30,21 @@ func DefaultDecoderFunc(ctx context.Context, original *http.Request, fanout http
 	}
 
 	return ctx, body, nil
+}
+
+// Encoder is the strategy used to take a terminating fanout response and decode its body.  The original request's
+// http.Header is passed to allow the encoder to modify the response headers, e.g. to add a Content-Type header.
+type Encoder func(ctx context.Context, fanout Result, original http.Header) ([]byte, error)
+
+// DefaultEncoder is the default encoder strategy.  It simply takes the fanout contents and returns them as is,
+// copying any Content-Type header in the result to the original http.Header map.
+func DefaultEncoder(ctx context.Context, fanout Result, original http.Header) ([]byte, error) {
+	contentType := fanout.Response.Header.Get("Content-Type")
+	if len(contentType) > 0 {
+		original.Set("Content-Type", contentType)
+	}
+
+	return fanout.Body, nil
 }
 
 // RequestFunc is invoked to add information to a fanout request.  This is the analog of go-kit's RequestFunc.
@@ -86,11 +101,7 @@ func ForwardVariableAsHeader(variable, header string) RequestFunc {
 }
 
 // ResponseFunc is a strategy applied to the termination fanout response.
-type ResponseFunc func(ctx context.Context, response http.ResponseWriter, result Result) context.Context
-
-func DefaultEncoderFunc(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
-	return ctx
-}
+type ResponseFunc func(ctx context.Context, fanout Result, original http.Header) context.Context
 
 // ReturnHeaders copies zero or more headers from the fanout response into the top-level HTTP response.
 func ReturnHeaders(headers ...string) ResponseFunc {
@@ -99,12 +110,11 @@ func ReturnHeaders(headers ...string) ResponseFunc {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
 	}
 
-	return func(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
-		if result.Response != nil {
-			header := response.Header()
+	return func(ctx context.Context, fanout Result, original http.Header) context.Context {
+		if fanout.Response != nil {
 			for _, key := range canonicalizedHeaders {
-				if values := result.Response.Header[key]; len(values) > 0 {
-					header[key] = append(header[key], values...)
+				if values := fanout.Response.Header[key]; len(values) > 0 {
+					original[key] = append(original[key], values...)
 				}
 			}
 		}
