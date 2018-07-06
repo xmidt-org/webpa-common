@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -32,7 +31,7 @@ func testHandlerBodyError(t *testing.T) {
 		original      = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response      = httptest.NewRecorder()
 
-		handler = New(FixedEndpoints{})
+		handler = New(MustParseURLs("http://localhost"))
 	)
 
 	require.NotNil(handler)
@@ -61,8 +60,6 @@ func testHandlerNoEndpoints(t *testing.T) {
 	)
 
 	require.NotNil(handler)
-	body.OnReadError(io.EOF).Once()
-
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
@@ -89,7 +86,6 @@ func testHandlerEndpointsError(t *testing.T) {
 	)
 
 	require.NotNil(handler)
-	body.OnReadError(io.EOF).Once()
 	endpoints.On("FanoutURLs", original).Once().Return(nil, expectedError)
 
 	handler.ServeHTTP(response, original)
@@ -144,13 +140,13 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 		response = httptest.NewRecorder()
 
 		fanoutAfterCalled = false
-		fanoutAfter       = func(actualCtx context.Context, actualResponse http.ResponseWriter, result Result) context.Context {
+		fanoutAfter       = func(actualCtx context.Context, fanout Result, original http.Header) context.Context {
 			assert.False(fanoutAfterCalled)
 			fanoutAfterCalled = true
 			assert.Equal(ctx, actualCtx)
-			assert.Equal(response, actualResponse)
-			if assert.NotNil(result.Response) {
-				assert.Equal(expectedStatusCode, result.Response.StatusCode)
+			assert.Equal(response.Header(), original)
+			if assert.NotNil(fanout.Response) {
+				assert.Equal(expectedStatusCode, fanout.Response.StatusCode)
 			}
 
 			return actualCtx
@@ -216,13 +212,13 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		response            = httptest.NewRecorder()
 
 		fanoutAfterCalled = false
-		fanoutAfter       = func(actualCtx context.Context, actualResponse http.ResponseWriter, result Result) context.Context {
+		fanoutAfter       = func(actualCtx context.Context, fanout Result, original http.Header) context.Context {
 			assert.False(fanoutAfterCalled)
 			fanoutAfterCalled = true
 			assert.Equal(ctx, actualCtx)
-			assert.Equal(response, actualResponse)
-			if assert.NotNil(result.Response) {
-				assert.Equal(expectedStatusCode, result.Response.StatusCode)
+			assert.Equal(response.Header(), original)
+			if assert.NotNil(fanout.Response) {
+				assert.Equal(expectedStatusCode, fanout.Response.StatusCode)
 			}
 
 			return actualCtx
@@ -242,7 +238,6 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		complete   = make(chan struct{}, len(expectedResponses))
 		handler    = New(endpoints,
 			WithTransactor(transactor.Do),
-			WithFanoutBefore(ForwardBody(true)),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),

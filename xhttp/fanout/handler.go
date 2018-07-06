@@ -37,6 +37,30 @@ func WithShouldTerminate(terminate ShouldTerminateFunc) Option {
 	}
 }
 
+// WithDecoder configures a custom decoder applied to the original request.  If the supplied decoder is nil,
+// the DefaultDecoder is used.
+func WithDecoder(d Decoder) Option {
+	return func(h *Handler) {
+		if d == nil {
+			h.decoder = DefaultDecoder
+		} else {
+			h.decoder = d
+		}
+	}
+}
+
+// WithEncoder configures a custom encoder applied to the original request.  If the supplied
+// encoder is nil, the DefaultEncoder is used.
+func WithEncoder(e Encoder) Option {
+	return func(h *Handler) {
+		if e == nil {
+			h.encoder = DefaultEncoder
+		} else {
+			h.encoder = e
+		}
+	}
+}
+
 // WithErrorEncoder configures a custom error encoder for errors that occur during fanout setup.
 // If encoder is nil, go-kit's DefaultErrorEncoder is used.
 func WithErrorEncoder(encoder gokithttp.ErrorEncoder) Option {
@@ -101,8 +125,8 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 		for _, rf := range after {
 			h.after = append(
 				h.after,
-				func(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
-					return rf(ctx, result.Response)
+				func(ctx context.Context, fanout Result, original http.Header) context.Context {
+					return rf(ctx, fanout.Response)
 				},
 			)
 		}
@@ -137,7 +161,8 @@ func WithConfiguration(c Configuration) Option {
 type Handler struct {
 	endpoints       Endpoints
 	errorEncoder    gokithttp.ErrorEncoder
-	decoder         DecoderFunc
+	decoder         Decoder
+	encoder         Encoder
 	before          []RequestFunc
 	after           []ResponseFunc
 	shouldTerminate ShouldTerminateFunc
@@ -157,7 +182,8 @@ func New(e Endpoints, options ...Option) *Handler {
 	h := &Handler{
 		endpoints:       e,
 		errorEncoder:    gokithttp.DefaultErrorEncoder,
-		decoder:         DefaultDecoderFunc,
+		decoder:         DefaultDecoder,
+		encoder:         DefaultEncoder,
 		shouldTerminate: DefaultShouldTerminate,
 		transactor:      http.DefaultClient.Do,
 	}
@@ -274,32 +300,30 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 // finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
 // is only invoked when a particular fanout response terminates the fanout, i.e. is considered successful.
-func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, original *http.Request, result Result) {
-	ctx := result.Request.Context()
+func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, original *http.Request, fanout Result) {
+	var (
+		ctx    = fanout.Request.Context()
+		header = response.Header()
+	)
+
 	for _, rf := range h.after {
-		// NOTE: we don't use the context for anything here,
-		// but to preserve go-kit semantics we pass it to each after function
-		ctx = rf(ctx, response, result)
+		ctx = rf(ctx, fanout, header)
 	}
 
-	if len(result.Body) > 0 {
-		if len(result.ContentType) > 0 {
-			response.Header().Set("Content-Type", result.ContentType)
-		} else {
-			response.Header().Set("Content-Type", "application/octet-stream")
-		}
-
-		response.WriteHeader(result.StatusCode)
-		count, err := response.Write(result.Body)
-		logLevel := level.DebugValue()
-		if err != nil {
-			logLevel = level.ErrorValue()
-		}
-
-		logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
-	} else {
-		response.WriteHeader(result.StatusCode)
+	body, err := h.encoder(ctx, fanout, header)
+	if err != nil {
+		h.errorEncoder(ctx, err, response)
+		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while encoding fanout response", logging.ErrorKey(), err)
+		return
 	}
+
+	count, err := response.Write(body)
+	logLevel := level.DebugValue()
+	if err != nil {
+		logLevel = level.ErrorValue()
+	}
+
+	logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote encoded fanout response", "count", count, logging.ErrorKey(), err)
 }
 
 func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request) {

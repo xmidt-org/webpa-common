@@ -1,11 +1,8 @@
 package fanout
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -16,125 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func testForwardBodyNoBody(t *testing.T, originalBody []byte) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		ctx      = context.WithValue(context.Background(), "foo", "bar")
-		original = httptest.NewRequest("GET", "/", nil)
-		fanout   = &http.Request{
-			Header:        http.Header{"Content-Type": []string{"foo"}},
-			ContentLength: 123,
-			Body:          ioutil.NopCloser(new(bytes.Reader)),
-			GetBody: func() (io.ReadCloser, error) {
-				assert.Fail("GetBody should not be called")
-				return nil, nil
-			},
-		}
-		rf = ForwardBody(true)
-	)
-
-	require.NotNil(rf)
-
-	returnedCtx, err := rf(ctx, original, fanout, originalBody)
-	assert.Equal(ctx, returnedCtx)
-	assert.NoError(err)
-	assert.Empty(fanout.Header.Get("Content-Type"))
-	assert.Zero(fanout.ContentLength)
-	assert.Nil(fanout.Body)
-	assert.Nil(fanout.GetBody)
-}
-
-func testForwardBodyFollowRedirects(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		originalBody = "here is a lovely HTTP entity"
-
-		ctx      = context.WithValue(context.Background(), "foo", "bar")
-		original = httptest.NewRequest("GET", "/", nil)
-		fanout   = &http.Request{
-			Header:        http.Header{"Content-Type": []string{"foo"}},
-			ContentLength: 123,
-			Body:          ioutil.NopCloser(new(bytes.Reader)),
-			GetBody: func() (io.ReadCloser, error) {
-				assert.Fail("GetBody should have been updated")
-				return nil, nil
-			},
-		}
-		rf = ForwardBody(true)
-	)
-
-	require.NotNil(rf)
-	original.Header.Set("Content-Type", "text/plain")
-
-	returnedCtx, err := rf(ctx, original, fanout, []byte(originalBody))
-	assert.Equal(ctx, returnedCtx)
-	assert.NoError(err)
-	assert.Equal("text/plain", fanout.Header.Get("Content-Type"))
-	assert.Equal(int64(len(originalBody)), fanout.ContentLength)
-
-	require.NotNil(fanout.Body)
-	actualBody, err := ioutil.ReadAll(fanout.Body)
-	require.NoError(err)
-	assert.Equal(originalBody, string(actualBody))
-
-	require.NotNil(fanout.GetBody)
-	newBody, err := fanout.GetBody()
-	require.NoError(err)
-	require.NotNil(newBody)
-	actualBody, err = ioutil.ReadAll(newBody)
-	require.NoError(err)
-	assert.Equal(originalBody, string(actualBody))
-}
-
-func testForwardBodyNoFollowRedirects(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		originalBody = "here is a lovely HTTP entity"
-
-		ctx      = context.WithValue(context.Background(), "foo", "bar")
-		original = httptest.NewRequest("GET", "/", nil)
-		fanout   = &http.Request{
-			Header:        http.Header{"Content-Type": []string{"foo"}},
-			ContentLength: 123,
-			Body:          ioutil.NopCloser(new(bytes.Reader)),
-			GetBody: func() (io.ReadCloser, error) {
-				assert.Fail("GetBody should have been updated")
-				return nil, nil
-			},
-		}
-		rf = ForwardBody(false)
-	)
-
-	require.NotNil(rf)
-	original.Header.Set("Content-Type", "text/plain")
-
-	returnedCtx, err := rf(ctx, original, fanout, []byte(originalBody))
-	assert.Equal(ctx, returnedCtx)
-	assert.NoError(err)
-	assert.Equal("text/plain", fanout.Header.Get("Content-Type"))
-	assert.Equal(int64(len(originalBody)), fanout.ContentLength)
-
-	require.NotNil(fanout.Body)
-	actualBody, err := ioutil.ReadAll(fanout.Body)
-	require.NoError(err)
-	assert.Equal(originalBody, string(actualBody))
-
-	assert.Nil(fanout.GetBody)
-}
-
-func TestForwardBody(t *testing.T) {
-	t.Run("NilBody", func(t *testing.T) { testForwardBodyNoBody(t, nil) })
-	t.Run("EmptyBody", func(t *testing.T) { testForwardBodyNoBody(t, make([]byte, 0)) })
-	t.Run("FollowRedirects=true", testForwardBodyFollowRedirects)
-	t.Run("FollowRedirects=false", testForwardBodyNoFollowRedirects)
-}
 
 func testForwardHeaders(t *testing.T, originalHeader http.Header, headersToCopy []string, expectedFanoutHeader http.Header) {
 	var (
@@ -154,7 +32,7 @@ func testForwardHeaders(t *testing.T, originalHeader http.Header, headersToCopy 
 	)
 
 	require.NotNil(rf)
-	returnedCtx, err := rf(ctx, original, fanout, nil)
+	returnedCtx, err := rf(ctx, original, fanout)
 	assert.Equal(ctx, returnedCtx)
 	assert.NoError(err)
 	assert.Equal(expectedFanoutHeader, fanout.Header)
@@ -231,7 +109,7 @@ func testUsePathPanics(t *testing.T) {
 
 	require.NotNil(rf)
 	assert.Panics(func() {
-		rf(context.Background(), httptest.NewRequest("GET", "/", nil), new(http.Request), nil)
+		rf(context.Background(), httptest.NewRequest("GET", "/", nil), new(http.Request))
 	})
 }
 
@@ -245,7 +123,7 @@ func testUsePath(t *testing.T, fanout http.Request) {
 
 	require.NotNil(rf)
 
-	rf(context.Background(), httptest.NewRequest("GET", "/", nil), &fanout, nil)
+	rf(context.Background(), httptest.NewRequest("GET", "/", nil), &fanout)
 	assert.Equal("/api/v1/device/foo/bar", fanout.URL.Path)
 	assert.Empty(fanout.URL.RawPath)
 }
@@ -279,7 +157,7 @@ func testForwardVariableAsHeaderMissing(t *testing.T) {
 	)
 
 	require.NotNil(rf)
-	returnedCtx, err := rf(ctx, original, fanout, nil)
+	returnedCtx, err := rf(ctx, original, fanout)
 	assert.Equal(ctx, returnedCtx)
 	assert.NoError(err)
 	assert.Equal("", fanout.Header.Get("X-Test"))
@@ -305,7 +183,7 @@ func testForwardVariableAsHeaderValue(t *testing.T) {
 	)
 
 	require.NotNil(rf)
-	returnedCtx, err := rf(ctx, original, fanout, nil)
+	returnedCtx, err := rf(ctx, original, fanout)
 	assert.Equal(ctx, returnedCtx)
 	assert.NoError(err)
 	assert.Equal("foobar", fanout.Header.Get("X-Test"))
@@ -327,7 +205,7 @@ func testReturnHeaders(t *testing.T, fanoutResponse *http.Response, headersToCop
 	)
 
 	require.NotNil(rf)
-	assert.Equal(ctx, rf(ctx, response, Result{Response: fanoutResponse}))
+	assert.Equal(ctx, rf(ctx, Result{Response: fanoutResponse}, response.Header()))
 	assert.Equal(expectedResponseHeader, response.Header())
 }
 
