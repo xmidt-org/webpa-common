@@ -1,7 +1,9 @@
 package fanout
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,10 +11,132 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/Comcast/webpa-common/xhttp/xhttptest"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func testDefaultDecoderNilBody(t *testing.T) {
+	assert := assert.New(t)
+	assert.Panics(func() {
+		DefaultDecoder(context.Background(), new(http.Request), make(http.Header))
+	})
+}
+
+func testDefaultDecoderBodyError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		expectedErr = errors.New("expected")
+		body        = new(xhttptest.MockBody)
+		fanout      = make(http.Header)
+	)
+
+	body.OnReadError(expectedErr).Once()
+	actualCtx, actualBody, actualErr := DefaultDecoder(context.Background(), &http.Request{Body: body}, fanout)
+	assert.Equal(context.Background(), actualCtx)
+	assert.Empty(actualBody)
+	assert.Equal(expectedErr, actualErr)
+	assert.Empty(fanout)
+
+	body.AssertExpectations(t)
+}
+
+func testDefaultDecoderBody(t *testing.T) {
+	testData := []struct {
+		expectedBody   []byte
+		originalHeader http.Header
+		expectedFanout http.Header
+	}{
+		{[]byte{}, http.Header{}, http.Header{}},
+		{[]byte{}, http.Header{"X-Something": []string{"foo"}}, http.Header{}},
+		{[]byte("here is some lovely content"), http.Header{"Content-Type": []string{"text/plain"}}, http.Header{"Content-Type": []string{"text/plain"}}},
+		{[]byte("here is some lovely content"), http.Header{"X-Something": []string{"bar"}, "Content-Type": []string{"text/plain"}}, http.Header{"Content-Type": []string{"text/plain"}}},
+	}
+
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var (
+				assert       = assert.New(t)
+				original     = httptest.NewRequest("GET", "/foo", bytes.NewReader(record.expectedBody))
+				actualFanout = make(http.Header)
+			)
+
+			original.Header = record.originalHeader
+			actualCtx, actualBody, err := DefaultDecoder(context.Background(), original, actualFanout)
+			assert.Equal(context.Background(), actualCtx)
+			assert.Equal(record.expectedBody, actualBody)
+			assert.NoError(err)
+			assert.Equal(record.expectedFanout, actualFanout)
+		})
+	}
+}
+
+func TestDefaultDecoder(t *testing.T) {
+	t.Run("NilBody", testDefaultDecoderNilBody)
+	t.Run("BodyError", testDefaultDecoderBodyError)
+	t.Run("Body", testDefaultDecoderBody)
+}
+
+func TestDefaultEncoder(t *testing.T) {
+	testData := []struct {
+		fanoutResponse   *http.Response
+		expectedBody     []byte
+		expectedOriginal http.Header
+	}{
+		{
+			&http.Response{
+				Header: http.Header{},
+			},
+			nil,
+			http.Header{},
+		},
+		{
+			&http.Response{
+				Header: http.Header{},
+			},
+			[]byte{},
+			http.Header{},
+		},
+		{
+			&http.Response{
+				Header: http.Header{"X-Something": []string{"foo"}},
+			},
+			[]byte("here is a lovely body"),
+			http.Header{},
+		},
+		{
+			&http.Response{
+				Header: http.Header{"Content-Type": []string{"text/plain"}, "X-Something": []string{"foo"}},
+			},
+			[]byte("here is a lovely body"),
+			http.Header{"Content-Type": []string{"text/plain"}},
+		},
+		{
+			&http.Response{
+				Header: http.Header{"Content-Type": []string{"text/plain"}},
+			},
+			[]byte("here is a lovely body"),
+			http.Header{"Content-Type": []string{"text/plain"}},
+		},
+	}
+
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var (
+				assert = assert.New(t)
+
+				actualOriginal  = make(http.Header)
+				actualBody, err = DefaultEncoder(context.Background(), Result{Body: record.expectedBody, Response: record.fanoutResponse}, actualOriginal)
+			)
+
+			assert.Equal(record.expectedBody, actualBody)
+			assert.NoError(err)
+			assert.Equal(record.expectedOriginal, actualOriginal)
+		})
+	}
+}
 
 func testForwardHeaders(t *testing.T, originalHeader http.Header, headersToCopy []string, expectedFanoutHeader http.Header) {
 	var (
