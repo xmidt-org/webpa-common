@@ -31,7 +31,7 @@ func testHandlerBodyError(t *testing.T) {
 		original      = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response      = httptest.NewRecorder()
 
-		handler = New(MustParseURLs("http://localhost"))
+		handler = New(MustParseURLs("http://localhost"), WithEncoder(nil), WithDecoder(nil))
 	)
 
 	require.NotNil(handler)
@@ -518,10 +518,39 @@ func testNewWithInjectedConfiguration(t *testing.T) {
 	assert.Equal(expectedEndpoints, handler.endpoints)
 }
 
+func testNewCustomDecoderEncoder(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		encoderCalled         = false
+		encoder       Encoder = func(ctx context.Context, _ Result, _ http.Header) ([]byte, error) {
+			encoderCalled = true
+			return []byte{}, nil
+		}
+
+		decoderCalled         = false
+		decoder       Decoder = func(ctx context.Context, _ *http.Request, _ http.Header) (context.Context, []byte, error) {
+			decoderCalled = true
+			return ctx, []byte{}, nil
+		}
+
+		handler = New(FixedEndpoints{}, WithDecoder(decoder), WithEncoder(encoder))
+	)
+
+	require.NotNil(handler)
+	handler.encoder(context.Background(), Result{}, http.Header{})
+	assert.True(encoderCalled)
+
+	handler.decoder(context.Background(), new(http.Request), http.Header{})
+	assert.True(decoderCalled)
+}
+
 func TestNew(t *testing.T) {
 	t.Run("NilEndpoints", testNewNilEndpoints)
 	t.Run("NilConfiguration", testNewNilConfiguration)
 	t.Run("NoConfiguration", testNewNoConfiguration)
 	t.Run("ShouldTerminate", testNewShouldTerminate)
 	t.Run("WithInjectedConfiguration", testNewWithInjectedConfiguration)
+	t.Run("CustomDecoderEncoder", testNewCustomDecoderEncoder)
 }
