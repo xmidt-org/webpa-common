@@ -1,6 +1,7 @@
 package device
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"sync"
@@ -154,10 +155,11 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	}
 
 	d := newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
-	if convey, err := m.conveyTranslator.FromHeader(request.Header); err == nil {
+	convey, conveyErr := m.conveyTranslator.FromHeader(request.Header)
+	if conveyErr == nil {
 		d.infoLog.Log("convey", convey)
-	} else if err != conveyhttp.ErrMissingHeader {
-		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), err)
+	} else if conveyErr != conveyhttp.ErrMissingHeader {
+		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), conveyErr)
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
@@ -181,12 +183,22 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, err
 	}
 
-	m.dispatch(
-		&Event{
-			Type:   Connect,
-			Device: d,
-		},
-	)
+	event := &Event{
+		Type:   Connect,
+		Device: d,
+	}
+
+	if conveyErr == nil {
+		bytes, err := json.Marshal(convey)
+		if err == nil {
+			event.Format = wrp.JSON
+			event.Contents = bytes
+		} else {
+			d.errorLog.Log(logging.MessageKey(), "unable to marshal the convey header", logging.ErrorKey(), err)
+		}
+	}
+
+	m.dispatch(event)
 
 	SetPongHandler(c, m.measures.Pong, m.readDeadline)
 	closeOnce := new(sync.Once)
