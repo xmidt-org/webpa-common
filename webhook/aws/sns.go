@@ -1,7 +1,9 @@
 package aws
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -49,6 +51,7 @@ type SNSServer struct {
 	debugLog log.Logger
 	metrics  AWSMetrics
 	snsNotificationReceivedChan chan int
+	waitForDns time.Duration
 }
 
 // Notifier interface implements the various notification server functionalities
@@ -62,6 +65,7 @@ type Notifier interface {
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte
 	ValidateSubscriptionArn(string) bool
 	SNSNotificationReceivedCounter(int)
+	DnsReady() error
 }
 
 // NewSNSServer creates SNSServer instance using viper config
@@ -88,6 +92,10 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 	ss = &SNSServer{
 		Config: *cfg,
 		SVC:    svc,
+	}
+	
+	if v != nil && v.IsSet("waitForDns") {
+		ss.waitForDns = v.GetDuration("waitForDns")
 	}
 
 	ss.SNSValidator = NewSNSValidator()
@@ -163,6 +171,56 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 func (ss *SNSServer) PrepareAndStart() {
 
 	ss.Subscribe()
+}
+
+//DnsReady blocks until the primary server's DNS is up and running or
+//until the timeout is reached
+//if timeout value is 0s it will try forever
+func (ss *SNSServer) DnsReady() (e error) {
+	var (
+		ctx context.Context
+		cancel context.CancelFunc
+	)
+	
+	if ss.waitForDns > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), ss.waitForDns)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	defer cancel()
+
+	var check = func() <-chan struct{} {
+		var channel = make(chan struct{})
+
+		go func(c chan struct{}) {
+			var (
+				err  error
+				conn net.Conn
+			)
+
+			for {
+				if conn, err = net.Dial("tcp", ss.SelfUrl.Host); err == nil {
+					conn.Close()
+					c <- struct{}{}
+					ss.metrics.DnsReady.Add(1.0)
+					return
+				}
+				ss.metrics.DnsReadyQueryCount.Add(1.0)
+				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready", "endpoint", ss.SelfUrl.Host, logging.ErrorKey(), err)
+				time.Sleep(time.Second)
+			}
+		}(channel)
+
+		return channel
+	}
+
+	select {
+	case <-check():
+	case <-ctx.Done():
+		e = ctx.Err()
+	}
+
+	return
 }
 
 // Validate that SubscriptionArn received in AWS request matches the cached config data
