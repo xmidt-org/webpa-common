@@ -27,6 +27,7 @@ const (
 		                }
 		          }`
 	TEST_AWS_CFG = `{
+	"waitForDns": "2000000000",
 	"aws": {
         "accessKey": "accessKey",
         "secretKey": "secretKey",
@@ -158,4 +159,25 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 	require.NotNil(ss.debugLog)
 	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, TEST_UNIX_TIME), selfUrl.Path)
 	assert.Equal("http://host-test:port/sns/1503357402", ss.SelfUrl.String())
+}
+
+func TestDnsReady(t *testing.T) {
+	assert := assert.New(t)
+
+	v := SetUpTestViperInstance(TEST_AWS_CFG)
+	ss, err := NewNotifier(v)
+
+	assert.Nil(err)
+	assert.NotNil(ss)
+
+	selfUrl := &url.URL{
+		Scheme: "http",
+		Host:   "host:port",
+	}
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+
+	err = ss.DnsReady()
+
+	assert.NotNil(err)
 }
