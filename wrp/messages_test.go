@@ -144,6 +144,7 @@ func TestMessage(t *testing.T) {
 				Metadata:        map[string]string{"name": "value"},
 				Spans:           [][]string{{"1", "2"}, {"3"}},
 				Payload:         []byte{1, 2, 3, 4, 0xff, 0xce},
+				PartnerIDs:      []string{"foo"},
 			},
 			{
 				Type:        CreateMessageType,
@@ -151,6 +152,7 @@ func TestMessage(t *testing.T) {
 				Destination: "uuid:1111-11-111111-11111",
 				Path:        "/some/where/over/the/rainbow",
 				Payload:     []byte{1, 2, 3, 4, 0xff, 0xce},
+				PartnerIDs:  []string{"foo", "bar"},
 			},
 		}
 	)
