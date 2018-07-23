@@ -302,7 +302,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			)
 
 			if err != nil {
-				d.errorLog.Log(logging.MessageKey(), "Error while completing transaction", logging.ErrorKey(), err)
+				d.errorLog.Log(logging.MessageKey(), "Error while completing transaction", "transactionKey", message.TransactionKey(), logging.ErrorKey(), err)
 				event.Type = TransactionBroken
 				event.Error = err
 			} else {
