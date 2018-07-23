@@ -333,7 +333,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			// TODO: This will keep the device from being garbage collected until the timer
 			// triggers.  This is only a problem if a device connects then disconnects faster
 			// than the authDelay setting.
-			w.WritePreparedMessage(authStatus)
+			d.enqueueMessage(authStatus)
 		})
 	)
 
@@ -391,38 +391,42 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			return
 
 		case envelope = <-d.messages:
-			var frameContents []byte
-			if envelope.request.Format == wrp.Msgpack && len(envelope.request.Contents) > 0 {
-				frameContents = envelope.request.Contents
+			if envelope.message != nil {
+				writeError = w.WritePreparedMessage(envelope.message)
 			} else {
-				// if the request was in a format other than Msgpack, or if the caller did not pass
-				// Contents, then do the encoding here.
-				encoder.ResetBytes(&frameContents)
-				writeError = encoder.Encode(envelope.request.Message)
-				encoder.ResetBytes(nil)
-			}
+				var frameContents []byte
+				if envelope.request.Format == wrp.Msgpack && len(envelope.request.Contents) > 0 {
+					frameContents = envelope.request.Contents
+				} else {
+					// if the request was in a format other than Msgpack, or if the caller did not pass
+					// Contents, then do the encoding here.
+					encoder.ResetBytes(&frameContents)
+					writeError = encoder.Encode(envelope.request.Message)
+					encoder.ResetBytes(nil)
+				}
 
-			if writeError == nil {
-				writeError = w.WriteMessage(websocket.BinaryMessage, frameContents)
-			}
+				if writeError == nil {
+					writeError = w.WriteMessage(websocket.BinaryMessage, frameContents)
+				}
 
-			event := Event{
-				Device:   d,
-				Message:  envelope.request.Message,
-				Format:   envelope.request.Format,
-				Contents: envelope.request.Contents,
-				Error:    writeError,
-			}
+				event := Event{
+					Device:   d,
+					Message:  envelope.request.Message,
+					Format:   envelope.request.Format,
+					Contents: envelope.request.Contents,
+					Error:    writeError,
+				}
 
-			if writeError != nil {
-				envelope.complete <- writeError
-				event.Type = MessageFailed
-			} else {
-				event.Type = MessageSent
-			}
+				if writeError != nil {
+					envelope.complete <- writeError
+					event.Type = MessageFailed
+				} else {
+					event.Type = MessageSent
+				}
 
-			close(envelope.complete)
-			m.dispatch(&event)
+				close(envelope.complete)
+				m.dispatch(&event)
+			}
 
 		case <-pingTicker.C:
 			writeError = pinger()

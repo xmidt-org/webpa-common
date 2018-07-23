@@ -9,6 +9,7 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/gorilla/websocket"
 )
 
 const (
@@ -21,6 +22,7 @@ const (
 // of the write operation.
 type envelope struct {
 	request  *Request
+	message  *websocket.PreparedMessage
 	complete chan<- error
 }
 
@@ -171,6 +173,18 @@ func (d *device) Closed() bool {
 	return atomic.LoadInt32(&d.state) != stateOpen
 }
 
+// enqueueMessage attempts to enqueue the given prepared message asynchronously.
+// An error is returned if and only if the message could not be enqueued.
+func (d *device) enqueueMessage(message *websocket.PreparedMessage) error {
+	select {
+	case <-d.shutdown:
+		return ErrorDeviceClosed
+	case d.messages <- &envelope{message: message}:
+	}
+
+	return nil
+}
+
 // sendRequest attempts to enqueue the given request for the write pump that is
 // servicing this device.  This method honors the request context's cancellation semantics.
 //
@@ -181,8 +195,8 @@ func (d *device) sendRequest(request *Request) error {
 		done     = request.Context().Done()
 		complete = make(chan error, 1)
 		envelope = &envelope{
-			request,
-			complete,
+			request:  request,
+			complete: complete,
 		}
 	)
 
