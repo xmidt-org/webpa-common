@@ -37,8 +37,8 @@ type Interface interface {
 	// gate was already lowered, this method returns false.
 	Lower() bool
 
-	// IsOpen tests if this gate is open
-	IsOpen() bool
+	// Open tests if this gate is open
+	Open() bool
 }
 
 // GateOption is a configuration option for a gate Interface
@@ -104,12 +104,12 @@ func (g *gate) Lower() bool {
 	return false
 }
 
-func (g *gate) IsOpen() bool {
+func (g *gate) Open() bool {
 	return atomic.LoadUint32(&g.state) == Open
 }
 
 func (g *gate) String() string {
-	if g.IsOpen() {
+	if g.Open() {
 		return "open"
 	} else {
 		return "closed"

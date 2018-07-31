@@ -36,19 +36,19 @@ func testNewInitiallyOpen(t *testing.T, g Interface) {
 	)
 
 	require.NotNil(g)
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 
 	assert.False(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 
 	assert.True(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 
 	assert.False(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 
 	assert.True(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 }
 
 func testNewInitiallyClosed(t *testing.T, g Interface) {
@@ -58,19 +58,19 @@ func testNewInitiallyClosed(t *testing.T, g Interface) {
 	)
 
 	require.NotNil(g)
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 
 	assert.False(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 
 	assert.True(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 
 	assert.False(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 
 	assert.True(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 }
 
 func testNewInitiallyOpenWithGauge(t *testing.T) {
@@ -83,23 +83,23 @@ func testNewInitiallyOpenWithGauge(t *testing.T) {
 	)
 
 	require.NotNil(g)
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 	assert.Equal(GaugeOpen, gauge.Value())
 
 	assert.False(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 	assert.Equal(GaugeOpen, gauge.Value())
 
 	assert.True(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 	assert.Equal(GaugeClosed, gauge.Value())
 
 	assert.False(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 	assert.Equal(GaugeClosed, gauge.Value())
 
 	assert.True(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 	assert.Equal(GaugeOpen, gauge.Value())
 }
 
@@ -113,23 +113,23 @@ func testNewInitiallyClosedWithGauge(t *testing.T) {
 	)
 
 	require.NotNil(g)
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 	assert.Equal(GaugeClosed, gauge.Value())
 
 	assert.False(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 	assert.Equal(GaugeClosed, gauge.Value())
 
 	assert.True(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 	assert.Equal(GaugeOpen, gauge.Value())
 
 	assert.False(g.Raise())
-	assert.True(g.IsOpen())
+	assert.True(g.Open())
 	assert.Equal(GaugeOpen, gauge.Value())
 
 	assert.True(g.Lower())
-	assert.False(g.IsOpen())
+	assert.False(g.Open())
 	assert.Equal(GaugeClosed, gauge.Value())
 }
 
