@@ -226,7 +226,7 @@ func TestServerOptions(t *testing.T) {
 	)
 
 	so := o.StartOptions()
-	assert.Equal(logger, so.Logger)
+	assert.NotNil(so.Logger)
 	assert.Equal(listener, so.Listener)
 	assert.True(so.DisableKeepAlives)
 	assert.Equal("cert.pem", so.CertificateFile)
