@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"os"
 	"strings"
 
 	"github.com/go-kit/kit/log"
@@ -8,7 +9,7 @@ import (
 )
 
 var (
-	defaultLogger = log.NewNopLogger()
+	defaultLogger = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 
 	callerKey    interface{} = "caller"
 	messageKey   interface{} = "msg"
