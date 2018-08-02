@@ -13,7 +13,7 @@ type constructor struct {
 
 func (c *constructor) decorate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if c.g.IsOpen() {
+		if c.g.Open() {
 			next.ServeHTTP(response, request)
 		} else {
 			c.closed.ServeHTTP(response, request)
