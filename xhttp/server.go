@@ -181,8 +181,15 @@ type ServerOptions struct {
 
 // StartOptions produces a StartOptions with the corresponding values from this ServerOptions
 func (so *ServerOptions) StartOptions() StartOptions {
+	logger := so.Logger
+	if logger == nil {
+		logger = logging.DefaultLogger()
+	}
+
 	return StartOptions{
-		Logger:            so.Logger,
+		Logger: log.With(logger,
+			"address", so.Address,
+		),
 		Listener:          so.Listener,
 		DisableKeepAlives: so.DisableKeepAlives,
 		CertificateFile:   so.CertificateFile,
