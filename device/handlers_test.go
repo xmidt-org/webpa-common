@@ -607,7 +607,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		require             = require.New(t)
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 47913 * time.Minute
-		registry            = new(mockRegistry)
+		registry            = new(MockRegistry)
 		logger              = logging.NewTestLogger(nil, t)
 
 		now = func() time.Time {
@@ -718,7 +718,7 @@ func TestListHandler(t *testing.T) {
 func testStatHandlerNoPathVariables(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -737,7 +737,7 @@ func testStatHandlerNoPathVariables(t *testing.T) {
 func testStatHandlerNoDeviceName(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -759,7 +759,7 @@ func testStatHandlerNoDeviceName(t *testing.T) {
 func testStatHandlerInvalidDeviceName(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -781,7 +781,7 @@ func testStatHandlerInvalidDeviceName(t *testing.T) {
 func testStatHandlerMissingDevice(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -805,7 +805,7 @@ func testStatHandlerMissingDevice(t *testing.T) {
 func testStatHandlerMarshalJSONFailed(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 		device   = new(mockDevice)
 
 		handler = StatHandler{
@@ -832,7 +832,7 @@ func testStatHandlerMarshalJSONFailed(t *testing.T) {
 func testStatHandlerSuccess(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 		device   = new(mockDevice)
 
 		handler = StatHandler{

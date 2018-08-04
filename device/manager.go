@@ -71,6 +71,9 @@ type Router interface {
 // Registry is the strategy interface for querying the set of connected devices.  Methods
 // in this interface follow the Visitor pattern and are typically executed under a read lock.
 type Registry interface {
+	// Len returns the count of devices currently in this registry
+	Len() int
+
 	// Get returns the device associated with the given ID, if any
 	Get(ID) (Interface, bool)
 
@@ -443,6 +446,10 @@ func (m *manager) DisconnectIf(filter func(ID) bool) int {
 
 func (m *manager) DisconnectAll() int {
 	return m.devices.removeAll()
+}
+
+func (m *manager) Len() int {
+	return m.devices.len()
 }
 
 func (m *manager) Get(id ID) (Interface, bool) {

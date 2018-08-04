@@ -36,6 +36,10 @@ type MockRegistry struct {
 
 var _ Registry = (*MockRegistry)(nil)
 
+func (m *MockRegistry) Len() int {
+	return m.Called().Int(0)
+}
+
 func (m *MockRegistry) Get(id ID) (Interface, bool) {
 	arguments := m.Called(id)
 	first, _ := arguments.Get(0).(Interface)

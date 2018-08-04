@@ -208,24 +208,6 @@ func (m *mockRouter) Route(request *Request) (*Response, error) {
 	return first, arguments.Error(1)
 }
 
-type mockRegistry struct {
-	mock.Mock
-}
-
-func (m *mockRegistry) Get(id ID) (Interface, bool) {
-	arguments := m.Called(id)
-	first, _ := arguments.Get(0).(Interface)
-	return first, arguments.Bool(1)
-}
-
-func (m *mockRegistry) VisitIf(predicate func(ID) bool, visitor func(Interface)) int {
-	return m.Called(predicate, visitor).Int(0)
-}
-
-func (m *mockRegistry) VisitAll(visitor func(Interface)) int {
-	return m.Called(visitor).Int(0)
-}
-
 func TestMockConnector(t *testing.T) {
 	var (
 		assert = assert.New(t)
