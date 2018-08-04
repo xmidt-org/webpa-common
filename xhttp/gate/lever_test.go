@@ -69,7 +69,7 @@ func testLeverServeHTTPRaise(t *testing.T) {
 		logger = logging.NewTestLogger(nil, t)
 		ctx    = logging.WithLogger(context.Background(), logger)
 
-		gate  = New(Open)
+		gate  = New(true)
 		lever = Lever{Gate: gate, Parameter: "open"}
 	)
 
@@ -124,7 +124,7 @@ func testLeverServeHTTPLower(t *testing.T) {
 		logger = logging.NewTestLogger(nil, t)
 		ctx    = logging.WithLogger(context.Background(), logger)
 
-		gate  = New(Closed)
+		gate  = New(false)
 		lever = Lever{Gate: gate, Parameter: "open"}
 	)
 

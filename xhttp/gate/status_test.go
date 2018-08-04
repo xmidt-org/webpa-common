@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testStatusServeHTTP(t *testing.T, state uint32) {
+func testStatusServeHTTP(t *testing.T, state bool) {
 	var (
 		assert = assert.New(t)
 		logger = logging.NewTestLogger(nil, t)
@@ -34,10 +34,10 @@ func testStatusServeHTTP(t *testing.T, state uint32) {
 
 func TestStatus(t *testing.T) {
 	t.Run("Open", func(t *testing.T) {
-		testStatusServeHTTP(t, Open)
+		testStatusServeHTTP(t, true)
 	})
 
 	t.Run("Closed", func(t *testing.T) {
-		testStatusServeHTTP(t, Closed)
+		testStatusServeHTTP(t, false)
 	})
 }

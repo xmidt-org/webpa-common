@@ -56,7 +56,7 @@ func testNewConstructorCustomClosed(t *testing.T) {
 			response.WriteHeader(201)
 		})
 
-		g = New(Open)
+		g = New(true)
 		c = NewConstructor(g, WithClosedHandler(closed))
 	)
 
@@ -80,10 +80,10 @@ func testNewConstructorCustomClosed(t *testing.T) {
 func TestNewConstructor(t *testing.T) {
 	t.Run("NilGate", testNewConstructorNilGate)
 	t.Run("Default", func(t *testing.T) {
-		g := New(Open)
+		g := New(true)
 		testNewConstructorDefault(t, NewConstructor(g), g)
 
-		g = New(Open)
+		g = New(true)
 		testNewConstructorDefault(t, NewConstructor(g, WithClosedHandler(nil)), g)
 	})
 

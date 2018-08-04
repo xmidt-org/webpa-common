@@ -2,26 +2,19 @@ package gate
 
 import (
 	"fmt"
-	"sync/atomic"
+	"sync"
+	"time"
 
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics/discard"
 )
 
 const (
-	// Open indicates a gate that allows traffic
-	Open uint32 = iota
+	// Open is the value a gauge is set to that indicates the gate is open
+	Open float64 = 1.0
 
-	// Closed indicates a gate that disallows traffic
-	Closed
-)
-
-const (
-	// GaugeOpen is the value a gauge is set to that indicates the gate is open
-	GaugeOpen float64 = 1.0
-
-	// GaugeClosed is the value a gauge is set to that indicates the gate is closed
-	GaugeClosed float64 = 0.0
+	// Closed is the value a gauge is set to that indicates the gate is closed
+	Closed float64 = 0.0
 )
 
 // Interface represents a concurrent condition indicating whether HTTP traffic should be allowed.
@@ -39,6 +32,10 @@ type Interface interface {
 
 	// Open tests if this gate is open
 	Open() bool
+
+	// State returns the current state (true for open, false for closed) along with the time
+	// at which this gate entered that state.
+	State() (bool, time.Time)
 }
 
 // GateOption is a configuration option for a gate Interface
@@ -48,64 +45,89 @@ type GateOption func(*gate)
 func WithGauge(gauge xmetrics.Setter) GateOption {
 	return func(g *gate) {
 		if gauge != nil {
-			g.gauge = gauge
+			g.state = gauge
 		} else {
-			g.gauge = discard.NewGauge()
+			g.state = discard.NewGauge()
 		}
 	}
 }
 
 // New constructs a gate Interface with zero or more options.  The returned gate takes on the given
 // initial state, and any configured gauge is updated to reflect this initial state.
-func New(initial uint32, options ...GateOption) Interface {
-	if initial != Open && initial != Closed {
-		panic("invalid initial state")
-	}
-
+func New(initial bool, options ...GateOption) Interface {
 	g := &gate{
-		state: initial,
-		gauge: discard.NewGauge(),
+		open:  initial,
+		now:   time.Now,
+		state: discard.NewGauge(),
 	}
 
 	for _, o := range options {
 		o(g)
 	}
 
-	if g.state == Open {
-		g.gauge.Set(GaugeOpen)
+	if g.open {
+		g.state.Set(Open)
 	} else {
-		g.gauge.Set(GaugeClosed)
+		g.state.Set(Closed)
 	}
 
+	g.timestamp = g.now().UTC()
 	return g
 }
 
 // gate is the internal Interface implementation
 type gate struct {
-	state uint32
-	gauge xmetrics.Setter
+	lock      sync.RWMutex
+	open      bool
+	timestamp time.Time
+	now       func() time.Time
+
+	state xmetrics.Setter
 }
 
 func (g *gate) Raise() bool {
-	if atomic.CompareAndSwapUint32(&g.state, Closed, Open) {
-		g.gauge.Set(GaugeOpen)
-		return true
+	defer g.lock.Unlock()
+	g.lock.Lock()
+
+	if g.open {
+		return false
 	}
 
-	return false
+	g.open = true
+	g.state.Set(Open)
+	g.timestamp = g.now().UTC()
+	return true
 }
 
 func (g *gate) Lower() bool {
-	if atomic.CompareAndSwapUint32(&g.state, Open, Closed) {
-		g.gauge.Set(GaugeClosed)
-		return true
+	defer g.lock.Unlock()
+	g.lock.Lock()
+
+	if !g.open {
+		return false
 	}
 
-	return false
+	g.open = false
+	g.state.Set(Closed)
+	g.timestamp = g.now().UTC()
+	return true
 }
 
 func (g *gate) Open() bool {
-	return atomic.LoadUint32(&g.state) == Open
+	g.lock.RLock()
+	open := g.open
+	g.lock.RUnlock()
+
+	return open
+}
+
+func (g *gate) State() (bool, time.Time) {
+	g.lock.RLock()
+	open := g.open
+	timestamp := g.timestamp
+	g.lock.RUnlock()
+
+	return open, timestamp
 }
 
 func (g *gate) String() string {
