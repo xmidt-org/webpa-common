@@ -15,5 +15,4 @@ func (s *Status) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 	response.Header().Set("Content-Type", "application/json")
 	state, timestamp := s.Gate.State()
 	fmt.Fprintf(response, `{"open": %t, "timestamp": "%s"}`, state, timestamp.Format(time.RFC3339))
-	response.WriteHeader(http.StatusOK)
 }
