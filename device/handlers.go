@@ -285,7 +285,7 @@ func (lh *ListHandler) updateCache() []byte {
 		lh.cache.WriteString(`{"devices":[`)
 
 		needsSeparator := false
-		lh.Registry.VisitAll(func(d Interface) {
+		lh.Registry.VisitAll(func(d Interface) bool {
 			if needsSeparator {
 				lh.cache.WriteString(`,`)
 			}
@@ -299,6 +299,7 @@ func (lh *ListHandler) updateCache() []byte {
 			}
 
 			needsSeparator = true
+			return true
 		})
 
 		lh.cache.WriteString(`]}`)

@@ -81,7 +81,7 @@ type Registry interface {
 	//
 	// No methods on this Manager should be called from within the visitor function, or
 	// a deadlock will likely occur.
-	VisitAll(func(Interface)) int
+	VisitAll(func(Interface) bool) int
 }
 
 // Manager supplies a hub for connecting and disconnecting devices as well as
@@ -456,9 +456,9 @@ func (m *manager) Get(id ID) (Interface, bool) {
 	return m.devices.get(id)
 }
 
-func (m *manager) VisitAll(visitor func(Interface)) int {
-	return m.devices.visit(func(d *device) {
-		visitor(d)
+func (m *manager) VisitAll(visitor func(Interface) bool) int {
+	return m.devices.visit(func(d *device) bool {
+		return visitor(d)
 	})
 }
 

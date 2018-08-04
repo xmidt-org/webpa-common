@@ -170,12 +170,14 @@ func (r *registry) removeAll() int {
 	return count
 }
 
-func (r *registry) visit(f func(d *device)) int {
+func (r *registry) visit(f func(d *device) bool) int {
 	defer r.lock.RUnlock()
 	r.lock.RLock()
 
 	for _, d := range r.data {
-		f(d)
+		if !f(d) {
+			break
+		}
 	}
 
 	return len(r.data)

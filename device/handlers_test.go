@@ -626,10 +626,10 @@ func testListHandlerServeHTTP(t *testing.T) {
 	firstDevice.statistics = NewStatistics(now, expectedConnectedAt)
 	secondDevice.statistics = NewStatistics(now, expectedConnectedAt)
 
-	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).Return(0).Once()
-	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).
+	registry.On("VisitAll", mock.MatchedBy(func(func(Interface) bool) bool { return true })).Return(0).Once()
+	registry.On("VisitAll", mock.MatchedBy(func(func(Interface) bool) bool { return true })).
 		Run(func(arguments mock.Arguments) {
-			visitor := arguments.Get(0).(func(Interface))
+			visitor := arguments.Get(0).(func(Interface) bool)
 			visitor(firstDevice)
 			visitor(secondDevice)
 		}).

@@ -154,9 +154,10 @@ func (s *deviceSet) reset() {
 }
 
 // managerCapture returns a high-level visitor for Manager testing
-func (s deviceSet) managerCapture() func(Interface) {
-	return func(d Interface) {
+func (s deviceSet) managerCapture() func(Interface) bool {
+	return func(d Interface) bool {
 		s.add(d)
+		return true
 	}
 }
 

@@ -46,6 +46,6 @@ func (m *MockRegistry) Get(id ID) (Interface, bool) {
 	return first, arguments.Bool(1)
 }
 
-func (m *MockRegistry) VisitAll(f func(Interface)) int {
+func (m *MockRegistry) VisitAll(f func(Interface) bool) int {
 	return m.Called(f).Int(0)
 }
