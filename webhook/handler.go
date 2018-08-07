@@ -58,7 +58,11 @@ func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	r.m.Notifier.PublishMessage(string(s))
+	 err = r.m.Notifier.PublishMessage(string(s))
+	if err != nil {
+		jsonResponse(rw, http.StatusInternalServerError, err.Error())
+		return
+	}
 
 	jsonResponse(rw, http.StatusOK, "Success")
 }
