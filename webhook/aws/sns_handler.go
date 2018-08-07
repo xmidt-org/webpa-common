@@ -2,6 +2,7 @@ package aws
 
 import (
 	"container/list"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -283,13 +284,21 @@ func (ss *SNSServer) NotificationHandle(rw http.ResponseWriter, req *http.Reques
 }
 
 // Publish Notification message to AWS SNS topic
-func (ss *SNSServer) PublishMessage(message string) {
+func (ss *SNSServer) PublishMessage(message string) error {
 
 	ss.debugLog.Log(logging.MessageKey(), "SNS PublishMessage", "called", message)
 	ss.metrics.SNSNotificationSent.Add(1.0)
 
 	// push Notification message onto notif data channel
-	ss.notificationData <- message
+	ticker := time.NewTicker(ss.channelClientTimeout)
+	defer ticker.Stop()
+
+	select {
+	case ss.notificationData <- message:
+		return nil
+	case <-ticker.C:
+		return errors.New("Unable to add message to channel in allotted time.")
+	}
 }
 
 // listenAndPublishMessage go routine listens for data on notificationData channel

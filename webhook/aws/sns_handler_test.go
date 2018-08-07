@@ -4,6 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/aws"
@@ -13,12 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"net/http"
-	"net/http/httptest"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -30,7 +31,7 @@ const (
         "sns" : {
 	        "region" : "us-east-1",
             "protocol" : "http",
-			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic", 
+			"topicArn" : "arn:aws:sns:us-east-1:1234:test-topic",
 			"urlPath" : "/sns/"
     } } }`
 	NOTIF_MSG = `{
@@ -78,6 +79,10 @@ func SetUpTestViperInstance(config string) *viper.Viper {
 }
 
 func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
+	return SetUpTestSNSServerWithChannelSize(t, 50)
+}
+
+func SetUpTestSNSServerWithChannelSize(t *testing.T, channelSize int64) (*SNSServer, *MockSVC, *MockValidator, *mux.Router) {
 
 	v := SetUpTestViperInstance(TEST_AWS_CONFIG)
 
@@ -89,6 +94,8 @@ func SetUpTestSNSServer(t *testing.T) (*SNSServer, *MockSVC, *MockValidator, *mu
 		Config:       *awsCfg,
 		SVC:          m,
 		SNSValidator: mv,
+		channelSize: channelSize,
+		channelClientTimeout: 30 * time.Second,
 	}
 
 	r := mux.NewRouter()
@@ -379,6 +386,25 @@ func TestNotificationHandleError_ValidationErr(t *testing.T) {
 	mv.AssertExpectations(t)
 }
 
+func TestPublishClientTimeout(t *testing.T) {
+	fmt.Println("\n\nTestNotificationHandleError_ValidationErr")
+
+	ss, m, _, _ := SetUpTestSNSServerWithChannelSize(t, 1)
+	ss.channelClientTimeout = 1
+
+	// should not panic
+	testPublish(t, m, ss)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("testPublish did not panic when it should have")
+		}
+	}()
+
+	// should panic
+	testPublish(t, m, ss)
+}
+
 func TestListSubscriptionsByMatchingEndpointSuccess(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
@@ -442,6 +468,8 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 	ss := &SNSServer{
 		Config: *awsCfg,
 		SVC:    m,
+		channelSize: 50,
+		channelClientTimeout: 30 * time.Second,
 	}
 
 	logger := logging.NewTestLogger(nil, t)

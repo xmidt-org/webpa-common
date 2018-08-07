@@ -2,6 +2,7 @@ package aws
 
 import (
 	"github.com/gorilla/mux"
+	"time"
 )
 
 type ErrResp struct {
@@ -90,6 +91,8 @@ func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router) {
 		Config:       *awsCfg,
 		SVC:          m,
 		SNSValidator: mv,
+		channelSize: 50,
+		channelClientTimeout: 30 * time.Second,
 	}
 
 	r := mux.NewRouter()

@@ -96,7 +96,10 @@ func testPublish(t *testing.T, m *MockSVC, ss *SNSServer) {
 	// mocking SNS Publish response
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
 
-	ss.PublishMessage(TEST_HOOK)
+	err := ss.PublishMessage(TEST_HOOK)
+	if nil != err {
+		panic(err)
+	}
 
 	// wait such that listenAndPublishMessage go routine will publish message
 	time.Sleep(1 * time.Second)
