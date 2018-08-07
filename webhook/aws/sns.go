@@ -32,26 +32,28 @@ type AWSConfig struct {
 }
 
 type SNSConfig struct {
-	Protocol string `json:"protocol"`
-	Region   string `json:"region"`
-	TopicArn string `json:"topicArn"`
-	UrlPath  string `json:"urlPath"` //uri path to register mux
+	Protocol    string `json:"protocol"`
+	Region      string `json:"region"`
+	TopicArn    string `json:"topicArn"`
+	UrlPath     string `json:"urlPath"` //uri path to register mux
 	AwsEndpoint string `json:"awsEndpoint"`
 }
 
 type SNSServer struct {
 	Config          AWSConfig
 	subscriptionArn atomic.Value
-	SVC     snsiface.SNSAPI
-	SelfUrl *url.URL
+	SVC             snsiface.SNSAPI
+	SelfUrl         *url.URL
 	SNSValidator
-	notificationData chan string
+	notificationData     chan string
+	channelSize          int64
+	channelClientTimeout time.Duration
 
-	errorLog log.Logger
-	debugLog log.Logger
-	metrics  AWSMetrics
+	errorLog                    log.Logger
+	debugLog                    log.Logger
+	metrics                     AWSMetrics
 	snsNotificationReceivedChan chan int
-	waitForDns time.Duration
+	waitForDns                  time.Duration
 }
 
 // Notifier interface implements the various notification server functionalities
@@ -60,7 +62,7 @@ type Notifier interface {
 	Initialize(*mux.Router, *url.URL, http.Handler, log.Logger, xmetrics.Registry, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
-	PublishMessage(string)
+	PublishMessage(string) error
 	Unsubscribe(string)
 	NotificationHandle(http.ResponseWriter, *http.Request) []byte
 	ValidateSubscriptionArn(string) bool
@@ -92,10 +94,20 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 	ss = &SNSServer{
 		Config: *cfg,
 		SVC:    svc,
+		channelSize: 50,
+		channelClientTimeout: 30 * time.Second,
 	}
-	
+
 	if v != nil && v.IsSet("waitForDns") {
 		ss.waitForDns = v.GetDuration("waitForDns")
+	}
+
+	if v != nil && v.IsSet("sns.channelSize") {
+		ss.channelSize = v.GetInt64("sns.channelSize")
+	}
+
+	if v != nil && v.IsSet("sns.channelClientTimeout") {
+		ss.channelClientTimeout = v.GetDuration("sns.channelClientTimeout")
 	}
 
 	ss.SNSValidator = NewSNSValidator()
@@ -144,7 +156,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 			Path:   urlPath,
 		}
 	}
-	ss.notificationData = make(chan string, 10)
+	ss.notificationData = make(chan string, ss.channelSize)
 
 	// set up logger
 	if logger == nil {
@@ -178,10 +190,10 @@ func (ss *SNSServer) PrepareAndStart() {
 //if timeout value is 0s it will try forever
 func (ss *SNSServer) DnsReady() (e error) {
 	var (
-		ctx context.Context
+		ctx    context.Context
 		cancel context.CancelFunc
 	)
-	
+
 	if ss.waitForDns > 0 {
 		ctx, cancel = context.WithTimeout(context.Background(), ss.waitForDns)
 	} else {
@@ -247,16 +259,16 @@ func (ss *SNSServer) SNSNotificationReceivedCounter(code int) {
 }
 
 // SNSNotificationReceivedInit initializes metrics counters and returns a channel to send response codes to count
-func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
+func (ss *SNSServer) SNSNotificationReceivedInit() chan int {
 	// notification channel
 	notifyChan := make(chan int)
-	
+
 	// create counters
 	internalErr := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusInternalServerError))
 	badRequest := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusBadRequest))
 	okay := ss.metrics.SNSNotificationReceived.With("code", strconv.Itoa(http.StatusOK))
 	other := ss.metrics.SNSNotificationReceived.With("code", "other")
-	
+
 	// set values to 0
 	internalErr.Add(0.0)
 	badRequest.Add(0.0)
@@ -265,7 +277,7 @@ func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
 
 	fn := func() {
 		for {
-			code := <- notifyChan
+			code := <-notifyChan
 			switch code {
 			case http.StatusInternalServerError:
 				internalErr.Add(1.0)
@@ -278,8 +290,8 @@ func (ss *SNSServer) SNSNotificationReceivedInit() (chan int) {
 			}
 		}
 	}
-	
+
 	go fn()
-	
+
 	return notifyChan
 }
