@@ -11,6 +11,7 @@ import (
 	"github.com/Comcast/webpa-common/secure/key"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
+	"net/url"
 )
 
 var (
@@ -79,12 +80,18 @@ func capabilityValidation(ctx context.Context, capability string) (valid_capabil
 
 	if len(pieces) == 5 &&
 		pieces[0] == "x1" &&
-		pieces[1] == "webpa" {
+		(pieces[1] == "webpa" || pieces[1] == "xmidt") {
 
 		method_value, ok := ctx.Value("method").(string)
 		if ok && (pieces[4] == "all" || strings.EqualFold(pieces[4], method_value)) {
 			claimPath := fmt.Sprintf("/%s/[^/]+/%s", pieces[2], pieces[3])
-			valid_capabilities, _ = regexp.MatchString(claimPath, ctx.Value("path").(string))
+			// get the base path
+			basePath, err := url.Parse(ctx.Value("path").(string))
+			if err != nil {
+				return
+			}
+
+			valid_capabilities, _ = regexp.MatchString(claimPath, basePath.Path)
 		}
 	}
 
@@ -158,31 +165,14 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 
 	// validate jwt token claims capabilities
 	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
-
-		/*  commenting out for now
-		    1. remove code in use below
-		    2. make sure to bring a back tests for this as well.
-		        - TestJWSValidatorCapabilities()
-
-				for c := 0; c < len(caps); c++ {
-					if cap_value, ok := caps[c].(string); ok {
-						if valid = capabilityValidation(ctx, cap_value); valid {
-							return
-						}
-					}
+		for c := 0; c < len(caps); c++ {
+			if cap_value, ok := caps[c].(string); ok {
+				if valid = capabilityValidation(ctx, cap_value); valid {
+					//v.measures.ValidationReason.With("reason", "ok").Add(1)
+					return
 				}
-		*/
-		// *****  REMOVE THIS CODE AFTER BRING BACK THE COMMENTED CODE ABOVE *****
-		// ***** vvvvvvvvvvvvvvv *****
-
-		// successful validation
-		if v.measures != nil {
-			v.measures.ValidationReason.With("reason", "ok").Add(1)
+			}
 		}
-
-		return true, nil
-		// ***** ^^^^^^^^^^^^^^^ *****
-
 	}
 
 	// This fail
