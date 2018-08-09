@@ -62,6 +62,26 @@ func WithManager(m device.Manager) Option {
 	}
 }
 
+func WithStateGauge(s xmetrics.Setter) Option {
+	return func(dr *drainer) {
+		if s != nil {
+			dr.m.state = s
+		} else {
+			dr.m.state = discard.NewGauge()
+		}
+	}
+}
+
+func WithDrainCounter(a xmetrics.Adder) Option {
+	return func(dr *drainer) {
+		if a != nil {
+			dr.m.counter = a
+		} else {
+			dr.m.counter = discard.NewCounter()
+		}
+	}
+}
+
 // Job describes a single execution of the drainer
 type Job struct {
 	// Count is the total number of devices to disconnect.  If this field is nonpositive,
@@ -77,16 +97,37 @@ type Job struct {
 	Tick time.Duration
 }
 
+// Progress describes the current state of a drain job, which includes completed jobs
 type Progress struct {
-	Visited  int32
-	Drained  int32
-	Started  time.Time
+	// Visited is the count of devices visited so far during the drain.  This count refers
+	// to the number of disconnection attempts made.
+	Visited int32
+
+	// Drained is the count of devices actually disconnected so far.  This number can be less
+	// than the Visited field if a device disconnected during the drain job's execution.
+	Drained int32
+
+	// Started is the system time at which the job began
+	Started time.Time
+
+	// Finished is the system time at which the job completed, which will be the zero time
+	// if the job is still running or hasn't been run yet.
 	Finished time.Time
 }
 
+// Interface describes the behavior of a component which can execute a Job to drain devices.
+// Only (1) drain Job is allowed to run at any time.
 type Interface interface {
+	// Start attempts to begin draining devices.  The supplied Job describes how the drain will proceed.
 	Start(Job) error
+
+	// Status returns the current state of this drainer.  The boolean indicates whether a job is currently running.
+	// The Job and Progress values describe the job that is currently running, or are the zero values if no job has ever run.
+	// This method can be used to query the last completed job, so long as a new job has not been started.
 	Status() (bool, Job, Progress)
+
+	// Cancel asynchronously halts any running drain job.  The returned channel can be used to wait for the job to actually exit.
+	// If no job is running, an error is returned along with a nil channel.
 	Cancel() (<-chan struct{}, error)
 }
 
@@ -95,6 +136,7 @@ func defaultNewTicker(d time.Duration) (<-chan time.Time, func()) {
 	return ticker.C, ticker.Stop
 }
 
+// New constructs a drainer using the supplied options
 func New(options ...Option) Interface {
 	dr := &drainer{
 		logger:    logging.DefaultLogger(),
@@ -118,6 +160,7 @@ func New(options ...Option) Interface {
 		panic("A device.Connector is required")
 	}
 
+	dr.m.state.Set(MetricNotDraining)
 	return dr
 }
 
@@ -126,6 +169,7 @@ type metrics struct {
 	counter xmetrics.Adder
 }
 
+// drainer is the internal implementation of Interface
 type drainer struct {
 	logger    log.Logger
 	connector device.Connector
