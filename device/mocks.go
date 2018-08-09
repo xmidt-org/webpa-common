@@ -49,3 +49,45 @@ func (m *MockRegistry) Get(id ID) (Interface, bool) {
 func (m *MockRegistry) VisitAll(f func(Interface) bool) int {
 	return m.Called(f).Int(0)
 }
+
+type MockDevice struct {
+	mock.Mock
+}
+
+func (m *MockDevice) String() string {
+	return m.Called().String(0)
+}
+
+func (m *MockDevice) MarshalJSON() ([]byte, error) {
+	arguments := m.Called()
+	return arguments.Get(0).([]byte), arguments.Error(1)
+}
+
+func (m *MockDevice) ID() ID {
+	return m.Called().Get(0).(ID)
+}
+
+func (m *MockDevice) Pending() int {
+	return m.Called().Int(0)
+}
+
+func (m *MockDevice) Close() error {
+	return m.Called().Error(0)
+}
+
+func (m *MockDevice) Closed() bool {
+	arguments := m.Called()
+	return arguments.Bool(0)
+}
+
+func (m *MockDevice) Statistics() Statistics {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(Statistics)
+	return first
+}
+
+func (m *MockDevice) Send(request *Request) (*Response, error) {
+	arguments := m.Called(request)
+	first, _ := arguments.Get(0).(*Response)
+	return first, arguments.Error(1)
+}

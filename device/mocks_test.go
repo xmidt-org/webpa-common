@@ -67,48 +67,6 @@ func (m *mockConnectionWriter) Close() error {
 	return m.Called().Error(0)
 }
 
-type mockDevice struct {
-	mock.Mock
-}
-
-func (m *mockDevice) String() string {
-	return m.Called().String(0)
-}
-
-func (m *mockDevice) MarshalJSON() ([]byte, error) {
-	arguments := m.Called()
-	return arguments.Get(0).([]byte), arguments.Error(1)
-}
-
-func (m *mockDevice) ID() ID {
-	return m.Called().Get(0).(ID)
-}
-
-func (m *mockDevice) Pending() int {
-	return m.Called().Int(0)
-}
-
-func (m *mockDevice) Close() error {
-	return m.Called().Error(0)
-}
-
-func (m *mockDevice) Closed() bool {
-	arguments := m.Called()
-	return arguments.Bool(0)
-}
-
-func (m *mockDevice) Statistics() Statistics {
-	arguments := m.Called()
-	first, _ := arguments.Get(0).(Statistics)
-	return first
-}
-
-func (m *mockDevice) Send(request *Request) (*Response, error) {
-	arguments := m.Called(request)
-	first, _ := arguments.Get(0).(*Response)
-	return first, arguments.Error(1)
-}
-
 type mockDialer struct {
 	mock.Mock
 }
@@ -218,7 +176,7 @@ func TestMockConnector(t *testing.T) {
 		response             = httptest.NewRecorder()
 		request              = httptest.NewRequest("GET", "/", nil)
 		header               = http.Header{"X-Something": {"foo"}}
-		expectedDevice       = new(mockDevice)
+		expectedDevice       = new(MockDevice)
 		expectedConnectError = errors.New("expected connect error")
 
 		id1 = ID("test1")

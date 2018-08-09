@@ -393,7 +393,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
-		device  = new(mockDevice)
+		device  = new(MockDevice)
 		handler = MessageHandler{
 			Logger: logging.NewTestLogger(nil, t),
 			Router: router,
@@ -466,7 +466,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
-		device  = new(mockDevice)
+		device  = new(MockDevice)
 		handler = MessageHandler{
 			Router: router,
 		}
@@ -549,7 +549,7 @@ func testConnectHandlerServeHTTP(t *testing.T, connectError error, responseHeade
 	var (
 		assert = assert.New(t)
 
-		device    = new(mockDevice)
+		device    = new(MockDevice)
 		connector = new(MockConnector)
 		handler   = ConnectHandler{
 			Connector:      connector,
@@ -806,7 +806,7 @@ func testStatHandlerMarshalJSONFailed(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		registry = new(MockRegistry)
-		device   = new(mockDevice)
+		device   = new(MockDevice)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -833,7 +833,7 @@ func testStatHandlerSuccess(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		registry = new(MockRegistry)
-		device   = new(mockDevice)
+		device   = new(MockDevice)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
