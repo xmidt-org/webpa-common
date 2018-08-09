@@ -86,15 +86,15 @@ func WithDrainCounter(a xmetrics.Adder) Option {
 type Job struct {
 	// Count is the total number of devices to disconnect.  If this field is nonpositive,
 	// the count of connected devices at the start of job execution is used.
-	Count int `json:"count"`
+	Count int `json:"count" schema:"count"`
 
 	// Rate is the number of devices per tick to disconnect.  If this field is nonpositive,
 	// devices are disconnected as fast as possible.
-	Rate int `json:"rate,omitempty"`
+	Rate int `json:"rate,omitempty" schema:"rate"`
 
 	// Tick is the time unit for the Rate field.  If Rate is set but this field is not set,
 	// a tick of 1 second is used as the default.
-	Tick time.Duration `json:"tick,omitempty"`
+	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
 }
 
 // Progress describes the current state of a drain job, which includes completed jobs
