@@ -399,7 +399,6 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		if path, ok = record.context.Value("path").(string); ok {
 			path = record.context.Value("path").(string)
 		}
-		fmt.Printf("ctx method: %s, ctx path: %s, claims: %v, expectedValid: %v\n", method, path, record.claims, record.expectedValid)
 		t.Logf("ctx method: %s, ctx path: %s, claims: %v, expectedValid: %v", method, path, record.claims, record.expectedValid)
 		token := &Token{tokenType: Bearer, value: "does not matter"}
 
