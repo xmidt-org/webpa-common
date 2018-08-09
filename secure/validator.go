@@ -67,11 +67,12 @@ func (v ExactMatchValidator) Validate(ctx context.Context, token *Token) (bool, 
 
 // JWSValidator provides validation for JWT tokens encoded as JWS.
 type JWSValidator struct {
-	DefaultKeyId  string
-	Resolver      key.Resolver
-	Parser        JWSParser
-	JWTValidators []*jwt.Validator
-	measures      *JWTValidationMeasures
+	DefaultKeyId       string
+	Resolver           key.Resolver
+	Parser             JWSParser
+	JWTValidators      []*jwt.Validator
+	measures           *JWTValidationMeasures
+	enableCapabilities bool
 }
 
 // capabilityValidation determines if a claim's capability is valid
@@ -165,13 +166,22 @@ func (v JWSValidator) Validate(ctx context.Context, token *Token) (valid bool, e
 
 	// validate jwt token claims capabilities
 	if caps, capOkay := jwsToken.Payload().(jws.Claims).Get("capabilities").([]interface{}); capOkay && len(caps) > 0 {
-		for c := 0; c < len(caps); c++ {
-			if cap_value, ok := caps[c].(string); ok {
-				if valid = capabilityValidation(ctx, cap_value); valid {
-					//v.measures.ValidationReason.With("reason", "ok").Add(1)
-					return
+		if v.enableCapabilities {
+			for c := 0; c < len(caps); c++ {
+				if cap_value, ok := caps[c].(string); ok {
+					if valid = capabilityValidation(ctx, cap_value); valid {
+						if v.measures != nil {
+							v.measures.ValidationReason.With("reason", "ok").Add(1)
+						}
+						return true, nil
+					}
 				}
 			}
+		} else {
+			if v.measures != nil {
+				v.measures.ValidationReason.With("reason", "ok").Add(1)
+			}
+			return true, nil
 		}
 	}
 

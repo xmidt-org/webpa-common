@@ -388,7 +388,6 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		{ctxComplexPathBaseHookEndStat, validHooksClaims, true},
 		{ctxComplexPathBaseStatEndHook, validHooksClaims, false},
 		{ctxComplexPathBaseHookEndStat, validStatClaims, false},
-
 	}
 
 	for _, record := range testData {
@@ -423,8 +422,9 @@ func TestJWSValidatorCapabilities(t *testing.T) {
 		mockJWSParser.On("ParseJWS", token).Return(mockJWS, nil).Once()
 
 		validator := &JWSValidator{
-			Resolver: mockResolver,
-			Parser:   mockJWSParser,
+			Resolver:           mockResolver,
+			Parser:             mockJWSParser,
+			enableCapabilities: true,
 		}
 
 		valid, err := validator.Validate(record.context, token)
