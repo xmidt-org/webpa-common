@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"github.com/go-kit/kit/log/term"
 )
 
 const (
@@ -31,6 +32,10 @@ type Options struct {
 	// meaning that logfmt output is used.
 	JSON bool `json:"json"`
 
+	// FMTType is to change the output style. The default is "term", for ease of use for debuging.
+	// Another option is "fmt", for plain txt output
+	FMTType string `json:"fmttype"`
+
 	// Level is the error level to output: ERROR, INFO, WARN, or DEBUG.  Any unrecognized string,
 	// including the empty string, is equivalent to passing ERROR.
 	Level string `json:"level"`
@@ -54,7 +59,56 @@ func (o *Options) loggerFactory() func(io.Writer) log.Logger {
 		return log.NewJSONLogger
 	}
 
-	return log.NewLogfmtLogger
+	if o != nil {
+		switch o.FMTType {
+		case "fmt":
+			return log.NewLogfmtLogger
+		case "term":
+		default:
+		}
+	}
+	return termLogger
+}
+
+func termLogger(writer io.Writer) log.Logger {
+	colorFn := func(keyvals ...interface{}) term.FgBgColor {
+		for i := 0; i < len(keyvals)-1; i += 2 {
+			if keyvals[i] != "level" {
+				continue
+			}
+			switch getString(keyvals[i+1]) {
+			case "debug":
+				return term.FgBgColor{Fg: term.DarkGray}
+			case "info":
+				return term.FgBgColor{Fg: term.Gray}
+			case "warn":
+				return term.FgBgColor{Fg: term.Yellow}
+			case "error":
+				return term.FgBgColor{Fg: term.Red}
+			case "crit":
+				return term.FgBgColor{Fg: term.Gray, Bg: term.DarkRed}
+			default:
+				return term.FgBgColor{}
+			}
+		}
+		return term.FgBgColor{}
+	}
+
+	return term.NewColorLogger(writer, NewReformatLogger, colorFn)
+}
+
+type toString interface {
+	String() string
+}
+
+func getString(obj interface{}) string {
+	if s, ok := obj.(string); ok {
+		return s
+	}
+	if levelObj, ok := obj.(toString); ok {
+		return levelObj.String()
+	}
+	return ""
 }
 
 func (o *Options) level() string {

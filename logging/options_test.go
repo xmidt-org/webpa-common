@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"bytes"
 )
 
 func testOptionsLoggerFactory(t *testing.T) {
@@ -60,4 +61,19 @@ func TestOptions(t *testing.T) {
 	t.Run("LoggerFactory", testOptionsLoggerFactory)
 	t.Run("Output", testOptionsOutput)
 	t.Run("Level", testOptionsLevel)
+}
+
+func TestOptionsWithReformatLogger(t *testing.T) {
+	assert := assert.New(t)
+
+	var buf bytes.Buffer
+
+	o := &Options{
+		File: StdoutFile,
+	}
+	logger := o.loggerFactory()(&buf)
+	assert.NotNil(logger)
+	logger.Log("msg", "testing")
+	t.Log(buf.String())
+	assert.NotNil(buf.String())
 }
