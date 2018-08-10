@@ -1,6 +1,7 @@
 package drain
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -10,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testStartServeHTTPDefault(t *testing.T) {
+func testStartServeHTTPDefaultLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
@@ -21,17 +22,21 @@ func testStartServeHTTPDefault(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/", nil)
 	)
 
-	d.On("Start", Job{}).Return(error(nil)).Once()
+	d.On("Start", Job{}).Return(error(nil))
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
 	d.AssertExpectations(t)
 }
 
-func testStartServeHTTPDrain(t *testing.T) {
+func testStartServeHTTPValid(t *testing.T) {
 	testData := []struct {
 		uri      string
 		expected Job
 	}{
+		{
+			"/foo",
+			Job{},
+		},
 		{
 			"/foo?count=100",
 			Job{Count: 100},
@@ -70,9 +75,62 @@ func testStartServeHTTPDrain(t *testing.T) {
 	}
 }
 
+func testStartServeHTTPParseFormError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		d     = new(mockDrainer)
+		start = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "/foo?%TT*&&", nil)
+	)
+
+	start.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+	d.AssertExpectations(t)
+}
+
+func testStartServeHTTPInvalidQuery(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		d     = new(mockDrainer)
+		start = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "/foo?count=asdf", nil)
+	)
+
+	start.ServeHTTP(response, request)
+	assert.Equal(http.StatusBadRequest, response.Code)
+	d.AssertExpectations(t)
+}
+
+func testStartServeHTTPStartError(t *testing.T) {
+	var (
+		assert = assert.New(t)
+
+		d             = new(mockDrainer)
+		start         = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+		expectedError = errors.New("expected")
+
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("POST", "/foo?count=100", nil)
+	)
+
+	d.On("Start", Job{Count: 100}).Return(expectedError).Once()
+	start.ServeHTTP(response, request)
+	assert.Equal(http.StatusConflict, response.Code)
+	d.AssertExpectations(t)
+}
+
 func TestStart(t *testing.T) {
 	t.Run("ServeHTTP", func(t *testing.T) {
-		t.Run("Default", testStartServeHTTPDefault)
-		t.Run("Drain", testStartServeHTTPDrain)
+		t.Run("DefaultLogger", testStartServeHTTPDefaultLogger)
+		t.Run("Valid", testStartServeHTTPValid)
+		t.Run("ParseFormError", testStartServeHTTPParseFormError)
+		t.Run("InvalidQuery", testStartServeHTTPInvalidQuery)
+		t.Run("StartError", testStartServeHTTPStartError)
 	})
 }
