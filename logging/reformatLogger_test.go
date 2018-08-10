@@ -23,7 +23,7 @@ func TestReformatLogger(t *testing.T) {
 	assert.Nil(err)
 
 	//test
-	expected := "WARN[00000]\t hello\t\tisCool=YES \n"
+	expected := "WARN[00000] \thello\t\tisCool=YES \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -36,7 +36,7 @@ func TestReformatLoggerWithNoMSG(t *testing.T) {
 	err := logger.Log("level", "error", "key", "value")
 	assert.Nil(err)
 
-	expected := "ERRO[00000]\t \t\tkey=value \n"
+	expected := "ERRO[00000] key=value \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -50,7 +50,7 @@ func TestReformatLoggerWithNoLevel(t *testing.T) {
 	assert.Nil(err)
 
 	//test
-	expected := "INFO[00000]\t Calling Endpoint\t\t\n"
+	expected := "INFO[00000] \tCalling Endpoint\t\t\n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -64,7 +64,7 @@ func TestReformatLoggerWithTime(t *testing.T) {
 	assert.Nil(err)
 
 
-	expected := "INFO[00005]\t hello\t\t\n"
+	expected := "INFO[00005] \thello\t\t\n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }

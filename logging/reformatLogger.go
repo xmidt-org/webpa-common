@@ -33,8 +33,12 @@ func (l reformatLogger) Log(keyvals ...interface{}) error {
 	if data.Time.IsZero() {
 		data.Time = time.Now()
 	}
+	message := ""
+	if data.msg != "" {
+		message = fmt.Sprintf("\t%s\t\t", data.msg)
+	}
 
-	buf.WriteString(fmt.Sprintf("%s[%05d]\t %s\t\t", string([]rune(strings.ToUpper(data.level))[0:4]), int(data.Time.Sub(l.baseTimestamp).Seconds()), data.msg))
+	buf.WriteString(fmt.Sprintf("%s[%05d] %s", string([]rune(strings.ToUpper(data.level))[0:4]), int(data.Time.Sub(l.baseTimestamp).Seconds()), message))
 
 	for key, value := range data.fieldMap {
 		buf.WriteString(fmt.Sprintf("%s=%s ", key, value))
