@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"fmt"
 )
 
 const (
@@ -93,7 +94,7 @@ func getString(obj interface{}) string {
 	if levelObj, ok := obj.(toString); ok {
 		return levelObj.String()
 	}
-	return ""
+	return fmt.Sprintf("%v", obj)
 }
 
 func (o *Options) level() string {

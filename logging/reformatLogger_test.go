@@ -97,3 +97,24 @@ func TestReformatLoggerWithTime(t *testing.T) {
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
+
+func TestReformatLoggerWithComplexKey(t *testing.T) {
+	assert := assert.New(t)
+
+	buf, logger := reformatLoggerSetup()
+
+	key := errors.New("error_key")
+	key1 := TextFormatter{}
+
+	value := make(map[string]string)
+	value["k"] = "v"
+
+	value1 := []string{"array"}
+
+	err := logger.Log("msg", "complex keys with map value and array value", "ts", time.Now().Add(time.Second*5), key, value, key1, value1)
+	assert.Nil(err)
+
+	expected := "INFO[00005] complex keys with map value and array value error_key=map[string]string{\"k\":\"v\"} {false false false}=[]string{\"array\"} \n"
+	actual := buf.String()
+	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
+}
