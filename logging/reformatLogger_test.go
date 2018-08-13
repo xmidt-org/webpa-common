@@ -55,7 +55,6 @@ func TestReformatLoggerWithError(t *testing.T) {
 
 	expected := "ERRO[00000]                                             ERR:\"unknown error\" key=\"value\" \n"
 	actual := buf.String()
-	fmt.Println(actual)
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
 
@@ -83,7 +82,6 @@ func TestReformatLoggerWithNoLevel(t *testing.T) {
 	//test
 	expected := "INFO[00000] Calling Endpoint                            \n"
 	actual := buf.String()
-	fmt.Println(actual)
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
 

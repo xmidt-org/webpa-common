@@ -9,17 +9,6 @@ import (
 	"strings"
 	"errors"
 	"github.com/ttacon/chalk"
-	"os"
-	"golang.org/x/crypto/ssh/terminal"
-)
-
-const (
-	nocolor = 0
-	red     = 31
-	green   = 32
-	yellow  = 33
-	blue    = 36
-	gray    = 37
 )
 
 type TextFormatter struct {
@@ -44,12 +33,10 @@ type reformatLogger struct {
 // The passed Writer must be safe for concurrent use by multiple goroutines if
 // the returned Logger will be used concurrently.
 func NewReformatLogger(w io.Writer, formatter *TextFormatter) log.Logger {
-	formatter.init(w)
-
 	return log.NewSyncLogger(&reformatLogger{time.Now(), w, formatter})
 }
 
-func colorVals(data reformatData) chalk.Color {
+func colorLevel(data reformatData) chalk.Color {
 
 	switch data.level {
 	case "debug":
@@ -65,21 +52,8 @@ func colorVals(data reformatData) chalk.Color {
 	}
 }
 
-func (t *TextFormatter) init(writer io.Writer) {
-	t.isTerminal = checkIfTerminal(writer)
-}
-
-func checkIfTerminal(w io.Writer) bool {
-	switch v := w.(type) {
-	case *os.File:
-		return terminal.IsTerminal(int(v.Fd()))
-	default:
-		return false
-	}
-}
-
 func (t *TextFormatter) isColored() bool {
-	return t.isTerminal && !t.DisableColors
+	return !t.DisableColors
 }
 
 func writeColor(buf *bytes.Buffer, color chalk.Color, formatter *TextFormatter, coloredText string) {
@@ -108,7 +82,7 @@ func (t *TextFormatter) getColor(color chalk.Color) string {
 func (l *reformatLogger) Log(keyvals ...interface{}) error {
 	buf := &bytes.Buffer{}
 	data := mapKeyVals(keyvals)
-	color := colorVals(data)
+	color := colorLevel(data)
 
 	levelText := strings.ToUpper(data.level)
 	if !l.formatter.DisableLevelTruncation {
@@ -189,6 +163,7 @@ func mapKeyVals(keyvals []interface{}) reformatData {
 
 	}
 
+	// Set Default values
 	if data.level == "" {
 		data.level = "info"
 	}
