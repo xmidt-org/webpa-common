@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"github.com/go-kit/kit/log/term"
 )
 
 const (
@@ -35,6 +34,8 @@ type Options struct {
 	// FMTType is to change the output style. The default is "term", for ease of use for debuging.
 	// Another option is "fmt", for plain txt output
 	FMTType string `json:"fmttype"`
+
+	TermOptions TextFormatter `json:"term_options"`
 
 	// Level is the error level to output: ERROR, INFO, WARN, or DEBUG.  Any unrecognized string,
 	// including the empty string, is equivalent to passing ERROR.
@@ -67,34 +68,16 @@ func (o *Options) loggerFactory() func(io.Writer) log.Logger {
 		default:
 		}
 	}
-	return termLogger
+	return o.termLogger
 }
 
-func termLogger(writer io.Writer) log.Logger {
-	colorFn := func(keyvals ...interface{}) term.FgBgColor {
-		for i := 0; i < len(keyvals)-1; i += 2 {
-			if keyvals[i] != "level" {
-				continue
-			}
-			switch getString(keyvals[i+1]) {
-			case "debug":
-				return term.FgBgColor{Fg: term.DarkGray}
-			case "info":
-				return term.FgBgColor{Fg: term.Gray}
-			case "warn":
-				return term.FgBgColor{Fg: term.Yellow}
-			case "error":
-				return term.FgBgColor{Fg: term.Red}
-			case "crit":
-				return term.FgBgColor{Fg: term.Gray, Bg: term.DarkRed}
-			default:
-				return term.FgBgColor{}
-			}
-		}
-		return term.FgBgColor{}
+func (o *Options) termLogger(writer io.Writer) log.Logger {
+	formatter := TextFormatter{}
+	if nil != o {
+		formatter = o.TermOptions
 	}
 
-	return term.NewColorLogger(writer, NewReformatLogger, colorFn)
+	return NewReformatLogger(writer, &formatter)
 }
 
 type toString interface {

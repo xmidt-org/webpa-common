@@ -4,166 +4,126 @@ import (
 	"bytes"
 	"io"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/term"
 	"time"
 	"fmt"
 	"strings"
-	"github.com/go-kit/kit/log/term"
 	"errors"
+	"github.com/ttacon/chalk"
 )
 
 const (
-	Default = term.Color(iota)
-
-	Black
-	DarkRed
-	DarkGreen
-	Brown
-	DarkBlue
-	DarkMagenta
-	DarkCyan
-	Gray
-
-	DarkGray
-	Red
-	Green
-	Yellow
-	Blue
-	Magenta
-	Cyan
-	White
-
-	numColors
+	nocolor = 0
+	red     = 31
+	green   = 32
+	yellow  = 33
+	blue    = 36
+	gray    = 37
 )
 
-var (
-	resetColorBytes = []byte("\x1b[39;49;22m")
-	fgColorBytes    [][]byte
-	bgColorBytes    [][]byte
-)
+type TextFormatter struct {
+	// Force disabling colors.
+	DisableColors bool `json:"disable_colors"`
 
-func init() {
-	// Default
-	fgColorBytes = append(fgColorBytes, []byte("\x1b[39m"))
-	bgColorBytes = append(bgColorBytes, []byte("\x1b[49m"))
+	// Disables the truncation of the level text to 4 characters.
+	DisableLevelTruncation bool `json:"disable_level_truncation"`
 
-	// dark colors
-	for color := Black; color < DarkGray; color++ {
-		fgColorBytes = append(fgColorBytes, []byte(fmt.Sprintf("\x1b[%dm", 30+color-Black)))
-		bgColorBytes = append(bgColorBytes, []byte(fmt.Sprintf("\x1b[%dm", 40+color-Black)))
-	}
-
-	// bright colors
-	for color := DarkGray; color < numColors; color++ {
-		fgColorBytes = append(fgColorBytes, []byte(fmt.Sprintf("\x1b[%d;1m", 30+color-DarkGray)))
-		bgColorBytes = append(bgColorBytes, []byte(fmt.Sprintf("\x1b[%d;1m", 40+color-DarkGray)))
-	}
+	// Whether the logger's out is to a terminal
+	isTerminal bool
 }
 
 type reformatLogger struct {
 	baseTimestamp time.Time
 	w             io.Writer
+	formatter     *TextFormatter
 }
 
 // NewLogfmtLogger returns a logger that encodes keyvals to the Writer in
 // logfmt format. Each log event produces no more than one call to w.Write.
 // The passed Writer must be safe for concurrent use by multiple goroutines if
 // the returned Logger will be used concurrently.
-func NewReformatLogger(w io.Writer) log.Logger {
-	return log.NewSyncLogger(&reformatLogger{time.Now(), w})
+func NewReformatLogger(w io.Writer, formatter *TextFormatter) log.Logger {
+	formatter.init(w)
+
+	return log.NewSyncLogger(&reformatLogger{time.Now(), w, formatter})
 }
 
-func colorVals(data reformatData) term.FgBgColor {
+func colorVals(data reformatData) chalk.Color {
 
 	switch data.level {
 	case "debug":
-		return term.FgBgColor{Fg: Gray}
+		return chalk.Green
 	case "info":
-		return term.FgBgColor{Fg: Blue}
+		return chalk.Blue
 	case "warn":
-		return term.FgBgColor{Fg: Yellow}
+		return chalk.Yellow
 	case "error":
-		return term.FgBgColor{Fg: Red}
-	case "crit":
-		return term.FgBgColor{Fg: Gray, Bg: DarkRed}
+		return chalk.Red
 	default:
-		return term.FgBgColor{}
+		return chalk.ResetColor
 	}
 }
 
-func getColorBytes(isTerm bool, color term.FgBgColor) []byte {
-	var buf bytes.Buffer
-
-	if isTerm {
-		if color.Fg != Default {
-			buf.Write(fgColorBytes[color.Fg])
-		}
-		if color.Bg != Default {
-			buf.Write(bgColorBytes[color.Bg])
-		}
-	}
-	return buf.Bytes()
+func (t *TextFormatter) init(writer io.Writer) {
+	t.isTerminal = term.IsTerminal(writer)
 }
 
-func (l reformatLogger) Log(keyvals ...interface{}) error {
-	var buf bytes.Buffer
+func (t *TextFormatter) isColored() bool {
+	return t.isTerminal && !t.DisableColors
+}
+
+func writeColor(buf *bytes.Buffer, color chalk.Color, formatter *TextFormatter, coloredText string) {
+	if formatter.isColored() {
+		fmt.Fprint(buf, color.Color(coloredText))
+	} else {
+		fmt.Fprint(buf, coloredText)
+	}
+}
+
+func writeStyle(buf *bytes.Buffer, style chalk.Style, formatter *TextFormatter, styledText string) {
+	if formatter.isColored() {
+		fmt.Fprint(buf, style.Style(styledText))
+	} else {
+		fmt.Fprint(buf, styledText)
+	}
+}
+
+func (t *TextFormatter) getColor(color chalk.Color) string {
+	if !t.isColored() {
+		return ""
+	}
+	return color.String()
+}
+
+func (l *reformatLogger) Log(keyvals ...interface{}) error {
+	buf := &bytes.Buffer{}
 	data := mapKeyVals(keyvals)
 	color := colorVals(data)
 
-	isTerm := term.IsTerminal(l.w)
-
-	// Write the header to appear ERRO[00000]	4 characters for column awesomeness
-	if data.level == "" {
-		data.level = "info"
-	}
-	if data.Time.IsZero() {
-		data.Time = time.Now()
+	levelText := strings.ToUpper(data.level)
+	if !l.formatter.DisableLevelTruncation {
+		levelText = levelText[0:4]
 	}
 
-	// Write Level
-	buf.Write(getColorBytes(isTerm, color))
-	buf.WriteString(string([]rune(strings.ToUpper(data.level))[0:4]))
-	if isTerm {
-		//reset
-		buf.Write(resetColorBytes)
-	}
+	// Write Level aka INFO, WARN
+	writeColor(buf, color, l.formatter, levelText)
+	fmt.Fprintf(buf, "[%05d] %-44s", int(data.time.Sub(l.baseTimestamp)/time.Second), data.msg)
 
-	// Write Time
-	buf.WriteString(fmt.Sprintf("[%05d] ", int(data.Time.Sub(l.baseTimestamp).Seconds())))
-
-	// Write message
-	buf.Write(getColorBytes(isTerm, color))
-	if data.msg != "" {
-		buf.WriteString(fmt.Sprintf("\t%s\t\t", data.msg))
-	}
-	if isTerm {
-		buf.Write(resetColorBytes)
-	}
-
-	// Write Error
-	if data.error != nil {
-		buf.Write(getColorBytes(isTerm, term.FgBgColor{Bg: Red, Fg: Black}))
-		buf.WriteString("ERR")
-		if isTerm {
-			buf.Write(resetColorBytes)
-		}
-		buf.WriteString(fmt.Sprintf("=%s\t", data.error.Error()))
+	// if err, wright it
+	if nil != data.error {
+		writeStyle(buf, chalk.Black.NewStyle().WithBackground(chalk.Red), l.formatter, "ERR")
+		fmt.Fprintf(buf, ":%#v ", data.error.Error())
 	}
 
 	// Write KeyValue's
 	for key, value := range data.fieldMap {
-		//key
-		buf.Write(getColorBytes(isTerm, color))
-		buf.WriteString(key)
-		if isTerm {
-			buf.Write(resetColorBytes)
-		}
-
-		//value
-		buf.WriteString(fmt.Sprintf("=%v ", value))
+		writeColor(buf, color, l.formatter, key)
+		fmt.Fprintf(buf, "=%#v ", value)
 	}
 
 	// Add newline to the end of the buffer
-	buf.WriteString("\n")
+	//buf.WriteString("\n")
+	fmt.Fprintf(buf, "\n")
 
 	// The Logger interface requires implementations to be safe for concurrent
 	// use by multiple goroutines. For this implementation that means making
@@ -175,7 +135,7 @@ func (l reformatLogger) Log(keyvals ...interface{}) error {
 }
 
 type reformatData struct {
-	Time     time.Time
+	time     time.Time
 	msg      string
 	level    string
 	error    error
@@ -192,12 +152,12 @@ func mapKeyVals(keyvals []interface{}) reformatData {
 		}
 		if getString(keyvals[i]) == "ts" {
 			if t, ok := keyvals[i+1].(time.Time); ok {
-				data.Time = t
+				data.time = t
 			} else if t, err := time.Parse(time.RFC3339, getString(keyvals[i+1])); err == nil {
-				data.Time = t
+				data.time = t
 			} else {
 				// We failed to parse it this should be close enough
-				data.Time = time.Now()
+				data.time = time.Now()
 			}
 			continue
 		}
@@ -218,5 +178,13 @@ func mapKeyVals(keyvals []interface{}) reformatData {
 		data.fieldMap[getString(keyvals[i])] = keyvals[i+1]
 
 	}
+
+	if data.level == "" {
+		data.level = "info"
+	}
+	if data.time.IsZero() {
+		data.time = time.Now()
+	}
+
 	return data
 }
