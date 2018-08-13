@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"io"
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/term"
 	"time"
 	"fmt"
 	"strings"
 	"errors"
 	"github.com/ttacon/chalk"
+	"os"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 const (
@@ -65,7 +66,16 @@ func colorVals(data reformatData) chalk.Color {
 }
 
 func (t *TextFormatter) init(writer io.Writer) {
-	t.isTerminal = term.IsTerminal(writer)
+	t.isTerminal = checkIfTerminal(writer)
+}
+
+func checkIfTerminal(w io.Writer) bool {
+	switch v := w.(type) {
+	case *os.File:
+		return terminal.IsTerminal(int(v.Fd()))
+	default:
+		return false
+	}
 }
 
 func (t *TextFormatter) isColored() bool {
