@@ -7,7 +7,57 @@ import (
 	"time"
 	"fmt"
 	"strings"
+	"github.com/go-kit/kit/log/term"
+	"errors"
 )
+
+const (
+	Default = term.Color(iota)
+
+	Black
+	DarkRed
+	DarkGreen
+	Brown
+	DarkBlue
+	DarkMagenta
+	DarkCyan
+	Gray
+
+	DarkGray
+	Red
+	Green
+	Yellow
+	Blue
+	Magenta
+	Cyan
+	White
+
+	numColors
+)
+
+var (
+	resetColorBytes = []byte("\x1b[39;49;22m")
+	fgColorBytes    [][]byte
+	bgColorBytes    [][]byte
+)
+
+func init() {
+	// Default
+	fgColorBytes = append(fgColorBytes, []byte("\x1b[39m"))
+	bgColorBytes = append(bgColorBytes, []byte("\x1b[49m"))
+
+	// dark colors
+	for color := Black; color < DarkGray; color++ {
+		fgColorBytes = append(fgColorBytes, []byte(fmt.Sprintf("\x1b[%dm", 30+color-Black)))
+		bgColorBytes = append(bgColorBytes, []byte(fmt.Sprintf("\x1b[%dm", 40+color-Black)))
+	}
+
+	// bright colors
+	for color := DarkGray; color < numColors; color++ {
+		fgColorBytes = append(fgColorBytes, []byte(fmt.Sprintf("\x1b[%d;1m", 30+color-DarkGray)))
+		bgColorBytes = append(bgColorBytes, []byte(fmt.Sprintf("\x1b[%d;1m", 40+color-DarkGray)))
+	}
+}
 
 type reformatLogger struct {
 	baseTimestamp time.Time
@@ -22,26 +72,94 @@ func NewReformatLogger(w io.Writer) log.Logger {
 	return log.NewSyncLogger(&reformatLogger{time.Now(), w})
 }
 
+func colorVals(data reformatData) term.FgBgColor {
+
+	switch data.level {
+	case "debug":
+		return term.FgBgColor{Fg: Gray}
+	case "info":
+		return term.FgBgColor{Fg: Blue}
+	case "warn":
+		return term.FgBgColor{Fg: Yellow}
+	case "error":
+		return term.FgBgColor{Fg: Red}
+	case "crit":
+		return term.FgBgColor{Fg: Gray, Bg: DarkRed}
+	default:
+		return term.FgBgColor{}
+	}
+}
+
+func getColorBytes(isTerm bool, color term.FgBgColor) []byte {
+	var buf bytes.Buffer
+
+	if isTerm {
+		if color.Fg != Default {
+			buf.Write(fgColorBytes[color.Fg])
+		}
+		if color.Bg != Default {
+			buf.Write(bgColorBytes[color.Bg])
+		}
+	}
+	return buf.Bytes()
+}
+
 func (l reformatLogger) Log(keyvals ...interface{}) error {
 	var buf bytes.Buffer
 	data := mapKeyVals(keyvals)
+	color := colorVals(data)
 
-	// Write the header to appear ERROR[00000]	oh now it broke
+	isTerm := term.IsTerminal(l.w)
+
+	// Write the header to appear ERRO[00000]	4 characters for column awesomeness
 	if data.level == "" {
 		data.level = "info"
 	}
 	if data.Time.IsZero() {
 		data.Time = time.Now()
 	}
-	message := ""
-	if data.msg != "" {
-		message = fmt.Sprintf("\t%s\t\t", data.msg)
+
+	// Write Level
+	buf.Write(getColorBytes(isTerm, color))
+	buf.WriteString(string([]rune(strings.ToUpper(data.level))[0:4]))
+	if isTerm {
+		//reset
+		buf.Write(resetColorBytes)
 	}
 
-	buf.WriteString(fmt.Sprintf("%s[%05d] %s", string([]rune(strings.ToUpper(data.level))[0:4]), int(data.Time.Sub(l.baseTimestamp).Seconds()), message))
+	// Write Time
+	buf.WriteString(fmt.Sprintf("[%05d] ", int(data.Time.Sub(l.baseTimestamp).Seconds())))
 
+	// Write message
+	buf.Write(getColorBytes(isTerm, color))
+	if data.msg != "" {
+		buf.WriteString(fmt.Sprintf("\t%s\t\t", data.msg))
+	}
+	if isTerm {
+		buf.Write(resetColorBytes)
+	}
+
+	// Write Error
+	if data.error != nil {
+		buf.Write(getColorBytes(isTerm, term.FgBgColor{Bg: Red, Fg: Black}))
+		buf.WriteString("ERR")
+		if isTerm {
+			buf.Write(resetColorBytes)
+		}
+		buf.WriteString(fmt.Sprintf("=%s\t", data.error.Error()))
+	}
+
+	// Write KeyValue's
 	for key, value := range data.fieldMap {
-		buf.WriteString(fmt.Sprintf("%s=%s ", key, value))
+		//key
+		buf.Write(getColorBytes(isTerm, color))
+		buf.WriteString(key)
+		if isTerm {
+			buf.Write(resetColorBytes)
+		}
+
+		//value
+		buf.WriteString(fmt.Sprintf("=%v ", value))
 	}
 
 	// Add newline to the end of the buffer
@@ -60,6 +178,7 @@ type reformatData struct {
 	Time     time.Time
 	msg      string
 	level    string
+	error    error
 	fieldMap map[string]interface{}
 }
 
@@ -85,6 +204,16 @@ func mapKeyVals(keyvals []interface{}) reformatData {
 		if getString(keyvals[i]) == "msg" {
 			data.msg = getString(keyvals[i+1])
 			continue
+		}
+		if getString(keyvals[i]) == "err" || getString(keyvals[i]) == "error" {
+			if err, ok := keyvals[i+1].(error); ok {
+				data.error = err
+				continue
+			} else if errString := getString(keyvals[i+1]); len(strings.TrimSpace(errString)) > 0 {
+				data.error = errors.New(errString)
+				continue
+			}
+
 		}
 		data.fieldMap[getString(keyvals[i])] = keyvals[i+1]
 

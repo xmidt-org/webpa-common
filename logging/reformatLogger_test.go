@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 	"github.com/go-kit/kit/log"
+	"errors"
 )
 
 func reformatLoggerSetup() (*bytes.Buffer, log.Logger) {
@@ -41,6 +42,33 @@ func TestReformatLoggerWithNoMSG(t *testing.T) {
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
 
+func TestReformatLoggerWithError(t *testing.T) {
+	assert := assert.New(t)
+
+	buf, logger := reformatLoggerSetup()
+
+	err := logger.Log("level", "error", "key", "value", "err", errors.New("unknown error"))
+	assert.Nil(err)
+
+	expected := "ERRO[00000] ERR=unknown error\tkey=value \n"
+	actual := buf.String()
+	fmt.Println(actual)
+	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
+}
+
+func TestReformatLoggerWithStringError(t *testing.T) {
+	assert := assert.New(t)
+
+	buf, logger := reformatLoggerSetup()
+
+	err := logger.Log("level", "error", "key", "value", "err", "unknown error")
+	assert.Nil(err)
+
+	expected := "ERRO[00000] ERR=unknown error\tkey=value \n"
+	actual := buf.String()
+	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
+}
+
 func TestReformatLoggerWithNoLevel(t *testing.T) {
 	assert := assert.New(t)
 
@@ -52,6 +80,7 @@ func TestReformatLoggerWithNoLevel(t *testing.T) {
 	//test
 	expected := "INFO[00000] \tCalling Endpoint\t\t\n"
 	actual := buf.String()
+	fmt.Println(actual)
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
 
@@ -62,7 +91,6 @@ func TestReformatLoggerWithTime(t *testing.T) {
 
 	err := logger.Log("msg", "hello", "ts", time.Now().Add(time.Second*5))
 	assert.Nil(err)
-
 
 	expected := "INFO[00005] \thello\t\t\n"
 	actual := buf.String()
