@@ -40,7 +40,7 @@ func colorLevel(data reformatData) chalk.Color {
 
 	switch data.level {
 	case "debug":
-		return chalk.Green
+		return chalk.Cyan
 	case "info":
 		return chalk.Blue
 	case "warn":
