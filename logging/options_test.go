@@ -23,7 +23,7 @@ func testOptionsOutput(t *testing.T) {
 		output := o.output()
 		assert.NotNil(output)
 		assert.NotPanics(func() {
-			_, err := output.Write([]byte("expected output: this shouldn'formatter panic\n"))
+			_, err := output.Write([]byte("expected output: this shouldn't panic\n"))
 			assert.NoError(err)
 		})
 	}
