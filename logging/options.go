@@ -66,18 +66,20 @@ func (o *Options) loggerFactory() func(io.Writer) log.Logger {
 			return log.NewLogfmtLogger
 		case "term":
 		default:
+			return o.termLogger
 		}
 	}
-	return o.termLogger
+
+	return func(writer io.Writer) log.Logger {
+		return NewReformatLogger(writer, &TextFormatter{
+			DisableLevelTruncation: false,
+			DisableColors:          false,
+		})
+	}
 }
 
 func (o *Options) termLogger(writer io.Writer) log.Logger {
-	formatter := TextFormatter{}
-	if nil != o {
-		formatter = o.TermOptions
-	}
-
-	return NewReformatLogger(writer, &formatter)
+	return NewReformatLogger(writer, &o.TermOptions)
 }
 
 type toString interface {
