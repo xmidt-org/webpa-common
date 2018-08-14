@@ -62,11 +62,10 @@ func (o *Options) loggerFactory() func(io.Writer) log.Logger {
 	}
 
 	if o != nil {
-		switch o.FMTType {
+		switch fType := getString(o.FMTType); fType {
 		case "fmt":
 			return log.NewLogfmtLogger
 		case "term":
-		default:
 			return o.termLogger
 		}
 	}

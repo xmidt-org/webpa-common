@@ -71,6 +71,23 @@ func TestReformatLoggerWithStringError(t *testing.T) {
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
 
+func TestReformatLoggerWithStringColorError(t *testing.T) {
+	assert := assert.New(t)
+
+	buf := &bytes.Buffer{}
+	logger := NewReformatLogger(buf, &TextFormatter{
+		DisableLevelTruncation: false,
+		DisableColors:          false,
+	})
+
+	err := logger.Log("level", "error", "key", "value", "err", "unknown error")
+	assert.Nil(err)
+
+	expected := "\x1b[31mERRO\x1b[39m[00000]                                             \x1b[41m\x1b[30mERR\x1b[49m\x1b[39m:\"unknown error\" \x1b[31mkey\x1b[39m=\"value\" \n"
+	actual := buf.String()
+	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
+}
+
 func TestReformatLoggerWithNoLevel(t *testing.T) {
 	assert := assert.New(t)
 
@@ -104,17 +121,14 @@ func TestReformatLoggerWithComplexKey(t *testing.T) {
 	buf, logger := reformatLoggerSetup()
 
 	key := errors.New("error_key")
-	key1 := TextFormatter{}
 
 	value := make(map[string]string)
 	value["k"] = "v"
 
-	value1 := []string{"array"}
-
-	err := logger.Log("msg", "complex keys with map value and array value", "ts", time.Now().Add(time.Second*5), key, value, key1, value1)
+	err := logger.Log("msg", "complex keys with map value and array value", "ts", time.Now().Add(time.Second*5), key, value)
 	assert.Nil(err)
 
-	expected := "INFO[00005] complex keys with map value and array value error_key=map[string]string{\"k\":\"v\"} {false false false}=[]string{\"array\"} \n"
+	expected := "INFO[00005] complex keys with map value and array value error_key=map[string]string{\"k\":\"v\"} \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }

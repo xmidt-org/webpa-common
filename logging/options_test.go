@@ -70,10 +70,33 @@ func TestOptionsWithReformatLogger(t *testing.T) {
 
 	o := &Options{
 		File: StdoutFile,
+		FMTType: "term",
+		TermOptions: TextFormatter{
+			DisableColors: true,
+			DisableLevelTruncation: false,
+		},
 	}
 	logger := o.loggerFactory()(&buf)
 	assert.NotNil(logger)
 	logger.Log("msg", "testing")
 	t.Log(buf.String())
 	assert.NotNil(buf.String())
+	assert.Equal("INFO[00000] testing                                     \n", buf.String())
+}
+
+func TestOptionsForOldFmt(t *testing.T){
+	assert := assert.New(t)
+
+	var buf bytes.Buffer
+
+	o := &Options{
+		File: StdoutFile,
+		FMTType: "fmt",
+	}
+	logger := o.loggerFactory()(&buf)
+	assert.NotNil(logger)
+	logger.Log("msg", "testing")
+	t.Log(buf.String())
+	assert.NotNil(buf.String())
+	assert.Equal("msg=testing\n", buf.String())
 }

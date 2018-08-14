@@ -72,13 +72,6 @@ func writeStyle(buf *bytes.Buffer, style chalk.Style, formatter *TextFormatter, 
 	}
 }
 
-func (t *TextFormatter) getColor(color chalk.Color) string {
-	if !t.isColored() {
-		return ""
-	}
-	return color.String()
-}
-
 func (l *reformatLogger) Log(keyvals ...interface{}) error {
 	buf := &bytes.Buffer{}
 	data := mapKeyVals(keyvals)
