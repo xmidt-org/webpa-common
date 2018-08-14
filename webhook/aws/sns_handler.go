@@ -290,13 +290,13 @@ func (ss *SNSServer) PublishMessage(message string) error {
 	ss.metrics.SNSNotificationSent.Add(1.0)
 
 	// push Notification message onto notif data channel
-	ticker := time.NewTicker(ss.channelClientTimeout)
-	defer ticker.Stop()
+	timer := time.NewTimer(ss.channelClientTimeout)
+	defer timer.Stop()
 
 	select {
 	case ss.notificationData <- message:
 		return nil
-	case <-ticker.C:
+	case <-timer.C:
 		return errors.New("Unable to add message to channel in allotted time.")
 	}
 }

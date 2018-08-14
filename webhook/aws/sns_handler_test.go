@@ -91,10 +91,10 @@ func SetUpTestSNSServerWithChannelSize(t *testing.T, channelSize int64) (*SNSSer
 	mv := &MockValidator{}
 
 	ss := &SNSServer{
-		Config:       *awsCfg,
-		SVC:          m,
-		SNSValidator: mv,
-		channelSize: channelSize,
+		Config:               *awsCfg,
+		SVC:                  m,
+		SNSValidator:         mv,
+		channelSize:          channelSize,
 		channelClientTimeout: 30 * time.Second,
 	}
 
@@ -389,20 +389,12 @@ func TestNotificationHandleError_ValidationErr(t *testing.T) {
 func TestPublishClientTimeout(t *testing.T) {
 	fmt.Println("\n\nTestNotificationHandleError_ValidationErr")
 
+	assert := assert.New(t)
 	ss, m, _, _ := SetUpTestSNSServerWithChannelSize(t, 1)
 	ss.channelClientTimeout = 1
 
-	// should not panic
-	testPublish(t, m, ss)
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("testPublish did not panic when it should have")
-		}
-	}()
-
-	// should panic
-	testPublish(t, m, ss)
+	assert.NotPanics(func() { testPublish(t, m, ss) })
+	assert.Panics(func() { testPublish(t, m, ss) })
 }
 
 func TestListSubscriptionsByMatchingEndpointSuccess(t *testing.T) {
@@ -466,9 +458,9 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 	m := &MockSVC{}
 
 	ss := &SNSServer{
-		Config: *awsCfg,
-		SVC:    m,
-		channelSize: 50,
+		Config:               *awsCfg,
+		SVC:                  m,
+		channelSize:          50,
 		channelClientTimeout: 30 * time.Second,
 	}
 
