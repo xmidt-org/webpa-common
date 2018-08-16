@@ -187,6 +187,9 @@ type drainer struct {
 	current     atomic.Value
 }
 
+// nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts
+// to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If cancelled, or if
+// no more devices are available, this method returns false.
 func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
 	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
 
@@ -250,11 +253,15 @@ func (dr *drainer) jobFinished(jc jobContext) {
 
 	// only close the done channel when all cleanup is complete
 	close(jc.done)
+
+	p := jc.t.Progress()
+	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain complete", "visited", p.Visited, "drained", p.Drained)
 }
 
 // drain is run as a goroutine to drain devices at a particular rate
 func (dr *drainer) drain(jc jobContext) {
 	defer dr.jobFinished(jc)
+	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain starting", "count", jc.j.Count, "rate", jc.j.Rate, "tick", jc.j.Tick)
 
 	var (
 		remaining = jc.j.Count
@@ -281,6 +288,7 @@ func (dr *drainer) drain(jc jobContext) {
 // disconnect is run as a goroutine to drain devices without a rate, i.e. as fast as possible
 func (dr *drainer) disconnect(jc jobContext) {
 	defer dr.jobFinished(jc)
+	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain starting", "count", jc.j.Count)
 
 	var (
 		remaining = jc.j.Count
