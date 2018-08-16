@@ -226,6 +226,7 @@ func (dr *drainer) jobFinished(jc jobContext) {
 	close(jc.done)
 }
 
+// drain is run as a goroutine to drain devices at a particular rate
 func (dr *drainer) drain(jc jobContext) {
 	defer dr.jobFinished(jc)
 
@@ -251,6 +252,7 @@ func (dr *drainer) drain(jc jobContext) {
 	}
 }
 
+// disconnect is run as a goroutine to drain devices without a rate, i.e. as fast as possible
 func (dr *drainer) disconnect(jc jobContext) {
 	defer dr.jobFinished(jc)
 

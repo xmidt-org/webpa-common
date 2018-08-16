@@ -1,6 +1,7 @@
 package drain
 
 import (
+	"net/http"
 	"sync"
 
 	"github.com/Comcast/webpa-common/device"
@@ -27,21 +28,73 @@ func (m *mockDrainer) Cancel() (<-chan struct{}, error) {
 	return arguments.Get(0).(<-chan struct{}), arguments.Error(1)
 }
 
-// stubVisitAll creates a mocked device registry with a set of devices stubbed out for
-// visitation via VisitAll.  Each invocation to the stub returns a different batch of
-// mocked devices, which simulates what would happen if the visited devices were disconnected.
-//
-// The returned channel is used as a gate to control VisitAll execution.  Each invocation of
-// VisitAll will do a receive on this channel before proceeding.  Sending on this channel allows (1)
-// VisitAll to proceed, while closing the channel lets every VisitAll proceed.
-func stubVisitAll(count uint64) (*device.MockRegistry, map[device.ID]bool, chan<- struct{}) {
-	var (
-		gate         = make(chan struct{}, 1)
-		mockRegistry = new(device.MockRegistry)
-		next         = 0
-		devices      = make([]device.Interface, 0, count)
-		ids          = make(map[device.ID]bool, count)
-	)
+type stubManager struct {
+	lock       sync.RWMutex
+	assert     *assert.Assertions
+	devices    map[device.ID]device.Interface
+	pauseVisit chan struct{}
+}
+
+var _ device.Connector = (*stubManager)(nil)
+var _ device.Registry = (*stubManager)(nil)
+
+func (sm *stubManager) Connect(http.ResponseWriter, *http.Request, http.Header) (device.Interface, error) {
+	sm.assert.Fail("Connect is not supported")
+	return nil, nil
+}
+
+func (sm *stubManager) Disconnect(id device.ID) bool {
+	defer sm.lock.Unlock()
+	sm.lock.Lock()
+
+	if _, exists := sm.devices[id]; exists {
+		delete(sm.devices, id)
+		return true
+	}
+
+	return false
+}
+
+func (sm *stubManager) DisconnectIf(func(device.ID) bool) int {
+	sm.assert.Fail("DisconnectIf is not supported")
+	return -1
+}
+
+func (sm *stubManager) DisconnectAll() int {
+	sm.assert.Fail("DisconnectAll is not supported")
+	return -1
+}
+
+func (sm *stubManager) Len() int {
+	return len(sm.devices)
+}
+
+func (sm *stubManager) Get(device.ID) (device.Interface, bool) {
+	sm.assert.Fail("Get is not supported")
+	return nil, false
+}
+
+func (sm *stubManager) VisitAll(p func(device.Interface) bool) (count int) {
+	<-sm.pauseVisit
+	defer sm.lock.Unlock()
+	sm.lock.Lock()
+
+	for _, v := range sm.devices {
+		count++
+		if !p(v) {
+			break
+		}
+	}
+
+	return
+}
+
+func generateManager(assert *assert.Assertions, count uint64) *stubManager {
+	sm := &stubManager{
+		assert:     assert,
+		devices:    make(map[device.ID]device.Interface, count),
+		pauseVisit: make(chan struct{}),
+	}
 
 	for mac := uint64(0); mac < count; mac++ {
 		var (
@@ -50,51 +103,8 @@ func stubVisitAll(count uint64) (*device.MockRegistry, map[device.ID]bool, chan<
 		)
 
 		d.On("ID").Return(id)
-		devices = append(devices, d)
-		ids[id] = true
+		sm.devices[id] = d
 	}
 
-	mockRegistry.On("VisitAll", mock.MatchedBy(func(func(device.Interface) bool) bool { return true })).
-		Run(func(arguments mock.Arguments) {
-			<-gate
-			visitor := arguments.Get(0).(func(device.Interface) bool)
-			for next < len(devices) {
-				result := visitor(devices[next])
-				next++
-				if !result {
-					return
-				}
-			}
-		})
-
-	return mockRegistry, ids, gate
-}
-
-// stubDisconnect stubs a device connector to track calls to Disconnect.  The returned sync.Map will hold
-// the ids (mapped to booleans) passed to Disconnect().  The result parameter will be the returned value for
-// all stubbed calls to Disconnect.
-func stubDisconnect(result bool) (*device.MockConnector, *sync.Map) {
-	var (
-		mockConnector = new(device.MockConnector)
-		tracker       = new(sync.Map)
-	)
-
-	mockConnector.On("Disconnect", mock.MatchedBy(func(device.Interface) bool { return true })).
-		Return(result).
-		Run(func(arguments mock.Arguments) {
-			id := arguments.Get(0).(device.ID)
-			tracker.Store(id, true)
-		})
-
-	return mockConnector, tracker
-}
-
-// assertTrackedIDs asserts that each tracked id is present in the generated map.  Useful when verifying
-// that drained devices did actually get disconnected.
-func assertTrackedIDs(a *assert.Assertions, generated map[device.ID]bool, tracked *sync.Map) {
-	tracked.Range(func(k, v interface{}) bool {
-		id := k.(device.ID)
-		a.True(generated[id], "Device id %s not present in generated map", id)
-		return true
-	})
+	return sm
 }
