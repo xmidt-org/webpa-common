@@ -185,10 +185,9 @@ type drainer struct {
 }
 
 func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
-	dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch")
+	dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
 
 	more = true
-	drained := 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
 		select {
 		case batch <- d.ID():
@@ -203,6 +202,8 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	})
 
 	if visited > 0 {
+		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited)
+		drained := 0
 		for finished := false; more && !finished; {
 			select {
 			case id := <-batch:
@@ -215,14 +216,17 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 				finished = true
 			}
 		}
+
+		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
+		jc.t.addVisited(visited)
+		jc.t.addDrained(drained)
 	} else {
 		// if no devices were visited (or enqueued), then we must be done.
 		// either a cancellation occurred or no devices are left
+		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "no devices visited")
 		more = false
 	}
 
-	jc.t.addVisited(visited)
-	jc.t.addDrained(drained)
 	return
 }
 
