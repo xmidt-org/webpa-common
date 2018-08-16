@@ -14,10 +14,10 @@ type Status struct {
 
 func (s *Status) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	var (
-		draining, job, progress = s.Drainer.Status()
-		message, err            = json.Marshal(
+		active, job, progress = s.Drainer.Status()
+		message, err          = json.Marshal(
 			map[string]interface{}{
-				"draining": draining,
+				"active":   active,
 				"job":      job,
 				"progress": progress,
 			},

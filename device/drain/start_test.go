@@ -15,14 +15,15 @@ func testStartServeHTTPDefaultLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		d     = new(mockDrainer)
-		start = Start{Drainer: d}
+		d                     = new(mockDrainer)
+		done  <-chan struct{} = make(chan struct{})
+		start                 = Start{Drainer: d}
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/", nil)
 	)
 
-	d.On("Start", Job{}).Return(error(nil))
+	d.On("Start", Job{}).Return(done, error(nil))
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
 	d.AssertExpectations(t)
@@ -60,14 +61,15 @@ func testStartServeHTTPValid(t *testing.T) {
 			var (
 				assert = assert.New(t)
 
-				d     = new(mockDrainer)
-				start = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+				d                     = new(mockDrainer)
+				done  <-chan struct{} = make(chan struct{})
+				start                 = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
 
 				response = httptest.NewRecorder()
 				request  = httptest.NewRequest("POST", record.uri, nil)
 			)
 
-			d.On("Start", record.expected).Return(error(nil)).Once()
+			d.On("Start", record.expected).Return(done, error(nil)).Once()
 			start.ServeHTTP(response, request)
 			assert.Equal(http.StatusOK, response.Code)
 			d.AssertExpectations(t)
@@ -112,6 +114,7 @@ func testStartServeHTTPStartError(t *testing.T) {
 		assert = assert.New(t)
 
 		d             = new(mockDrainer)
+		done          <-chan struct{}
 		start         = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
 		expectedError = errors.New("expected")
 
@@ -119,7 +122,7 @@ func testStartServeHTTPStartError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/foo?count=100", nil)
 	)
 
-	d.On("Start", Job{Count: 100}).Return(expectedError).Once()
+	d.On("Start", Job{Count: 100}).Return(done, expectedError).Once()
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusConflict, response.Code)
 	d.AssertExpectations(t)

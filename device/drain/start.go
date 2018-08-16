@@ -41,7 +41,7 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if err := s.Drainer.Start(job); err != nil {
+	if _, err := s.Drainer.Start(job); err != nil {
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to start drain job", logging.ErrorKey(), err)
 		xhttp.WriteError(response, http.StatusConflict, err)
 	}

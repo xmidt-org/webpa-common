@@ -15,13 +15,13 @@ import (
 )
 
 var (
-	ErrAlreadyDraining error = errors.New("Already draining")
-	ErrNotDraining     error = errors.New("Not draining")
+	ErrActive    error = errors.New("A drain operation is already running")
+	ErrNotActive error = errors.New("No drain operation is running")
 )
 
 const (
-	StateNotDraining uint32 = 0
-	StateDraining    uint32 = 1
+	StateNotActive uint32 = 0
+	StateActive    uint32 = 1
 
 	MetricNotDraining float64 = 0.0
 	MetricDraining    float64 = 1.0
@@ -82,48 +82,37 @@ func WithDrainCounter(a xmetrics.Adder) Option {
 	}
 }
 
-// Job describes a single execution of the drainer
 type Job struct {
-	// Count is the total number of devices to disconnect.  If this field is nonpositive,
-	// the count of connected devices at the start of job execution is used.
+	// Count is the total number of devices to disconnect.  If this field is nonpositive and percent is unset,
+	// the count of connected devices at the start of job execution is used.  If Percent is set, this field's
+	// original value is ignored and it is set to that percentage of total devices connected at the time the
+	// job starts.
 	Count int `json:"count" schema:"count"`
+
+	// Percent is the fraction of devices to drain.  If this field is set, Count's original value is ignored
+	// and set to the computed percentage of connected devices at the time the job starts.
+	Percent int `json:"percent,omitempty" schema:"percent"`
 
 	// Rate is the number of devices per tick to disconnect.  If this field is nonpositive,
 	// devices are disconnected as fast as possible.
-	Rate int `json:"rate" schema:"rate"`
+	Rate int `json:"rate,omitempty" schema:"rate"`
 
 	// Tick is the time unit for the Rate field.  If Rate is set but this field is not set,
 	// a tick of 1 second is used as the default.
-	Tick time.Duration `json:"tick" schema:"tick"`
-}
-
-// Progress describes the current state of a drain job, which includes completed jobs
-type Progress struct {
-	// Visited is the count of devices visited so far during the drain.  This count refers
-	// to the number of disconnection attempts made.
-	Visited int32 `json:"visited"`
-
-	// Drained is the count of devices actually disconnected so far.  This number can be less
-	// than the Visited field if a device disconnected during the drain job's execution.
-	Drained int32 `json:"drained"`
-
-	// Started is the system time at which the job began
-	Started time.Time `json:"started"`
-
-	// Finished is the system time at which the job completed, which will be the zero time
-	// if the job is still running or hasn't been run yet.
-	Finished time.Time `json:"finished"`
+	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
 }
 
 // Interface describes the behavior of a component which can execute a Job to drain devices.
 // Only (1) drain Job is allowed to run at any time.
 type Interface interface {
 	// Start attempts to begin draining devices.  The supplied Job describes how the drain will proceed.
-	Start(Job) error
+	// The returned channel can be used to wait for the drain job to complete.
+	Start(Job) (<-chan struct{}, error)
 
-	// Status returns the current state of this drainer.  The boolean indicates whether a job is currently running.
-	// The Job and Progress values describe the job that is currently running, or are the zero values if no job has ever run.
-	// This method can be used to query the last completed job, so long as a new job has not been started.
+	// Status returns information about the current drain job, if any.  The boolean return indicates whether
+	// the job is currently active, while the returned Job describes the actual options used in starting the drainer.
+	// This returned Job instance will not necessarily be the same as that passed to Start, as certain fields
+	// may be computed or defaulted.
 	Status() (bool, Job, Progress)
 
 	// Cancel asynchronously halts any running drain job.  The returned channel can be used to wait for the job to actually exit.
@@ -169,6 +158,17 @@ type metrics struct {
 	counter xmetrics.Adder
 }
 
+// jobContext stores all the runtime information for a drain job
+type jobContext struct {
+	t         *tracker
+	j         Job
+	batchSize int
+	ticker    <-chan time.Time
+	stop      func()
+	cancel    chan struct{}
+	done      chan struct{}
+}
+
 // drainer is the internal implementation of Interface
 type drainer struct {
 	logger    log.Logger
@@ -179,181 +179,179 @@ type drainer struct {
 	m         metrics
 
 	controlLock sync.RWMutex
-	draining    uint32
-	cancel      chan struct{}
-	done        chan struct{}
-	j           Job
-	p           Progress
+	active      uint32
+	current     atomic.Value
 }
 
-func (dr *drainer) enqueueBatch(batch chan<- device.ID, cancel <-chan struct{}) (success bool) {
-	success = true
+func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
+	more = true
+	drained := 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
 		select {
 		case batch <- d.ID():
+			visited++
 			return true
-		case <-cancel:
-			success = false
+		case <-jc.cancel:
+			more = false
 			return false
 		default:
 			return false
 		}
 	})
 
-	return
-}
-
-func (dr *drainer) disconnectBatch(batch <-chan device.ID, cancel <-chan struct{}) bool {
-	var (
-		visited  int32
-		drained  int32
-		canceled bool
-		finished bool
-	)
-
-	for !finished {
+	for finished := false; more && !finished; {
 		select {
 		case id := <-batch:
-			visited++
 			if dr.connector.Disconnect(id) {
-				dr.m.counter.Add(1.0)
 				drained++
 			}
-		case <-cancel:
-			canceled = true
-			finished = true
+		case <-jc.cancel:
+			more = false
 		default:
 			finished = true
 		}
 	}
 
-	atomic.AddInt32(&dr.p.Visited, visited)
-	atomic.AddInt32(&dr.p.Drained, drained)
-	return !canceled
+	jc.t.addVisited(visited)
+	jc.t.addDrained(drained)
+	return
 }
 
-// jobFinished ensures the right state is set when a drain job completes
-func (dr *drainer) jobFinished(done chan<- struct{}) {
-	close(done)
-	atomic.StoreUint32(&dr.draining, StateNotDraining)
+func (dr *drainer) jobFinished(jc jobContext) {
+	if jc.stop != nil {
+		jc.stop()
+	}
 
-	dr.controlLock.Lock()
-	dr.p.Finished = dr.now().UTC()
-	dr.controlLock.Unlock()
+	atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive)
+	close(jc.done)
 }
 
-func (dr *drainer) drain(remaining int, rate int, tick time.Duration, cancel <-chan struct{}, done chan<- struct{}) {
+func (dr *drainer) drain(jc jobContext) {
+	defer dr.jobFinished(jc)
+
 	var (
-		batch        = make(chan device.ID, rate)
-		ticker, stop = dr.newTicker(tick)
+		remaining = jc.j.Count
+		visited   = 0
+		more      = true
+		batch     = make(chan device.ID, jc.j.Rate)
 	)
 
-	defer func() {
-		stop()
-		dr.jobFinished(done)
-	}()
-
-	dr.m.state.Set(MetricDraining)
-	for remaining > 0 {
-		select {
-		case <-ticker:
-			if remaining < rate {
-				batch = make(chan device.ID, remaining)
-			}
-
-			if !dr.enqueueBatch(batch, cancel) {
-				return
-			}
-
-			if !dr.disconnectBatch(batch, cancel) {
-				return
-			}
-
-			remaining -= rate
-
-		case <-cancel:
-			return
-		}
-	}
-}
-
-func (dr *drainer) disconnect(remaining int, batchSize int, cancel <-chan struct{}, done chan<- struct{}) {
-	defer dr.jobFinished(done)
-	batch := make(chan device.ID, batchSize)
-
-	dr.m.state.Set(MetricDraining)
-	for remaining > 0 {
-		if remaining < batchSize {
+	for more && remaining > 0 {
+		if remaining < jc.j.Rate {
 			batch = make(chan device.ID, remaining)
 		}
 
-		if !dr.enqueueBatch(batch, cancel) {
-			return
+		select {
+		case <-jc.ticker:
+			more, visited = dr.nextBatch(jc, batch)
+			remaining -= visited
+		case <-jc.cancel:
+			more = false
 		}
-
-		if !dr.disconnectBatch(batch, cancel) {
-			return
-		}
-
-		remaining -= batchSize
 	}
 }
 
-func (dr *drainer) Start(j Job) error {
-	if j.Count < 1 {
+func (dr *drainer) disconnect(jc jobContext) {
+	defer dr.jobFinished(jc)
+
+	var (
+		remaining = jc.j.Count
+		visited   = 0
+		more      = true
+		batch     = make(chan device.ID, jc.batchSize)
+	)
+
+	for more && remaining > 0 {
+		if remaining < jc.batchSize {
+			batch = make(chan device.ID, remaining)
+		}
+
+		more, visited = dr.nextBatch(jc, batch)
+		remaining -= visited
+	}
+}
+
+// jobDone is a factory function for a done closure
+func (dr *drainer) jobDone(done chan<- struct{}, stop func()) func() {
+	return func() {
+		atomic.StoreUint32(&dr.active, StateNotActive)
+		if stop != nil {
+			stop()
+		}
+
+		close(done)
+	}
+}
+
+func (dr *drainer) Start(j Job) (<-chan struct{}, error) {
+	if j.Percent > 0 {
+		j.Count = (dr.registry.Len() / 100) * j.Percent
+	} else if j.Count <= 0 {
 		j.Count = dr.registry.Len()
 	}
 
-	if j.Rate > 0 && j.Tick <= 0 {
-		j.Tick = time.Second
+	if j.Rate > 0 {
+		if j.Tick <= 0 {
+			j.Tick = time.Second
+		}
+	} else {
+		j.Rate = 0
+		j.Tick = 0
 	}
 
 	defer dr.controlLock.Unlock()
 	dr.controlLock.Lock()
 
-	if !atomic.CompareAndSwapUint32(&dr.draining, StateNotDraining, StateDraining) {
-		return ErrAlreadyDraining
+	if !atomic.CompareAndSwapUint32(&dr.active, StateNotActive, StateActive) {
+		return nil, ErrActive
 	}
 
-	dr.j = j
-	atomic.StoreInt32(&dr.p.Visited, 0)
-	atomic.StoreInt32(&dr.p.Drained, 0)
-	dr.p.Started = dr.now().UTC()
-	dr.p.Finished = time.Time{}
-	dr.cancel = make(chan struct{})
-	dr.done = make(chan struct{})
+	jc := jobContext{
+		t: &tracker{
+			counter: dr.m.counter,
+		},
+		j:      j,
+		cancel: make(chan struct{}),
+		done:   make(chan struct{}),
+	}
 
-	if dr.j.Rate > 0 {
-		go dr.drain(dr.j.Count, dr.j.Rate, dr.j.Tick, dr.cancel, dr.done)
+	if jc.j.Rate > 0 {
+		jc.ticker, jc.stop = dr.newTicker(j.Tick)
+		go dr.drain(jc)
 	} else {
-		go dr.disconnect(dr.j.Count, disconnectBatchSize, dr.cancel, dr.done)
+		jc.batchSize = disconnectBatchSize
+		go dr.disconnect(jc)
 	}
 
-	return nil
+	dr.m.state.Set(MetricDraining)
+	dr.current.Store(jc)
+	return jc.done, nil
 }
 
 func (dr *drainer) Status() (bool, Job, Progress) {
 	defer dr.controlLock.RUnlock()
 	dr.controlLock.RLock()
 
-	return atomic.LoadUint32(&dr.draining) == StateDraining,
-		dr.j,
-		Progress{
-			Visited:  atomic.LoadInt32(&dr.p.Visited),
-			Drained:  atomic.LoadInt32(&dr.p.Drained),
-			Started:  dr.p.Started,
-			Finished: dr.p.Finished,
-		}
+	if jc, ok := dr.current.Load().(jobContext); ok {
+		return atomic.LoadUint32(&dr.active) == StateActive,
+			jc.j,
+			jc.t.Progress()
+	}
+
+	// if the job has never run, this result will be returned
+	return false, Job{}, Progress{}
 }
 
 func (dr *drainer) Cancel() (<-chan struct{}, error) {
 	defer dr.controlLock.Unlock()
 	dr.controlLock.Lock()
 
-	if !atomic.CompareAndSwapUint32(&dr.draining, StateDraining, StateNotDraining) {
-		return nil, ErrNotDraining
+	if !atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive) {
+		return nil, ErrNotActive
 	}
 
-	close(dr.cancel)
-	return dr.done, nil
+	dr.m.state.Set(MetricNotDraining)
+	jc := dr.current.Load().(jobContext)
+	close(jc.cancel)
+	return jc.done, nil
 }

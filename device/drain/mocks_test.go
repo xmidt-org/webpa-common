@@ -12,8 +12,9 @@ type mockDrainer struct {
 	mock.Mock
 }
 
-func (m *mockDrainer) Start(j Job) error {
-	return m.Called(j).Error(0)
+func (m *mockDrainer) Start(j Job) (<-chan struct{}, error) {
+	arguments := m.Called(j)
+	return arguments.Get(0).(<-chan struct{}), arguments.Error(1)
 }
 
 func (m *mockDrainer) Status() (bool, Job, Progress) {
@@ -29,8 +30,13 @@ func (m *mockDrainer) Cancel() (<-chan struct{}, error) {
 // stubVisitAll creates a mocked device registry with a set of devices stubbed out for
 // visitation via VisitAll.  Each invocation to the stub returns a different batch of
 // mocked devices, which simulates what would happen if the visited devices were disconnected.
-func stubVisitAll(count uint64) (*device.MockRegistry, map[device.ID]bool) {
+//
+// The returned channel is used as a gate to control VisitAll execution.  Each invocation of
+// VisitAll will do a receive on this channel before proceeding.  Sending on this channel allows (1)
+// VisitAll to proceed, while closing the channel lets every VisitAll proceed.
+func stubVisitAll(count uint64) (*device.MockRegistry, map[device.ID]bool, chan<- struct{}) {
 	var (
+		gate         = make(chan struct{}, 1)
 		mockRegistry = new(device.MockRegistry)
 		next         = 0
 		devices      = make([]device.Interface, 0, count)
@@ -50,6 +56,7 @@ func stubVisitAll(count uint64) (*device.MockRegistry, map[device.ID]bool) {
 
 	mockRegistry.On("VisitAll", mock.MatchedBy(func(func(device.Interface) bool) bool { return true })).
 		Run(func(arguments mock.Arguments) {
+			<-gate
 			visitor := arguments.Get(0).(func(device.Interface) bool)
 			for next < len(devices) {
 				result := visitor(devices[next])
@@ -60,7 +67,7 @@ func stubVisitAll(count uint64) (*device.MockRegistry, map[device.ID]bool) {
 			}
 		})
 
-	return mockRegistry, ids
+	return mockRegistry, ids, gate
 }
 
 // stubDisconnect stubs a device connector to track calls to Disconnect.  The returned sync.Map will hold
