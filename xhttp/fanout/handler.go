@@ -104,6 +104,28 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
+// WithFanoutAfter adds zero or more response functions that are invoked to tailor the response
+// when a successful (i.e. terminating) fanout response is received.
+func WithFanoutFaliure(failure ...FanoutResponseFunc) Option {
+	return func(h *Handler) {
+		h.failure = append(h.failure, failure...)
+	}
+}
+
+// WithClientAfter allows zero or more go-kit ClientResponseFuncs to be used as fanout after functions.
+func WithClientFaliure(failure ...gokithttp.ClientResponseFunc) Option {
+	return func(h *Handler) {
+		for _, rf := range failure {
+			h.failure = append(
+				h.failure,
+				func(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
+					return rf(ctx, result.Response)
+				},
+			)
+		}
+	}
+}
+
 // WithConfiguration uses a set of (typically injected) fanout configuration options to configure a Handler.
 // Use of this option will not override the configured Endpoints instance.
 func WithConfiguration(c Configuration) Option {
@@ -123,6 +145,7 @@ type Handler struct {
 	errorEncoder    gokithttp.ErrorEncoder
 	before          []FanoutRequestFunc
 	after           []FanoutResponseFunc
+	failure         []FanoutResponseFunc
 	shouldTerminate ShouldTerminateFunc
 	transactor      func(*http.Request) (*http.Response, error)
 }
@@ -268,12 +291,47 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		logLevel := level.DebugValue()
 		if err != nil {
 			logLevel = level.ErrorValue()
+			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
+		} else {
+			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
 		}
 
-		logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
 	} else {
 		response.WriteHeader(result.StatusCode)
 	}
+}
+
+// finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
+// is only invoked when a particular fanout response terminates the fanout, and is considered a failure
+func (h *Handler) handleErrorFinish(logger log.Logger, response http.ResponseWriter, result Result) {
+	ctx := result.Request.Context()
+	for _, rf := range h.failure {
+		// NOTE: we don't use the context for anything here,
+		// but to preserve go-kit semantics we pass it to each after function
+		ctx = rf(ctx, response, result)
+	}
+
+	if len(result.Body) > 0 {
+		if len(result.ContentType) > 0 {
+			response.Header().Set("Content-Type", result.ContentType)
+		} else {
+			response.Header().Set("Content-Type", "application/octet-stream")
+		}
+
+		response.WriteHeader(result.StatusCode)
+		count, err := response.Write(result.Body)
+		logLevel := level.DebugValue()
+		if err != nil {
+			logLevel = level.ErrorValue()
+			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
+			return
+		}
+
+		logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
+	} else {
+		response.WriteHeader(result.StatusCode)
+	}
+
 }
 
 func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request) {
@@ -299,6 +357,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	}
 
 	statusCode := 0
+	var latestResponse Result
 	for i := 0; i < len(requests); i++ {
 		select {
 		case <-fanoutCtx.Done():
@@ -311,9 +370,10 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 			logLevel := level.DebugValue()
 			if r.Err != nil {
 				logLevel = level.ErrorValue()
+				logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
+			} else {
+				logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL)
 			}
-
-			logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
 
 			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer
@@ -323,10 +383,12 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 			if statusCode < r.StatusCode {
 				statusCode = r.StatusCode
+				latestResponse = r
 			}
 		}
 	}
 
 	logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "all fanout requests failed", "statusCode", statusCode, "url", original.URL)
-	response.WriteHeader(statusCode)
+	//response.WriteHeader(statusCode)
+	h.handleErrorFinish(logger, response, latestResponse)
 }

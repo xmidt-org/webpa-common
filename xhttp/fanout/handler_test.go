@@ -133,7 +133,7 @@ func testHandlerBadTransactor(t *testing.T) {
 	transactor.AssertExpectations(t)
 }
 
-func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string, expectAfter bool) {
+func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string, expectAfter bool, expectedFailedCalled bool) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -165,6 +165,14 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 			return actualCtx
 		}
 
+		fanoutFailedCalled = false
+		fanoutFail         = func(actualCtx context.Context, actualResponse http.ResponseWriter, result Result) context.Context {
+			assert.False(fanoutFailedCalled)
+			fanoutFailedCalled = true
+			assert.Equal(ctx, actualCtx)
+			return ctx
+		}
+
 		endpoints  = generateEndpoints(len(expectedResponses))
 		transactor = new(xhttptest.MockTransactor)
 		complete   = make(chan struct{}, len(expectedResponses))
@@ -174,6 +182,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
+			WithFanoutFaliure(fanoutFail),
 		)
 	)
 
@@ -201,10 +210,11 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 	}
 
 	assert.Equal(expectAfter, clientAfterCalled)
+	assert.Equal(expectedFailedCalled, fanoutFailedCalled)
 	transactor.AssertExpectations(t)
 }
 
-func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string, expectAfter bool) {
+func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedResponse, expectedStatusCode int, expectedResponseBody string, expectAfter bool, expectedFailedCalled bool) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -236,6 +246,13 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 			assert.Equal(expectedStatusCode, actualResponse.StatusCode)
 			return actualCtx
 		}
+		fanoutFailedCalled = false
+		fanoutFail         = func(actualCtx context.Context, actualResponse http.ResponseWriter, result Result) context.Context {
+			assert.False(fanoutFailedCalled)
+			fanoutFailedCalled = true
+			assert.Equal(ctx, actualCtx)
+			return ctx
+		}
 
 		endpoints  = generateEndpoints(len(expectedResponses))
 		transactor = new(xhttptest.MockTransactor)
@@ -246,6 +263,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
+			WithFanoutFaliure(fanoutFail),
 		)
 	)
 
@@ -262,6 +280,8 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 	handler.ServeHTTP(response, original)
 	assert.Equal(expectedStatusCode, response.Code)
 	assert.Equal(expectedResponseBody, response.Body.String())
+	assert.Equal(expectAfter, clientAfterCalled)
+	assert.Equal(expectedFailedCalled, fanoutFailedCalled)
 
 	after := time.After(2 * time.Second)
 	for i := 0; i < len(expectedResponses); i++ {
@@ -346,6 +366,7 @@ func TestHandler(t *testing.T) {
 			expectedStatusCode   int
 			expectedResponseBody string
 			expectAfter          bool
+			expectedFailedCalled bool
 		}{
 			{
 				[]xhttptest.ExpectedResponse{
@@ -354,6 +375,7 @@ func TestHandler(t *testing.T) {
 				504,
 				"",
 				false,
+				true,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
@@ -362,6 +384,7 @@ func TestHandler(t *testing.T) {
 				504,
 				"",
 				false,
+				true,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
@@ -370,22 +393,25 @@ func TestHandler(t *testing.T) {
 				504,
 				"",
 				false,
+				true,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
 					{Err: errors.New("expected")},
 				},
 				http.StatusServiceUnavailable,
-				"",
+				"expected",
 				false,
+				true,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
 					{StatusCode: 500}, {Err: errors.New("expected")},
 				},
 				http.StatusServiceUnavailable,
-				"",
+				"expected",
 				false,
+				true,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
@@ -394,6 +420,7 @@ func TestHandler(t *testing.T) {
 				599,
 				"",
 				false,
+				true,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
@@ -402,6 +429,7 @@ func TestHandler(t *testing.T) {
 				200,
 				"expected body",
 				true,
+				false,
 			},
 			{
 				[]xhttptest.ExpectedResponse{
@@ -410,18 +438,19 @@ func TestHandler(t *testing.T) {
 				200,
 				"expected body",
 				true,
+				false,
 			},
 		}
 
 		t.Run("GET", func(t *testing.T) {
 			for _, record := range testData {
-				testHandlerGet(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody, record.expectAfter)
+				testHandlerGet(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody, record.expectAfter, record.expectedFailedCalled)
 			}
 		})
 
 		t.Run("POST", func(t *testing.T) {
 			for _, record := range testData {
-				testHandlerPost(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody, record.expectAfter)
+				testHandlerPost(t, record.statusCodes, record.expectedStatusCode, record.expectedResponseBody, record.expectAfter, record.expectedFailedCalled)
 			}
 		})
 	})
@@ -454,6 +483,8 @@ func testNewNilConfiguration(t *testing.T) {
 			WithFanoutBefore(),
 			WithClientBefore(),
 			WithFanoutAfter(),
+			WithFanoutFaliure(),
+			WithClientFaliure(),
 		)
 	)
 
@@ -463,6 +494,7 @@ func testNewNilConfiguration(t *testing.T) {
 	assert.NotNil(handler.transactor)
 	assert.Empty(handler.before)
 	assert.Empty(handler.after)
+	assert.Empty(handler.failure)
 }
 
 func testNewNoConfiguration(t *testing.T) {
