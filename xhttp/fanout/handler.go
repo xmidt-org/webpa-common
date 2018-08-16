@@ -290,8 +290,7 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		count, err := response.Write(result.Body)
 		logLevel := level.DebugValue()
 		if err != nil {
-			logLevel = level.ErrorValue()
-			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
 		} else {
 			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
 		}
@@ -322,16 +321,13 @@ func (h *Handler) handleErrorFinish(logger log.Logger, response http.ResponseWri
 		count, err := response.Write(result.Body)
 		logLevel := level.DebugValue()
 		if err != nil {
-			logLevel = level.ErrorValue()
-			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
-			return
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
+		} else {
+			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
 		}
-
-		logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
 	} else {
 		response.WriteHeader(result.StatusCode)
 	}
-
 }
 
 func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request) {
@@ -369,8 +365,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
 			logLevel := level.DebugValue()
 			if r.Err != nil {
-				logLevel = level.ErrorValue()
-				logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
 			} else {
 				logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL)
 			}
