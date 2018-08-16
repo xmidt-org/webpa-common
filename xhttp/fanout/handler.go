@@ -104,16 +104,16 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
-// WithFanoutAfter adds zero or more response functions that are invoked to tailor the response
-// when a successful (i.e. terminating) fanout response is received.
-func WithFanoutFaliure(failure ...FanoutResponseFunc) Option {
+// WithFadeoutFailure adds zero or more response functions that are invoked to tailor the response
+// when a failed fanout responses have been received.
+func WithFadeoutFailure(failure ...FanoutResponseFunc) Option {
 	return func(h *Handler) {
 		h.failure = append(h.failure, failure...)
 	}
 }
 
-// WithClientAfter allows zero or more go-kit ClientResponseFuncs to be used as fanout after functions.
-func WithClientFaliure(failure ...gokithttp.ClientResponseFunc) Option {
+// WithClientFailure allows zero or more go-kit ClientResponseFuncs to be used as fanout failure functions.
+func WithClientFailure(failure ...gokithttp.ClientResponseFunc) Option {
 	return func(h *Handler) {
 		for _, rf := range failure {
 			h.failure = append(
