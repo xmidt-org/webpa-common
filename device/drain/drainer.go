@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics/discard"
 
 	"github.com/Comcast/webpa-common/device"
@@ -184,6 +185,8 @@ type drainer struct {
 }
 
 func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
+	dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch")
+
 	more = true
 	drained := 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
@@ -199,17 +202,23 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 		}
 	})
 
-	for finished := false; more && !finished; {
-		select {
-		case id := <-batch:
-			if dr.connector.Disconnect(id) {
-				drained++
+	if visited > 0 {
+		for finished := false; more && !finished; {
+			select {
+			case id := <-batch:
+				if dr.connector.Disconnect(id) {
+					drained++
+				}
+			case <-jc.cancel:
+				more = false
+			default:
+				finished = true
 			}
-		case <-jc.cancel:
-			more = false
-		default:
-			finished = true
 		}
+	} else {
+		// if no devices were visited (or enqueued), then we must be done.
+		// either a cancellation occurred or no devices are left
+		more = false
 	}
 
 	jc.t.addVisited(visited)
@@ -223,6 +232,7 @@ func (dr *drainer) jobFinished(jc jobContext) {
 	}
 
 	atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive)
+	jc.t.done(dr.now().UTC())
 	close(jc.done)
 }
 
@@ -310,6 +320,7 @@ func (dr *drainer) Start(j Job) (<-chan struct{}, error) {
 
 	jc := jobContext{
 		t: &tracker{
+			started: dr.now().UTC(),
 			counter: dr.m.counter,
 		},
 		j:      j,

@@ -30,23 +30,19 @@ type tracker struct {
 	visited  int32
 	drained  int32
 	started  time.Time
-	finished int64
+	finished atomic.Value
 	counter  xmetrics.Adder
 }
 
 func (t *tracker) Progress() Progress {
-	var (
-		finished = atomic.LoadInt64(&t.finished)
-		p        = Progress{
-			Visited: int(atomic.LoadInt32(&t.visited)),
-			Drained: int(atomic.LoadInt32(&t.drained)),
-			Started: t.started,
-		}
-	)
+	p := Progress{
+		Visited: int(atomic.LoadInt32(&t.visited)),
+		Drained: int(atomic.LoadInt32(&t.drained)),
+		Started: t.started,
+	}
 
-	if finished > 0 {
-		timestamp := time.Unix(finished, 0)
-		p.Finished = &timestamp
+	if finished, ok := t.finished.Load().(time.Time); ok && !finished.IsZero() {
+		p.Finished = &finished
 	}
 
 	return p
@@ -62,5 +58,5 @@ func (t *tracker) addDrained(delta int) {
 }
 
 func (t *tracker) done(timestamp time.Time) {
-	atomic.StoreInt64(&t.finished, timestamp.UTC().Unix())
+	t.finished.Store(timestamp)
 }

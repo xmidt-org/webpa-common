@@ -103,6 +103,7 @@ func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 		)
 
 		d.On("ID").Return(id)
+		d.On("String").Return("mockDevice(" + string(id) + ")")
 		sm.devices[id] = d
 	}
 
