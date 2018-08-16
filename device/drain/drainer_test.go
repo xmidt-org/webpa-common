@@ -11,6 +11,153 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testWithLoggerDefault(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		d      = new(drainer)
+	)
+
+	WithLogger(nil)(d)
+	assert.NotNil(d.logger)
+}
+
+func testWithLoggerCustom(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		logger = logging.NewTestLogger(nil, t)
+		d      = new(drainer)
+	)
+
+	WithLogger(logger)(d)
+	assert.Equal(logger, d.logger)
+}
+
+func TestWithLogger(t *testing.T) {
+	t.Run("Default", testWithLoggerDefault)
+	t.Run("Custom", testWithLoggerCustom)
+}
+
+func testWithRegistryNil(t *testing.T) {
+	assert.Panics(t, func() {
+		WithRegistry(nil)
+	})
+}
+
+func testWithRegistryCustom(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		d       = new(drainer)
+		manager = new(stubManager)
+	)
+
+	WithRegistry(manager)(d)
+	assert.Equal(manager, d.registry)
+}
+
+func TestWithRegistry(t *testing.T) {
+	t.Run("Nil", testWithRegistryNil)
+	t.Run("Custom", testWithRegistryCustom)
+}
+
+func testWithConnectorNil(t *testing.T) {
+	assert.Panics(t, func() {
+		WithConnector(nil)
+	})
+}
+
+func testWithConnectorCustom(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		d       = new(drainer)
+		manager = new(stubManager)
+	)
+
+	WithConnector(manager)(d)
+	assert.Equal(manager, d.connector)
+}
+
+func TestWithConnector(t *testing.T) {
+	t.Run("Nil", testWithConnectorNil)
+	t.Run("Custom", testWithConnectorCustom)
+}
+
+func testWithManagerNil(t *testing.T) {
+	assert.Panics(t, func() {
+		WithManager(nil)
+	})
+}
+
+func testWithManagerCustom(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		d       = new(drainer)
+		manager = new(stubManager)
+	)
+
+	WithManager(manager)(d)
+	assert.Equal(manager, d.registry)
+	assert.Equal(manager, d.connector)
+}
+
+func TestWithManager(t *testing.T) {
+	t.Run("Nil", testWithManagerNil)
+	t.Run("Custom", testWithManagerCustom)
+}
+
+func testWithStateGaugeDefault(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		d      = new(drainer)
+	)
+
+	WithStateGauge(nil)(d)
+	assert.NotNil(d.m.state)
+}
+
+func testWithStateGaugeCustom(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		d        = new(drainer)
+		provider = xmetricstest.NewProvider(nil)
+		gauge    = provider.NewGauge("test")
+	)
+
+	WithStateGauge(gauge)(d)
+	assert.Equal(gauge, d.m.state)
+}
+
+func TestWithStateGauge(t *testing.T) {
+	t.Run("Default", testWithStateGaugeDefault)
+	t.Run("Custom", testWithStateGaugeCustom)
+}
+
+func testWithDrainCounterDefault(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		d      = new(drainer)
+	)
+
+	WithDrainCounter(nil)(d)
+	assert.NotNil(d.m.counter)
+}
+
+func testWithDrainCounterCustom(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		d        = new(drainer)
+		provider = xmetricstest.NewProvider(nil)
+		counter  = provider.NewCounter("test")
+	)
+
+	WithDrainCounter(counter)(d)
+	assert.Equal(counter, d.m.counter)
+}
+
+func TestWithDrainCounter(t *testing.T) {
+	t.Run("Default", testWithDrainCounterDefault)
+	t.Run("Custom", testWithDrainCounterCustom)
+}
+
 func testNewNoRegistry(t *testing.T) {
 	var (
 		assert  = assert.New(t)

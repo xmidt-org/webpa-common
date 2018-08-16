@@ -45,18 +45,30 @@ func WithLogger(l log.Logger) Option {
 }
 
 func WithRegistry(r device.Registry) Option {
+	if r == nil {
+		panic("A device.Registry is required")
+	}
+
 	return func(dr *drainer) {
 		dr.registry = r
 	}
 }
 
 func WithConnector(c device.Connector) Option {
+	if c == nil {
+		panic("A device.Connector is required")
+	}
+
 	return func(dr *drainer) {
 		dr.connector = c
 	}
 }
 
 func WithManager(m device.Manager) Option {
+	if m == nil {
+		panic("A device.Manager is required")
+	}
+
 	return func(dr *drainer) {
 		dr.registry = m
 		dr.connector = m
@@ -304,18 +316,6 @@ func (dr *drainer) disconnect(jc jobContext) {
 
 		more, visited = dr.nextBatch(jc, batch)
 		remaining -= visited
-	}
-}
-
-// jobDone is a factory function for a done closure
-func (dr *drainer) jobDone(done chan<- struct{}, stop func()) func() {
-	return func() {
-		atomic.StoreUint32(&dr.active, StateNotActive)
-		if stop != nil {
-			stop()
-		}
-
-		close(done)
 	}
 }
 

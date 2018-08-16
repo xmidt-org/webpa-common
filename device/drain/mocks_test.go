@@ -89,6 +89,11 @@ func (sm *stubManager) VisitAll(p func(device.Interface) bool) (count int) {
 	return
 }
 
+func (sm *stubManager) Route(*device.Request) (*device.Response, error) {
+	sm.assert.Fail("Route is not supported")
+	return nil, nil
+}
+
 func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 	sm := &stubManager{
 		assert:     assert,
