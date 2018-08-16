@@ -182,7 +182,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
-			WithFadeoutFailure(fanoutFail),
+			WithFanoutFailure(fanoutFail),
 		)
 	)
 
@@ -263,7 +263,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
-			WithFadeoutFailure(fanoutFail),
+			WithFanoutFailure(fanoutFail),
 		)
 	)
 
@@ -483,7 +483,7 @@ func testNewNilConfiguration(t *testing.T) {
 			WithFanoutBefore(),
 			WithClientBefore(),
 			WithFanoutAfter(),
-			WithFadeoutFailure(),
+			WithFanoutFailure(),
 			WithClientFailure(),
 		)
 	)

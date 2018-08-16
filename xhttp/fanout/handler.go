@@ -104,9 +104,9 @@ func WithClientAfter(after ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
-// WithFadeoutFailure adds zero or more response functions that are invoked to tailor the response
+// WithFanoutFailure adds zero or more response functions that are invoked to tailor the response
 // when a failed fanout responses have been received.
-func WithFadeoutFailure(failure ...FanoutResponseFunc) Option {
+func WithFanoutFailure(failure ...FanoutResponseFunc) Option {
 	return func(h *Handler) {
 		h.failure = append(h.failure, failure...)
 	}
