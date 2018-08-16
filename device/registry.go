@@ -174,13 +174,15 @@ func (r *registry) visit(f func(d *device) bool) int {
 	defer r.lock.RUnlock()
 	r.lock.RLock()
 
+	visited := 0
 	for _, d := range r.data {
+		visited++
 		if !f(d) {
 			break
 		}
 	}
 
-	return len(r.data)
+	return visited
 }
 
 func (r *registry) get(id ID) (*device, bool) {
