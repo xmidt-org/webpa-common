@@ -10,7 +10,7 @@ type Cancel struct {
 func (c *Cancel) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	done, err := c.Drainer.Cancel()
 	if err != nil {
-		response.WriteHeader(http.StatusNotFound)
+		response.WriteHeader(http.StatusConflict)
 		return
 	}
 
