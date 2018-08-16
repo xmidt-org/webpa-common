@@ -288,11 +288,10 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 
 		response.WriteHeader(result.StatusCode)
 		count, err := response.Write(result.Body)
-		logLevel := level.DebugValue()
 		if err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
 		} else {
-			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
+			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "bytes", count)
 		}
 
 	} else {
@@ -319,13 +318,13 @@ func (h *Handler) handleErrorFinish(logger log.Logger, response http.ResponseWri
 
 		response.WriteHeader(result.StatusCode)
 		count, err := response.Write(result.Body)
-		logLevel := level.DebugValue()
 		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout error response", "bytes", count, logging.ErrorKey(), err)
 		} else {
-			logger.Log(level.Key(), logLevel, logging.MessageKey(), "wrote fanout response", "bytes", count)
+			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout error response", "bytes", count)
 		}
 	} else {
+		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout error response", "statusCode", result.StatusCode)
 		response.WriteHeader(result.StatusCode)
 	}
 }
@@ -363,11 +362,10 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 		case r := <-results:
 			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
-			logLevel := level.DebugValue()
 			if r.Err != nil {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
 			} else {
-				logger.Log(level.Key(), logLevel, logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL)
+				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL)
 			}
 
 			if h.shouldTerminate(r) {
@@ -384,6 +382,5 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	}
 
 	logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "all fanout requests failed", "statusCode", statusCode, "url", original.URL)
-	//response.WriteHeader(statusCode)
 	h.handleErrorFinish(logger, response, latestResponse)
 }
