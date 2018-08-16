@@ -161,6 +161,8 @@ type metrics struct {
 
 // jobContext stores all the runtime information for a drain job
 type jobContext struct {
+	id        uint32
+	logger    log.Logger
 	t         *tracker
 	j         Job
 	batchSize int
@@ -181,11 +183,12 @@ type drainer struct {
 
 	controlLock sync.RWMutex
 	active      uint32
+	currentID   uint32
 	current     atomic.Value
 }
 
 func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
-	dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
+	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
 
 	more = true
 	dr.registry.VisitAll(func(d device.Interface) bool {
@@ -202,7 +205,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	})
 
 	if visited > 0 {
-		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited)
+		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited)
 		drained := 0
 		for finished := false; more && !finished; {
 			select {
@@ -217,7 +220,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 			}
 		}
 
-		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
+		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
 		jc.t.addVisited(visited)
 		jc.t.addDrained(drained)
 	} else {
@@ -239,7 +242,7 @@ func (dr *drainer) jobFinished(jc jobContext) {
 
 	// we need to contend on the control lock to avoid clobbering state from Start/Cancel code
 	dr.controlLock.Lock()
-	if atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive) {
+	if jc.id == dr.currentID && atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive) {
 		dr.m.state.Set(MetricNotDraining)
 	}
 
@@ -331,7 +334,10 @@ func (dr *drainer) Start(j Job) (<-chan struct{}, error) {
 		return nil, ErrActive
 	}
 
+	dr.currentID++
 	jc := jobContext{
+		id:     dr.currentID,
+		logger: log.With(dr.logger, "id", dr.currentID),
 		t: &tracker{
 			started: dr.now().UTC(),
 			counter: dr.m.counter,
