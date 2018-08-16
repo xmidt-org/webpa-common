@@ -231,8 +231,17 @@ func (dr *drainer) jobFinished(jc jobContext) {
 		jc.stop()
 	}
 
-	atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive)
 	jc.t.done(dr.now().UTC())
+
+	// we need to contend on the control lock to avoid clobbering state from Start/Cancel code
+	dr.controlLock.Lock()
+	if atomic.CompareAndSwapUint32(&dr.active, StateActive, StateNotActive) {
+		dr.m.state.Set(MetricNotDraining)
+	}
+
+	dr.controlLock.Unlock()
+
+	// only close the done channel when all cleanup is complete
 	close(jc.done)
 }
 

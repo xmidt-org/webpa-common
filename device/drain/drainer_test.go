@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,9 +40,10 @@ func TestNew(t *testing.T) {
 
 func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil)
+		logger   = logging.NewTestLogger(nil, t)
 
 		manager = generateManager(assert, uint64(deviceCount))
 
@@ -53,6 +55,8 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 			WithLogger(logger),
 			WithRegistry(manager),
 			WithConnector(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
 		)
 	)
 
@@ -75,9 +79,15 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 	assert.Equal(Job{}, job)
 	assert.Equal(Progress{}, progress)
 
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
 	done, err = d.Start(Job{})
 	require.NoError(err)
 	require.NotNil(done)
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
 
 	active, job, progress = d.Status()
 	assert.True(active)
@@ -92,6 +102,9 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 		assert.Fail("Disconnect all failed to complete")
 		return
 	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(float64(deviceCount)))
 
 	done, err = d.Cancel()
 	assert.Nil(done)
