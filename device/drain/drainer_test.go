@@ -250,6 +250,12 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 	provider.Assert(t, "state")(xmetricstest.Value(MetricDraining))
 	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
 
+	{
+		done, err := d.Start(Job{Rate: 123, Tick: time.Minute})
+		assert.Nil(done)
+		assert.Error(err)
+	}
+
 	active, job, progress = d.Status()
 	assert.True(active)
 	assert.Equal(Job{Count: deviceCount, Rate: 100, Tick: time.Second}, job)
@@ -347,6 +353,12 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 
 	provider.Assert(t, "state")(xmetricstest.Value(MetricDraining))
 	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	{
+		done, err := d.Start(Job{Rate: 123, Tick: time.Minute})
+		assert.Nil(done)
+		assert.Error(err)
+	}
 
 	active, job, progress = d.Status()
 	assert.True(active)
