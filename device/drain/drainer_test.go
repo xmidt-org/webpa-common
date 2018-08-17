@@ -299,6 +299,7 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 	assert.Equal(expectedFinished.UTC(), *progress.Finished)
 
 	assert.Empty(manager.devices)
+	assert.True(stopCalled)
 }
 
 func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
@@ -476,6 +477,70 @@ func testDrainerDisconnectCancel(t *testing.T) {
 	provider.Assert(t, "counter")(xmetricstest.Minimum(1.0))
 }
 
+func testDrainerDrainCancel(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil)
+		logger   = logging.NewTestLogger(nil, t)
+
+		manager = generateManager(assert, 100)
+
+		stopCalled = false
+		stop       = func() {
+			stopCalled = true
+		}
+
+		ticker = make(chan time.Time, 1)
+
+		d = New(
+			WithLogger(logger),
+			WithManager(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
+		)
+	)
+
+	require.NotNil(d)
+	defer d.Cancel()
+
+	d.(*drainer).newTicker = func(d time.Duration) (<-chan time.Time, func()) {
+		assert.Equal(time.Second, d)
+		return ticker, stop
+	}
+
+	done, err := d.Start(Job{Percent: 20, Rate: 5})
+	require.NoError(err)
+	require.NotNil(done)
+
+	active, job, _ := d.Status()
+	assert.True(active)
+	assert.Equal(
+		Job{Count: 20, Percent: 20, Rate: 5, Tick: time.Second},
+		job,
+	)
+
+	done, err = d.Cancel()
+	require.NotNil(done)
+	require.NoError(err)
+	ticker <- time.Time{}
+	close(manager.pauseVisit)
+	close(manager.pauseDisconnect)
+
+	select {
+	case <-done:
+		// passing
+	case <-time.After(5 * time.Second):
+		assert.Fail("Drain failed to complete")
+		return
+	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Minimum(0.0))
+
+	assert.True(stopCalled)
+}
+
 func TestDrainer(t *testing.T) {
 	deviceCounts := []int{0, 1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
 
@@ -497,4 +562,5 @@ func TestDrainer(t *testing.T) {
 
 	t.Run("VisitCancel", testDrainerVisitCancel)
 	t.Run("DisconnectCancel", testDrainerDisconnectCancel)
+	t.Run("DrainCancel", testDrainerDrainCancel)
 }
