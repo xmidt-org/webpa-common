@@ -209,15 +209,20 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	dr.registry.VisitAll(func(d device.Interface) bool {
 		select {
 		case batch <- d.ID():
-			visited++
 			return true
 		case <-jc.cancel:
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
 			more = false
 			return false
 		default:
 			return false
 		}
 	})
+
+	visited = len(batch)
+	if !more {
+		return
+	}
 
 	if visited > 0 {
 		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited)
@@ -229,6 +234,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 					drained++
 				}
 			case <-jc.cancel:
+				jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
 				more = false
 			default:
 				finished = true
@@ -292,6 +298,7 @@ func (dr *drainer) drain(jc jobContext) {
 			more, visited = dr.nextBatch(jc, batch)
 			remaining -= visited
 		case <-jc.cancel:
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
 			more = false
 		}
 	}

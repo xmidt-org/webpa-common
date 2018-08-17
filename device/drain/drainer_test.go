@@ -266,6 +266,7 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 		}
 	}()
 
+	close(manager.pauseDisconnect)
 	close(manager.pauseVisit)
 	select {
 	case <-done:
@@ -352,6 +353,7 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 	assert.Equal(Job{Count: deviceCount}, job)
 	assert.Equal(Progress{Visited: 0, Drained: 0, Started: expectedStarted.UTC(), Finished: nil}, progress)
 
+	close(manager.pauseDisconnect)
 	close(manager.pauseVisit)
 	select {
 	case <-done:
@@ -380,6 +382,88 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 	assert.Empty(manager.devices)
 }
 
+func testDrainerVisitCancel(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil)
+		logger   = logging.NewTestLogger(nil, t)
+
+		manager = generateManager(assert, 100)
+
+		d = New(
+			WithLogger(logger),
+			WithManager(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
+		)
+	)
+
+	require.NotNil(d)
+	d.Start(Job{})
+	done, err := d.Cancel()
+	require.NoError(err)
+	require.NotNil(done)
+	close(manager.pauseVisit)
+
+	select {
+	case <-done:
+		// passing
+	case <-time.After(5 * time.Second):
+		assert.Fail("The job did not complete after being cancelled")
+		return
+	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+}
+
+func testDrainerDisconnectCancel(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil)
+		logger   = logging.NewTestLogger(nil, t)
+
+		manager = generateManager(assert, 100)
+
+		d = New(
+			WithLogger(logger),
+			WithManager(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
+		)
+	)
+
+	require.NotNil(d)
+	defer d.Cancel()
+	d.Start(Job{})
+	close(manager.pauseVisit)
+
+	select {
+	case <-manager.disconnect:
+	case <-time.After(5 * time.Second):
+		assert.Fail("Disconnect was not called")
+		return
+	}
+
+	done, err := d.Cancel()
+	require.NoError(err)
+	require.NotNil(done)
+	close(manager.pauseDisconnect)
+
+	select {
+	case <-done:
+		// passing
+	case <-time.After(5 * time.Second):
+		assert.Fail("The job did not complete after being cancelled")
+		return
+	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Minimum(1.0))
+}
+
 func TestDrainer(t *testing.T) {
 	deviceCounts := []int{0, 1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
 
@@ -398,4 +482,7 @@ func TestDrainer(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("VisitCancel", testDrainerVisitCancel)
+	t.Run("DisconnectCancel", testDrainerDisconnectCancel)
 }

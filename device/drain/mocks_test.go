@@ -29,9 +29,14 @@ func (m *mockDrainer) Cancel() (<-chan struct{}, error) {
 }
 
 type stubManager struct {
-	lock       sync.RWMutex
-	assert     *assert.Assertions
-	devices    map[device.ID]device.Interface
+	lock    sync.RWMutex
+	assert  *assert.Assertions
+	devices map[device.ID]device.Interface
+
+	disconnect      chan struct{}
+	pauseDisconnect chan struct{}
+
+	visit      chan struct{}
 	pauseVisit chan struct{}
 }
 
@@ -44,6 +49,12 @@ func (sm *stubManager) Connect(http.ResponseWriter, *http.Request, http.Header) 
 }
 
 func (sm *stubManager) Disconnect(id device.ID) bool {
+	select {
+	case sm.disconnect <- struct{}{}:
+	default:
+	}
+
+	<-sm.pauseDisconnect
 	defer sm.lock.Unlock()
 	sm.lock.Lock()
 
@@ -75,6 +86,11 @@ func (sm *stubManager) Get(device.ID) (device.Interface, bool) {
 }
 
 func (sm *stubManager) VisitAll(p func(device.Interface) bool) (count int) {
+	select {
+	case sm.visit <- struct{}{}:
+	default:
+	}
+
 	<-sm.pauseVisit
 	defer sm.lock.Unlock()
 	sm.lock.Lock()
@@ -96,9 +112,12 @@ func (sm *stubManager) Route(*device.Request) (*device.Response, error) {
 
 func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 	sm := &stubManager{
-		assert:     assert,
-		devices:    make(map[device.ID]device.Interface, count),
-		pauseVisit: make(chan struct{}),
+		assert:          assert,
+		devices:         make(map[device.ID]device.Interface, count),
+		disconnect:      make(chan struct{}, 10),
+		pauseDisconnect: make(chan struct{}),
+		visit:           make(chan struct{}, 10),
+		pauseVisit:      make(chan struct{}),
 	}
 
 	for mac := uint64(0); mac < count; mac++ {
