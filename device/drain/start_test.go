@@ -1,6 +1,7 @@
 package drain
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,7 @@ func testStartServeHTTPDefaultLogger(t *testing.T) {
 
 		d                     = new(mockDrainer)
 		done  <-chan struct{} = make(chan struct{})
-		start                 = Start{Drainer: d}
+		start                 = Start{d}
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/", nil)
@@ -69,10 +70,11 @@ func testStartServeHTTPValid(t *testing.T) {
 
 				d                     = new(mockDrainer)
 				done  <-chan struct{} = make(chan struct{})
-				start                 = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+				start                 = Start{d}
 
+				ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
 				response = httptest.NewRecorder()
-				request  = httptest.NewRequest("POST", record.uri, nil)
+				request  = httptest.NewRequest("POST", record.uri, nil).WithContext(ctx)
 			)
 
 			d.On("Start", record.expected).Return(done, Job{Count: 47192, Percent: 57, Rate: 500, Tick: 37 * time.Second}, error(nil)).Once()
@@ -94,10 +96,11 @@ func testStartServeHTTPParseFormError(t *testing.T) {
 		assert = assert.New(t)
 
 		d     = new(mockDrainer)
-		start = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+		start = Start{d}
 
+		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
 		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("POST", "/foo?%TT*&&", nil)
+		request  = httptest.NewRequest("POST", "/foo?%TT*&&", nil).WithContext(ctx)
 	)
 
 	start.ServeHTTP(response, request)
@@ -110,10 +113,11 @@ func testStartServeHTTPInvalidQuery(t *testing.T) {
 		assert = assert.New(t)
 
 		d     = new(mockDrainer)
-		start = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+		start = Start{d}
 
+		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
 		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("POST", "/foo?count=asdf", nil)
+		request  = httptest.NewRequest("POST", "/foo?count=asdf", nil).WithContext(ctx)
 	)
 
 	start.ServeHTTP(response, request)
@@ -127,11 +131,12 @@ func testStartServeHTTPStartError(t *testing.T) {
 
 		d             = new(mockDrainer)
 		done          <-chan struct{}
-		start         = Start{Logger: logging.NewTestLogger(nil, t), Drainer: d}
+		start         = Start{d}
 		expectedError = errors.New("expected")
 
+		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
 		response = httptest.NewRecorder()
-		request  = httptest.NewRequest("POST", "/foo?count=100", nil)
+		request  = httptest.NewRequest("POST", "/foo?count=100", nil).WithContext(ctx)
 	)
 
 	d.On("Start", Job{Count: 100}).Return(done, Job{}, expectedError).Once()
