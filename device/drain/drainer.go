@@ -115,12 +115,36 @@ type Job struct {
 	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
 }
 
+// ToMap returns a map representation of this Job appropriate for marshaling to formats like JSON.
+// This method makes things a bit prettier, like the Tick.
+func (j Job) ToMap() map[string]interface{} {
+	m := map[string]interface{}{
+		"count": j.Count,
+	}
+
+	if j.Percent > 0 {
+		m["percent"] = j.Percent
+	}
+
+	if j.Rate > 0 {
+		m["rate"] = j.Rate
+	}
+
+	if j.Tick > 0 {
+		m["tick"] = j.Tick.String()
+	}
+
+	return m
+}
+
 // Interface describes the behavior of a component which can execute a Job to drain devices.
 // Only (1) drain Job is allowed to run at any time.
 type Interface interface {
 	// Start attempts to begin draining devices.  The supplied Job describes how the drain will proceed.
-	// The returned channel can be used to wait for the drain job to complete.
-	Start(Job) (<-chan struct{}, error)
+	// The returned channel can be used to wait for the drain job to complete.  The returned Job will be
+	// the result of applying defaults and will represent the actual Job being executed.  For example, if Job.Rate
+	// is set but Job.Tick is not, the returned Job will reflect the default of 1 second for Job.Tick.
+	Start(Job) (<-chan struct{}, Job, error)
 
 	// Status returns information about the current drain job, if any.  The boolean return indicates whether
 	// the job is currently active, while the returned Job describes the actual options used in starting the drainer.
@@ -326,7 +350,7 @@ func (dr *drainer) disconnect(jc jobContext) {
 	}
 }
 
-func (dr *drainer) Start(j Job) (<-chan struct{}, error) {
+func (dr *drainer) Start(j Job) (<-chan struct{}, Job, error) {
 	if j.Percent > 0 {
 		j.Count = (dr.registry.Len() / 100) * j.Percent
 	} else if j.Count <= 0 {
@@ -346,7 +370,7 @@ func (dr *drainer) Start(j Job) (<-chan struct{}, error) {
 	dr.controlLock.Lock()
 
 	if !atomic.CompareAndSwapUint32(&dr.active, StateNotActive, StateActive) {
-		return nil, ErrActive
+		return nil, Job{}, ErrActive
 	}
 
 	dr.currentID++
@@ -372,7 +396,7 @@ func (dr *drainer) Start(j Job) (<-chan struct{}, error) {
 
 	dr.m.state.Set(MetricDraining)
 	dr.current.Store(jc)
-	return jc.done, nil
+	return jc.done, jc.j, nil
 }
 
 func (dr *drainer) Status() (bool, Job, Progress) {

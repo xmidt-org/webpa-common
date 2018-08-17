@@ -13,9 +13,9 @@ type mockDrainer struct {
 	mock.Mock
 }
 
-func (m *mockDrainer) Start(j Job) (<-chan struct{}, error) {
+func (m *mockDrainer) Start(j Job) (<-chan struct{}, Job, error) {
 	arguments := m.Called(j)
-	return arguments.Get(0).(<-chan struct{}), arguments.Error(1)
+	return arguments.Get(0).(<-chan struct{}), arguments.Get(1).(Job), arguments.Error(2)
 }
 
 func (m *mockDrainer) Status() (bool, Job, Progress) {
