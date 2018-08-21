@@ -333,10 +333,11 @@ func testRegistryVisit(t *testing.T) {
 	visitCalled := false
 	assert.Equal(
 		1,
-		r.visit(func(actual *device) {
+		r.visit(func(actual *device) bool {
 			visitCalled = true
 			assert.False(actual.Closed())
 			assert.True(actual == initial)
+			return true
 		}),
 	)
 

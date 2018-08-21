@@ -393,7 +393,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
-		device  = new(mockDevice)
+		device  = new(MockDevice)
 		handler = MessageHandler{
 			Logger: logging.NewTestLogger(nil, t),
 			Router: router,
@@ -466,7 +466,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
 
 		router  = new(mockRouter)
-		device  = new(mockDevice)
+		device  = new(MockDevice)
 		handler = MessageHandler{
 			Router: router,
 		}
@@ -549,7 +549,7 @@ func testConnectHandlerServeHTTP(t *testing.T, connectError error, responseHeade
 	var (
 		assert = assert.New(t)
 
-		device    = new(mockDevice)
+		device    = new(MockDevice)
 		connector = new(MockConnector)
 		handler   = ConnectHandler{
 			Connector:      connector,
@@ -607,7 +607,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		require             = require.New(t)
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 47913 * time.Minute
-		registry            = new(mockRegistry)
+		registry            = new(MockRegistry)
 		logger              = logging.NewTestLogger(nil, t)
 
 		now = func() time.Time {
@@ -626,10 +626,10 @@ func testListHandlerServeHTTP(t *testing.T) {
 	firstDevice.statistics = NewStatistics(now, expectedConnectedAt)
 	secondDevice.statistics = NewStatistics(now, expectedConnectedAt)
 
-	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).Return(0).Once()
-	registry.On("VisitAll", mock.MatchedBy(func(func(Interface)) bool { return true })).
+	registry.On("VisitAll", mock.MatchedBy(func(func(Interface) bool) bool { return true })).Return(0).Once()
+	registry.On("VisitAll", mock.MatchedBy(func(func(Interface) bool) bool { return true })).
 		Run(func(arguments mock.Arguments) {
-			visitor := arguments.Get(0).(func(Interface))
+			visitor := arguments.Get(0).(func(Interface) bool)
 			visitor(firstDevice)
 			visitor(secondDevice)
 		}).
@@ -718,7 +718,7 @@ func TestListHandler(t *testing.T) {
 func testStatHandlerNoPathVariables(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -737,7 +737,7 @@ func testStatHandlerNoPathVariables(t *testing.T) {
 func testStatHandlerNoDeviceName(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -759,7 +759,7 @@ func testStatHandlerNoDeviceName(t *testing.T) {
 func testStatHandlerInvalidDeviceName(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -781,7 +781,7 @@ func testStatHandlerInvalidDeviceName(t *testing.T) {
 func testStatHandlerMissingDevice(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
+		registry = new(MockRegistry)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -805,8 +805,8 @@ func testStatHandlerMissingDevice(t *testing.T) {
 func testStatHandlerMarshalJSONFailed(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
-		device   = new(mockDevice)
+		registry = new(MockRegistry)
+		device   = new(MockDevice)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),
@@ -832,8 +832,8 @@ func testStatHandlerMarshalJSONFailed(t *testing.T) {
 func testStatHandlerSuccess(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		registry = new(mockRegistry)
-		device   = new(mockDevice)
+		registry = new(MockRegistry)
+		device   = new(MockDevice)
 
 		handler = StatHandler{
 			Logger:   logging.NewTestLogger(nil, t),

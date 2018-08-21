@@ -67,48 +67,6 @@ func (m *mockConnectionWriter) Close() error {
 	return m.Called().Error(0)
 }
 
-type mockDevice struct {
-	mock.Mock
-}
-
-func (m *mockDevice) String() string {
-	return m.Called().String(0)
-}
-
-func (m *mockDevice) MarshalJSON() ([]byte, error) {
-	arguments := m.Called()
-	return arguments.Get(0).([]byte), arguments.Error(1)
-}
-
-func (m *mockDevice) ID() ID {
-	return m.Called().Get(0).(ID)
-}
-
-func (m *mockDevice) Pending() int {
-	return m.Called().Int(0)
-}
-
-func (m *mockDevice) Close() error {
-	return m.Called().Error(0)
-}
-
-func (m *mockDevice) Closed() bool {
-	arguments := m.Called()
-	return arguments.Bool(0)
-}
-
-func (m *mockDevice) Statistics() Statistics {
-	arguments := m.Called()
-	first, _ := arguments.Get(0).(Statistics)
-	return first
-}
-
-func (m *mockDevice) Send(request *Request) (*Response, error) {
-	arguments := m.Called(request)
-	first, _ := arguments.Get(0).(*Response)
-	return first, arguments.Error(1)
-}
-
 type mockDialer struct {
 	mock.Mock
 }
@@ -154,9 +112,10 @@ func (s *deviceSet) reset() {
 }
 
 // managerCapture returns a high-level visitor for Manager testing
-func (s deviceSet) managerCapture() func(Interface) {
-	return func(d Interface) {
+func (s deviceSet) managerCapture() func(Interface) bool {
+	return func(d Interface) bool {
 		s.add(d)
+		return true
 	}
 }
 
@@ -208,24 +167,6 @@ func (m *mockRouter) Route(request *Request) (*Response, error) {
 	return first, arguments.Error(1)
 }
 
-type mockRegistry struct {
-	mock.Mock
-}
-
-func (m *mockRegistry) Get(id ID) (Interface, bool) {
-	arguments := m.Called(id)
-	first, _ := arguments.Get(0).(Interface)
-	return first, arguments.Bool(1)
-}
-
-func (m *mockRegistry) VisitIf(predicate func(ID) bool, visitor func(Interface)) int {
-	return m.Called(predicate, visitor).Int(0)
-}
-
-func (m *mockRegistry) VisitAll(visitor func(Interface)) int {
-	return m.Called(visitor).Int(0)
-}
-
 func TestMockConnector(t *testing.T) {
 	var (
 		assert = assert.New(t)
@@ -235,7 +176,7 @@ func TestMockConnector(t *testing.T) {
 		response             = httptest.NewRecorder()
 		request              = httptest.NewRequest("GET", "/", nil)
 		header               = http.Header{"X-Something": {"foo"}}
-		expectedDevice       = new(mockDevice)
+		expectedDevice       = new(MockDevice)
 		expectedConnectError = errors.New("expected connect error")
 
 		id1 = ID("test1")

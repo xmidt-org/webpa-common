@@ -51,6 +51,15 @@ func newRegistry(o registryOptions) *registry {
 	}
 }
 
+// len returns the size of this registry
+func (r *registry) len() int {
+	r.lock.RLock()
+	l := len(r.data)
+	r.lock.RUnlock()
+
+	return l
+}
+
 // add uses a factory function to create a new device atomically with modifying
 // the registry
 func (r *registry) add(newDevice *device) error {
@@ -161,15 +170,19 @@ func (r *registry) removeAll() int {
 	return count
 }
 
-func (r *registry) visit(f func(d *device)) int {
+func (r *registry) visit(f func(d *device) bool) int {
 	defer r.lock.RUnlock()
 	r.lock.RLock()
 
+	visited := 0
 	for _, d := range r.data {
-		f(d)
+		visited++
+		if !f(d) {
+			break
+		}
 	}
 
-	return len(r.data)
+	return visited
 }
 
 func (r *registry) get(id ID) (*device, bool) {

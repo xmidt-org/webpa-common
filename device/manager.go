@@ -71,6 +71,9 @@ type Router interface {
 // Registry is the strategy interface for querying the set of connected devices.  Methods
 // in this interface follow the Visitor pattern and are typically executed under a read lock.
 type Registry interface {
+	// Len returns the count of devices currently in this registry
+	Len() int
+
 	// Get returns the device associated with the given ID, if any
 	Get(ID) (Interface, bool)
 
@@ -78,7 +81,7 @@ type Registry interface {
 	//
 	// No methods on this Manager should be called from within the visitor function, or
 	// a deadlock will likely occur.
-	VisitAll(func(Interface)) int
+	VisitAll(func(Interface) bool) int
 }
 
 // Manager supplies a hub for connecting and disconnecting devices as well as
@@ -445,13 +448,17 @@ func (m *manager) DisconnectAll() int {
 	return m.devices.removeAll()
 }
 
+func (m *manager) Len() int {
+	return m.devices.len()
+}
+
 func (m *manager) Get(id ID) (Interface, bool) {
 	return m.devices.get(id)
 }
 
-func (m *manager) VisitAll(visitor func(Interface)) int {
-	return m.devices.visit(func(d *device) {
-		visitor(d)
+func (m *manager) VisitAll(visitor func(Interface) bool) int {
+	return m.devices.visit(func(d *device) bool {
+		return visitor(d)
 	})
 }
 
