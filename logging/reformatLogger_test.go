@@ -27,7 +27,7 @@ func TestReformatLogger(t *testing.T) {
 	assert.Nil(err)
 
 	//test
-	expected := "WARN[00000] hello                                       isCool=\"YES\" \n"
+	expected := "WARN[00000] hello                                       isCool=YES \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -40,7 +40,7 @@ func TestReformatLoggerWithNoMSG(t *testing.T) {
 	err := logger.Log("level", "error", "key", "value")
 	assert.Nil(err)
 
-	expected := "ERRO[00000]                                             key=\"value\" \n"
+	expected := "ERRO[00000]                                             key=value \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -53,7 +53,7 @@ func TestReformatLoggerWithError(t *testing.T) {
 	err := logger.Log("level", "error", "key", "value", "err", errors.New("unknown error"))
 	assert.Nil(err)
 
-	expected := "ERRO[00000]                                             ERR:\"unknown error\" key=\"value\" \n"
+	expected := "ERRO[00000]                                             ERR:unknown error key=value \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -66,7 +66,7 @@ func TestReformatLoggerWithStringError(t *testing.T) {
 	err := logger.Log("level", "error", "key", "value", "err", "unknown error")
 	assert.Nil(err)
 
-	expected := "ERRO[00000]                                             ERR:\"unknown error\" key=\"value\" \n"
+	expected := "ERRO[00000]                                             ERR:unknown error key=value \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -83,7 +83,7 @@ func TestReformatLoggerWithStringColorError(t *testing.T) {
 	err := logger.Log("level", "error", "key", "value", "err", "unknown error")
 	assert.Nil(err)
 
-	expected := "\x1b[31mERRO\x1b[39m[00000]                                             \x1b[41m\x1b[30mERR\x1b[49m\x1b[39m:\"unknown error\" \x1b[31mkey\x1b[39m=\"value\" \n"
+	expected := "\x1b[31mERRO\x1b[39m[00000]                                             \x1b[41m\x1b[30mERR\x1b[49m\x1b[39m:unknown error \x1b[31mkey\x1b[39m=value \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }
@@ -129,6 +129,29 @@ func TestReformatLoggerWithComplexKey(t *testing.T) {
 	assert.Nil(err)
 
 	expected := "INFO[00005] complex keys with map value and array value error_key=map[string]string{\"k\":\"v\"} \n"
+	actual := buf.String()
+	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
+}
+
+func TestReformatLoggerWithComplexStruct(t *testing.T) {
+	type neat struct{
+		A int
+		B string
+		C []string
+	}
+	neatA := neat{
+		A: 42,
+		B: "everything",
+		C: []string{"is", "awesome"},
+	}
+
+	assert := assert.New(t)
+
+	buf, logger := reformatLoggerSetup()
+	err := logger.Log("msg", "complex keys with map value and array value", "ts", time.Now().Add(time.Second*25), "life", neatA)
+	assert.Nil(err)
+
+	expected := "INFO[00025] complex keys with map value and array value life=logging.neat{A:42, B:\"everything\", C:[]string{\"is\", \"awesome\"}} \n"
 	actual := buf.String()
 	assert.Equal(expected, actual, fmt.Sprintf("want %#v, have %#v", expected, actual))
 }

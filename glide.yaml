@@ -37,6 +37,8 @@ import:
   version: 1.0.0
 - package: github.com/spf13/viper
   version: v1.0.0
+- package: github.com/spf13/cast
+  version: v1.2.0
 - package: github.com/samuel/go-zookeeper
   version: c4fab1ac1bec58281ad0667dc3f0907a9476ac47
 - package: github.com/hashicorp/consul

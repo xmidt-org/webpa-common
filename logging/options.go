@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"gopkg.in/natefinch/lumberjack.v2"
-	"fmt"
 )
 
 const (
@@ -62,7 +61,7 @@ func (o *Options) loggerFactory() func(io.Writer) log.Logger {
 	}
 
 	if o != nil {
-		switch fType := getString(o.FMTType); fType {
+		switch o.FMTType {
 		case "fmt":
 			return log.NewLogfmtLogger
 		case "term":
@@ -80,20 +79,6 @@ func (o *Options) loggerFactory() func(io.Writer) log.Logger {
 
 func (o *Options) termLogger(writer io.Writer) log.Logger {
 	return NewReformatLogger(writer, &o.TermOptions)
-}
-
-type toString interface {
-	String() string
-}
-
-func getString(obj interface{}) string {
-	if s, ok := obj.(string); ok {
-		return s
-	}
-	if levelObj, ok := obj.(toString); ok {
-		return levelObj.String()
-	}
-	return fmt.Sprintf("%v", obj)
 }
 
 func (o *Options) level() string {

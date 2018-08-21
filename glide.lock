@@ -1,5 +1,5 @@
-hash: ab85e691dc8f63aaee0ab5e84958e73e7854a8dc002bfb0ffd8e5d55ee6776df
-updated: 2018-08-13T15:03:05.954604-07:00
+hash: 7b2fd68733833336670468f5916a4390a3da10bc5318545ff46ae173965fccc6
+updated: 2018-08-21T15:26:10.09007-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -119,7 +119,7 @@ imports:
   - json/scanner
   - json/token
 - name: github.com/hashicorp/serf
-  version: 80ab48778deee28e4ea2dc4ef1ebb2c5f4063996
+  version: 3b250ce4404edb266330f53fcfc8ad0d0dacfae7
   subpackages:
   - coordinate
 - name: github.com/influxdata/influxdb
@@ -138,8 +138,6 @@ imports:
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/magiconair/properties
   version: c2353362d570a7bfa228149c62842019201cfb71
-- name: github.com/mattn/go-isatty
-  version: 0360b2af4f38e8d38c7fce2a9f4e702702d73a39
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
@@ -222,10 +220,6 @@ imports:
   - codec
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
-- name: golang.org/x/crypto
-  version: de0752318171da717af4ce24d0a2e8626afaeb11
-  subpackages:
-  - ssh/terminal
 - name: golang.org/x/net
   version: f73e4c9ed3b7ebdd5f699a16a880c2b1994e50dd
   subpackages:
@@ -234,7 +228,6 @@ imports:
   version: 7138fd3d9dc8335c567ca206f4333fb75eb05d56
   subpackages:
   - unix
-  - windows
 - name: golang.org/x/text
   version: 5cec4b58c438bd98288aeb248bab2c1840713d21
   subpackages:

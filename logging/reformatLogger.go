@@ -9,6 +9,7 @@ import (
 	"strings"
 	"errors"
 	"github.com/ttacon/chalk"
+	"github.com/spf13/cast"
 )
 
 type TextFormatter struct {
@@ -89,13 +90,17 @@ func (l *reformatLogger) Log(keyvals ...interface{}) error {
 	// if err, wright it
 	if nil != data.error {
 		writeStyle(buf, chalk.Black.NewStyle().WithBackground(chalk.Red), l.formatter, "ERR")
-		fmt.Fprintf(buf, ":%#v ", data.error.Error())
+		fmt.Fprintf(buf, ":%s ", data.error.Error())
 	}
 
 	// Write KeyValue's
 	for key, value := range data.fieldMap {
 		writeColor(buf, color, l.formatter, key)
-		fmt.Fprintf(buf, "=%#v ", value)
+		if printString, err := cast.ToStringE(value); err == nil {
+			fmt.Fprintf(buf, "=%s ", printString)
+		} else {
+			fmt.Fprintf(buf, "=%#v ", value)
+		}
 	}
 
 	// Add newline to the end of the buffer
@@ -123,14 +128,14 @@ func mapKeyVals(keyvals []interface{}) reformatData {
 	data := reformatData{}
 	data.fieldMap = make(map[string]interface{})
 	for i := 0; i < len(keyvals)-1; i += 2 {
-		if getString(keyvals[i]) == "level" {
-			data.level = getString(keyvals[i+1])
+		if cast.ToString(keyvals[i]) == "level" {
+			data.level = cast.ToString(keyvals[i+1])
 			continue
 		}
-		if getString(keyvals[i]) == "ts" {
+		if cast.ToString(keyvals[i]) == "ts" {
 			if t, ok := keyvals[i+1].(time.Time); ok {
 				data.time = t
-			} else if t, err := time.Parse(time.RFC3339, getString(keyvals[i+1])); err == nil {
+			} else if t, err := time.Parse(time.RFC3339, cast.ToString(keyvals[i+1])); err == nil {
 				data.time = t
 			} else {
 				// We failed to parse it this should be close enough
@@ -138,21 +143,21 @@ func mapKeyVals(keyvals []interface{}) reformatData {
 			}
 			continue
 		}
-		if getString(keyvals[i]) == "msg" {
-			data.msg = getString(keyvals[i+1])
+		if cast.ToString(keyvals[i]) == "msg" {
+			data.msg = cast.ToString(keyvals[i+1])
 			continue
 		}
-		if getString(keyvals[i]) == "err" || getString(keyvals[i]) == "error" {
+		if cast.ToString(keyvals[i]) == "err" || cast.ToString(keyvals[i]) == "error" {
 			if err, ok := keyvals[i+1].(error); ok {
 				data.error = err
 				continue
-			} else if errString := getString(keyvals[i+1]); len(strings.TrimSpace(errString)) > 0 {
+			} else if errString := cast.ToString(keyvals[i+1]); len(strings.TrimSpace(errString)) > 0 {
 				data.error = errors.New(errString)
 				continue
 			}
 
 		}
-		data.fieldMap[getString(keyvals[i])] = keyvals[i+1]
+		data.fieldMap[cast.ToString(keyvals[i])] = keyvals[i+1]
 
 	}
 
