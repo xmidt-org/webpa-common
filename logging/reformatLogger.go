@@ -14,10 +14,10 @@ import (
 
 type TextFormatter struct {
 	// Force disabling colors.
-	DisableColors bool `json:"disable_colors"`
+	DisableColors bool `json:"disableColors"`
 
 	// Disables the truncation of the level text to 4 characters.
-	DisableLevelTruncation bool `json:"disable_level_truncation"`
+	DisableLevelTruncation bool `json:"disableLevelTruncation"`
 
 	// Whether the logger's out is to a terminal
 	isTerminal bool

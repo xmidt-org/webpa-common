@@ -69,8 +69,8 @@ func TestOptionsWithReformatLogger(t *testing.T) {
 	var buf bytes.Buffer
 
 	o := &Options{
-		File: StdoutFile,
-		FMTType: "term",
+		File:       StdoutFile,
+		FormatType: "term",
 		TermOptions: TextFormatter{
 			DisableColors: true,
 			DisableLevelTruncation: false,
@@ -90,8 +90,8 @@ func TestOptionsForOldFmt(t *testing.T){
 	var buf bytes.Buffer
 
 	o := &Options{
-		File: StdoutFile,
-		FMTType: "fmt",
+		File:       StdoutFile,
+		FormatType: "fmt",
 	}
 	logger := o.loggerFactory()(&buf)
 	assert.NotNil(logger)
