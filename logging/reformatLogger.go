@@ -10,6 +10,7 @@ import (
 	"errors"
 	"github.com/ttacon/chalk"
 	"github.com/spf13/cast"
+	"sort"
 )
 
 type TextFormatter struct {
@@ -18,6 +19,9 @@ type TextFormatter struct {
 
 	// Disables the truncation of the level text to 4 characters.
 	DisableLevelTruncation bool `json:"disableLevelTruncation"`
+
+	// Disables the sorting of key value pairs
+	DisableSorting bool `json:"disableSorting"`
 
 	// Whether the logger's out is to a terminal
 	isTerminal bool
@@ -93,13 +97,22 @@ func (l *reformatLogger) Log(keyvals ...interface{}) error {
 		fmt.Fprintf(buf, ":%s ", data.error.Error())
 	}
 
+	keys := make([]string, 0, len(data.fieldMap))
+	for k := range data.fieldMap {
+		keys = append(keys, k)
+	}
+
+	if !l.formatter.DisableSorting {
+		sort.Strings(keys)
+	}
+
 	// Write KeyValue's
-	for key, value := range data.fieldMap {
+	for _, key := range keys {
 		writeColor(buf, color, l.formatter, key)
-		if printString, err := cast.ToStringE(value); err == nil {
+		if printString, err := cast.ToStringE(data.fieldMap[key]); err == nil {
 			fmt.Fprintf(buf, "=%s ", printString)
 		} else {
-			fmt.Fprintf(buf, "=%#v ", value)
+			fmt.Fprintf(buf, "=%#v ", data.fieldMap[key])
 		}
 	}
 
