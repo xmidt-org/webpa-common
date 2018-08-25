@@ -1,24 +1,54 @@
 package xhttp
 
 import (
+	"context"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestError(t *testing.T) {
+func testErrorState(t *testing.T) {
 	var (
-		assert = assert.New(t)
-		err    = &Error{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar", Entity: []byte(`error!`)}
+		assert    = assert.New(t)
+		httpError = &Error{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar"}
 	)
 
-	assert.Equal(503, err.StatusCode())
-	assert.Equal(http.Header{"Foo": []string{"Bar"}}, err.Headers())
-	assert.Equal("fubar", err.Error())
+	assert.Equal(503, httpError.StatusCode())
+	assert.Equal(http.Header{"Foo": []string{"Bar"}}, httpError.Headers())
+	assert.Equal("fubar", httpError.Error())
+
+	json, err := httpError.MarshalJSON()
+	assert.NoError(err)
+	assert.JSONEq(
+		`{"code": 503, "text": "fubar"}`,
+		string(json),
+	)
+}
+
+func testErrorDefaultEncoding(t *testing.T) {
+	var (
+		assert    = assert.New(t)
+		httpError = &Error{Code: 503, Header: http.Header{"Foo": []string{"Bar"}}, Text: "fubar"}
+		response  = httptest.NewRecorder()
+	)
+
+	gokithttp.DefaultErrorEncoder(context.Background(), httpError, response)
+	assert.Equal(503, httpError.Code)
+	assert.Equal("Bar", response.HeaderMap.Get("Foo"))
+	assert.JSONEq(
+		`{"code": 503, "text": "fubar"}`,
+		response.Body.String(),
+	)
+}
+
+func TestError(t *testing.T) {
+	t.Run("State", testErrorState)
+	t.Run("DefaultEncoding", testErrorDefaultEncoding)
 }
 
 func TestWriteErrorf(t *testing.T) {
