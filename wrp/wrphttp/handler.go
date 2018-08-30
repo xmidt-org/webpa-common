@@ -33,10 +33,10 @@ func WithErrorEncoder(ee gokithttp.ErrorEncoder) Option {
 	}
 }
 
-// WithResponseWriter establishes a factory function for ResponseWriter objects.
+// WithNewResponseWriter establishes a factory function for ResponseWriter objects.
 // By default, DefaultResponseWriterFunc() is used.  If the supplied strategy function
 // is nil, it reverts to the default.
-func WithResponseWriter(rwf ResponseWriterFunc) Option {
+func WithNewResponseWriter(rwf ResponseWriterFunc) Option {
 	return func(wh *wrpHandler) {
 		if rwf != nil {
 			wh.newResponseWriter = rwf
