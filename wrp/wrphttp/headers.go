@@ -215,14 +215,32 @@ func AddMessageHeaders(h http.Header, m *wrp.Message) {
 	}
 }
 
-// WriteMessagePayload writes the WRP payload to the given io.Writer.  If the message has no
+// ReadPayload extracts the payload from a reader, setting the appropriate
+// fields on the given message.
+func ReadPayload(h http.Header, p io.Reader, m *wrp.Message) (int, error) {
+	contentType := h.Get("Content-Type")
+	if len(contentType) == 0 {
+		contentType = "application/octet-stream"
+	}
+
+	var err error
+	m.Payload, err = ioutil.ReadAll(p)
+	if err != nil {
+		return 0, err
+	}
+
+	m.ContentType = contentType
+	return len(m.Payload), nil
+}
+
+// WritePayload writes the WRP payload to the given io.Writer.  If the message has no
 // payload, this function does nothing.
 //
 // The http.Header is optional.  If supplied, the header's Content-Type and Content-Length
 // will be set appropriately.
-func WriteMessagePayload(h http.Header, p io.Writer, m *wrp.Message) error {
+func WritePayload(h http.Header, p io.Writer, m *wrp.Message) (int, error) {
 	if len(m.Payload) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	if h != nil {
@@ -235,6 +253,5 @@ func WriteMessagePayload(h http.Header, p io.Writer, m *wrp.Message) error {
 		h.Set("Content-Length", strconv.Itoa(len(m.Payload)))
 	}
 
-	_, err := p.Write(m.Payload)
-	return err
+	return p.Write(m.Payload)
 }

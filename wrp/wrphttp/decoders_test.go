@@ -1,332 +1,152 @@
 package wrphttp
 
 import (
+	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
-	"net/http"
 	"net/http/httptest"
-	"strings"
+	"strconv"
 	"testing"
 
-	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
-	"github.com/Comcast/webpa-common/wrp/wrpendpoint"
+	"github.com/Comcast/webpa-common/xhttp/xhttptest"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
-func testClientDecodeResponseBodyReadError(t *testing.T) {
+func TestDefaultDecoder(t *testing.T) {
+	assert := assert.New(t)
+	assert.NotNil(DefaultDecoder())
+}
+
+func testDecodeEntitySuccess(t *testing.T) {
+	testData := []struct {
+		defaultFormat wrp.Format
+		bodyFormat    wrp.Format
+		contentType   string
+	}{
+		{wrp.Msgpack, wrp.Msgpack, ""},
+		{wrp.JSON, wrp.JSON, ""},
+		{wrp.Msgpack, wrp.JSON, wrp.JSON.ContentType()},
+		{wrp.JSON, wrp.Msgpack, wrp.Msgpack.ContentType()},
+	}
+
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var (
+				assert  = assert.New(t)
+				require = require.New(t)
+
+				expected = wrp.Message{
+					Source:      "foo",
+					Destination: "bar",
+				}
+
+				body    bytes.Buffer
+				request = httptest.NewRequest("POST", "/", &body)
+				decoder = DecodeEntity(record.defaultFormat)
+			)
+
+			require.NotNil(decoder)
+			require.NoError(
+				wrp.NewEncoder(&body, record.bodyFormat).Encode(&expected),
+			)
+
+			request.Header.Set("Content-Type", record.contentType)
+			entity, err := decoder(context.Background(), request)
+			assert.NoError(err)
+			require.NotNil(entity)
+
+			assert.Equal(expected, entity.Message)
+		})
+	}
+}
+
+func testDecodeEntityInvalidContentType(t *testing.T) {
 	var (
-		assert       = assert.New(t)
-		body         = new(mockReadCloser)
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       body,
-		}
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		decoder = DecodeEntity(wrp.Msgpack)
+		request = httptest.NewRequest("GET", "/", nil)
 	)
 
-	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, errors.New("expected")).Once()
-	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
-	assert.Nil(value)
+	require.NotNil(decoder)
+	request.Header.Set("Content-Type", "invalid")
+	entity, err := decoder(context.Background(), request)
+	assert.Nil(entity)
 	assert.Error(err)
+}
+
+func testDecodeEntityBodyError(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		expectedError = errors.New("expected")
+		decoder       = DecodeEntity(wrp.Msgpack)
+		body          = new(xhttptest.MockBody)
+		request       = httptest.NewRequest("GET", "/", body)
+	)
+
+	require.NotNil(decoder)
+	body.OnReadError(expectedError).Once()
+	entity, err := decoder(context.Background(), request)
+	assert.Nil(entity)
+	assert.Equal(expectedError, err)
 
 	body.AssertExpectations(t)
 }
 
-func testClientDecodeResponseBodyHttpError(t *testing.T) {
-	var (
-		assert       = assert.New(t)
-		httpResponse = &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       ioutil.NopCloser(strings.NewReader("dummy")),
-		}
-	)
-
-	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
-	assert.Nil(value)
-	assert.Error(err)
+func TestDecodeEntity(t *testing.T) {
+	t.Run("Success", testDecodeEntitySuccess)
+	t.Run("InvalidContentType", testDecodeEntityInvalidContentType)
+	t.Run("BodyError", testDecodeEntityBodyError)
 }
 
-func testClientDecodeResponseBodyBadContentType(t *testing.T) {
-	var (
-		assert       = assert.New(t)
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Header: http.Header{
-				"Content-Type": []string{"bad content type"},
-			},
-			Body: ioutil.NopCloser(strings.NewReader(`
-				{"msg_type": 3, "source": "test", "dest": "mac:123443211234"}
-			`)),
-		}
-	)
-
-	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
-	assert.Nil(value)
-	assert.Error(err)
-}
-
-func testClientDecodeResponseBodyUnexpectedContentType(t *testing.T) {
-	var (
-		assert       = assert.New(t)
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Header: http.Header{
-				"Content-Type": []string{"application/msgpack"},
-			},
-			Body: ioutil.NopCloser(strings.NewReader(`
-				{"msg_type": 3, "source": "test", "dest": "mac:123443211234"}
-			`)),
-		}
-	)
-
-	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
-	assert.Nil(value)
-	assert.Error(err)
-}
-
-func testClientDecodeResponseBodySuccess(t *testing.T) {
-	var (
-		require      = require.New(t)
-		assert       = assert.New(t)
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Header: http.Header{
-				"Content-Type": []string{"application/json"},
-			},
-			Body: ioutil.NopCloser(strings.NewReader(`
-				{"msg_type": 3, "source": "test", "dest": "mac:123443211234"}
-			`)),
-		}
-	)
-
-	value, err := ClientDecodeResponseBody(wrp.JSON)(context.Background(), httpResponse)
-	require.NotNil(value)
-	require.NoError(err)
-
-	wrpResponse, ok := value.(wrpendpoint.Response)
-	require.True(ok)
-
-	assert.Equal(
-		wrp.Message{
-			Type:        wrp.SimpleRequestResponseMessageType,
-			Source:      "test",
-			Destination: "mac:123443211234",
-		},
-		*wrpResponse.Message(),
-	)
-}
-
-func TestClientDecodeResponseBody(t *testing.T) {
-	t.Run("ReadError", testClientDecodeResponseBodyReadError)
-	t.Run("HttpError", testClientDecodeResponseBodyHttpError)
-	t.Run("BadContentType", testClientDecodeResponseBodyBadContentType)
-	t.Run("UnexpectedContentType", testClientDecodeResponseBodyUnexpectedContentType)
-	t.Run("Success", testClientDecodeResponseBodySuccess)
-}
-
-func testClientDecodeResponseHeadersReadError(t *testing.T) {
-	var (
-		assert = assert.New(t)
-		body   = new(mockReadCloser)
-
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Body:       body,
-		}
-	)
-
-	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, errors.New("expected")).Once()
-	value, err := ClientDecodeResponseHeaders(context.Background(), httpResponse)
-	assert.Nil(value)
-	assert.Error(err)
-
-	body.AssertExpectations(t)
-}
-
-func testClientDecodeResponseHeadersHttpError(t *testing.T) {
-	var (
-		assert = assert.New(t)
-
-		httpResponse = &http.Response{
-			StatusCode: http.StatusBadRequest,
-			Body:       ioutil.NopCloser(strings.NewReader("dummy")),
-		}
-	)
-
-	value, err := ClientDecodeResponseHeaders(context.Background(), httpResponse)
-	assert.Nil(value)
-	assert.Error(err)
-}
-
-func testClientDecodeResponseHeadersBadHeaders(t *testing.T) {
-	var (
-		assert = assert.New(t)
-
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{}, // missing the message type
-			Body:       ioutil.NopCloser(strings.NewReader("dummy")),
-		}
-	)
-
-	value, err := ClientDecodeResponseHeaders(context.Background(), httpResponse)
-	assert.Nil(value)
-	assert.Error(err)
-}
-
-func testClientDecodeResponseHeadersNoPayload(t *testing.T) {
-	var (
-		require = require.New(t)
-		assert  = assert.New(t)
-
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Header: http.Header{
-				MessageTypeHeader: []string{wrp.SimpleEventMessageType.FriendlyName()},
-				SourceHeader:      []string{"test"},
-				DestinationHeader: []string{"mac:019283745665"},
-			},
-			Body: ioutil.NopCloser(strings.NewReader("")),
-		}
-	)
-
-	value, err := ClientDecodeResponseHeaders(context.Background(), httpResponse)
-	require.NotNil(value)
-	require.NoError(err)
-
-	wrpResponse, ok := value.(wrpendpoint.Response)
-	require.True(ok)
-
-	assert.Equal(
-		wrp.Message{
-			Type:        wrp.SimpleEventMessageType,
-			Source:      "test",
-			Destination: "mac:019283745665",
-		},
-		*wrpResponse.Message(),
-	)
-}
-
-func testClientDecodeResponseHeadersWithPayload(t *testing.T) {
-	var (
-		require = require.New(t)
-		assert  = assert.New(t)
-
-		httpResponse = &http.Response{
-			StatusCode: http.StatusOK,
-			Header: http.Header{
-				MessageTypeHeader: []string{wrp.SimpleEventMessageType.FriendlyName()},
-				SourceHeader:      []string{"test"},
-				DestinationHeader: []string{"mac:019283745665"},
-				"Content-Type":    []string{"text/plain"},
-			},
-			Body: ioutil.NopCloser(strings.NewReader("this is a payload")),
-		}
-	)
-
-	value, err := ClientDecodeResponseHeaders(context.Background(), httpResponse)
-	require.NotNil(value)
-	require.NoError(err)
-
-	wrpResponse, ok := value.(wrpendpoint.Response)
-	require.True(ok)
-
-	assert.Equal(
-		wrp.Message{
-			Type:        wrp.SimpleEventMessageType,
-			Source:      "test",
-			Destination: "mac:019283745665",
-			ContentType: "text/plain",
-			Payload:     []byte("this is a payload"),
-		},
-		*wrpResponse.Message(),
-	)
-}
-
-func TestClientDecodeResponseHeaders(t *testing.T) {
-	t.Run("ReadError", testClientDecodeResponseHeadersReadError)
-	t.Run("HttpError", testClientDecodeResponseHeadersHttpError)
-	t.Run("BadHeaders", testClientDecodeResponseHeadersBadHeaders)
-	t.Run("NoPayload", testClientDecodeResponseHeadersNoPayload)
-	t.Run("WithPayload", testClientDecodeResponseHeadersWithPayload)
-}
-
-func TestServerDecodeRequestBody(t *testing.T) {
+func testDecodeRequestHeadersSuccess(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
 
-		httpRequest = httptest.NewRequest("GET", "/", strings.NewReader(`
-			{"msg_type": 3, "source": "test", "dest": "mac:123412341234"}
-		`))
+		expected = wrp.Message{
+			Type:            wrp.SimpleEventMessageType,
+			Source:          "foo",
+			Destination:     "bar",
+			ContentType:     "application/octet-stream",
+			Payload:         []byte{1, 2, 3},
+			TransactionUUID: "testytest",
+		}
+
+		body    bytes.Buffer
+		request = httptest.NewRequest("POST", "/", &body)
 	)
 
-	value, err := ServerDecodeRequestBody(logger, wrp.JSON)(context.Background(), httpRequest)
-	require.NotNil(value)
-	require.NoError(err)
+	body.Write([]byte{1, 2, 3})
+	request.Header.Set(MessageTypeHeader, "event")
+	request.Header.Set(SourceHeader, "foo")
+	request.Header.Set(DestinationHeader, "bar")
+	request.Header.Set(TransactionUuidHeader, "testytest")
+	entity, err := DecodeRequestHeaders(context.Background(), request)
+	assert.NoError(err)
+	require.NotNil(entity)
 
-	wrpRequest, ok := value.(wrpendpoint.Request)
-	require.True(ok)
-	assert.NotNil(wrpRequest.Logger())
-
-	assert.Equal(
-		wrp.Message{
-			Type:        wrp.SimpleRequestResponseMessageType,
-			Source:      "test",
-			Destination: "mac:123412341234",
-		},
-		*wrpRequest.Message(),
-	)
+	assert.Equal(expected, entity.Message)
 }
 
-func testServerDecodeRequestHeadersSuccess(t *testing.T) {
+func testDecodeRequestHeadersInvalid(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
-
-		httpRequest = httptest.NewRequest("GET", "/", nil)
+		request = httptest.NewRequest("POST", "/", nil)
 	)
 
-	httpRequest.Header.Set(MessageTypeHeader, "SimpleEvent")
-	httpRequest.Header.Set(SourceHeader, "test")
-	httpRequest.Header.Set(DestinationHeader, "mac:432143214321")
-
-	value, err := ServerDecodeRequestHeaders(logger)(context.Background(), httpRequest)
-	require.NotNil(value)
-	require.NoError(err)
-
-	wrpRequest, ok := value.(wrpendpoint.Request)
-	require.True(ok)
-	assert.NotNil(wrpRequest.Logger())
-
-	assert.Equal(
-		wrp.Message{
-			Type:        wrp.SimpleEventMessageType,
-			Source:      "test",
-			Destination: "mac:432143214321",
-		},
-		*wrpRequest.Message(),
-	)
-}
-
-func testServerDecodeRequestHeadersBadHeaders(t *testing.T) {
-	var (
-		assert      = assert.New(t)
-		logger      = logging.NewTestLogger(nil, t)
-		httpRequest = httptest.NewRequest("GET", "/", nil)
-	)
-
-	value, err := ServerDecodeRequestHeaders(logger)(context.Background(), httpRequest)
-	assert.Nil(value)
+	request.Header.Set(MessageTypeHeader, "askdjfa;skdjfasdf")
+	entity, err := DecodeRequestHeaders(context.Background(), request)
+	assert.Nil(entity)
 	assert.Error(err)
 }
 
-func TestServerDecodeRequestHeaders(t *testing.T) {
-	t.Run("Success", testServerDecodeRequestHeadersSuccess)
-	t.Run("BadHeaders", testServerDecodeRequestHeadersBadHeaders)
+func TestDecodeRequestHeaders(t *testing.T) {
+	t.Run("Success", testDecodeRequestHeadersSuccess)
+	t.Run("Invalid", testDecodeRequestHeadersInvalid)
 }
