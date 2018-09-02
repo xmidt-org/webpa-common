@@ -1,6 +1,8 @@
 package wrphttp
 
-import "github.com/stretchr/testify/mock"
+import (
+	"github.com/stretchr/testify/mock"
+)
 
 type MockHandler struct {
 	mock.Mock
