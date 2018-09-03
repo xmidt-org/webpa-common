@@ -1,12 +1,12 @@
 package fanout
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xhttp/xcontext"
+	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/justinas/alice"
 )
 
@@ -128,7 +128,7 @@ func NewTransactor(c Configuration) func(*http.Request) (*http.Response, error) 
 
 // NewChain constructs an Alice constructor Chain from a set of fanout options and zero or
 // more application-layer request functions.
-func NewChain(c Configuration, rf ...func(context.Context, *http.Request) context.Context) alice.Chain {
+func NewChain(c Configuration, rf ...gokithttp.RequestFunc) alice.Chain {
 	return alice.New(
 		xcontext.Populate(c.fanoutTimeout(), rf...),
 		xhttp.Busy(c.concurrency()),
