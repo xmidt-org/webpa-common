@@ -33,7 +33,7 @@ func testPopulate(t *testing.T, funcCount int) {
 		require = require.New(t)
 
 		funcCalled = make([]bool, funcCount)
-		funcs      = make([]func(context.Context, *http.Request) context.Context, funcCount)
+		funcs      = make([]ContextFunc, funcCount)
 
 		nextCalled = false
 		next       = http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {

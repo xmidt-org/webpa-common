@@ -81,6 +81,8 @@ func init() {
 		stringToMessageType[f] = v
 		friendlyNames[v] = f
 	}
+
+	stringToMessageType["event"] = SimpleEventMessageType
 }
 
 // StringToMessageType converts a string into an enumerated MessageType constant.

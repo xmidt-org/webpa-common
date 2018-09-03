@@ -6,12 +6,12 @@ import (
 )
 
 // Error is an HTTP-specific carrier of error information.  In addition to implementing error,
-// this type also implements go-kit's StatusCoder and Headerer.
+// this type also implements go-kit's StatusCoder and Headerer.  The json.Marshaler interface
+// is implemented so that the default go-kit error encoder will always emit a JSON message.
 type Error struct {
 	Code   int
 	Header http.Header
 	Text   string
-	Entity []byte
 }
 
 func (e *Error) StatusCode() int {
@@ -24,6 +24,10 @@ func (e *Error) Headers() http.Header {
 
 func (e *Error) Error() string {
 	return e.Text
+}
+
+func (e *Error) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`{"code": %d, "text": "%s"}`, e.Code, e.Text)), nil
 }
 
 // WriteErrorf provides printf-style functionality for writing out the results of some operation.

@@ -275,12 +275,14 @@ func TestAddMessageHeaders(t *testing.T) {
 	}
 }
 
-func testWriteMessagePayloadEmptyPayload(t *testing.T) {
+func testWritePayloadEmptyPayload(t *testing.T) {
 	assert := assert.New(t)
 
 	{
 		var payload bytes.Buffer
-		assert.NoError(WriteMessagePayload(nil, &payload, &wrp.Message{}))
+		c, err := WritePayload(nil, &payload, &wrp.Message{})
+		assert.NoError(err)
+		assert.Zero(c)
 		assert.Empty(payload.Bytes())
 	}
 
@@ -290,57 +292,68 @@ func testWriteMessagePayloadEmptyPayload(t *testing.T) {
 			header  http.Header
 		)
 
-		assert.NoError(WriteMessagePayload(header, &payload, &wrp.Message{}))
+		c, err := WritePayload(header, &payload, &wrp.Message{})
+		assert.NoError(err)
+		assert.Zero(c)
 		assert.Empty(payload.Bytes())
 		assert.Empty(header)
 	}
 }
 
-func testWriteMessagePayloadNoHeader(t *testing.T) {
+func testWritePayloadNoHeader(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		payload bytes.Buffer
+		assert          = assert.New(t)
+		expectedPayload = []byte("payload")
+		payload         bytes.Buffer
 	)
 
-	assert.NoError(WriteMessagePayload(nil, &payload, &wrp.Message{Payload: []byte("payload")}))
+	c, err := WritePayload(nil, &payload, &wrp.Message{Payload: expectedPayload})
+	assert.NoError(err)
+	assert.Equal(len(expectedPayload), c)
 	assert.Equal("payload", payload.String())
 }
 
-func testWriteMessagePayloadWithHeader(t *testing.T) {
+func testWritePayloadWithHeader(t *testing.T) {
 	assert := assert.New(t)
 
 	{
 		var (
-			header  = make(http.Header)
-			payload bytes.Buffer
-			message = wrp.Message{
-				Payload:     []byte("this is json, no really"),
+			header          = make(http.Header)
+			expectedPayload = []byte("this is json, no really")
+			payload         bytes.Buffer
+			message         = wrp.Message{
+				Payload:     expectedPayload,
 				ContentType: "application/json",
 			}
 		)
 
-		assert.NoError(WriteMessagePayload(header, &payload, &message))
+		c, err := WritePayload(header, &payload, &message)
+		assert.NoError(err)
+		assert.Equal(len(expectedPayload), c)
 		assert.Equal("application/json", header.Get("Content-Type"))
 		assert.Equal("this is json, no really", payload.String())
 	}
 
 	{
 		var (
-			header  = make(http.Header)
-			payload bytes.Buffer
-			message = wrp.Message{
-				Payload: []byte("this is binary, honest"),
+			header          = make(http.Header)
+			expectedPayload = []byte("this is binary, honest")
+			payload         bytes.Buffer
+			message         = wrp.Message{
+				Payload: expectedPayload,
 			}
 		)
 
-		assert.NoError(WriteMessagePayload(header, &payload, &message))
+		c, err := WritePayload(header, &payload, &message)
+		assert.NoError(err)
+		assert.Equal(len(expectedPayload), c)
 		assert.Equal("application/octet-stream", header.Get("Content-Type"))
 		assert.Equal("this is binary, honest", payload.String())
 	}
 }
 
-func TestWriteMessagePayload(t *testing.T) {
-	t.Run("EmptyPayload", testWriteMessagePayloadEmptyPayload)
-	t.Run("NoHeader", testWriteMessagePayloadNoHeader)
-	t.Run("WithHeader", testWriteMessagePayloadWithHeader)
+func TestWritePayload(t *testing.T) {
+	t.Run("EmptyPayload", testWritePayloadEmptyPayload)
+	t.Run("NoHeader", testWritePayloadNoHeader)
+	t.Run("WithHeader", testWritePayloadWithHeader)
 }
