@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/xhttp"
+	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +34,7 @@ func testPopulate(t *testing.T, funcCount int) {
 		require = require.New(t)
 
 		funcCalled = make([]bool, funcCount)
-		funcs      = make([]ContextFunc, funcCount)
+		funcs      = make([]gokithttp.RequestFunc, funcCount)
 
 		nextCalled = false
 		next       = http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
