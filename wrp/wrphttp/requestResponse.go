@@ -1,17 +1,10 @@
 package wrphttp
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/Comcast/webpa-common/wrp"
-)
-
-var (
-	ErrAlreadyWritten     = errors.New("A WRP message has already been written to headers")
-	ErrUnsupportedMessage = errors.New("Unsupported WRP message type")
 )
 
 // DetermineFormat examines zero or more headers to determine which WRP format is to be used, either
@@ -58,7 +51,8 @@ func (r *Request) Context() context.Context {
 }
 
 // WithContext returns a shallow copy of this WRP Request using the supplied context.
-// The semantics of this method are the same as http.Request.WithContext.
+// The semantics of this method are the same as http.Request.WithContext.  Note that the
+// original request's context is not updated via this method.
 func (r *Request) WithContext(ctx context.Context) *Request {
 	if ctx == nil {
 		panic("the context cannot be nil")
@@ -105,17 +99,13 @@ func NewEntityResponseWriter(defaultFormat wrp.Format) ResponseWriterFunc {
 	}
 }
 
+// entityResponseWriter provides ResponseWriter behavior that marshals WRP messages into the HTTP entity (body)
 type entityResponseWriter struct {
 	http.ResponseWriter
-	f       wrp.Format
-	written bool
+	f wrp.Format
 }
 
 func (erw *entityResponseWriter) WriteWRP(v interface{}) (int, error) {
-	if erw.written {
-		return 0, ErrAlreadyWritten
-	}
-
 	var (
 		output  []byte
 		encoder = wrp.NewEncoderBytes(&output, erw.f)
@@ -125,44 +115,6 @@ func (erw *entityResponseWriter) WriteWRP(v interface{}) (int, error) {
 		return 0, err
 	}
 
-	erw.written = true
 	erw.ResponseWriter.Header().Set("Content-Type", erw.f.ContentType())
 	return erw.ResponseWriter.Write(output)
-}
-
-// NewHeaderResponseWriter is a ResponseWriterFunc which creates ResponseWriter objects which write WRP
-// using headers.
-func NewHeaderResponseWriter(httpResponse http.ResponseWriter, wrpRequest *Request) (ResponseWriter, error) {
-	return &headerResponseWriter{
-		ResponseWriter: httpResponse,
-	}, nil
-}
-
-type headerResponseWriter struct {
-	http.ResponseWriter
-	written bool
-}
-
-func (hrw *headerResponseWriter) WriteWRP(v interface{}) (int, error) {
-	if hrw.written {
-		return 0, ErrAlreadyWritten
-	}
-
-	m, ok := v.(*wrp.Message)
-	if !ok {
-		return 0, ErrUnsupportedMessage
-	}
-
-	var (
-		output     bytes.Buffer
-		count, err = WritePayload(hrw.ResponseWriter.Header(), &output, m)
-	)
-
-	if err != nil {
-		return count, err
-	}
-
-	hrw.written = true
-	AddMessageHeaders(hrw.ResponseWriter.Header(), m)
-	return hrw.ResponseWriter.Write(output.Bytes())
 }
