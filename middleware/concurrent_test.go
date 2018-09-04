@@ -32,6 +32,7 @@ func testConcurrentNoCancellation(t *testing.T, concurrency int) {
 	actualResponse, err := concurrent(next)(context.Background(), expectedRequest)
 	assert.Equal(expectedResponse, actualResponse)
 	assert.NoError(err)
+	assert.True(nextCalled)
 }
 
 func testConcurrentCancel(t *testing.T, concurrency int, timeoutError error) {
