@@ -58,7 +58,7 @@ func NormalizeInstance(defaultScheme, instance string) (string, error) {
 
 	submatches := instancePattern.FindStringSubmatch(instance)
 	if len(submatches) == 0 {
-		return instance, fmt.Errorf("Invalid instance: %s")
+		return instance, fmt.Errorf("Invalid instance: %s", instance)
 	}
 
 	var (
