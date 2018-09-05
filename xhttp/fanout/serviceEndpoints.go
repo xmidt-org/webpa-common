@@ -8,6 +8,7 @@ import (
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/Comcast/webpa-common/service/monitor"
+	"github.com/Comcast/webpa-common/service/servicehttp"
 	"github.com/Comcast/webpa-common/xhttp"
 )
 
@@ -16,7 +17,7 @@ import (
 // instancers.
 type ServiceEndpoints struct {
 	lock            sync.RWMutex
-	keyFunc         service.KeyFunc
+	keyFunc         servicehttp.KeyFunc
 	accessorFactory service.AccessorFactory
 	accessors       map[string]service.Accessor
 }
@@ -60,7 +61,7 @@ type ServiceEndpointsOption func(*ServiceEndpoints)
 
 // WithKeyFunc configures a hash function for the given service endpoints.  If nil,
 // then device.IDHashParser is used.
-func WithKeyFunc(kf service.KeyFunc) ServiceEndpointsOption {
+func WithKeyFunc(kf servicehttp.KeyFunc) ServiceEndpointsOption {
 	return func(se *ServiceEndpoints) {
 		if kf != nil {
 			se.keyFunc = kf

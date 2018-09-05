@@ -1,10 +1,11 @@
-package service
+package servicehttp
 
 import (
 	"net/http"
 	"strings"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 )
@@ -25,7 +26,7 @@ type RedirectHandler struct {
 	KeyFunc KeyFunc
 
 	// Accessor produces instances given hash keys.  Note that a Subscription implements the Accessor interface.
-	Accessor Accessor
+	Accessor service.Accessor
 
 	// RedirectCode is the HTTP status code sent as part of the redirect.  If not set, http.StatusTemporaryRedirect is used.
 	RedirectCode int
