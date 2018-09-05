@@ -195,6 +195,8 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			code = StatusDeviceDisconnected
 		case ErrorTransactionsAlreadyClosed:
 			code = StatusDeviceDisconnected
+		case ErrorDeviceClosed:
+			code = 540
 		}
 
 		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not process device request", logging.ErrorKey(), err, "code", code)
