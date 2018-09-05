@@ -63,7 +63,7 @@ func Hash(o HashOptions) func(http.Handler) http.Handler {
 			}
 
 			if len(self) > 0 && !self[hashed] {
-				logging.GetLogger(request.Context()).Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Device does not hash to this server", "key", string(key))
+				logging.GetLogger(request.Context()).Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Request does not hash to this server", "key", string(key))
 				response.WriteHeader(o.RejectCode)
 				return
 			}
