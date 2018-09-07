@@ -11,7 +11,11 @@ import (
 )
 
 // NewHashFilter constructs an xfilter that enforces device hashing to one or more "self" instances.
+// Any request that does not hash to one of the "self" instances is rejected by returning the supplied error.
 // If self is empty, an always-allow xfilter is returned instead.
+//
+// The returned filter will check the request's context for a device id, using that to hash with if one is found.
+// Otherwise, the device key is parsed from the request via device.IDHashParser.
 func NewHashFilter(a service.Accessor, reject error, self ...string) xfilter.Interface {
 	if len(self) == 0 {
 		return xfilter.Allow()
