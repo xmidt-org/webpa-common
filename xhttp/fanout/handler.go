@@ -244,7 +244,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 	case result.Err != nil:
 		result.Body = []byte(fmt.Sprintf("%s", result.Err))
-		result.ContentType = result.Response.Header.Get("Content-Type")
+		result.ContentType = "text/plain"
 
 		if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
 			// unwrap the URL error
