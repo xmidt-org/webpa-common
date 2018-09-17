@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
@@ -252,6 +253,9 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		}
 
 		if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
+			result.StatusCode = http.StatusGatewayTimeout
+		} else if strings.Contains(result.Err.Error(), "Client.Timeout exceeded while awaiting headers)") {
+			// handles an edge case where the request would be canceled before the deadline
 			result.StatusCode = http.StatusGatewayTimeout
 		} else {
 			result.StatusCode = http.StatusServiceUnavailable
