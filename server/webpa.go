@@ -67,12 +67,14 @@ func Serve(logger log.Logger, s Secure, l net.Listener, e executor) {
 	if len(certificateFile) > 0 && len(keyFile) > 0 {
 		go func() {
 			logging.Error(logger).Log(
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.ServeTLS(l, certificateFile, keyFile),
 			)
 		}()
 	} else {
 		go func() {
 			logging.Error(logger).Log(
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.Serve(l),
 			)
 		}()
@@ -87,12 +89,14 @@ func ListenAndServe(logger log.Logger, s Secure, e executor) {
 	if len(certificateFile) > 0 && len(keyFile) > 0 {
 		go func() {
 			logging.Error(logger).Log(
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.ListenAndServeTLS(certificateFile, keyFile),
 			)
 		}()
 	} else {
 		go func() {
 			logging.Error(logger).Log(
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.ListenAndServe(),
 			)
 		}()
@@ -529,7 +533,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metric.Name, "address", w.Metric.Address)
 			ListenAndServe(logger, &w.Metric, metricsServer)
 		}
-		
+
 		// Output, to metrics, the maximum number of CPUs available to this process
 		maxProcs.Set(float64(runtime.GOMAXPROCS(0)))
 
