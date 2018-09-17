@@ -63,9 +63,10 @@ type Secure interface {
 }
 
 // Serve is like ListenAndServe, but accepts a custom net.Listener
-func Serve(logger log.Logger, s Secure, l net.Listener, e executor) {
+func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer func()) {
 	certificateFile, keyFile := s.Certificate()
 	go func() {
+		defer finalizer()
 		logger.Log(
 			level.Key(), level.ErrorValue(),
 			logging.MessageKey(), "starting server",
@@ -90,9 +91,10 @@ func Serve(logger log.Logger, s Secure, l net.Listener, e executor) {
 // ListenAndServe invokes the appropriate server method based on the secure information.
 // If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
 // is called to start the server.  Otherwise, e.ListenAndServe() is used.
-func ListenAndServe(logger log.Logger, s Secure, e executor) {
+func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
 	certificateFile, keyFile := s.Certificate()
 	go func() {
+		defer finalizer()
 		logger.Log(
 			level.Key(), level.ErrorValue(),
 			logging.MessageKey(), "starting server",
@@ -490,75 +492,101 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		maxProcs          = registry.NewGauge("maximum_processors")
 
 		healthHandler, healthServer = w.Health.New(logger, alice.New(staticHeaders), health)
+
+		servers      []*http.Server
+		finalizeOnce sync.Once
+		finalizer    = func() {
+			finalizeOnce.Do(func() {
+				for _, s := range servers {
+					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "finalizing server", logging.ErrorKey(), s.Close())
+				}
+			})
+		}
 	)
 
 	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
 
-		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
-			var (
-				primaryLogger = log.With(logger, "serverName", w.Primary.Name, "bindAddress", w.Primary.Address)
-				listener, err = w.Primary.NewListener(
-					primaryLogger,
-					activeConnections.With("server", "primary"),
-					rejectedCounter.With("server", "primary"),
-				)
-			)
-
-			if err != nil {
-				return err
-			}
-
-			Serve(
-				primaryLogger,
-				&w.Primary,
-				listener,
-				primaryServer,
-			)
-		} else {
+		// create all the servers first, so that we can populate the servers slice
+		// without worrying about concurrency
+		primaryServer := w.Primary.New(logger, primaryHandler)
+		if primaryServer == nil {
+			// the primary server is required
 			return ErrorNoPrimaryAddress
 		}
 
-		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
-			var (
-				alternateLogger = log.With(logger, "serverName", w.Alternate.Name, "bindAddress", w.Alternate.Address)
-				listener, err   = w.Alternate.NewListener(
-					alternateLogger,
-					activeConnections.With("server", "alternate"),
-					rejectedCounter.With("server", "alternate"),
-				)
+		alternateServer := w.Alternate.New(logger, primaryHandler)
+		if alternateServer != nil {
+			servers = append(servers, alternateServer)
+		}
+
+		if healthServer != nil {
+			servers = append(servers, healthServer)
+		}
+
+		pprofServer := w.Pprof.New(logger, nil)
+		if pprofServer != nil {
+			servers = append(servers, pprofServer)
+		}
+
+		metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry)
+		if metricsServer != nil {
+			servers = append(servers, metricsServer)
+		}
+
+		// create any necessary listeners first, so that we return early if errors occur
+
+		primaryLogger := log.With(logger, "serverName", w.Primary.Name, "bindAddress", w.Primary.Address)
+		primaryListener, err := w.Primary.NewListener(
+			primaryLogger,
+			activeConnections.With("server", "primary"),
+			rejectedCounter.With("server", "primary"),
+		)
+
+		if err != nil {
+			return err
+		}
+
+		// now we can start all the servers
+
+		// start the alternate server first, so we can short-circuit in the case of errors
+		if alternateServer != nil {
+			alternateLogger := log.With(logger, "serverName", w.Alternate.Name, "bindAddress", w.Alternate.Address)
+			alternateListener, err := w.Alternate.NewListener(
+				alternateLogger,
+				activeConnections.With("server", "alternate"),
+				rejectedCounter.With("server", "alternate"),
 			)
 
 			if err != nil {
 				return err
 			}
 
-			Serve(
-				alternateLogger,
-				&w.Alternate,
-				listener,
-				alternateServer,
-			)
+			Serve(alternateLogger, &w.Alternate, alternateListener, alternateServer, finalizer)
 		}
 
+		Serve(primaryLogger, &w.Primary, primaryListener, primaryServer, finalizer)
+
 		if healthHandler != nil && healthServer != nil {
-			ListenAndServe(log.With(logger, "serverName", "health"), &w.Health, healthServer)
+			ListenAndServe(log.With(logger, "serverName", w.Health.Name, "bindAddress", w.Health.Address), &w.Health, healthServer, finalizer)
 			healthHandler.Run(waitGroup, shutdown)
 		}
 
-		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
+		if pprofServer != nil {
 			ListenAndServe(
 				log.With(logger, "serverName", w.Pprof.Name, "bindAddress", w.Pprof.Address),
 				&w.Pprof,
 				pprofServer,
+				finalizer,
 			)
 		}
 
-		if metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry); metricsServer != nil {
+		if metricsServer != nil {
 			ListenAndServe(
 				log.With(logger, "serverName", w.Metric.Name, "bindAddress", w.Metric.Address),
 				&w.Metric,
 				metricsServer,
+				finalizer,
 			)
 		}
 

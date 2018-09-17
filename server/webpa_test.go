@@ -35,10 +35,17 @@ func TestListenAndServeNonSecure(t *testing.T) {
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		var (
+			assert = assert.New(t)
+
 			_, logger      = newTestLogger()
 			executorCalled = make(chan struct{})
 			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
+
+			finalizerCalled = make(chan struct{})
+			finalizer       = func() {
+				close(finalizerCalled)
+			}
 		)
 
 		mockSecure.On("Certificate").
@@ -50,8 +57,20 @@ func TestListenAndServeNonSecure(t *testing.T) {
 			Run(func(mock.Arguments) { close(executorCalled) }).
 			Once()
 
-		ListenAndServe(logger, mockSecure, mockExecutor)
-		<-executorCalled
+		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
+		select {
+		case <-executorCalled:
+			// passing
+		case <-time.After(5 * time.Second):
+			assert.Fail("the executor was not called")
+		}
+
+		select {
+		case <-finalizerCalled:
+			// passing
+		case <-time.After(5 * time.Second):
+			assert.Fail("the finalizer was not called")
+		}
 
 		mockSecure.AssertExpectations(t)
 		mockExecutor.AssertExpectations(t)
@@ -71,10 +90,17 @@ func TestListenAndServeSecure(t *testing.T) {
 	for _, record := range testData {
 		t.Logf("%#v", record)
 		var (
+			assert = assert.New(t)
+
 			_, logger      = newTestLogger()
 			executorCalled = make(chan struct{})
 			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
+
+			finalizerCalled = make(chan struct{})
+			finalizer       = func() {
+				close(finalizerCalled)
+			}
 		)
 
 		mockSecure.On("Certificate").
@@ -86,8 +112,20 @@ func TestListenAndServeSecure(t *testing.T) {
 			Run(func(mock.Arguments) { close(executorCalled) }).
 			Once()
 
-		ListenAndServe(logger, mockSecure, mockExecutor)
-		<-executorCalled
+		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
+		select {
+		case <-executorCalled:
+			// passing
+		case <-time.After(5 * time.Second):
+			assert.Fail("the executor was not called")
+		}
+
+		select {
+		case <-finalizerCalled:
+			// passing
+		case <-time.After(5 * time.Second):
+			assert.Fail("the finalizer was not called")
+		}
 
 		mockSecure.AssertExpectations(t)
 		mockExecutor.AssertExpectations(t)
