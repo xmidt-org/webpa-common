@@ -475,7 +475,7 @@ func (w *WebPA) flavor() string {
 // it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
 // servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable, <-chan struct{}) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	var (
@@ -495,8 +495,10 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		servers      []*http.Server
 		finalizeOnce sync.Once
+		done         = make(chan struct{})
 		finalizer    = func() {
 			finalizeOnce.Do(func() {
+				defer close(done)
 				for _, s := range servers {
 					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "finalizing server", logging.ErrorKey(), s.Close())
 				}
@@ -512,6 +514,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		primaryServer := w.Primary.New(logger, primaryHandler)
 		if primaryServer == nil {
 			// the primary server is required
+			close(done)
 			return ErrorNoPrimaryAddress
 		}
 
@@ -544,6 +547,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		)
 
 		if err != nil {
+			close(done)
 			return err
 		}
 
@@ -559,6 +563,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			)
 
 			if err != nil {
+				close(done)
 				return err
 			}
 
@@ -594,7 +599,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		maxProcs.Set(float64(runtime.GOMAXPROCS(0)))
 
 		return nil
-	})
+	}), done
 }
 
 //decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
