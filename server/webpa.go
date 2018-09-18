@@ -19,6 +19,7 @@ import (
 	"github.com/Comcast/webpa-common/xlistener"
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
@@ -62,41 +63,57 @@ type Secure interface {
 }
 
 // Serve is like ListenAndServe, but accepts a custom net.Listener
-func Serve(logger log.Logger, s Secure, l net.Listener, e executor) {
+func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer func()) {
 	certificateFile, keyFile := s.Certificate()
-	if len(certificateFile) > 0 && len(keyFile) > 0 {
-		go func() {
-			logging.Error(logger).Log(
+	go func() {
+		defer finalizer()
+		logger.Log(
+			level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "starting server",
+		)
+
+		if len(certificateFile) > 0 && len(keyFile) > 0 {
+			logger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.ServeTLS(l, certificateFile, keyFile),
 			)
-		}()
-	} else {
-		go func() {
-			logging.Error(logger).Log(
+		} else {
+			logger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.Serve(l),
 			)
-		}()
-	}
+		}
+	}()
 }
 
 // ListenAndServe invokes the appropriate server method based on the secure information.
 // If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
 // is called to start the server.  Otherwise, e.ListenAndServe() is used.
-func ListenAndServe(logger log.Logger, s Secure, e executor) {
+func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
 	certificateFile, keyFile := s.Certificate()
-	if len(certificateFile) > 0 && len(keyFile) > 0 {
-		go func() {
-			logging.Error(logger).Log(
+	go func() {
+		defer finalizer()
+		logger.Log(
+			level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "starting server",
+		)
+
+		if len(certificateFile) > 0 && len(keyFile) > 0 {
+			logger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.ListenAndServeTLS(certificateFile, keyFile),
 			)
-		}()
-	} else {
-		go func() {
-			logging.Error(logger).Log(
+		} else {
+			logger.Log(
+				level.Key(), level.ErrorValue(),
+				logging.MessageKey(), "server exited",
 				logging.ErrorKey(), e.ListenAndServe(),
 			)
-		}()
-	}
+		}
+	}()
 }
 
 // Basic describes a simple HTTP server.  Typically, this struct has its values
@@ -458,7 +475,7 @@ func (w *WebPA) flavor() string {
 // it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
 // servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable) {
+func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable, <-chan struct{}) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	var (
@@ -475,66 +492,114 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		maxProcs          = registry.NewGauge("maximum_processors")
 
 		healthHandler, healthServer = w.Health.New(logger, alice.New(staticHeaders), health)
-		infoLog                     = logging.Info(logger)
+
+		servers      []*http.Server
+		finalizeOnce sync.Once
+		done         = make(chan struct{})
+		finalizer    = func() {
+			finalizeOnce.Do(func() {
+				defer close(done)
+				for _, s := range servers {
+					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "finalizing server", logging.ErrorKey(), s.Close())
+				}
+			})
+		}
 	)
 
 	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		if healthHandler != nil && healthServer != nil {
-			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Health.Name, "address", w.Health.Address)
-			ListenAndServe(logger, &w.Health, healthServer)
-			healthHandler.Run(waitGroup, shutdown)
-		}
-
-		if pprofServer := w.Pprof.New(logger, nil); pprofServer != nil {
-			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Pprof.Name, "address", w.Pprof.Address)
-			ListenAndServe(logger, &w.Pprof, pprofServer)
-		}
-
 		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
-		if primaryServer := w.Primary.New(logger, primaryHandler); primaryServer != nil {
-			listener, err := w.Primary.NewListener(
-				logger,
-				activeConnections.With("server", "primary"),
-				rejectedCounter.With("server", "primary"),
-			)
 
-			if err != nil {
-				// TODO: handle cleanup
-				return err
-			}
-
-			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Primary.Name, "address", w.Primary.Address)
-			Serve(logger, &w.Primary, listener, primaryServer)
-		} else {
+		// create all the servers first, so that we can populate the servers slice
+		// without worrying about concurrency
+		primaryServer := w.Primary.New(logger, primaryHandler)
+		if primaryServer == nil {
+			// the primary server is required
+			close(done)
 			return ErrorNoPrimaryAddress
 		}
 
-		if alternateServer := w.Alternate.New(logger, primaryHandler); alternateServer != nil {
-			listener, err := w.Alternate.NewListener(
-				logger,
+		alternateServer := w.Alternate.New(logger, primaryHandler)
+		if alternateServer != nil {
+			servers = append(servers, alternateServer)
+		}
+
+		if healthServer != nil {
+			servers = append(servers, healthServer)
+		}
+
+		pprofServer := w.Pprof.New(logger, nil)
+		if pprofServer != nil {
+			servers = append(servers, pprofServer)
+		}
+
+		metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry)
+		if metricsServer != nil {
+			servers = append(servers, metricsServer)
+		}
+
+		// create any necessary listeners first, so that we return early if errors occur
+
+		primaryLogger := log.With(logger, "serverName", w.Primary.Name, "bindAddress", w.Primary.Address)
+		primaryListener, err := w.Primary.NewListener(
+			primaryLogger,
+			activeConnections.With("server", "primary"),
+			rejectedCounter.With("server", "primary"),
+		)
+
+		if err != nil {
+			close(done)
+			return err
+		}
+
+		// now we can start all the servers
+
+		// start the alternate server first, so we can short-circuit in the case of errors
+		if alternateServer != nil {
+			alternateLogger := log.With(logger, "serverName", w.Alternate.Name, "bindAddress", w.Alternate.Address)
+			alternateListener, err := w.Alternate.NewListener(
+				alternateLogger,
 				activeConnections.With("server", "alternate"),
 				rejectedCounter.With("server", "alternate"),
 			)
 
 			if err != nil {
-				// TODO: handle cleanup
+				close(done)
 				return err
 			}
 
-			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Alternate.Name, "address", w.Alternate.Address)
-			Serve(logger, &w.Alternate, listener, alternateServer)
+			Serve(alternateLogger, &w.Alternate, alternateListener, alternateServer, finalizer)
 		}
 
-		if metricsServer := w.Metric.New(logger, alice.New(staticHeaders), registry); metricsServer != nil {
-			infoLog.Log(logging.MessageKey(), "starting server", "name", w.Metric.Name, "address", w.Metric.Address)
-			ListenAndServe(logger, &w.Metric, metricsServer)
+		Serve(primaryLogger, &w.Primary, primaryListener, primaryServer, finalizer)
+
+		if healthHandler != nil && healthServer != nil {
+			ListenAndServe(log.With(logger, "serverName", w.Health.Name, "bindAddress", w.Health.Address), &w.Health, healthServer, finalizer)
+			healthHandler.Run(waitGroup, shutdown)
 		}
-		
+
+		if pprofServer != nil {
+			ListenAndServe(
+				log.With(logger, "serverName", w.Pprof.Name, "bindAddress", w.Pprof.Address),
+				&w.Pprof,
+				pprofServer,
+				finalizer,
+			)
+		}
+
+		if metricsServer != nil {
+			ListenAndServe(
+				log.With(logger, "serverName", w.Metric.Name, "bindAddress", w.Metric.Address),
+				&w.Metric,
+				metricsServer,
+				finalizer,
+			)
+		}
+
 		// Output, to metrics, the maximum number of CPUs available to this process
 		maxProcs.Set(float64(runtime.GOMAXPROCS(0)))
 
 		return nil
-	})
+	}), done
 }
 
 //decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
