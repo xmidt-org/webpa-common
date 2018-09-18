@@ -2,7 +2,9 @@ package xlistener
 
 import (
 	"net"
+	"strconv"
 	"sync"
+	"syscall"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/xmetrics"
@@ -130,7 +132,17 @@ func (l *listener) Accept() (net.Conn, error) {
 	for {
 		c, err := l.Listener.Accept()
 		if err != nil {
-			l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to accept connection", logging.ErrorKey(), err)
+			sysValue := ""
+			if errno, ok := err.(syscall.Errno); ok {
+				sysValue = "0x" + strconv.Itoa(int(errno))
+			}
+
+			l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to accept connection", logging.ErrorKey(), err, "sysValue", sysValue)
+			if err == syscall.ENFILE {
+				l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "ENFILE received.  translating to EMFILE")
+				return nil, syscall.EMFILE
+			}
+
 			return nil, err
 		}
 
