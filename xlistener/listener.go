@@ -134,7 +134,7 @@ func (l *listener) Accept() (net.Conn, error) {
 		if err != nil {
 			sysValue := ""
 			if errno, ok := err.(syscall.Errno); ok {
-				sysValue = "0x" + strconv.Itoa(int(errno))
+				sysValue = "0x" + strconv.FormatInt(int64(errno), 16)
 			}
 
 			l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to accept connection", logging.ErrorKey(), err, "sysValue", sysValue)
