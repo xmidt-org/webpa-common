@@ -3,7 +3,6 @@ package device
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 	"sync"
 	"testing"
 	"time"
@@ -14,8 +13,14 @@ import (
 
 const EqualityThreshold = 1000
 
+func Abs(n int64) int64 {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
 func almostEqual(a, b time.Duration) bool {
-	return math.Abs(float64(a-b)) <= EqualityThreshold
+	return Abs(a.Nanoseconds()-b.Nanoseconds()) <= EqualityThreshold
 }
 
 func testStatisticsInitialStateDefaultNow(t *testing.T) {
@@ -36,7 +41,9 @@ func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	assert.Zero(statistics.MessagesReceived())
 	assert.Zero(statistics.Duplications())
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
-	assert.True(almostEqual(time.Now().Sub(expectedConnectedAt), statistics.UpTime()))
+	assert.True(almostEqual(time.Now().Sub(expectedConnectedAt), statistics.UpTime()),
+		"TimeSince Connected %dns,  UpTime %dns with a margin of %d, actual %d",
+		time.Now().Sub(expectedConnectedAt).Nanoseconds(), statistics.UpTime().Nanoseconds(), EqualityThreshold, Abs(time.Now().Sub(expectedConnectedAt).Nanoseconds()-statistics.UpTime().Nanoseconds()))
 
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
