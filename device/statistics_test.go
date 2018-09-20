@@ -41,9 +41,11 @@ func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	assert.Zero(statistics.MessagesReceived())
 	assert.Zero(statistics.Duplications())
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
-	assert.True(almostEqual(time.Now().Sub(expectedConnectedAt), statistics.UpTime()),
+	expectedUpTime := time.Now().Sub(expectedConnectedAt)
+	uptime := statistics.UpTime()
+	assert.True(almostEqual(expectedUpTime, uptime),
 		"TimeSince Connected %dns,  UpTime %dns with a margin of %d, actual %d",
-		time.Now().Sub(expectedConnectedAt).Nanoseconds(), statistics.UpTime().Nanoseconds(), EqualityThreshold, Abs(time.Now().Sub(expectedConnectedAt).Nanoseconds()-statistics.UpTime().Nanoseconds()))
+		expectedUpTime.Nanoseconds(), uptime.Nanoseconds(), EqualityThreshold, Abs(expectedUpTime.Nanoseconds()-uptime.Nanoseconds()))
 
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
