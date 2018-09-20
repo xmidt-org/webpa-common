@@ -3,6 +3,7 @@ package device
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const EqualityThreshold = 1000
+
+func almostEqual(a, b time.Duration) bool {
+	return math.Abs(float64(a-b)) <= EqualityThreshold
+}
 
 func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	var (
@@ -29,7 +36,7 @@ func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	assert.Zero(statistics.MessagesReceived())
 	assert.Zero(statistics.Duplications())
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
-	assert.True(time.Now().Sub(expectedConnectedAt) <= statistics.UpTime())
+	assert.True(almostEqual(time.Now().Sub(expectedConnectedAt), statistics.UpTime()))
 
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
