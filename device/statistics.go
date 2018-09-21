@@ -1,7 +1,6 @@
 package device
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -168,10 +167,8 @@ func (s *statistics) String() string {
 }
 
 func (s *statistics) MarshalJSON() ([]byte, error) {
-	output := bytes.NewBuffer(make([]byte, 0, 150))
 	s.lock.RLock()
-	_, err := fmt.Fprintf(
-		output,
+	output := []byte(fmt.Sprintf(
 		`{"bytesSent": %d, "messagesSent": %d, "bytesReceived": %d, "messagesReceived": %d, "duplications": %d, "connectedAt": "%s", "upTime": "%s"}`,
 		s.bytesSent,
 		s.messagesSent,
@@ -180,8 +177,7 @@ func (s *statistics) MarshalJSON() ([]byte, error) {
 		s.duplications,
 		s.formattedConnectedAt,
 		s.UpTime(),
-	)
-
+	))
 	s.lock.RUnlock()
-	return output.Bytes(), err
+	return output, nil
 }
