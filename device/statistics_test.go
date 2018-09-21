@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const EqualityThreshold = 1000
+const EqualityThreshold = 4000
 
 func Abs(n int64) int64 {
 	if n < 0 {
