@@ -130,25 +130,6 @@ func (msg *Message) SetIncludeSpans(value bool) *Message {
 	return msg
 }
 
-// AuthorizationStatus represents a WRP message of type AuthMessageType.
-//
-// https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#authorization-status-definition
-type AuthorizationStatus struct {
-	// Type is exposed principally for encoding.  This field *must* be set to AuthMessageType,
-	// and is automatically set by the BeforeEncode method.
-	Type   MessageType `wrp:"msg_type"`
-	Status int64       `wrp:"status"`
-}
-
-func (msg *AuthorizationStatus) MessageType() MessageType {
-	return msg.Type
-}
-
-func (msg *AuthorizationStatus) BeforeEncode() error {
-	msg.Type = AuthorizationStatusMessageType
-	return nil
-}
-
 // SimpleRequestResponse represents a WRP message of type SimpleRequestResponseMessageType.
 //
 // https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-request-response-definition

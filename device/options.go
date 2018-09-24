@@ -21,7 +21,6 @@ const (
 	DefaultRequestTimeout time.Duration = 30 * time.Second
 	DefaultWriteTimeout   time.Duration = 60 * time.Second
 	DefaultPingPeriod     time.Duration = 45 * time.Second
-	DefaultAuthDelay      time.Duration = 1 * time.Second
 
 	DefaultReadBufferSize         = 0
 	DefaultWriteBufferSize        = 0
@@ -44,9 +43,6 @@ type Options struct {
 
 	// PingPeriod is the time between pings sent to each device
 	PingPeriod time.Duration
-
-	// AuthDelay is the time to wait before sending the authorization message
-	AuthDelay time.Duration
 
 	// IdlePeriod is the length of time a device connection is allowed to be idle,
 	// with no traffic coming from the device.  If not supplied, DefaultIdlePeriod is used.
@@ -112,14 +108,6 @@ func (o *Options) pingPeriod() time.Duration {
 	}
 
 	return DefaultPingPeriod
-}
-
-func (o *Options) authDelay() time.Duration {
-	if o != nil && o.AuthDelay > 0 {
-		return o.AuthDelay
-	}
-
-	return DefaultAuthDelay
 }
 
 func (o *Options) requestTimeout() time.Duration {

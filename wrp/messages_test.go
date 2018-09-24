@@ -117,10 +117,6 @@ func TestMessage(t *testing.T) {
 		messages = []Message{
 			{},
 			{
-				Type:   AuthorizationStatusMessageType,
-				Status: &expectedStatus,
-			},
-			{
 				Type:            SimpleEventMessageType,
 				Source:          "mac:121234345656",
 				Destination:     "foobar.com/service",
@@ -168,36 +164,6 @@ func TestMessage(t *testing.T) {
 			for _, message := range messages {
 				testMessageEncode(t, source, message)
 			}
-		})
-	}
-}
-
-func testAuthorizationStatusEncode(t *testing.T, f Format) {
-	var (
-		assert   = assert.New(t)
-		original = AuthorizationStatus{
-			Status: 27,
-		}
-
-		decoded AuthorizationStatus
-
-		buffer  bytes.Buffer
-		encoder = NewEncoder(&buffer, f)
-		decoder = NewDecoder(&buffer, f)
-	)
-
-	assert.NoError(encoder.Encode(&original))
-	assert.True(buffer.Len() > 0)
-	assert.Equal(AuthorizationStatusMessageType, original.Type)
-	assert.Equal(AuthorizationStatusMessageType, original.MessageType())
-	assert.NoError(decoder.Decode(&decoded))
-	assert.Equal(original, decoded)
-}
-
-func TestAuthorizationStatus(t *testing.T) {
-	for _, format := range allFormats {
-		t.Run(fmt.Sprintf("Encode%s", format), func(t *testing.T) {
-			testAuthorizationStatusEncode(t, format)
 		})
 	}
 }

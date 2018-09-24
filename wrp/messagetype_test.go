@@ -11,7 +11,6 @@ func TestMessageTypeString(t *testing.T) {
 	var (
 		assert       = assert.New(t)
 		messageTypes = []MessageType{
-			AuthorizationStatusMessageType,
 			SimpleRequestResponseMessageType,
 			SimpleEventMessageType,
 			CreateMessageType,
@@ -41,7 +40,6 @@ func TestMessageTypeSupportsTransaction(t *testing.T) {
 	var (
 		assert                      = assert.New(t)
 		expectedSupportsTransaction = map[MessageType]bool{
-			AuthorizationStatusMessageType:   false,
 			SimpleRequestResponseMessageType: true,
 			SimpleEventMessageType:           false,
 			CreateMessageType:                true,
@@ -87,7 +85,7 @@ func testStringToMessageTypeInvalid(t *testing.T, invalid string) {
 
 func TestStringToMessageType(t *testing.T) {
 	t.Run("Valid", func(t *testing.T) {
-		for v := AuthorizationStatusMessageType; v < lastMessageType; v++ {
+		for v := SimpleRequestResponseMessageType; v < lastMessageType; v++ {
 			testStringToMessageTypeValid(t, v)
 		}
 	})
