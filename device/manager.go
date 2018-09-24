@@ -324,9 +324,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	defer d.debugLog.Log(logging.MessageKey(), "writePump exiting")
 	d.debugLog.Log(logging.MessageKey(), "writePump starting")
 
-	wg := new(sync.WaitGroup)
-	wg.Add(1)
-
 	var (
 		envelope   *envelope
 		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
@@ -340,7 +337,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			// triggers.  This is only a problem if a device connects then disconnects faster
 			// than the authDelay setting.
 			w.WritePreparedMessage(authStatus)
-			wg.Done()
 		})
 	)
 
@@ -410,7 +406,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			}
 
 			if writeError == nil {
-				wg.Wait()
 				writeError = w.WriteMessage(websocket.BinaryMessage, frameContents)
 			}
 
