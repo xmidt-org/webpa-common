@@ -2,6 +2,7 @@ package servicehttp
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/Comcast/webpa-common/device"
 	"github.com/Comcast/webpa-common/logging"
@@ -17,12 +18,22 @@ import (
 // The returned filter will check the request's context for a device id, using that to hash with if one is found.
 // Otherwise, the device key is parsed from the request via device.IDHashParser.
 func NewHashFilter(a service.Accessor, reject error, self ...string) xfilter.Interface {
-	if len(self) == 0 {
+	// filter out any blank strings from the self, which allows for injected values that can
+	// disable the hash filter.
+	var filteredSelf []string
+	for _, s := range self {
+		s = strings.TrimSpace(s)
+		if len(s) > 0 {
+			filteredSelf = append(filteredSelf, s)
+		}
+	}
+
+	if len(filteredSelf) == 0 {
 		return xfilter.Allow()
 	}
 
 	selfSet := make(map[string]bool, len(self))
-	for _, i := range self {
+	for _, i := range filteredSelf {
 		selfSet[i] = true
 	}
 

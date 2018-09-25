@@ -18,19 +18,32 @@ import (
 )
 
 func testNewHashFilterNoSelf(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
+	testData := [][]string{
+		nil,
+		[]string{},
+		[]string{""},
+		[]string{" "},
+		[]string{"  ", ""},
+		[]string{"\t\r", "", "   "},
+	}
 
-		accessor = new(service.MockAccessor)
-		reject   = errors.New("reject")
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var (
+				assert  = assert.New(t)
+				require = require.New(t)
 
-		f = NewHashFilter(accessor, reject)
-	)
+				accessor = new(service.MockAccessor)
+				reject   = errors.New("reject")
 
-	require.NotNil(f)
-	assert.NoError(f.Allow(new(http.Request)))
-	accessor.AssertExpectations(t)
+				f = NewHashFilter(accessor, reject, record...)
+			)
+
+			require.NotNil(f)
+			assert.NoError(f.Allow(new(http.Request)))
+			accessor.AssertExpectations(t)
+		})
+	}
 }
 
 func testNewHashFilterPass(t *testing.T) {
