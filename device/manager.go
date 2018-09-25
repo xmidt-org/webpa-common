@@ -17,20 +17,6 @@ import (
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 
-var authStatus *websocket.PreparedMessage
-
-func init() {
-	var err error
-	authStatus, err = websocket.NewPreparedMessage(
-		websocket.BinaryMessage,
-		wrp.MustEncode(&wrp.AuthorizationStatus{Status: wrp.AuthStatusAuthorized}, wrp.Msgpack),
-	)
-
-	if err != nil {
-		panic(err)
-	}
-}
-
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
 // for explicit disconnection.
@@ -116,7 +102,6 @@ func NewManager(o *Options) Manager {
 		}),
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
-		authDelay:              o.authDelay(),
 
 		listeners: o.listeners(),
 		measures:  measures,
@@ -138,7 +123,6 @@ type manager struct {
 
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
-	authDelay              time.Duration
 
 	listeners []Listener
 	measures  Measures
@@ -330,14 +314,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 		writeError error
 
 		pingTicker = time.NewTicker(m.pingPeriod)
-
-		// wait for the delay, then send an auth status request to the device
-		authStatusTimer = time.AfterFunc(m.authDelay, func() {
-			// TODO: This will keep the device from being garbage collected until the timer
-			// triggers.  This is only a problem if a device connects then disconnects faster
-			// than the authDelay setting.
-			w.WritePreparedMessage(authStatus)
-		})
 	)
 
 	// cleanup: we not only ensure that the device and connection are closed but also
@@ -345,7 +321,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	// the configured listener
 	defer func() {
 		pingTicker.Stop()
-		authStatusTimer.Stop()
 		closeOnce.Do(func() { m.pumpClose(d, w, writeError) })
 
 		// notify listener of any message that just now failed

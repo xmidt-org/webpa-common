@@ -4,14 +4,14 @@ package wrp
 
 import "strconv"
 
-const _MessageType_name = "AuthorizationStatusMessageTypeSimpleRequestResponseMessageTypeSimpleEventMessageTypeCreateMessageTypeRetrieveMessageTypeUpdateMessageTypeDeleteMessageTypeServiceRegistrationMessageTypeServiceAliveMessageTypelastMessageType"
+const _MessageType_name = "SimpleRequestResponseMessageTypeSimpleEventMessageTypeCreateMessageTypeRetrieveMessageTypeUpdateMessageTypeDeleteMessageTypeServiceRegistrationMessageTypeServiceAliveMessageTypelastMessageType"
 
-var _MessageType_index = [...]uint8{0, 30, 62, 84, 101, 120, 137, 154, 184, 207, 222}
+var _MessageType_index = [...]uint8{0, 32, 54, 71, 90, 107, 124, 154, 177, 192}
 
 func (i MessageType) String() string {
-	i -= 2
+	i -= 3
 	if i < 0 || i >= MessageType(len(_MessageType_index)-1) {
-		return "MessageType(" + strconv.FormatInt(int64(i+2), 10) + ")"
+		return "MessageType(" + strconv.FormatInt(int64(i+3), 10) + ")"
 	}
 	return _MessageType_name[_MessageType_index[i]:_MessageType_index[i+1]]
 }

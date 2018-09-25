@@ -11,8 +11,7 @@ import (
 type MessageType int64
 
 const (
-	AuthorizationStatusMessageType MessageType = iota + 2
-	SimpleRequestResponseMessageType
+	SimpleRequestResponseMessageType  MessageType = iota + 3
 	SimpleEventMessageType
 	CreateMessageType
 	RetrieveMessageType
@@ -21,11 +20,6 @@ const (
 	ServiceRegistrationMessageType
 	ServiceAliveMessageType
 	lastMessageType
-
-	AuthStatusAuthorized      = 200
-	AuthStatusUnauthorized    = 401
-	AuthStatusPaymentRequired = 402
-	AuthStatusNotAcceptable   = 406
 )
 
 // SupportsTransaction tests if messages of this type are allowed to participate in transactions.
@@ -33,8 +27,6 @@ const (
 // where applicable).
 func (mt MessageType) SupportsTransaction() bool {
 	switch mt {
-	case AuthorizationStatusMessageType:
-		return false
 	case SimpleEventMessageType:
 		return false
 	case ServiceRegistrationMessageType:
@@ -71,7 +63,7 @@ func init() {
 	// The integral value of the constant
 	// The String() value
 	// The String() value minus the MessageType suffix
-	for v := AuthorizationStatusMessageType; v < lastMessageType; v++ {
+	for v := SimpleRequestResponseMessageType; v < lastMessageType; v++ {
 		stringToMessageType[strconv.Itoa(int(v))] = v
 
 		vs := v.String()

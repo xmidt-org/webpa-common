@@ -21,7 +21,6 @@ func TestOptionsDefault(t *testing.T) {
 		assert.Equal(0, o.maxDevices())
 		assert.Equal(DefaultIdlePeriod, o.idlePeriod())
 		assert.Equal(DefaultPingPeriod, o.pingPeriod())
-		assert.Equal(DefaultAuthDelay, o.authDelay())
 		assert.Equal(DefaultWriteTimeout, o.writeTimeout())
 		assert.NotNil(o.logger())
 		assert.Empty(o.listeners())
@@ -46,7 +45,6 @@ func TestOptions(t *testing.T) {
 			DeviceMessageQueueSize: DefaultDeviceMessageQueueSize + 287342,
 			IdlePeriod:             DefaultIdlePeriod + 3472*time.Minute,
 			PingPeriod:             DefaultPingPeriod + 384*time.Millisecond,
-			AuthDelay:              DefaultAuthDelay + 88*time.Millisecond,
 			WriteTimeout:           DefaultWriteTimeout + 327193*time.Second,
 			Logger:                 expectedLogger,
 			Listeners:              []Listener{func(*Event) {}},
@@ -68,7 +66,6 @@ func TestOptions(t *testing.T) {
 	assert.Equal(20000, o.maxDevices())
 	assert.Equal(o.IdlePeriod, o.idlePeriod())
 	assert.Equal(o.PingPeriod, o.pingPeriod())
-	assert.Equal(o.AuthDelay, o.authDelay())
 	assert.Equal(o.WriteTimeout, o.writeTimeout())
 	assert.Equal(expectedLogger, o.logger())
 	assert.Equal(o.Listeners, o.listeners())

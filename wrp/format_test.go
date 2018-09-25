@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -267,61 +266,12 @@ func testTranscodeMessage(t *testing.T, target, source Format, original interfac
 	assert.Equal(encodeValue.Elem().Interface(), decodeValue.Elem().Interface())
 }
 
-func testMustEncodeValid(t *testing.T, f Format) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		message = AuthorizationStatus{Status: AuthStatusAuthorized}
-
-		expectedData bytes.Buffer
-		encoder      = NewEncoder(&expectedData, f)
-	)
-
-	require.NoError(encoder.Encode(message))
-
-	assert.NotPanics(func() {
-		assert.Equal(
-			expectedData.Bytes(),
-			MustEncode(message, f),
-		)
-	})
-}
-
-func testMustEncodePanic(t *testing.T, f Format) {
-	var (
-		assert  = assert.New(t)
-		message = new(mockEncodeListener)
-	)
-
-	message.On("BeforeEncode").Once().Return(errors.New("expected"))
-
-	assert.Panics(func() {
-		MustEncode(message, f)
-	})
-
-	message.AssertExpectations(t)
-}
-
-func TestMustEncode(t *testing.T) {
-	for _, f := range []Format{Msgpack, JSON} {
-		t.Run(f.String(), func(t *testing.T) {
-			t.Run("Valid", func(t *testing.T) { testMustEncodeValid(t, f) })
-			t.Run("Panic", func(t *testing.T) { testMustEncodePanic(t, f) })
-		})
-	}
-}
-
 func TestTranscodeMessage(t *testing.T) {
 	var (
 		expectedStatus                  int64 = 123
 		expectedRequestDeliveryResponse int64 = -1234
 
 		messages = []interface{}{
-			AuthorizationStatus{},
-			AuthorizationStatus{
-				Status: expectedStatus,
-			},
 			SimpleRequestResponse{},
 			SimpleRequestResponse{
 				Source:      "foobar.com",
