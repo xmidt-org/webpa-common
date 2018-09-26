@@ -32,6 +32,9 @@ func NewHashFilter(a service.Accessor, reject error, self ...string) xfilter.Int
 		return xfilter.Allow()
 	}
 
+	// compute this value once, for logging
+	selfValue := strings.Join(filteredSelf, ",")
+
 	selfSet := make(map[string]bool, len(self))
 	for _, i := range filteredSelf {
 		selfSet[i] = true
@@ -55,7 +58,7 @@ func NewHashFilter(a service.Accessor, reject error, self ...string) xfilter.Int
 		}
 
 		if !selfSet[i] {
-			logging.GetLogger(r.Context()).Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "device does not hash to this instance", "key", string(key), logging.ErrorKey(), reject)
+			logging.GetLogger(r.Context()).Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "device does not hash to this instance", "key", string(key), logging.ErrorKey(), reject, "instance", i, "self", selfValue)
 			return reject
 		}
 
