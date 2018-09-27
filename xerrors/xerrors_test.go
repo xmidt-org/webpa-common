@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -101,7 +102,7 @@ func TestFirstCause_CustomSubError(t *testing.T) {
 
 func TestFirstCause_Nil(t *testing.T) {
 	assert := assert.New(t)
-	
+
 	assert.Nil(FirstCause(nil))
 }
 
@@ -120,7 +121,6 @@ func TestFirstCause_ChainSubError(t *testing.T) {
 		"a",
 	}
 	assert.Equal(exectedErr, FirstCause(subError{test, "root"}))
-	t.Logf("%s <-> %s", exectedErr.Error(), test.Error())
 }
 
 func TestGetError_SubError(t *testing.T) {
@@ -166,10 +166,7 @@ func testFirstCauseHTTPHandler(t *testing.T, serverSleep time.Duration, contextD
 	}
 
 	xerr := FirstCause(clientErr)
-	assert.Error(xerr)
-
-	t.Logf("%#v\n", clientErr)
-	t.Log(xerr)
+	assert.Equal(clientErr.(*url.Error).Err, xerr)
 }
 
 func TestFirstCause_HTTP(t *testing.T) {

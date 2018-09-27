@@ -33,7 +33,7 @@ func findErrorInValue(v reflect.Value) error {
 			return err
 		} else if v.Kind() == reflect.Ptr { // We can't cast it to an error, check the pointer.
 			return findErrorInValue(v.Elem())
-		} else if v.Kind() == reflect.Struct {// We can't cast it to an error, check the fields.
+		} else if v.Kind() == reflect.Struct { // We can't cast it to an error, check the fields.
 			return iterateFields(v)
 		}
 	} else if v.Kind() == reflect.Ptr && v.Type().String() == "*errors.errorString" { // the base case. AKA errors.New("error")
