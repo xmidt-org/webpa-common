@@ -3,10 +3,7 @@ package servicehttp
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/Comcast/webpa-common/device"
@@ -17,113 +14,55 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func testNewHashFilterNoAccessor(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		self = func(string) bool {
+			assert.Fail("The self predicate should not have been called")
+			return false
+		}
+
+		hf = NewHashFilter(nil, errors.New("reject"), self)
+	)
+
+	require.NotNil(hf)
+	assert.NoError(hf.Allow(httptest.NewRequest("GET", "/", nil)))
+}
+
+func testNewHashFilterNoReject(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		a = new(service.MockAccessor)
+
+		self = func(string) bool {
+			assert.Fail("The self predicate should not have been called")
+			return false
+		}
+
+		hf = NewHashFilter(a, nil, self)
+	)
+
+	require.NotNil(hf)
+	assert.NoError(hf.Allow(httptest.NewRequest("GET", "/", nil)))
+	a.AssertExpectations(t)
+}
+
 func testNewHashFilterNoSelf(t *testing.T) {
-	testData := [][]string{
-		nil,
-		[]string{},
-		[]string{""},
-		[]string{" "},
-		[]string{"  ", ""},
-		[]string{"\t\r", "", "   "},
-	}
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
 
-	for i, record := range testData {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			var (
-				assert  = assert.New(t)
-				require = require.New(t)
+		a  = new(service.MockAccessor)
+		hf = NewHashFilter(a, errors.New("reject"), nil)
+	)
 
-				accessor = new(service.MockAccessor)
-				reject   = errors.New("reject")
-
-				f = NewHashFilter(accessor, reject, record...)
-			)
-
-			require.NotNil(f)
-			assert.NoError(f.Allow(new(http.Request)))
-			accessor.AssertExpectations(t)
-		})
-	}
-}
-
-func testNewHashFilterPass(t *testing.T) {
-	for _, selfCount := range []int{1, 2, 5} {
-		t.Run(strconv.Itoa(selfCount), func(t *testing.T) {
-			var (
-				assert  = assert.New(t)
-				require = require.New(t)
-
-				accessor = new(service.MockAccessor)
-				ids      = make([]device.ID, selfCount)
-				self     = make([]string, selfCount)
-			)
-
-			for i := 0; i < selfCount; i++ {
-				ids[i] = device.IntToMAC(uint64(i))
-				self[i] = fmt.Sprintf("instance-%d", i)
-				accessor.On("Get", ids[i].Bytes()).Return(self[i], error(nil)).Times(2)
-			}
-
-			f := NewHashFilter(accessor, errors.New("reject"), self...)
-			require.NotNil(f)
-
-			for i := 0; i < selfCount; i++ {
-				assert.NoError(
-					f.Allow(
-						device.WithIDRequest(ids[i], httptest.NewRequest("GET", "/", nil)),
-					),
-				)
-
-				request := httptest.NewRequest("GET", "/", nil)
-				request.Header.Set(device.DeviceNameHeader, string(ids[i]))
-				assert.NoError(f.Allow(request))
-			}
-
-			accessor.AssertExpectations(t)
-		})
-	}
-}
-
-func testNewHashFilterReject(t *testing.T) {
-	for _, selfCount := range []int{1, 2, 5} {
-		t.Run(strconv.Itoa(selfCount), func(t *testing.T) {
-			var (
-				assert  = assert.New(t)
-				require = require.New(t)
-
-				logger   = logging.NewTestLogger(nil, t)
-				reject   = errors.New("reject")
-				accessor = new(service.MockAccessor)
-				self     = make([]string, selfCount)
-			)
-
-			accessor.On("Get", mock.MatchedBy(func([]byte) bool { return true })).Return("notSelf", error(nil)).Times(2)
-
-			for i := 0; i < selfCount; i++ {
-				self[i] = fmt.Sprintf("instance-%d", i)
-			}
-
-			f := NewHashFilter(accessor, reject, self...)
-			require.NotNil(f)
-
-			assert.Equal(
-				reject,
-				f.Allow(
-					device.WithIDRequest(
-						device.ID("mac:112233445566"),
-						httptest.NewRequest("GET", "/", nil).WithContext(logging.WithLogger(context.Background(), logger)),
-					),
-				),
-			)
-
-			request := httptest.NewRequest("GET", "/", nil)
-			request.Header.Set(device.DeviceNameHeader, "mac:112233445566")
-			request = request.WithContext(logging.WithLogger(request.Context(), logger))
-			assert.Equal(reject, f.Allow(request))
-
-			accessor.AssertExpectations(t)
-		})
-	}
+	require.NotNil(hf)
+	assert.NoError(hf.Allow(httptest.NewRequest("GET", "/", nil)))
+	a.AssertExpectations(t)
 }
 
 func testNewHashFilterParseError(t *testing.T) {
@@ -131,16 +70,21 @@ func testNewHashFilterParseError(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		id       = "asdlfkj039w485;lkjsd,.fjaw94385"
+		id   = "asdlfkj039w485;lkjsd,.fjaw94385"
+		self = func(string) bool {
+			assert.Fail("The self predicate should not have been called")
+			return false
+		}
+
 		accessor = new(service.MockAccessor)
+		hf       = NewHashFilter(accessor, errors.New("reject"), self)
 	)
 
-	f := NewHashFilter(accessor, errors.New("reject"), "instance-1")
-	require.NotNil(f)
+	require.NotNil(hf)
 
 	request := httptest.NewRequest("GET", "/", nil)
 	request.Header.Set(device.DeviceNameHeader, string(id))
-	assert.Error(f.Allow(request))
+	assert.Error(hf.Allow(request))
 
 	accessor.AssertExpectations(t)
 }
@@ -150,34 +94,103 @@ func testNewHashFilterHashError(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		id       = device.IntToMAC(999)
+		id   = device.IntToMAC(999)
+		self = func(string) bool {
+			assert.Fail("The self predicate should not have been called")
+			return false
+		}
+
 		hashErr  = errors.New("hash")
 		accessor = new(service.MockAccessor)
+		hf       = NewHashFilter(accessor, errors.New("reject"), self)
 	)
 
+	require.NotNil(hf)
 	accessor.On("Get", mock.MatchedBy(func([]byte) bool { return true })).Return("", hashErr).Times(2)
-
-	f := NewHashFilter(accessor, errors.New("reject"), "instance-1")
-	require.NotNil(f)
 
 	assert.Equal(
 		hashErr,
-		f.Allow(
+		hf.Allow(
 			device.WithIDRequest(id, httptest.NewRequest("GET", "/", nil)),
 		),
 	)
 
 	request := httptest.NewRequest("GET", "/", nil)
 	request.Header.Set(device.DeviceNameHeader, string(id))
-	assert.Equal(hashErr, f.Allow(request))
+	assert.Equal(hashErr, hf.Allow(request))
 
 	accessor.AssertExpectations(t)
 }
 
+func testNewHashFilterAllow(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		id               = device.IntToMAC(47283)
+		expectedInstance = "instance"
+		ctx              = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+
+		selfCalled = false
+		self       = func(actualInstance string) bool {
+			selfCalled = true
+			assert.Equal(expectedInstance, actualInstance)
+			return true
+		}
+
+		a  = new(service.MockAccessor)
+		hf = NewHashFilter(a, errors.New("reject"), self)
+	)
+
+	require.NotNil(hf)
+	a.On("Get", mock.MatchedBy(func(k []byte) bool { return string(id) == string(k) })).Return(expectedInstance, error(nil)).Once()
+
+	request := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+	request.Header.Set(device.DeviceNameHeader, string(id))
+	assert.NoError(hf.Allow(request))
+
+	assert.True(selfCalled)
+	a.AssertExpectations(t)
+}
+
+func testNewHashFilterReject(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		id               = device.IntToMAC(93723)
+		expectedInstance = "instance"
+		ctx              = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+
+		selfCalled = false
+		self       = func(actualInstance string) bool {
+			selfCalled = true
+			assert.Equal(expectedInstance, actualInstance)
+			return false
+		}
+
+		a           = new(service.MockAccessor)
+		expectedErr = errors.New("expected")
+		hf          = NewHashFilter(a, expectedErr, self)
+	)
+
+	require.NotNil(hf)
+	a.On("Get", mock.MatchedBy(func(k []byte) bool { return string(id) == string(k) })).Return(expectedInstance, error(nil)).Once()
+
+	request := httptest.NewRequest("GET", "/", nil).WithContext(ctx)
+	request.Header.Set(device.DeviceNameHeader, string(id))
+	assert.Equal(expectedErr, hf.Allow(request))
+
+	assert.True(selfCalled)
+	a.AssertExpectations(t)
+}
+
 func TestNewHashFilter(t *testing.T) {
+	t.Run("NoAccessor", testNewHashFilterNoAccessor)
+	t.Run("NoReject", testNewHashFilterNoReject)
 	t.Run("NoSelf", testNewHashFilterNoSelf)
-	t.Run("Pass", testNewHashFilterPass)
-	t.Run("Reject", testNewHashFilterReject)
 	t.Run("ParseError", testNewHashFilterParseError)
 	t.Run("HashError", testNewHashFilterHashError)
+	t.Run("Allow", testNewHashFilterAllow)
+	t.Run("Reject", testNewHashFilterReject)
 }
