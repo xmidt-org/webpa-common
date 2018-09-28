@@ -30,37 +30,37 @@ func (err subErrorPtr) Error() string {
 	return fmt.Sprintf("%s(%s)", err.str, (*err.err).Error())
 }
 
-func TestGetError_Int(t *testing.T) {
+func TestGetErrorInt(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal(nil, getError(5))
 
 }
-func TestGetError_String(t *testing.T) {
+func TestGetErrorString(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal(nil, getError("hi"))
 }
-func TestGetError_Nil(t *testing.T) {
+func TestGetErrorNil(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal(nil, getError(nil))
 }
 
-func TestGetError_Error(t *testing.T) {
+func TestGetErrorError(t *testing.T) {
 	assert := assert.New(t)
 
 	expected := errors.New("hi")
 	assert.Equal(expected, getError(expected))
 }
-func TestGetError_ErrorPTR(t *testing.T) {
+func TestGetErrorErrorPTR(t *testing.T) {
 	assert := assert.New(t)
 
 	expected := errors.New("hi")
 	assert.Equal(expected, getError(&expected))
 }
 
-func TestGetError_ErrorComplex(t *testing.T) {
+func TestGetErrorErrorComplex(t *testing.T) {
 	assert := assert.New(t)
 	type testA struct {
 		error
@@ -70,7 +70,7 @@ func TestGetError_ErrorComplex(t *testing.T) {
 	assert.Equal(expected, getError(expected))
 }
 
-func TestGetError_ErrorComplexWithPointer(t *testing.T) {
+func TestGetErrorErrorComplexWithPointer(t *testing.T) {
 	assert := assert.New(t)
 	type testA struct {
 		error
@@ -80,7 +80,7 @@ func TestGetError_ErrorComplexWithPointer(t *testing.T) {
 	assert.Equal(expected, getError(&expected))
 }
 
-func TestGetError_NoError(t *testing.T) {
+func TestGetErrorNoError(t *testing.T) {
 	assert := assert.New(t)
 	type testA struct {
 		str string
@@ -89,7 +89,7 @@ func TestGetError_NoError(t *testing.T) {
 	assert.Nil(getError(&expected))
 }
 
-func TestFirstCause_CustomSubError(t *testing.T) {
+func TestFirstCauseCustomSubError(t *testing.T) {
 	assert := assert.New(t)
 	type testA struct {
 		error
@@ -100,13 +100,13 @@ func TestFirstCause_CustomSubError(t *testing.T) {
 	assert.Equal(exectedErr, FirstCause(subError{test, "neat"}))
 }
 
-func TestFirstCause_Nil(t *testing.T) {
+func TestFirstCauseNil(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Nil(FirstCause(nil))
 }
 
-func TestFirstCause_ChainSubError(t *testing.T) {
+func TestFirstCauseChainSubError(t *testing.T) {
 	assert := assert.New(t)
 
 	exectedErr := errors.New("expected error")
@@ -123,14 +123,14 @@ func TestFirstCause_ChainSubError(t *testing.T) {
 	assert.Equal(exectedErr, FirstCause(subError{test, "root"}))
 }
 
-func TestGetError_SubError(t *testing.T) {
+func TestGetErrorSubError(t *testing.T) {
 	assert := assert.New(t)
 
 	expected := subError{errors.New("hi"), "bye"}
 	assert.Equal(expected, getError(&expected))
 }
 
-func TestFirstCause_Basic(t *testing.T) {
+func TestFirstCauseBasic(t *testing.T) {
 	assert := assert.New(t)
 
 	err := errors.New("my bad")
@@ -169,7 +169,7 @@ func testFirstCauseHTTPHandler(t *testing.T, serverSleep time.Duration, contextD
 	assert.Equal(clientErr.(*url.Error).Err, xerr)
 }
 
-func TestFirstCause_HTTP(t *testing.T) {
+func TestFirstCauseHTTP(t *testing.T) {
 
 	testData := []struct {
 		name            string
