@@ -2,6 +2,7 @@ package drain
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -10,6 +11,38 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func testJobNormalize(t *testing.T) {
+	testData := []struct {
+		deviceCount int
+		actual      Job
+		expected    Job
+	}{
+		{1000, Job{}, Job{Count: 1000}},
+		{972, Job{Count: -1, Rate: -1}, Job{Count: 972}},
+		{1873, Job{Rate: 52}, Job{Count: 1873, Rate: 52, Tick: time.Second}},
+		{438742, Job{Tick: 15 * time.Minute}, Job{Count: 438742}},
+		{0, Job{Percent: 0}, Job{Count: 0}},
+		{123752, Job{Percent: 17}, Job{Count: 21037, Percent: 17}},
+		{73, Job{Percent: 100}, Job{Count: 73, Percent: 100}},
+	}
+
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			var (
+				assert = assert.New(t)
+				actual = record.actual
+			)
+
+			actual.normalize(record.deviceCount)
+			assert.Equal(record.expected, actual)
+		})
+	}
+}
+
+func TestJob(t *testing.T) {
+	t.Run("Normalize", testJobNormalize)
+}
 
 func testWithLoggerDefault(t *testing.T) {
 	var (

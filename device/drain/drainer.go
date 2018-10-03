@@ -137,6 +137,24 @@ func (j Job) ToMap() map[string]interface{} {
 	return m
 }
 
+// normalize applies some basic logic to interpret defaults and set values appropriately for a given device count
+func (j *Job) normalize(deviceCount int) {
+	if j.Percent > 0 {
+		j.Count = int((float64(deviceCount) / 100.0) * float64(j.Percent))
+	} else if j.Count <= 0 {
+		j.Count = deviceCount
+	}
+
+	if j.Rate > 0 {
+		if j.Tick <= 0 {
+			j.Tick = time.Second
+		}
+	} else {
+		j.Rate = 0
+		j.Tick = 0
+	}
+}
+
 // Interface describes the behavior of a component which can execute a Job to drain devices.
 // Only (1) drain Job is allowed to run at any time.
 type Interface interface {
@@ -351,20 +369,7 @@ func (dr *drainer) disconnect(jc jobContext) {
 }
 
 func (dr *drainer) Start(j Job) (<-chan struct{}, Job, error) {
-	if j.Percent > 0 {
-		j.Count = (dr.registry.Len() / 100) * j.Percent
-	} else if j.Count <= 0 {
-		j.Count = dr.registry.Len()
-	}
-
-	if j.Rate > 0 {
-		if j.Tick <= 0 {
-			j.Tick = time.Second
-		}
-	} else {
-		j.Rate = 0
-		j.Tick = 0
-	}
+	j.normalize(dr.registry.Len())
 
 	defer dr.controlLock.Unlock()
 	dr.controlLock.Lock()
