@@ -9,31 +9,6 @@ import (
 
 // Note to self: Dial is not being set for net.Resolver because that is the Dial to the DNS server.
 
-type Lookup interface {
-	// LookupIPAddr looks up host using the local resolver. It returns a slice of that host's IPv4 and IPv6 addresses.
-	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
-}
-
-type Dial interface {
-	// DialContext connects to the address on the named network using the provided context.
-	DialContext(ctx context.Context, network, addr string) (con net.Conn, err error)
-}
-
-type ConnCreation interface {
-	Dial(network, address string) (net.Conn, error)
-}
-
-// Resolver represents how to generate the address and how to create the connection
-type Resolver interface {
-	Dial
-
-	// Add adds the resolver to the methods of creating the IPv4 and IPv6 addresses
-	Add(r Lookup) error
-
-	// Remove removes the resolver to the methods of creating the IPv4 and IPv6 addresses
-	Remove(r Lookup) error
-}
-
 var DefaultDialer = &net.Dialer{}
 
 type resolver struct {
@@ -106,7 +81,7 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 	// get records using custom resolvers
 	records := resolve.getRecords(ctx, host)
 
-	// generate Con or err from records
+	// generate Conn or err from records
 	con, err = resolve.createConnection(records, network, port)
 	if err == nil {
 		return
