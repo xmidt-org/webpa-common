@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strconv"
 	"sync"
 )
 
@@ -17,15 +18,21 @@ type resolver struct {
 	dialer    *net.Dialer
 }
 
-func NewResolver(dialer *net.Dialer) Resolver {
+func NewResolver(dialer *net.Dialer, lookups ...Lookup) Resolver {
 	if dialer == nil {
 		dialer = DefaultDialer
 	}
-	return &resolver{
-		resolvers: map[Lookup]struct{}{net.DefaultResolver: {}},
+	r := &resolver{
+		resolvers: make(map[Lookup]struct{}),
 		lock:      new(sync.RWMutex),
 		dialer:    dialer,
 	}
+
+	for _, lookup := range lookups {
+		r.Add(lookup)
+	}
+
+	return r
 }
 
 func (resolve *resolver) Add(r Lookup) error {
@@ -56,16 +63,16 @@ func (resolve *resolver) Remove(r Lookup) error {
 	return nil
 }
 
-func (resolve *resolver) getRecords(ctx context.Context, host string) []net.IPAddr {
-	records := make([]net.IPAddr, 0)
+func (resolve *resolver) getRoutes(ctx context.Context, host string) []Route {
+	routes := make([]Route, 0)
 	for r := range resolve.resolvers {
-		tempRecords, err := r.LookupIPAddr(ctx, host)
+		tempRoutes, err := r.LookupRoutes(ctx, host)
 		if err == nil {
-			records = append(records, tempRecords...)
+			routes = append(routes, tempRoutes...)
 		}
 	}
 
-	return records
+	return routes
 }
 
 func (resolve *resolver) DialContext(ctx context.Context, network, addr string) (con net.Conn, err error) {
@@ -79,24 +86,28 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 	}
 
 	// get records using custom resolvers
-	records := resolve.getRecords(ctx, host)
+	routes := resolve.getRoutes(ctx, host)
 
 	// generate Conn or err from records
-	con, err = resolve.createConnection(records, network, port)
+	con, err = resolve.createConnection(routes, network, port)
 	if err == nil {
 		return
 	}
 
-	// if no connection is create use the default dialer
+	// if no connection, create using the default dialer
 	return resolve.dialer.DialContext(ctx, network, addr)
 }
 
-func (resolve *resolver) createConnection(records []net.IPAddr, network, port string) (con net.Conn, err error) {
-	for _, item := range records {
-		con, err = resolve.dialer.Dial(network, net.JoinHostPort(item.IP.String(), port))
+func (resolve *resolver) createConnection(routes []Route, network, port string) (con net.Conn, err error) {
+	for _, route := range routes {
+		portUsed := port
+		if route.Port != 0 {
+			portUsed = strconv.Itoa(route.Port)
+		}
+		con, err = resolve.dialer.Dial(network, net.JoinHostPort(route.Host, portUsed))
 		if err == nil {
 			return
 		}
 	}
-	return nil, errors.New("failed to create connection from records")
+	return nil, errors.New("failed to create connection from routes")
 }

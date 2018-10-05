@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/url"
+	"strconv"
 	"sync"
 )
 
 type Lookup interface {
 	// LookupIPAddr looks up host using the local resolver. It returns a slice of that host's IPv4 and IPv6 addresses.
-	LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error)
+	LookupRoutes(ctx context.Context, host string) ([]Route, error)
 }
 
 type Dial interface {
@@ -32,27 +34,54 @@ type Resolver interface {
 	Remove(r Lookup) error
 }
 
-type orderedIP struct {
-	ip    net.IPAddr
+type Route struct {
+	Scheme string
+	Host   string
+	Port   int
+}
+
+func CreateRoute(route string) (*Route, error) {
+	path, err := url.Parse(route)
+	if err != nil {
+		return nil, err
+	}
+	port, err := strconv.Atoi(path.Port())
+	return &Route{
+		Scheme: path.Scheme,
+		Host:   path.Hostname(),
+		Port:   port,
+	}, err
+}
+
+func (r Route) String() string {
+	str := r.Scheme + "://" + r.Host
+	if r.Port != 0 {
+		return str + ":" + strconv.Itoa(r.Port)
+	}
+	return str
+}
+
+type orderedRoute struct {
+	route Route
 	index int
 }
 
 type RoundRobin struct {
-	lock *sync.RWMutex
-	ips  map[string]*orderedIP
+	lock   *sync.RWMutex
+	routes map[string]*orderedRoute
 }
 
 func NewRoundRobinBalancer() *RoundRobin {
 	return &RoundRobin{
-		lock: new(sync.RWMutex),
-		ips:  make(map[string]*orderedIP, 0),
+		lock:   new(sync.RWMutex),
+		routes: make(map[string]*orderedRoute),
 	}
 }
 
-func (robin *RoundRobin) Add(addr net.IPAddr) error {
+func (robin *RoundRobin) Add(route Route) error {
 	// check if exist
 	robin.lock.RLock()
-	if _, found := robin.ips[addr.String()]; found {
+	if _, found := robin.routes[route.String()]; found {
 		robin.lock.RUnlock()
 		return errors.New("addr already in rotation")
 	}
@@ -61,16 +90,16 @@ func (robin *RoundRobin) Add(addr net.IPAddr) error {
 	// Add to our structure
 	robin.lock.Lock()
 	defer robin.lock.Unlock()
-	robin.ips[addr.String()] = &orderedIP{
-		ip:    addr,
-		index: len(robin.ips),
+	robin.routes[route.String()] = &orderedRoute{
+		route: route,
+		index: len(robin.routes),
 	}
 	return nil
 }
 
-func (robin *RoundRobin) Remove(addr net.IPAddr) error {
+func (robin *RoundRobin) Remove(route Route) error {
 	robin.lock.RLock()
-	if _, found := robin.ips[addr.String()]; !found {
+	if _, found := robin.routes[route.String()]; !found {
 		robin.lock.RUnlock()
 		return errors.New("addr not found")
 	}
@@ -80,37 +109,54 @@ func (robin *RoundRobin) Remove(addr net.IPAddr) error {
 		robin.lock.Lock()
 		defer robin.lock.Unlock()
 		// remove it
-		deletedIP := robin.ips[addr.String()]
-		delete(robin.ips, addr.String())
+		deletedIP := robin.routes[route.String()]
+		delete(robin.routes, route.String())
 
 		// update order
-		if len(robin.ips) == 0 {
+		if len(robin.routes) == 0 {
 			return
 		}
 
-		for _, ip := range robin.ips {
-			if ip.index < deletedIP.index {
+		for _, route := range robin.routes {
+			if route.index < deletedIP.index {
 				continue
 			}
-			ip.index = ip.index - 1
+			route.index = route.index - 1
 		}
 	}()
 
 	return nil
-
 }
 
-func (robin *RoundRobin) Get() ([]net.IPAddr, error) {
+func (robin *RoundRobin) Update(routes []Route) {
+	robin.lock.Lock()
+	defer robin.lock.Unlock()
+
+	robin.routes = make(map[string]*orderedRoute)
+	index := 0
+	for _, route := range routes {
+		if _, found := robin.routes[route.String()]; found {
+			continue
+		}
+		robin.routes[route.String()] = &orderedRoute{
+			route: route,
+			index: index,
+		}
+		index++
+	}
+}
+
+func (robin *RoundRobin) Get() ([]Route, error) {
 	robin.lock.RLock()
 
-	records := make([]net.IPAddr, len(robin.ips))
-	if len(robin.ips) == 0 {
+	records := make([]Route, len(robin.routes))
+	if len(robin.routes) == 0 {
 		robin.lock.RUnlock()
 		return records, errors.New("no records available")
 	}
 
-	for _, ip := range robin.ips {
-		records[ip.index] = ip.ip
+	for _, route := range robin.routes {
+		records[route.index] = route.route
 	}
 
 	// update order
@@ -119,9 +165,9 @@ func (robin *RoundRobin) Get() ([]net.IPAddr, error) {
 
 		robin.lock.Lock()
 		defer robin.lock.Unlock()
-		size := len(robin.ips)
+		size := len(robin.routes)
 
-		for _, ip := range robin.ips {
+		for _, ip := range robin.routes {
 			if ip.index == 0 {
 				ip.index = size - 1
 				continue
