@@ -18,17 +18,22 @@ type Options struct {
 	// exp. { "beta.google.com" : "caduceus" }
 	Watch map[string]string `json:"watch"`
 
-	logger log.Logger `json:"-"`
+	Logger log.Logger `json:"-"`
 }
 
 type ConsulWatcher struct {
+	debugLogger log.Logger
+	infoLogger  log.Logger
+	warnLogger  log.Logger
+	errorLogger log.Logger
+
 	balancers map[string]*xresolver.RoundRobin
 	config    *Options
 }
 
 func NewConsulWatcher(o *Options) *ConsulWatcher {
-	if o.logger == nil {
-		o.logger = logging.DefaultLogger()
+	if o.Logger == nil {
+		o.Logger = logging.DefaultLogger()
 	}
 
 	balancers := make(map[string]*xresolver.RoundRobin)
@@ -38,8 +43,12 @@ func NewConsulWatcher(o *Options) *ConsulWatcher {
 		}
 	}
 	watcher := &ConsulWatcher{
-		balancers: balancers,
-		config:    o,
+		balancers:   balancers,
+		config:      o,
+		debugLogger: logging.Debug(o.Logger),
+		infoLogger:  logging.Info(o.Logger),
+		warnLogger:  logging.Warn(o.Logger),
+		errorLogger: logging.Error(o.Logger),
 	}
 
 	return watcher
@@ -57,12 +66,13 @@ func (watcher *ConsulWatcher) MonitorEvent(e monitor.Event) {
 			// find records
 			route, err := xresolver.CreateRoute(instance)
 			if err != nil {
-				logging.Warn(watcher.config.logger).Log(logging.MessageKey(), "failed to create route", logging.MessageKey(), err, "instance", instance)
+				watcher.errorLogger.Log(logging.MessageKey(), "failed to create route", logging.MessageKey(), err, "instance", instance)
 				continue
 			}
 			routes[index] = *route
 		}
 		rr.Update(routes)
+		watcher.debugLogger.Log(logging.MessageKey(), "received update event", "service", str[1], "new-routes", routes)
 	}
 }
 
@@ -70,5 +80,7 @@ func (watcher *ConsulWatcher) LookupRoutes(ctx context.Context, host string) ([]
 	if _, found := watcher.config.Watch[host]; !found {
 		return []xresolver.Route{}, errors.New(host + " is not part of the consul listener")
 	}
-	return watcher.balancers[watcher.config.Watch[host]].Get()
+	records, err := watcher.balancers[watcher.config.Watch[host]].Get()
+	watcher.debugLogger.Log(logging.MessageKey(), "looking up routes", "routes", records, logging.ErrorKey(), err)
+	return records, err
 }
