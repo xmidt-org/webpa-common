@@ -2,11 +2,6 @@ package webhook
 
 import (
 	"encoding/json"
-	AWS "github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/Comcast/webpa-common/xmetrics"
-	"github.com/aws/aws-sdk-go/service/sns"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +9,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 const TEST_UNIX_TIME = 1503357402
@@ -37,7 +38,7 @@ func TestSubArnError(t *testing.T) {
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
-	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
+	f.Initialize(r, nil, "", handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -80,7 +81,7 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
-	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
+	f.Initialize(r, nil, "", handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 

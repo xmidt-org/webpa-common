@@ -3,12 +3,6 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	AWS "github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/Comcast/webpa-common/xmetrics"
-	"github.com/aws/aws-sdk-go/service/sns"
-	"github.com/gorilla/mux"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +10,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	AWS "github.com/Comcast/webpa-common/webhook/aws"
+	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/gorilla/mux"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *mux.Router, f *Factory) (*httptest.Server, Registry) {
@@ -29,7 +30,7 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	registry, handler := f.NewRegistryAndHandler(metricsRegistry)
-	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
+	f.Initialize(r, nil, "", handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 
@@ -50,7 +51,6 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil).Once()
 
 	f.PrepareAndStart()
-
 
 	subValid := f.ValidateSubscriptionArn("")
 
@@ -102,7 +102,7 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	_, handler := f.NewRegistryAndHandler(metricsRegistry)
-	f.Initialize(r, nil, handler, nil, metricsRegistry, testNow)
+	f.Initialize(r, nil, "", handler, nil, metricsRegistry, testNow)
 
 	ts := httptest.NewServer(r)
 

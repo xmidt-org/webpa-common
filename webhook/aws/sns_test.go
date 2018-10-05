@@ -9,6 +9,7 @@ import (
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,7 +28,7 @@ const (
 		                }
 		          }`
 	TEST_AWS_CFG = `{
-	"waitForDns": "2000000000",
+	"waitForDns": "2",
 	"aws": {
         "accessKey": "accessKey",
         "secretKey": "secretKey",
@@ -39,6 +40,24 @@ const (
 			"urlPath" : "/sns/"
     } } }`
 )
+
+func handleDnsReqFail(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Compress = false
+	w.WriteMsg(m)
+}
+
+func handleDnsReqSuccess(w dns.ResponseWriter, r *dns.Msg) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Compress = false
+	rr, err := dns.NewRR("something.com A 8.8.8.8")
+	if err == nil {
+		m.Answer = append(m.Answer, rr)
+	}
+	w.WriteMsg(m)
+}
 
 func TestNewSNSServerSuccess(t *testing.T) {
 	assert := assert.New(t)
@@ -133,7 +152,7 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 	}
 
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	ss.Initialize(nil, selfUrl, "", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)
@@ -153,7 +172,7 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 	}
 
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	ss.Initialize(nil, selfUrl, "", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)
@@ -161,7 +180,7 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 	assert.Equal("http://host-test:port/sns/1503357402", ss.SelfUrl.String())
 }
 
-func TestDnsReady(t *testing.T) {
+func TestDnsReadyFail(t *testing.T) {
 	assert := assert.New(t)
 
 	v := SetUpTestViperInstance(TEST_AWS_CFG)
@@ -170,12 +189,57 @@ func TestDnsReady(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(ss)
 
+	// create mock DNS server
+	dns.HandleFunc("/", handleDnsReqFail)
+	defer func() {
+		dns.DefaultServeMux = dns.NewServeMux()
+	}()
+	dnsServer := &dns.Server{Addr: ":5079", Net: "tcp"}
+	go func() {
+		err = dnsServer.ListenAndServe()
+		assert.Nil(err)
+	}()
+	defer dnsServer.Shutdown()
+
 	selfUrl := &url.URL{
 		Scheme: "http",
 		Host:   "host:port",
 	}
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	ss.Initialize(nil, selfUrl, "localhost:5079", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+
+	err = ss.DnsReady()
+
+	assert.NotNil(err)
+}
+
+func TestDnsReadySuccess(t *testing.T) {
+	assert := assert.New(t)
+
+	v := SetUpTestViperInstance(TEST_AWS_CFG)
+	ss, err := NewNotifier(v)
+
+	assert.Nil(err)
+	assert.NotNil(ss)
+
+	// create mock DNS server
+	dns.HandleFunc("/", handleDnsReqSuccess)
+	defer func() {
+		dns.DefaultServeMux = dns.NewServeMux()
+	}()
+	dnsServer := &dns.Server{Addr: ":5079", Net: "tcp"}
+	go func() {
+		err = dnsServer.ListenAndServe()
+		assert.Nil(err)
+	}()
+	defer dnsServer.Shutdown()
+
+	selfUrl := &url.URL{
+		Scheme: "http",
+		Host:   "host:port",
+	}
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(nil, selfUrl, "localhost:5079", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	err = ss.DnsReady()
 
