@@ -36,6 +36,7 @@ func TestConsulWatcher(t *testing.T) {
 		Watch: map[string]string{customhost: service},
 	})
 
+	// note: MonitorEvent is Listen interface in the monitor package
 	watcher.MonitorEvent(monitor.Event{
 		Key:       service + "[tag tagA]" + "{passingOnly=true}",
 		Instances: []string{serverA.URL, serverB.URL},
@@ -43,7 +44,8 @@ func TestConsulWatcher(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext:       xresolver.NewResolver(nil, watcher).DialContext,
+			DialContext: xresolver.NewResolver(nil, watcher).DialContext,
+			// note: DisableKeepAlives is required so when we do the request again we don't reuse the same connection.
 			DisableKeepAlives: true,
 		},
 	}
