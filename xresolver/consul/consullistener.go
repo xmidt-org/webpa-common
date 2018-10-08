@@ -7,7 +7,6 @@ import (
 	"github.com/Comcast/webpa-common/service/monitor"
 	"github.com/Comcast/webpa-common/xresolver"
 	"github.com/go-kit/kit/log"
-
 	"regexp"
 )
 
@@ -27,8 +26,10 @@ type ConsulWatcher struct {
 	warnLogger  log.Logger
 	errorLogger log.Logger
 
+	config *Options
+
+	watch     map[string]string
 	balancers map[string]*xresolver.RoundRobin
-	config    *Options
 }
 
 func NewConsulWatcher(o *Options) *ConsulWatcher {
@@ -36,31 +37,38 @@ func NewConsulWatcher(o *Options) *ConsulWatcher {
 		o.Logger = logging.DefaultLogger()
 	}
 
-	balancers := make(map[string]*xresolver.RoundRobin)
-	for _, service := range o.Watch {
-		if _, found := balancers[service]; !found {
-			balancers[service] = xresolver.NewRoundRobinBalancer()
-		}
-	}
 	watcher := &ConsulWatcher{
-		balancers:   balancers,
-		config:      o,
 		debugLogger: logging.Debug(o.Logger),
 		infoLogger:  logging.Info(o.Logger),
 		warnLogger:  logging.Warn(o.Logger),
 		errorLogger: logging.Error(o.Logger),
+
+		config: o,
+
+		balancers: make(map[string]*xresolver.RoundRobin),
+		watch:     make(map[string]string),
+	}
+
+	if o.Watch != nil {
+		for url, service := range o.Watch {
+			watcher.WatchService(url, service)
+		}
 	}
 
 	return watcher
 }
 
 func (watcher *ConsulWatcher) MonitorEvent(e monitor.Event) {
+	watcher.debugLogger.Log(logging.MessageKey(), "received update route event", "event", e)
+
 	// update balancers
 	str := find.FindStringSubmatch(e.Key)
 	if len(str) < 3 {
 		return
 	}
-	if rr, found := watcher.balancers[str[1]]; found {
+
+	service := str[1]
+	if rr, found := watcher.balancers[service]; found {
 		routes := make([]xresolver.Route, len(e.Instances))
 		for index, instance := range e.Instances {
 			// find records
@@ -72,7 +80,16 @@ func (watcher *ConsulWatcher) MonitorEvent(e monitor.Event) {
 			routes[index] = *route
 		}
 		rr.Update(routes)
-		watcher.debugLogger.Log(logging.MessageKey(), "received update event", "service", str[1], "new-routes", routes)
+		watcher.infoLogger.Log(logging.MessageKey(), "updating routes", "service", service, "new-routes", routes)
+	}
+}
+
+func (watcher *ConsulWatcher) WatchService(url string, service string) {
+	if _, found := watcher.watch[url]; !found {
+		watcher.watch[url] = service
+		if _, found := watcher.balancers[service]; !found {
+			watcher.balancers[service] = xresolver.NewRoundRobinBalancer()
+		}
 	}
 }
 
