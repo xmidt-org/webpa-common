@@ -1,5 +1,5 @@
-hash: e17d0dbce721016d8ad010fc412c960ad4317b91baa1e61e8830f7049b174e48
-updated: 2018-05-10T10:32:01.064213052-07:00
+hash: 724ed2184830c776bfd0a08fa943de2499513a229a58482d92be1c1bfd0ca288
+updated: 2018-10-05T13:38:01.94652-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -142,6 +142,8 @@ imports:
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
   - pbutil
+- name: github.com/miekg/dns
+  version: ba6747e8a94115e9dc7738afb87850687611df1b
 - name: github.com/mitchellh/go-homedir
   version: b8bc1bf767474819792c23f32d8286a45736f1c6
 - name: github.com/mitchellh/mapstructure
@@ -218,10 +220,20 @@ imports:
   - codec
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
+- name: golang.org/x/crypto
+  version: e3636079e1a4c1f337f212cc5cd2aca108f6c900
+  subpackages:
+  - ed25519
+  - ed25519/internal/edwards25519
 - name: golang.org/x/net
   version: f73e4c9ed3b7ebdd5f699a16a880c2b1994e50dd
   subpackages:
+  - bpf
   - context
+  - internal/iana
+  - internal/socket
+  - ipv4
+  - ipv6
 - name: golang.org/x/sys
   version: 7dfd1290c7917b7ba22824b9d24954ab3002fe24
   subpackages:
