@@ -120,10 +120,9 @@ func (r testRouter) Route(instance string) error {
 	return testErrorNoRoute
 }
 
-type testOrder struct {
-}
+type testOrder struct {}
 
-func (r testOrder) Choose(keys []string) []string {
+func (r testOrder) Order(keys []string) []string {
 	sort.Strings(keys)
 	return keys
 }
@@ -177,7 +176,7 @@ func TestLayeredAccessor(t *testing.T) {
 
 	r := testRouter{make(map[string]struct{})}
 	la.SetRouter(r)
-	la.SetChoooser(DefaultOrder())
+	la.SetAccessorQueue(DefaultOrder())
 
 	i, err = la.Get([]byte("test"))
 	assert.Equal("a valid instance", i)
@@ -198,7 +197,7 @@ func TestLayeredAccessor(t *testing.T) {
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: testErrorNoRoute}}.Error(), err.Error())
 	assert.Equal(dc2Instance, i)
 
-	la.SetChoooser(testOrder{})
+	la.SetAccessorQueue(testOrder{})
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: testErrorNoRoute}}.Error(), err.Error())
 	assert.Equal(dc1Instance, i)

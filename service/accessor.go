@@ -116,19 +116,19 @@ func DefaultTrafficRouter() RouteTraffic {
 	return emptyRouter{}
 }
 
-type OrderAccessor interface {
-	Choose([]string) []string
+type AccessorQueue interface {
+	Order([]string) []string
 }
 
-type randomChooser struct {
+type emptyQueue struct {
 	r *rand.Rand
 }
 
-func DefaultOrder() OrderAccessor {
-	return randomChooser{}
+func DefaultOrder() AccessorQueue {
+	return emptyQueue{}
 }
 
-func (r randomChooser) Choose(keys []string) []string {
+func (r emptyQueue) Order(keys []string) []string {
 	return keys
 }
 
@@ -140,8 +140,8 @@ type AccessorValue struct {
 type LayeredAccessor struct {
 	lock sync.RWMutex
 
-	router  RouteTraffic
-	chooser OrderAccessor
+	router        RouteTraffic
+	accessorQueue AccessorQueue
 
 	err     error
 	primary Accessor
@@ -157,9 +157,9 @@ func (la *LayeredAccessor) SetRouter(router RouteTraffic) {
 }
 
 // SetRouter will update teh router, which will determine if the accessor should return the instance or fail
-func (la *LayeredAccessor) SetChoooser(chooser OrderAccessor) {
+func (la *LayeredAccessor) SetAccessorQueue(chooser AccessorQueue) {
 	la.lock.Lock()
-	la.chooser = chooser
+	la.accessorQueue = chooser
 	la.lock.Unlock()
 }
 
@@ -273,8 +273,8 @@ func (la *LayeredAccessor) getFailOverInstance(key []byte) (instance string, err
 		dcs[index] = dc
 		index++
 	}
-	if la.chooser != nil {
-		order = la.chooser.Choose(dcs)
+	if la.accessorQueue != nil {
+		order = la.accessorQueue.Order(dcs)
 	} else {
 		order = dcs
 	}
