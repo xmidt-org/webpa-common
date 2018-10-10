@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/logging/logginghttp"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -34,8 +35,11 @@ type RedirectHandler struct {
 
 func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	key, err := rh.KeyFunc(request)
+
 	if err != nil {
 		rh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to obtain service key from request", logging.ErrorKey(), err)
+		logHeaderFunc, ctx := logginghttp.SetLogger(rh.Logger, logginghttp.Header("X-WebPA-Device-Name", "device_id"), logginghttp.Header("Authorization", "authorization"))
+		logHeaderFunc(request, ctx)
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
 	}
