@@ -111,6 +111,29 @@ func NewAccessorListener(f service.AccessorFactory, next func(service.Accessor, 
 	})
 }
 
+func NewKeyAccessorListener(f service.AccessorFactory, key string, next func(string, service.Accessor, error)) Listener {
+	if next == nil {
+		panic("A next closure is required to receive Accessors")
+	}
+
+	if f == nil {
+		f = service.DefaultAccessorFactory
+	}
+
+	return ListenerFunc(func(e Event) {
+		switch {
+		case e.Err != nil:
+			next(key, nil, e.Err)
+
+		case len(e.Instances) > 0:
+			next(key, f(e.Instances), nil)
+
+		default:
+			next(key, service.EmptyAccessor(), nil)
+		}
+	})
+}
+
 const (
 	stateDeregistered uint32 = 0
 	stateRegistered   uint32 = 1
