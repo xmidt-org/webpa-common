@@ -1,8 +1,7 @@
-package servicehttp
+package service
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/service"
 	"github.com/Comcast/webpa-common/xhttp/gate"
 )
 
@@ -10,15 +9,15 @@ var errGateClosed = errors.New("gate is closed")
 
 type gateAccessor struct {
 	Gate     gate.Interface
-	Accessor service.Accessor
+	Accessor Accessor
 }
 
-func GateAccessor(g gate.Interface, accessor service.Accessor) service.Accessor {
+func GateAccessor(g gate.Interface, accessor Accessor) Accessor {
 	if g == nil {
 		g = gate.New(true)
 	}
 	if accessor == nil {
-		accessor = service.EmptyAccessor()
+		accessor = EmptyAccessor()
 	}
 	return gateAccessor{
 		Gate:     g,

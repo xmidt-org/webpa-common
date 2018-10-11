@@ -1,8 +1,7 @@
-package servicehttp
+package service
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"testing"
@@ -45,7 +44,7 @@ func (r mockGate) String() string {
 func TestGateAccessor(t *testing.T) {
 	assert := assert.New(t)
 
-	accessor := new(service.MockAccessor)
+	accessor := new(MockAccessor)
 	gate := new(mockGate)
 
 	gateAcessor := GateAccessor(gate, accessor)
