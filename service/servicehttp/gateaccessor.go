@@ -1,9 +1,9 @@
 package servicehttp
 
 import (
+	"errors"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/Comcast/webpa-common/xhttp/gate"
-	"github.com/pkg/errors"
 )
 
 var errGateClosed = errors.New("gate is closed")
