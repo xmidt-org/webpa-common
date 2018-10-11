@@ -35,6 +35,8 @@ type RedirectHandler struct {
 func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	key, err := rh.KeyFunc(request)
 	if err != nil {
+		ctxLogger := logging.GetLogger(request.Context())
+		rh.Logger = ctxLogger
 		rh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to obtain service key from request", logging.ErrorKey(), err)
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
