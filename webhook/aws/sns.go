@@ -220,7 +220,7 @@ func (ss *SNSServer) DnsReady() (e error) {
 	}
 	// the message contains what we are looking for - the SOA record of the host
 	msg := dns.Msg{}
-	msg.SetQuestion(ss.SelfUrl.Host, dns.TypeANY)
+	msg.SetQuestion(strings.SplitN(ss.SelfUrl.Host, ":", 2)[0]+".", dns.TypeANY)
 
 	defer cancel()
 
@@ -244,7 +244,7 @@ func (ss *SNSServer) DnsReady() (e error) {
 				}
 				// otherwise, we keep trying
 				ss.metrics.DnsReadyQueryCount.Add(1.0)
-				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready", "endpoint", ss.SelfUrl.Host, logging.ErrorKey(), err)
+				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready", "endpoint", ss.SelfUrl.Host, logging.ErrorKey(), err, "response", response)
 				time.Sleep(time.Second)
 			}
 		}(channel)
