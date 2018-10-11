@@ -254,7 +254,7 @@ func (la *LayeredAccessor) Get(key []byte) (string, error) {
 	}
 
 	la.lock.RUnlock()
-	if routeErr.ErrChain == nil {
+	if routeErr.ErrChain.Empty() {
 		return instance, nil
 	}
 	routeErr.Instance = instance
@@ -308,17 +308,21 @@ func (err ErrorChain) Error() string {
 	return fmt.Sprintf("%s(%s)", err.Err, err.SubError)
 }
 
+func (err ErrorChain) Empty() bool {
+	return err.Err == nil && err.SubError == nil
+}
+
 type RouteError struct {
-	ErrChain *ErrorChain
+	ErrChain ErrorChain
 	Instance string
 }
 
 func (err *RouteError) addError(e error) {
 	if e != nil {
-		if err.ErrChain == nil {
-			err.ErrChain = &ErrorChain{Err: e}
+		if err.ErrChain.Empty() {
+			err.ErrChain = ErrorChain{Err: e}
 		} else {
-			err.ErrChain = &ErrorChain{Err: e, SubError: *err.ErrChain}
+			err.ErrChain = ErrorChain{Err: e, SubError: err.ErrChain}
 		}
 	}
 }
