@@ -80,11 +80,11 @@ func NewRoundRobinBalancer() *RoundRobin {
 func (robin *RoundRobin) Add(route Route) error {
 	// check if exist
 	robin.lock.RLock()
-	if _, found := robin.routes[route.String()]; found {
-		robin.lock.RUnlock()
+	_, found := robin.routes[route.String()]
+	robin.lock.RUnlock()
+	if found {
 		return errors.New("addr already in rotation")
 	}
-	robin.lock.RUnlock()
 
 	// Add to our structure
 	robin.lock.Lock()
@@ -98,13 +98,13 @@ func (robin *RoundRobin) Add(route Route) error {
 
 func (robin *RoundRobin) Remove(route Route) error {
 	robin.lock.RLock()
-	if _, found := robin.routes[route.String()]; !found {
-		robin.lock.RUnlock()
+	_, found := robin.routes[route.String()]
+	robin.lock.RUnlock()
+	if !found {
 		return errors.New("addr not found")
 	}
-	defer func() {
-		robin.lock.RUnlock()
 
+	defer func() {
 		robin.lock.Lock()
 		defer robin.lock.Unlock()
 		// remove it
@@ -147,21 +147,10 @@ func (robin *RoundRobin) Update(routes []Route) {
 }
 
 func (robin *RoundRobin) Get() ([]Route, error) {
-	robin.lock.RLock()
-
-	records := make([]Route, len(robin.routes))
-	if len(robin.routes) == 0 {
-		robin.lock.RUnlock()
-		return records, errors.New("no records available")
-	}
-
-	for _, route := range robin.routes {
-		records[route.index] = route.route
-	}
-
-	// update order
+	// when done update the order
+	// logically (in my mind), I would put this add then end of the func since it should happen last.
+	// however since defer is `Last In First Out` we are doing it now before robin.lock.RUnlock().
 	defer func() {
-		robin.lock.RUnlock()
 		robin.lock.Lock()
 
 		size := len(robin.routes)
@@ -176,6 +165,18 @@ func (robin *RoundRobin) Get() ([]Route, error) {
 
 		robin.lock.Unlock()
 	}()
+
+	defer robin.lock.RUnlock()
+	robin.lock.RLock()
+
+	records := make([]Route, len(robin.routes))
+	if len(robin.routes) == 0 {
+		return records, errors.New("no records available")
+	}
+
+	for _, route := range robin.routes {
+		records[route.index] = route.route
+	}
 
 	return records, nil
 }

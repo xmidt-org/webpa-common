@@ -21,7 +21,7 @@ func TestClient(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: NewResolver(nil).DialContext,
+			DialContext: NewResolver(DefaultDialer).DialContext,
 		},
 	}
 
@@ -62,7 +62,7 @@ func TestClientWithResolver(t *testing.T) {
 
 	fakeLookUp := new(mockLookUp)
 	fakeLookUp.On("LookupRoutes", mock.Anything, customhost).Return([]Route{route}, nil)
-	r := NewResolver(nil, fakeLookUp)
+	r := NewResolver(DefaultDialer, fakeLookUp)
 
 	client := &http.Client{
 		Transport: &http.Transport{

@@ -44,7 +44,7 @@ func TestConsulWatcher(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: xresolver.NewResolver(nil, watcher).DialContext,
+			DialContext: xresolver.NewResolver(xresolver.DefaultDialer, watcher).DialContext,
 			// note: DisableKeepAlives is required so when we do the request again we don't reuse the same connection.
 			DisableKeepAlives: true,
 		},

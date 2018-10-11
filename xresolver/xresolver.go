@@ -10,18 +10,15 @@ import (
 
 // Note to self: Dial is not being set for net.Resolver because that is the Dial to the DNS server.
 
-var DefaultDialer = &net.Dialer{}
+var DefaultDialer = net.Dialer{}
 
 type resolver struct {
 	resolvers map[Lookup]bool
 	lock      sync.RWMutex
-	dialer    *net.Dialer
+	dialer    net.Dialer
 }
 
-func NewResolver(dialer *net.Dialer, lookups ...Lookup) Resolver {
-	if dialer == nil {
-		dialer = DefaultDialer
-	}
+func NewResolver(dialer net.Dialer, lookups ...Lookup) Resolver {
 	r := &resolver{
 		resolvers: make(map[Lookup]bool),
 		dialer:    dialer,
