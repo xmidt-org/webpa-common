@@ -32,7 +32,7 @@ func TestConsulWatcher(t *testing.T) {
 	}))
 	defer serverB.Close()
 
-	watcher := NewConsulWatcher(&Options{
+	watcher := NewConsulWatcher(Options{
 		Watch: map[string]string{customhost: service},
 	})
 

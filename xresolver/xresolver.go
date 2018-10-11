@@ -13,8 +13,8 @@ import (
 var DefaultDialer = &net.Dialer{}
 
 type resolver struct {
-	resolvers map[Lookup]struct{}
-	lock      *sync.RWMutex
+	resolvers map[Lookup]bool
+	lock      sync.RWMutex
 	dialer    *net.Dialer
 }
 
@@ -23,43 +23,41 @@ func NewResolver(dialer *net.Dialer, lookups ...Lookup) Resolver {
 		dialer = DefaultDialer
 	}
 	r := &resolver{
-		resolvers: make(map[Lookup]struct{}),
-		lock:      new(sync.RWMutex),
+		resolvers: make(map[Lookup]bool),
 		dialer:    dialer,
 	}
 
 	for _, lookup := range lookups {
 		r.Add(lookup)
 	}
-
 	return r
 }
 
 func (resolve *resolver) Add(r Lookup) error {
 	resolve.lock.RLock()
-	_, found := resolve.resolvers[r]
+	found := resolve.resolvers[r]
 	resolve.lock.RUnlock()
 	if found {
 		return errors.New("resolver already exist")
 	}
 
 	resolve.lock.Lock()
-	defer resolve.lock.Unlock()
-	resolve.resolvers[r] = struct{}{}
+	resolve.resolvers[r] = true
+	resolve.lock.Unlock()
 	return nil
 }
 
 func (resolve *resolver) Remove(r Lookup) error {
 	resolve.lock.RLock()
-	_, found := resolve.resolvers[r]
+	found := resolve.resolvers[r]
 	resolve.lock.RUnlock()
 	if !found {
 		return errors.New("resolver does not exist")
 	}
 
 	resolve.lock.Lock()
-	defer resolve.lock.Unlock()
 	delete(resolve.resolvers, r)
+	resolve.lock.Unlock()
 	return nil
 }
 

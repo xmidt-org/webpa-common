@@ -2,9 +2,9 @@ package xresolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -33,20 +33,17 @@ func TestClient(t *testing.T) {
 	assert.Equal(200, res.StatusCode)
 }
 
-type testCustomLookUp struct {
-	nameHost map[string]Route
-	usedMap  bool
+/****************** BEGIN MOCK DECLARATIONS ***********************/
+type mockLookUp struct {
+	mock.Mock
 }
 
-func (c *testCustomLookUp) LookupRoutes(ctx context.Context, host string) ([]Route, error) {
-	if route, found := c.nameHost[host]; found {
-		records := make([]Route, 1)
-		records[0] = route
-		c.usedMap = true
-		return records, nil
-	}
-	return []Route{}, errors.New("no routes found")
+func (m *mockLookUp) LookupRoutes(ctx context.Context, host string) ([]Route, error) {
+	args := m.Called(ctx, host)
+	return args.Get(0).([]Route), args.Error(1)
 }
+
+/******************* END MOCK DECLARATIONS ************************/
 
 func TestClientWithResolver(t *testing.T) {
 	assert := assert.New(t)
@@ -63,10 +60,9 @@ func TestClientWithResolver(t *testing.T) {
 	route, err := CreateRoute(serverA.URL)
 	assert.NoError(err)
 
-	customLookUp := &testCustomLookUp{
-		nameHost: map[string]Route{customhost: *route},
-	}
-	r := NewResolver(nil, customLookUp)
+	fakeLookUp := new(mockLookUp)
+	fakeLookUp.On("LookupRoutes", mock.Anything, customhost).Return([]Route{route}, nil)
+	r := NewResolver(nil, fakeLookUp)
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -86,11 +82,11 @@ func TestClientWithResolver(t *testing.T) {
 
 		assert.Equal(200, res.StatusCode)
 		assert.Equal(expectedBody, string(body))
-		assert.True(customLookUp.usedMap, "custom LookupIPAddr must be called")
+		fakeLookUp.AssertExpectations(t)
 	}
 
 	// Remove CustomLook up
-	err = r.Remove(customLookUp)
+	err = r.Remove(fakeLookUp)
 	assert.NoError(err)
 
 	req, err = http.NewRequest("GET", "http://"+customhost+":"+customport, nil)

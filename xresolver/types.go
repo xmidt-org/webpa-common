@@ -40,13 +40,13 @@ type Route struct {
 	Port   int
 }
 
-func CreateRoute(route string) (*Route, error) {
+func CreateRoute(route string) (Route, error) {
 	path, err := url.Parse(route)
 	if err != nil {
-		return nil, err
+		return Route{}, err
 	}
 	port, err := strconv.Atoi(path.Port())
-	return &Route{
+	return Route{
 		Scheme: path.Scheme,
 		Host:   path.Hostname(),
 		Port:   port,
@@ -67,13 +67,12 @@ type orderedRoute struct {
 }
 
 type RoundRobin struct {
-	lock   *sync.RWMutex
+	lock   sync.RWMutex
 	routes map[string]*orderedRoute
 }
 
 func NewRoundRobinBalancer() *RoundRobin {
 	return &RoundRobin{
-		lock:   new(sync.RWMutex),
 		routes: make(map[string]*orderedRoute),
 	}
 }
@@ -89,11 +88,11 @@ func (robin *RoundRobin) Add(route Route) error {
 
 	// Add to our structure
 	robin.lock.Lock()
-	defer robin.lock.Unlock()
 	robin.routes[route.String()] = &orderedRoute{
 		route: route,
 		index: len(robin.routes),
 	}
+	robin.lock.Unlock()
 	return nil
 }
 
@@ -130,7 +129,6 @@ func (robin *RoundRobin) Remove(route Route) error {
 
 func (robin *RoundRobin) Update(routes []Route) {
 	robin.lock.Lock()
-	defer robin.lock.Unlock()
 
 	robin.routes = make(map[string]*orderedRoute)
 	index := 0
@@ -144,6 +142,8 @@ func (robin *RoundRobin) Update(routes []Route) {
 		}
 		index++
 	}
+
+	robin.lock.Unlock()
 }
 
 func (robin *RoundRobin) Get() ([]Route, error) {
@@ -162,9 +162,8 @@ func (robin *RoundRobin) Get() ([]Route, error) {
 	// update order
 	defer func() {
 		robin.lock.RUnlock()
-
 		robin.lock.Lock()
-		defer robin.lock.Unlock()
+
 		size := len(robin.routes)
 
 		for _, ip := range robin.routes {
@@ -174,6 +173,8 @@ func (robin *RoundRobin) Get() ([]Route, error) {
 			}
 			ip.index = ip.index - 1
 		}
+
+		robin.lock.Unlock()
 	}()
 
 	return records, nil
