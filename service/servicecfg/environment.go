@@ -16,7 +16,7 @@ var (
 	consulEnvironmentFactory    = consul.NewEnvironment
 )
 
-func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, error) {
+func NewEnvironment(l log.Logger, u xviper.Unmarshaler, options ...service.Option) (service.Environment, error) {
 	if l == nil {
 		l = logging.DefaultLogger()
 	}
@@ -32,6 +32,8 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler) (service.Environment, er
 		),
 		service.WithDefaultScheme(o.defaultScheme()),
 	}
+
+	eo = append(eo, options...)
 
 	if len(o.Fixed) > 0 {
 		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "using a fixed set of instances for service discovery", "instances", o.Fixed)
