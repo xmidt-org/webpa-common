@@ -212,9 +212,13 @@ func TestLayeredAccessor(t *testing.T) {
 
 	expectedError = errors.New("data center went down")
 	la.UpdatePrimary(EmptyAccessor(), expectedError)
+	la.UpdateFailOver("dc1", MapAccessor{"test": dc1Instance}, errors.New("region is closed"))
+
 	i, err = la.Get([]byte("test"))
-	assert.Equal(dc1Instance, i)
-	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: expectedError}}, err)
+	assert.Equal(dc2Instance, i)
+	expectedRouteErr := RouteError{Instance: i, ErrChain: ErrorChain{Err: expectedError}}
+	assert.Equal(expectedRouteErr, err)
+	assert.NotEmpty(expectedRouteErr.Error())
 
 	fakeRouter.AssertExpectations(t)
 }

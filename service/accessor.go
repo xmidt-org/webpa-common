@@ -280,6 +280,10 @@ func (la *LayeredAccessor) getFailOverInstance(key []byte) (instance string, err
 	}
 
 	for _, dc := range order {
+		err = la.failover[dc].Err
+		if err != nil {
+			continue
+		}
 		instance, err = la.failover[dc].Accessor.Get(key)
 		if la.router == nil && err == nil {
 			return
