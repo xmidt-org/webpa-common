@@ -182,7 +182,7 @@ func TestLayeredAccessor(t *testing.T) {
 	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: errNoFailOvers, SubError: ErrorChain{Err: testErrorNoRoute}}}, err)
 
 	dc2Instance := "a valid instance in dc2"
-	fakeRouter.On("Route", dc2Instance).Return(nil)
+	fakeRouter.On("Route", dc2Instance).Return(nil).Twice()
 
 	la.UpdateFailOver("dc2", MapAccessor{"test": dc2Instance}, nil)
 	i, err = la.Get([]byte("test"))
@@ -190,22 +190,21 @@ func TestLayeredAccessor(t *testing.T) {
 	assert.Equal(dc2Instance, i)
 
 	fakeOrder := new(mockOrder)
-	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc2", "dc1"})
-	fakeOrder.On("Order", []string{"dc1", "dc2"}).Return([]string{"dc2", "dc1"})
+	la.SetAccessorQueue(fakeOrder)
+	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc2", "dc1"}).Once()
+	fakeOrder.On("Order", []string{"dc1", "dc2"}).Return([]string{"dc2", "dc1"}).Once()
 
 	dc1Instance := "a valid instance in dc1"
 	la.UpdateFailOver("dc1", MapAccessor{"test": dc1Instance}, nil)
-	fakeRouter.On("Route", dc1Instance).Return(nil)
+	fakeRouter.On("Route", dc1Instance).Return(nil).Once()
 
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: testErrorNoRoute}}, err)
 	assert.Equal(dc2Instance, i)
 
-	fakeOrder = new(mockOrder)
 	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc1", "dc2"})
 	fakeOrder.On("Order", []string{"dc1", "dc2"}).Return([]string{"dc1", "dc2"})
 
-	la.SetAccessorQueue(fakeOrder)
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: testErrorNoRoute}}, err)
 	assert.Equal(dc1Instance, i)
@@ -214,6 +213,7 @@ func TestLayeredAccessor(t *testing.T) {
 	la.UpdatePrimary(EmptyAccessor(), expectedError)
 	la.UpdateFailOver("dc1", MapAccessor{"test": dc1Instance}, errors.New("region is closed"))
 
+	fakeRouter.On("Route", dc2Instance).Return(nil).Once()
 	i, err = la.Get([]byte("test"))
 	assert.Equal(dc2Instance, i)
 	expectedRouteErr := RouteError{Instance: i, ErrChain: ErrorChain{Err: expectedError}}
