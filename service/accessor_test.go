@@ -2,7 +2,7 @@ package service
 
 import (
 	"errors"
-	"sort"
+	"github.com/stretchr/testify/mock"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -99,33 +99,29 @@ func TestUpdatableAccessor(t *testing.T) {
 	assert.Equal(expectedError, err)
 }
 
-type testRouter struct {
-	allow map[string]struct{}
-}
-
-func (r *testRouter) addRoute(instance string) {
-	r.allow[instance] = struct{}{}
-}
-
-func (r *testRouter) removeRoute(instance string) {
-	delete(r.allow, instance)
-}
-
 var testErrorNoRoute = errors.New("instance does not match allowed instance")
 
-func (r testRouter) Route(instance string) error {
-	if _, ok := r.allow[instance]; ok {
-		return nil
-	}
-	return testErrorNoRoute
+/****************** BEGIN MOCK DECLARATIONS ***********************/
+
+type mockRouter struct {
+	mock.Mock
 }
 
-type testOrder struct {}
-
-func (r testOrder) Order(keys []string) []string {
-	sort.Strings(keys)
-	return keys
+func (r mockRouter) Route(instance string) error {
+	args := r.Called(instance)
+	return args.Error(0)
 }
+
+type mockOrder struct {
+	mock.Mock
+}
+
+func (r mockOrder) Order(keys []string) []string {
+	args := r.Called(keys)
+	return args.Get(0).([]string)
+}
+
+/******************* END MOCK DECLARATIONS ************************/
 
 func TestLayeredAccessor(t *testing.T) {
 	var (
@@ -174,42 +170,47 @@ func TestLayeredAccessor(t *testing.T) {
 	assert.Empty(i)
 	assert.Error(err)
 
-	r := testRouter{make(map[string]struct{})}
-	la.SetRouter(r)
+	fakeRouter := new(mockRouter)
+
+	la.SetRouter(fakeRouter)
 	la.SetAccessorQueue(DefaultOrder())
 
+	expectedInstance := "a valid instance"
+	fakeRouter.On("Route", expectedInstance).Return(testErrorNoRoute)
 	i, err = la.Get([]byte("test"))
-	assert.Equal("a valid instance", i)
+	assert.Equal(expectedInstance, i)
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: errNoFailOvers, SubError: testErrorNoRoute}}.Error(), err.Error())
 
 	dc2Instance := "a valid instance in dc2"
-	r.addRoute(dc2Instance)
+	fakeRouter.On("Route", dc2Instance).Return(nil)
+
 	la.UpdateFailOver("dc2", MapAccessor{"test": dc2Instance}, nil)
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: testErrorNoRoute}}.Error(), err.Error())
 	assert.Equal(dc2Instance, i)
 
 	dc1Instance := "a valid instance in dc1"
-	r.addRoute(dc1Instance)
 	la.UpdateFailOver("dc1", MapAccessor{"test": dc1Instance}, nil)
+	fakeRouter.On("Route", dc1Instance).Return(nil)
 
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: testErrorNoRoute}}.Error(), err.Error())
 	assert.Equal(dc2Instance, i)
 
-	la.SetAccessorQueue(testOrder{})
+	fakeOrder := new(mockOrder)
+	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc1", "dc2"})
+
+	la.SetAccessorQueue(fakeOrder)
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: testErrorNoRoute}}.Error(), err.Error())
 	assert.Equal(dc1Instance, i)
 
-	r.removeRoute(dc1Instance)
-	i, err = la.Get([]byte("test"))
-	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: testErrorNoRoute}}.Error(), err.Error())
-	assert.Equal(dc2Instance, i)
-
 	expectedError = errors.New("data center went down")
 	la.UpdatePrimary(EmptyAccessor(), expectedError)
 	i, err = la.Get([]byte("test"))
-	assert.Equal(dc2Instance, i)
+	assert.Equal(dc1Instance, i)
 	assert.Equal(RouteError{Instance: i, ErrChain: &ErrorChain{Err: expectedError}}.Error(), err.Error())
+
+	fakeRouter.AssertExpectations(t)
+	fakeOrder.AssertExpectations(t)
 }
