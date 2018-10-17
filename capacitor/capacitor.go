@@ -4,6 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/Comcast/webpa-common/clock"
 )
 
 type Interface interface {
@@ -15,6 +17,7 @@ type Interface interface {
 func New() Interface {
 	c := &capacitor{
 		delay: time.Second,
+		c:     clock.System(),
 	}
 
 	return c
@@ -22,11 +25,17 @@ func New() Interface {
 
 type delayer struct {
 	current   atomic.Value
+	timer     clock.Timer
 	terminate chan bool
+	reset     func()
 }
 
-func (d *delayer) cancel(discharge bool) {
-	d.terminate <- discharge
+func (d *delayer) discharge() {
+	d.terminate <- true
+}
+
+func (d *delayer) cancel() {
+	d.terminate <- false
 }
 
 func (d *delayer) execute() {
@@ -35,11 +44,13 @@ func (d *delayer) execute() {
 	}
 }
 
-func (d *delayer) run(timer <-chan time.Time, stop func() bool) {
-	defer stop()
+func (d *delayer) run() {
+	defer d.timer.Stop()
+	defer d.reset()
+
 	for {
 		select {
-		case <-timer:
+		case <-d.timer.C():
 			select {
 			case discharge := <-d.terminate:
 				if discharge {
@@ -63,7 +74,21 @@ func (d *delayer) run(timer <-chan time.Time, stop func() bool) {
 type capacitor struct {
 	lock  sync.Mutex
 	delay time.Duration
+	c     clock.Interface
 	d     *delayer
+}
+
+// reset produces a closure that a given delayer must call to clean up the enclosing capacitor.
+// The returned closure atomically sets the delayer to nil if and only if it matched the given delayer.
+// This allows for barging between the public interface methods.
+func (c *capacitor) reset(d *delayer) func() {
+	return func() {
+		c.lock.Lock()
+		if c.d == d {
+			c.d = nil
+		}
+		c.lock.Unlock()
+	}
 }
 
 func (c *capacitor) Submit(v func()) {
@@ -71,20 +96,23 @@ func (c *capacitor) Submit(v func()) {
 	if c.d == nil {
 		c.d = &delayer{
 			terminate: make(chan bool, 1),
+			timer:     c.c.NewTimer(c.delay),
 		}
 
-		timer := time.NewTimer(c.delay)
-		go c.d.run(timer.C, timer.Stop)
+		c.d.current.Store(v)
+		c.d.reset = c.reset(c.d)
+		go c.d.run()
+	} else {
+		c.d.current.Store(v)
 	}
 
-	c.d.current.Store(v)
 	c.lock.Unlock()
 }
 
 func (c *capacitor) Discharge() {
 	c.lock.Lock()
 	if c.d != nil {
-		c.d.cancel(true)
+		c.d.discharge()
 		c.d = nil
 	}
 
@@ -94,7 +122,7 @@ func (c *capacitor) Discharge() {
 func (c *capacitor) Cancel() {
 	c.lock.Lock()
 	if c.d != nil {
-		c.d.cancel(false)
+		c.d.cancel()
 		c.d = nil
 	}
 
