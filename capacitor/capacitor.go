@@ -8,14 +8,29 @@ import (
 	"github.com/Comcast/webpa-common/clock"
 )
 
+// DefaultDelay is the default time a capacitor waits to execute the most recently
+// submitted function
 const DefaultDelay time.Duration = time.Second
 
+// Interface represents a capacitor of function calls which will discharge after
+// a configurable period of time.
 type Interface interface {
+	// Submit submits a function for execution.  The function will not be executed immediately.
+	// Instead, after a configurable period of time, the most recent function passed to Submit will
+	// be executed.  The previous ones are ignored.
 	Submit(func())
+
+	// Discharge forcibly discharges this capacitor.  The most recent function passed to Submit is
+	// executed, and the internal state is reset so that the next call to Submit will start the
+	// process of delaying function calls all over again.
 	Discharge()
+
+	// Cancel terminates any waiting function call without executing it.  As with Discharge, the
+	// internal state is reset so that Submit calls will delay functions as normal again.
 	Cancel()
 }
 
+// Option represents a configuration option for a capacitor
 type Option func(*capacitor)
 
 func WithDelay(d time.Duration) Option {
@@ -38,6 +53,7 @@ func WithClock(cl clock.Interface) Option {
 	}
 }
 
+// New creates a capacitor with the given options.
 func New(o ...Option) Interface {
 	c := &capacitor{
 		delay: DefaultDelay,
@@ -81,6 +97,8 @@ func (d *delayer) run() {
 
 	select {
 	case <-d.timer:
+		// since the timer can fire at the same time as Discharge or Cancel,
+		// we want to make sure that any type of explicit termination trumps the timer
 		select {
 		case discharge := <-d.terminate:
 			if discharge {
