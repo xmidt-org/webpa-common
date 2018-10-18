@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Comcast/webpa-common/capacitor"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/go-kit/kit/log"
@@ -54,6 +55,25 @@ func (ls Listeners) MonitorEvent(e Event) {
 	for _, v := range ls {
 		v.MonitorEvent(e)
 	}
+}
+
+// DelayListener uses a capacitor to delay service discovery events
+// for a given period of time.  If d is nonpositive, the given listener
+// is returned undecorated.
+func DelayListener(d time.Duration, l Listener) Listener {
+	if d < 1 {
+		return l
+	}
+
+	c := capacitor.New(
+		capacitor.WithDelay(d),
+	)
+
+	return ListenerFunc(func(e Event) {
+		c.Submit(func() {
+			l.MonitorEvent(e)
+		})
+	})
 }
 
 // NewMetricsListener produces a monitor Listener that gathers metrics related to service discovery.
