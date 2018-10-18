@@ -8,26 +8,56 @@ import (
 	"github.com/Comcast/webpa-common/clock"
 )
 
+const DefaultDelay time.Duration = time.Second
+
 type Interface interface {
 	Submit(func())
 	Discharge()
 	Cancel()
 }
 
-func New() Interface {
+type Option func(*capacitor)
+
+func WithDelay(d time.Duration) Option {
+	return func(c *capacitor) {
+		if d > 0 {
+			c.delay = d
+		} else {
+			c.delay = DefaultDelay
+		}
+	}
+}
+
+func WithClock(cl clock.Interface) Option {
+	return func(c *capacitor) {
+		if cl != nil {
+			c.c = cl
+		} else {
+			c.c = clock.System()
+		}
+	}
+}
+
+func New(o ...Option) Interface {
 	c := &capacitor{
-		delay: time.Second,
+		delay: DefaultDelay,
 		c:     clock.System(),
+	}
+
+	for _, f := range o {
+		f(c)
 	}
 
 	return c
 }
 
+// delayer is the internal job type that holds the context for a single, delayed
+// charge of the capacitor
 type delayer struct {
 	current   atomic.Value
-	timer     clock.Timer
+	timer     <-chan time.Time
 	terminate chan bool
-	reset     func()
+	cleanup   func()
 }
 
 func (d *delayer) discharge() {
@@ -44,33 +74,31 @@ func (d *delayer) execute() {
 	}
 }
 
+// run is called as a goroutine and will exit when either the timer channel
+// is signalled or the terminate channel receives a value.
 func (d *delayer) run() {
-	defer d.timer.Stop()
-	defer d.reset()
+	defer d.cleanup()
 
-	for {
+	select {
+	case <-d.timer:
 		select {
-		case <-d.timer.C():
-			select {
-			case discharge := <-d.terminate:
-				if discharge {
-					d.execute()
-				}
-
-			default:
-				d.execute()
-			}
-
-			return
-
 		case discharge := <-d.terminate:
 			if discharge {
 				d.execute()
 			}
+
+		default:
+			d.execute()
+		}
+
+	case discharge := <-d.terminate:
+		if discharge {
+			d.execute()
 		}
 	}
 }
 
+// capacitor implements Interface, and provides an atomically updated delayer job
 type capacitor struct {
 	lock  sync.Mutex
 	delay time.Duration
@@ -78,29 +106,32 @@ type capacitor struct {
 	d     *delayer
 }
 
-// reset produces a closure that a given delayer must call to clean up the enclosing capacitor.
-// The returned closure atomically sets the delayer to nil if and only if it matched the given delayer.
-// This allows for barging between the public interface methods.
-func (c *capacitor) reset(d *delayer) func() {
-	return func() {
-		c.lock.Lock()
-		if c.d == d {
-			c.d = nil
-		}
-		c.lock.Unlock()
-	}
-}
-
 func (c *capacitor) Submit(v func()) {
 	c.lock.Lock()
 	if c.d == nil {
-		c.d = &delayer{
-			terminate: make(chan bool, 1),
-			timer:     c.c.NewTimer(c.delay),
+		var (
+			t = c.c.NewTimer(c.delay)
+			d = &delayer{
+				terminate: make(chan bool, 1),
+				timer:     t.C(),
+			}
+		)
+
+		d.current.Store(v)
+
+		// create a cleanup closure that stops the timer and
+		// ensures that the given delayer is cleared, allowing
+		// for barging.
+		d.cleanup = func() {
+			t.Stop()
+			c.lock.Lock()
+			if c.d == d {
+				c.d = nil
+			}
+			c.lock.Unlock()
 		}
 
-		c.d.current.Store(v)
-		c.d.reset = c.reset(c.d)
+		c.d = d
 		go c.d.run()
 	} else {
 		c.d.current.Store(v)
