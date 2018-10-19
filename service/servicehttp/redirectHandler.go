@@ -6,7 +6,6 @@ import (
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 )
 
@@ -19,9 +18,6 @@ type KeyFunc func(*http.Request) ([]byte, error)
 // RedirectHandler is an http.Handler that redirects all incoming requests using a key obtained
 // from a request.  The Accessor is passed the key to return the appropriate instance to redirect to.
 type RedirectHandler struct {
-	// Logger is the logger to which all output from ServeHTTP is sent
-	Logger log.Logger
-
 	// KeyFunc is the function used to extract a hash key from a request
 	KeyFunc KeyFunc
 
@@ -34,21 +30,22 @@ type RedirectHandler struct {
 
 func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	key, err := rh.KeyFunc(request)
+	ctxLogger := logging.GetLogger(request.Context())
 	if err != nil {
-		rh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to obtain service key from request", logging.ErrorKey(), err)
+		ctxLogger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to obtain service key from request", logging.ErrorKey(), err)
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	instance, err := rh.Accessor.Get(key)
 	if err != nil && instance == "" {
-		rh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "accessor failed to return an instance", logging.ErrorKey(), err)
+		ctxLogger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "accessor failed to return an instance", logging.ErrorKey(), err)
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	instance += strings.TrimRight(request.RequestURI, "/")
-	rh.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
+	ctxLogger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
 
 	code := rh.RedirectCode
 	if code < 300 {
