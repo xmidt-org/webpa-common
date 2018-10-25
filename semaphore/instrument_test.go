@@ -194,10 +194,12 @@ func testInstrumentedSemaphoreAcquireCtxSuccess(t *testing.T) {
 		failures  = generic.NewCounter("test")
 		s         = Instrument(Mutex(), WithResources(resources), WithFailures(failures))
 
-		ready  = make(chan struct{})
-		result = make(chan error)
-		ctx, _ = context.WithCancel(context.Background())
+		ready       = make(chan struct{})
+		result      = make(chan error)
+		ctx, cancel = context.WithCancel(context.Background())
 	)
+
+	defer cancel()
 
 	go func() {
 		s.Acquire()
@@ -239,6 +241,8 @@ func testInstrumentedSemaphoreAcquireCtxCancel(t *testing.T) {
 		result      = make(chan error)
 		ctx, cancel = context.WithCancel(context.Background())
 	)
+
+	defer cancel()
 
 	go func() {
 		s.Acquire()
