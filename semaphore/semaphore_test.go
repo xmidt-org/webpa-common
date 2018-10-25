@@ -4,12 +4,43 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func ExampleMutex() {
+	const routineCount = 5
+
+	var (
+		s     = Mutex()
+		wg    = new(sync.WaitGroup)
+		value int
+	)
+
+	wg.Add(routineCount)
+	for i := 0; i < routineCount; i++ {
+		go func(i int) {
+			defer wg.Done()
+			defer s.Release()
+			s.Acquire()
+			value++
+			fmt.Println(i)
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Unordered output:
+	// 0
+	// 1
+	// 2
+	// 3
+	// 4
+}
 
 func testNewInvalidCount(t *testing.T) {
 	for _, c := range []int{0, -1} {
