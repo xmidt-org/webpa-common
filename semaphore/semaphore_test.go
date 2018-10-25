@@ -23,23 +23,23 @@ func ExampleMutex() {
 
 	wg.Add(routineCount)
 	for i := 0; i < routineCount; i++ {
-		go func(i int) {
+		go func() {
 			defer wg.Done()
 			defer s.Release()
 			s.Acquire()
 			value++
-			fmt.Println(i)
-		}(i)
+			fmt.Println(value)
+		}()
 	}
 
 	wg.Wait()
 
 	// Unordered output:
-	// 0
 	// 1
 	// 2
 	// 3
 	// 4
+	// 5
 }
 
 func testNewInvalidCount(t *testing.T) {
@@ -96,7 +96,7 @@ func testAcquire(t *testing.T, s Interface, totalCount int) {
 		case <-done:
 			// passing
 		case <-time.After(time.Second):
-			assert.Fail("Acquire blocked unexpectedly")
+			assert.FailNow("Acquire blocked unexpectedly")
 		}
 	}
 
@@ -120,14 +120,14 @@ func testAcquire(t *testing.T, s Interface, totalCount int) {
 		require.False(s.TryAcquire())
 		s.Release()
 	case <-time.After(time.Second):
-		require.Fail("Unable to spawn acquire goroutine")
+		require.FailNow("Unable to spawn acquire goroutine")
 	}
 
 	select {
 	case <-acquired:
 		require.False(s.TryAcquire())
 	case <-time.After(time.Second):
-		require.Fail("Acquire blocked unexpectedly")
+		require.FailNow("Acquire blocked unexpectedly")
 	}
 
 	s.Release()
@@ -152,7 +152,7 @@ func testAcquireWait(t *testing.T, s Interface, totalCount int) {
 		case err := <-result:
 			assert.NoError(err)
 		case <-time.After(time.Second):
-			assert.Fail("Acquire blocked unexpectedly")
+			assert.FailNow("Acquire blocked unexpectedly")
 		}
 	}
 
@@ -173,14 +173,14 @@ func testAcquireWait(t *testing.T, s Interface, totalCount int) {
 	case <-ready:
 		timer <- time.Time{}
 	case <-time.After(time.Second):
-		require.Fail("Unable to spawn acquire goroutine")
+		require.FailNow("Unable to spawn acquire goroutine")
 	}
 
 	select {
 	case err := <-result:
 		assert.Equal(ErrTimeout, err)
 	case <-time.After(time.Second):
-		require.Fail("AcquireWait blocked unexpectedly")
+		require.FailNow("AcquireWait blocked unexpectedly")
 	}
 }
 
@@ -202,7 +202,7 @@ func testAcquireCtx(t *testing.T, s Interface, totalCount int) {
 		case err := <-result:
 			assert.NoError(err)
 		case <-time.After(time.Second):
-			assert.Fail("Acquire blocked unexpectedly")
+			assert.FailNow("Acquire blocked unexpectedly")
 		}
 	}
 
@@ -223,14 +223,14 @@ func testAcquireCtx(t *testing.T, s Interface, totalCount int) {
 	case <-ready:
 		cancel()
 	case <-time.After(time.Second):
-		require.Fail("Unable to spawn acquire goroutine")
+		require.FailNow("Unable to spawn acquire goroutine")
 	}
 
 	select {
 	case err := <-result:
 		assert.Equal(ctx.Err(), err)
 	case <-time.After(time.Second):
-		require.Fail("AcquireWait blocked unexpectedly")
+		require.FailNow("AcquireWait blocked unexpectedly")
 	}
 }
 
