@@ -23,25 +23,28 @@ func WithResources(a xmetrics.Adder) InstrumentOption {
 	}
 }
 
-// WithErrors establishes a metric that tracks how many errors, or failed resource acquisitions,
-// happen when attempting to acquire resources.  If a nil counter is supplied, error counts
-// are discarded.
-func WithErrors(a xmetrics.Adder) InstrumentOption {
+// WithFailures establishes a metric that tracks how many times a resource was unable to
+// be acquired, due to timeouts, context cancellations, etc.
+func WithFailures(a xmetrics.Adder) InstrumentOption {
 	return func(i *instrumentedSemaphore) {
 		if a != nil {
-			i.errors = a
+			i.failures = a
 		} else {
-			i.errors = discard.NewCounter()
+			i.failures = discard.NewCounter()
 		}
 	}
 }
 
 // Instrument decorates an existing semaphore with a set of options.
 func Instrument(s Interface, o ...InstrumentOption) Interface {
+	if s == nil {
+		panic("A delegate semaphore is required")
+	}
+
 	is := &instrumentedSemaphore{
 		Interface: s,
 		resources: discard.NewCounter(),
-		errors:    discard.NewCounter(),
+		failures:  discard.NewCounter(),
 	}
 
 	for _, f := range o {
@@ -54,7 +57,7 @@ func Instrument(s Interface, o ...InstrumentOption) Interface {
 type instrumentedSemaphore struct {
 	Interface
 	resources xmetrics.Adder
-	errors    xmetrics.Adder
+	failures  xmetrics.Adder
 }
 
 func (is *instrumentedSemaphore) Acquire() {
@@ -65,7 +68,7 @@ func (is *instrumentedSemaphore) Acquire() {
 func (is *instrumentedSemaphore) AcquireWait(t <-chan time.Time) (err error) {
 	err = is.Interface.AcquireWait(t)
 	if err != nil {
-		is.errors.Add(1.0)
+		is.failures.Add(1.0)
 	} else {
 		is.resources.Add(1.0)
 	}
@@ -76,9 +79,20 @@ func (is *instrumentedSemaphore) AcquireWait(t <-chan time.Time) (err error) {
 func (is *instrumentedSemaphore) AcquireCtx(ctx context.Context) (err error) {
 	err = is.Interface.AcquireCtx(ctx)
 	if err != nil {
-		is.errors.Add(1.0)
+		is.failures.Add(1.0)
 	} else {
 		is.resources.Add(1.0)
+	}
+
+	return
+}
+
+func (is *instrumentedSemaphore) TryAcquire() (acquired bool) {
+	acquired = is.Interface.TryAcquire()
+	if acquired {
+		is.resources.Add(1.0)
+	} else {
+		is.failures.Add(1.0)
 	}
 
 	return
