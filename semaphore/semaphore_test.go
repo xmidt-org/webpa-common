@@ -42,6 +42,20 @@ func ExampleMutex() {
 	// 5
 }
 
+func ExampleAcquireWait() {
+	var (
+		s     = Mutex()
+		timer = time.NewTimer(100 * time.Millisecond)
+	)
+
+	defer timer.Stop()
+	s.Acquire() // force AcquireWait to wait
+	fmt.Println(s.AcquireWait(timer.C))
+
+	// Output:
+	// The semaphore could not be acquired within the timeout
+}
+
 func testNewInvalidCount(t *testing.T) {
 	for _, c := range []int{0, -1} {
 		t.Run(strconv.Itoa(c), func(t *testing.T) {
