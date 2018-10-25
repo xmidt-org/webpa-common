@@ -35,7 +35,8 @@ func WithFailures(a xmetrics.Adder) InstrumentOption {
 	}
 }
 
-// Instrument decorates an existing semaphore with a set of options.
+// Instrument decorates an existing semaphore with instrumentation.  The available options
+// allow tracking the number of resources currently acquired and the total count of failures over time.
 func Instrument(s Interface, o ...InstrumentOption) Interface {
 	if s == nil {
 		panic("A delegate semaphore is required")
@@ -54,6 +55,7 @@ func Instrument(s Interface, o ...InstrumentOption) Interface {
 	return is
 }
 
+// instrumentedSemaphore is the internal decorator around Interface that applies appropriate metrics.
 type instrumentedSemaphore struct {
 	Interface
 	resources xmetrics.Adder
