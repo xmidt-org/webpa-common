@@ -12,7 +12,8 @@ var (
 	ErrTimeout = errors.New("The semaphore could not be acquired within the timeout")
 )
 
-// Interface represents a semaphore, either binary or counting.
+// Interface represents a semaphore, either binary or counting.  When any acquire method is successful,
+// Release *must* be called to return the resource to the semaphore.
 type Interface interface {
 	// Acquire acquires a resource.  This method blocks forever until a resource can be acquired.
 	Acquire()
@@ -25,6 +26,10 @@ type Interface interface {
 	// AcquireCtx attempts to acquire a resource before the given context is canceled.  If the resource
 	// was acquired, this method returns nil.  Otherwise, this method returns ctx.Err().
 	AcquireCtx(context.Context) error
+
+	// TryAcquire attempts to acquire a release, returning false immediately if a resource was unavailable.
+	// This method returns true if the resource was acquired.
+	TryAcquire() bool
 
 	// Release relinquishes control of a resource.  If called before a corresponding acquire method,
 	// this method will likely result in a deadlock.  This method must be invoked after a successful
@@ -45,7 +50,7 @@ func New(count int) Interface {
 	}
 }
 
-// Mutex is just syntactic sugar for New(1).
+// Mutex is just syntactic sugar for New(1).  The returned object is a binary semaphore.
 func Mutex() Interface {
 	return New(1)
 }
@@ -74,6 +79,15 @@ func (s *semaphore) AcquireCtx(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+func (s *semaphore) TryAcquire() bool {
+	select {
+	case s.c <- struct{}{}:
+		return true
+	default:
+		return false
 	}
 }
 
