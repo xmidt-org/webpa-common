@@ -42,6 +42,21 @@ func ExampleMutex() {
 	// 5
 }
 
+func ExampleInterface_AcquireWait() {
+	var (
+		s     = Mutex()
+		timer = time.NewTimer(100 * time.Millisecond)
+	)
+
+	defer timer.Stop()
+	s.Acquire() // force AcquireWait to block
+	err := s.AcquireWait(timer.C)
+	fmt.Println(err != nil)
+
+	// Output:
+	// true
+}
+
 func testNewInvalidCount(t *testing.T) {
 	for _, c := range []int{0, -1} {
 		t.Run(strconv.Itoa(c), func(t *testing.T) {
