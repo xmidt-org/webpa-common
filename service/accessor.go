@@ -10,7 +10,6 @@ import (
 var (
 	errNoInstances     = errors.New("There are no instances available")
 	errNoFailOvers     = errors.New("no failover instances available")
-	errNoRouter        = errors.New("traffic router interface not set")
 	errFailOversFailed = errors.New("failovers could not find an instance")
 )
 
@@ -136,37 +135,39 @@ type AccessorValue struct {
 	Accessor Accessor
 	Err      error
 }
+type LayeredAccessor interface {
+	Accessor
 
-type LayeredAccessor struct {
-	lock sync.RWMutex
+	SetError(err error)
+	SetPrimary(a Accessor)
+	UpdatePrimary(a Accessor, err error)
+	SetFailOver(failover map[string]AccessorValue)
+	UpdateFailOver(key string, a Accessor, err error)
+}
 
+type layeredAccessor struct {
 	router        RouteTraffic
 	accessorQueue AccessorQueue
 
-	err     error
-	primary Accessor
-
+	err      error
+	primary  Accessor
 	failover map[string]AccessorValue
+
+	lock sync.RWMutex
 }
 
-// SetRouter will update teh router, which will determine if the accessor should return the instance or fail
-func (la *LayeredAccessor) SetRouter(router RouteTraffic) {
-	la.lock.Lock()
-	la.router = router
-	la.lock.Unlock()
-}
-
-// SetRouter will update teh router, which will determine if the accessor should return the instance or fail
-func (la *LayeredAccessor) SetAccessorQueue(chooser AccessorQueue) {
-	la.lock.Lock()
-	la.accessorQueue = chooser
-	la.lock.Unlock()
+func NewLayeredAccesor(router RouteTraffic, chooser AccessorQueue) LayeredAccessor {
+	return &layeredAccessor{
+		router:        router,
+		accessorQueue: chooser,
+		failover:      make(map[string]AccessorValue),
+	}
 }
 
 // SetError clears the instances being used by this instance and sets the error to be returned
 // by Get with every call.  This error will be returned by Get until an update with one or more instances
 // occurs.
-func (la *LayeredAccessor) SetError(err error) {
+func (la *layeredAccessor) SetError(err error) {
 	la.lock.Lock()
 	la.err = err
 	la.primary = nil
@@ -175,7 +176,7 @@ func (la *LayeredAccessor) SetError(err error) {
 
 // SetPrimary changes the instances used by this UpdateAccessor, clearing any error.  Note that Get will
 // still return an error if a is nil or empty.
-func (la *LayeredAccessor) SetPrimary(a Accessor) {
+func (la *layeredAccessor) SetPrimary(a Accessor) {
 	la.lock.Lock()
 	la.err = nil
 	la.primary = a
@@ -184,14 +185,14 @@ func (la *LayeredAccessor) SetPrimary(a Accessor) {
 
 // SetPrimary changes the instances used by this UpdateAccessor, clearing any error.  Note that Get will
 // still return an error if a is nil or empty.
-func (la *LayeredAccessor) SetFailOver(failover map[string]AccessorValue) {
+func (la *layeredAccessor) SetFailOver(failover map[string]AccessorValue) {
 	la.lock.Lock()
 	la.failover = failover
 	la.lock.Unlock()
 }
 
 // Update sets both the instances and the Get error in a single, atomic call.
-func (la *LayeredAccessor) UpdatePrimary(a Accessor, err error) {
+func (la *layeredAccessor) UpdatePrimary(a Accessor, err error) {
 	la.lock.Lock()
 	la.err = err
 	la.primary = a
@@ -199,7 +200,7 @@ func (la *LayeredAccessor) UpdatePrimary(a Accessor, err error) {
 }
 
 // Update sets the instances, failovers and the Get error in a single, atomic call.
-func (la *LayeredAccessor) UpdateFailOver(key string, a Accessor, err error) {
+func (la *layeredAccessor) UpdateFailOver(key string, a Accessor, err error) {
 	la.lock.Lock()
 	if la.failover == nil {
 		la.failover = make(map[string]AccessorValue)
@@ -212,7 +213,7 @@ func (la *LayeredAccessor) UpdateFailOver(key string, a Accessor, err error) {
 // Get hashes the key against the current set of instances to select an instance consistently.
 // This method will return an error if this instance isn't updated yet or has been updated with
 // no instances.
-func (la *LayeredAccessor) Get(key []byte) (string, error) {
+func (la *layeredAccessor) Get(key []byte) (string, error) {
 	var instance string
 	var err error
 	la.lock.RLock()
@@ -232,9 +233,6 @@ func (la *LayeredAccessor) Get(key []byte) (string, error) {
 			routeErr.addError(err)
 			instance, err = la.getFailOverInstance(key)
 			routeErr.addError(err)
-		} else if la.router == nil {
-			routeErr.addError(errNoRouter)
-			break
 		}
 
 		if err := la.router.Route(instance); err != nil {
@@ -261,7 +259,7 @@ func (la *LayeredAccessor) Get(key []byte) (string, error) {
 	return instance, routeErr
 }
 
-func (la *LayeredAccessor) getFailOverInstance(key []byte) (instance string, err error) {
+func (la *layeredAccessor) getFailOverInstance(key []byte) (instance string, err error) {
 	if la.failover == nil || len(la.failover) == 0 {
 		return "", errNoFailOvers
 	}

@@ -124,10 +124,8 @@ func (r mockOrder) Order(keys []string) []string {
 /******************* END MOCK DECLARATIONS ************************/
 
 func TestLayeredAccessor(t *testing.T) {
-	var (
-		assert = assert.New(t)
-		la     = new(LayeredAccessor)
-	)
+	assert := assert.New(t)
+	la := NewLayeredAccesor(DefaultTrafficRouter(), DefaultOrder())
 
 	i, err := la.Get([]byte("test"))
 	assert.Empty(i)
@@ -136,9 +134,10 @@ func TestLayeredAccessor(t *testing.T) {
 	la.SetPrimary(MapAccessor{"test": "a valid instance"})
 	i, err = la.Get([]byte("test"))
 	assert.Equal("a valid instance", i)
-	assert.Equal(RouteError{ErrChain: ErrorChain{Err: errNoRouter}, Instance: i}, err)
+	assert.NoError(err)
+	//assert.Equal(RouteError{ErrChain: ErrorChain{Err: nil}, Instance: i}, err)
 
-	la.SetRouter(DefaultTrafficRouter())
+	la.(*layeredAccessor).router = DefaultTrafficRouter()
 
 	i, err = la.Get([]byte("nosuch"))
 	assert.Empty(i)
@@ -172,8 +171,8 @@ func TestLayeredAccessor(t *testing.T) {
 
 	fakeRouter := new(mockRouter)
 
-	la.SetRouter(fakeRouter)
-	la.SetAccessorQueue(DefaultOrder())
+	la.(*layeredAccessor).router = fakeRouter
+	la.(*layeredAccessor).accessorQueue = DefaultOrder()
 
 	expectedInstance := "a valid instance"
 	fakeRouter.On("Route", expectedInstance).Return(testErrorNoRoute)
@@ -190,7 +189,7 @@ func TestLayeredAccessor(t *testing.T) {
 	assert.Equal(dc2Instance, i)
 
 	fakeOrder := new(mockOrder)
-	la.SetAccessorQueue(fakeOrder)
+	la.(*layeredAccessor).accessorQueue = fakeOrder
 	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc2", "dc1"}).Once()
 	fakeOrder.On("Order", []string{"dc1", "dc2"}).Return([]string{"dc2", "dc1"}).Once()
 
