@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -53,6 +54,8 @@ type executor interface {
 
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
+
+	Shutdown(ctx context.Context) error
 }
 
 // Secure exposes the optional certificate information to be used when starting an HTTP server.
