@@ -9,11 +9,13 @@ import (
 	"sync/atomic"
 )
 
+// serverable holds the fields of a server (e.g. ListenAndServe() and Shutdown())
 type serverable struct {
 	serve    func() error
 	shutdown func(ctx context.Context) error
 }
 
+// restartServer holds on to the info to control the server and restartability
 type restarterServer struct {
 	listenFunc serverable
 	stop       <-chan struct{}
@@ -21,7 +23,15 @@ type restarterServer struct {
 	done       atomic.Value
 }
 
-func StartServer(serve func() error, shutdown func(ctx context.Context) error, stop <-chan struct{}, logger log.Logger) error {
+// BeginRestartableServer starts a restartable server given a Serve function and a Shutdown func.
+// The server will continue to run until a http.ErrServerClosed for someone closing the server or
+// a msg sent to the stop chan. If some other error is thrown the server will just call the Serve
+// func again.
+//
+// Creating a restartable server is simple and easy:
+//	server := http.Server{}
+//	BeginRestartableServer(server.ListenAndServe, server.Shutdown, nil, nil)
+func BeginRestartableServer(serve func() error, shutdown func(ctx context.Context) error, stop <-chan struct{}, logger log.Logger) error {
 	if serve == nil {
 		return errors.New("serve func can't be null")
 	}
@@ -30,6 +40,10 @@ func StartServer(serve func() error, shutdown func(ctx context.Context) error, s
 	}
 	if logger == nil {
 		logger = logging.DefaultLogger()
+	}
+	if stop == nil {
+		logging.Warn(logger).Log(logging.MessageKey(), "won't be able to stop restartable server from here")
+		stop = make(chan struct{}, 1)
 	}
 	server := restarterServer{
 		listenFunc: serverable{
