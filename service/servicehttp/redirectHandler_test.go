@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/stretchr/testify/assert"
 )
@@ -22,6 +23,7 @@ func testRedirectHandlerKeyFuncError(t *testing.T) {
 		request  = httptest.NewRequest("GET", "/", nil)
 
 		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
 			KeyFunc:      keyFunc,
 			Accessor:     accessor,
 			RedirectCode: http.StatusTemporaryRedirect,
@@ -47,6 +49,7 @@ func testRedirectHandlerAccessorError(t *testing.T) {
 		request  = httptest.NewRequest("GET", "/", nil)
 
 		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
 			KeyFunc:      keyFunc,
 			Accessor:     accessor,
 			RedirectCode: http.StatusTemporaryRedirect,
@@ -73,6 +76,7 @@ func testRedirectHandlerSuccess(t *testing.T) {
 		request  = httptest.NewRequest("GET", "/", nil)
 
 		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
 			KeyFunc:      keyFunc,
 			Accessor:     accessor,
 			RedirectCode: http.StatusTemporaryRedirect,
@@ -102,6 +106,7 @@ func testRedirectHandlerSuccessWithPath(t *testing.T) {
 		request  = httptest.NewRequest("GET", "https://someIrrelevantHost.com"+requestURI, nil)
 
 		handler = RedirectHandler{
+			Logger:       logging.NewTestLogger(nil, t),
 			KeyFunc:      keyFunc,
 			Accessor:     accessor,
 			RedirectCode: http.StatusTemporaryRedirect,
