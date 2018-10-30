@@ -82,10 +82,11 @@ func TestListenAndServeNonSecure(t *testing.T) {
 func TestListenAndServeSecure(t *testing.T) {
 	var (
 		testData = []struct {
-			expectedError error
+			expectedError   error
+			shouldCallFinal bool
 		}{
-			{nil},
-			{errors.New("expected")},
+			{http.ErrServerClosed, true},
+			{errors.New("expected"), false},
 		}
 	)
 
@@ -95,7 +96,7 @@ func TestListenAndServeSecure(t *testing.T) {
 			assert = assert.New(t)
 
 			_, logger      = newTestLogger()
-			executorCalled = make(chan struct{})
+			executorCalled = make(chan struct{}, 1)
 			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
 
@@ -111,22 +112,23 @@ func TestListenAndServeSecure(t *testing.T) {
 
 		mockExecutor.On("ListenAndServeTLS", "file.cert", "file.key").
 			Return(record.expectedError).
-			Run(func(mock.Arguments) { close(executorCalled) }).
-			Once()
+			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
 		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
 		select {
 		case <-executorCalled:
 			// passing
-		case <-time.After(5 * time.Second):
+		case <-time.After(time.Millisecond):
 			assert.Fail("the executor was not called")
 		}
 
 		select {
 		case <-finalizerCalled:
 			// passing
-		case <-time.After(5 * time.Second):
-			assert.Fail("the finalizer was not called")
+		case <-time.After(time.Millisecond):
+			if record.shouldCallFinal {
+				assert.Fail("the finalizer was not called")
+			}
 		}
 
 		mockSecure.AssertExpectations(t)
