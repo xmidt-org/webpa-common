@@ -22,10 +22,15 @@ const (
 //
 // Any goroutines waiting for resources when a Closeable is closed will receive ErrClosed from the
 // blocked acquire method.  Subsequence attempts to acquire resources will also result in ErrClosed.
+//
+// Both Close() and Release() are idempotent.  Once closed, Close() returns ErrClosed without modifying
+// the instance.  Release() will silently return if the semaphore has been closed.
 type Closeable interface {
 	io.Closer
 	Interface
 
+	// Closed() returns a channel that is closed when this semaphore has been closed.
+	// This channel has similar use cases to context.Done().
 	Closed() <-chan struct{}
 }
 
@@ -149,8 +154,11 @@ func (cs *closeable) TryAcquire() bool {
 	}
 }
 
-func (cs *closeable) Release() {
-	if !cs.checkClosed() {
-		<-cs.c
+func (cs *closeable) Release() error {
+	if cs.checkClosed() {
+		return ErrClosed
 	}
+
+	<-cs.c
+	return nil
 }

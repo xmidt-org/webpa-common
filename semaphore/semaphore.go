@@ -35,7 +35,10 @@ type Interface interface {
 	// Release relinquishes control of a resource.  If called before a corresponding acquire method,
 	// this method will likely result in a deadlock.  This method must be invoked after a successful
 	// acquire in order to allow other goroutines to use the resource(s).
-	Release()
+	//
+	// Typically, this method returns a nil error.  It can return a non-nil error, as with a closeable semaphore
+	// that has been closed.
+	Release() error
 }
 
 // New constructs a semaphore with the given count.  A nonpositive count will result in a panic.
@@ -93,6 +96,7 @@ func (s *semaphore) TryAcquire() bool {
 	}
 }
 
-func (s *semaphore) Release() {
+func (s *semaphore) Release() error {
 	<-s.c
+	return nil
 }

@@ -106,7 +106,11 @@ func (is *instrumentedSemaphore) TryAcquire() (acquired bool) {
 	return
 }
 
-func (is *instrumentedSemaphore) Release() {
-	is.Interface.Release()
-	is.resources.Add(-1.0)
+func (is *instrumentedSemaphore) Release() (err error) {
+	err = is.Interface.Release()
+	if err == nil {
+		is.resources.Add(-1.0)
+	}
+
+	return
 }

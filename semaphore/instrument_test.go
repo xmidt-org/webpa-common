@@ -72,7 +72,7 @@ func testInstrumentedSemaphoreAcquireSuccess(t *testing.T) {
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
 
-		s.Release()
+		assert.NoError(s.Release())
 		assert.Zero(resources.Value())
 		assert.Zero(failures.Value())
 	case <-time.After(time.Second):
@@ -85,24 +85,26 @@ func testInstrumentedSemaphoreAcquireFail(t *testing.T) {
 		assert    = assert.New(t)
 		resources = generic.NewCounter("test")
 		failures  = generic.NewCounter("test")
-		s         = Instrument(Mutex(), WithResources(resources), WithFailures(failures))
+		cm        = CloseableMutex()
+		s         = Instrument(cm, WithResources(resources), WithFailures(failures))
 
 		result = make(chan error)
 	)
 
 	go func() {
+		cm.Close()
 		result <- s.Acquire()
 	}()
 
 	select {
 	case err := <-result:
-		assert.NoError(err)
-		assert.Equal(float64(1.0), resources.Value())
-		assert.Zero(failures.Value())
-
-		s.Release()
+		assert.Equal(ErrClosed, err)
 		assert.Zero(resources.Value())
-		assert.Zero(failures.Value())
+		assert.Equal(float64(1.0), failures.Value())
+
+		assert.Equal(ErrClosed, s.Release()) // idempotent
+		assert.Zero(resources.Value())
+		assert.Equal(float64(1.0), failures.Value())
 	case <-time.After(time.Second):
 		assert.FailNow("Acquire blocked unexpectedly")
 	}
@@ -128,7 +130,7 @@ func testInstrumentedSemaphoreTryAcquire(t *testing.T) {
 	assert.Equal(float64(1.0), resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
 
-	s.Release()
+	assert.NoError(s.Release())
 	assert.Zero(resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
 }
@@ -166,7 +168,7 @@ func testInstrumentedSemaphoreAcquireWaitSuccess(t *testing.T) {
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
 
-		s.Release()
+		assert.NoError(s.Release())
 		assert.Zero(resources.Value())
 		assert.Zero(failures.Value())
 	case <-time.After(time.Second):
