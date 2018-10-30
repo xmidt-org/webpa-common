@@ -62,9 +62,15 @@ type instrumentedSemaphore struct {
 	failures  xmetrics.Adder
 }
 
-func (is *instrumentedSemaphore) Acquire() {
-	is.Interface.Acquire()
-	is.resources.Add(1.0)
+func (is *instrumentedSemaphore) Acquire() (err error) {
+	err = is.Interface.Acquire()
+	if err != nil {
+		is.failures.Add(1.0)
+	} else {
+		is.resources.Add(1.0)
+	}
+
+	return
 }
 
 func (is *instrumentedSemaphore) AcquireWait(t <-chan time.Time) (err error) {

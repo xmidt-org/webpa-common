@@ -52,23 +52,51 @@ func TestInstrument(t *testing.T) {
 	t.Run("NilSemaphore", testInstrumentNilSemaphore)
 }
 
-func testInstrumentedSemaphoreAcquire(t *testing.T) {
+func testInstrumentedSemaphoreAcquireSuccess(t *testing.T) {
 	var (
 		assert    = assert.New(t)
 		resources = generic.NewCounter("test")
 		failures  = generic.NewCounter("test")
 		s         = Instrument(Mutex(), WithResources(resources), WithFailures(failures))
 
-		ready = make(chan struct{})
+		result = make(chan error)
 	)
 
 	go func() {
-		defer close(ready)
-		s.Acquire()
+		result <- s.Acquire()
 	}()
 
 	select {
-	case <-ready:
+	case err := <-result:
+		assert.NoError(err)
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Zero(failures.Value())
+
+		s.Release()
+		assert.Zero(resources.Value())
+		assert.Zero(failures.Value())
+	case <-time.After(time.Second):
+		assert.FailNow("Acquire blocked unexpectedly")
+	}
+}
+
+func testInstrumentedSemaphoreAcquireFail(t *testing.T) {
+	var (
+		assert    = assert.New(t)
+		resources = generic.NewCounter("test")
+		failures  = generic.NewCounter("test")
+		s         = Instrument(Mutex(), WithResources(resources), WithFailures(failures))
+
+		result = make(chan error)
+	)
+
+	go func() {
+		result <- s.Acquire()
+	}()
+
+	select {
+	case err := <-result:
+		assert.NoError(err)
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
 
@@ -274,7 +302,11 @@ func testInstrumentedSemaphoreAcquireCtxCancel(t *testing.T) {
 }
 
 func TestInstrumentedSemaphore(t *testing.T) {
-	t.Run("Acquire", testInstrumentedSemaphoreAcquire)
+	t.Run("Acquire", func(t *testing.T) {
+		t.Run("Success", testInstrumentedSemaphoreAcquireSuccess)
+		t.Run("Fail", testInstrumentedSemaphoreAcquireFail)
+	})
+
 	t.Run("TryAcquire", testInstrumentedSemaphoreTryAcquire)
 
 	t.Run("AcquireWait", func(t *testing.T) {

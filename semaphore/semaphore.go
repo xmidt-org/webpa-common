@@ -15,8 +15,9 @@ var (
 // Interface represents a semaphore, either binary or counting.  When any acquire method is successful,
 // Release *must* be called to return the resource to the semaphore.
 type Interface interface {
-	// Acquire acquires a resource.  This method blocks forever until a resource can be acquired.
-	Acquire()
+	// Acquire acquires a resource.  Typically, this method will block forever.  Some semaphore implementations,
+	// e.g. closeable semaphores, can immediately return an error from this method.
+	Acquire() error
 
 	// AcquireWait attempts to acquire a resource before the given time channel becomes signaled.
 	// If the resource was acquired, this method returns nil.  If the time channel gets signaled
@@ -60,8 +61,9 @@ type semaphore struct {
 	c chan struct{}
 }
 
-func (s *semaphore) Acquire() {
+func (s *semaphore) Acquire() error {
 	s.c <- struct{}{}
+	return nil
 }
 
 func (s *semaphore) AcquireWait(t <-chan time.Time) error {
