@@ -105,15 +105,3 @@ func (m *mockConn) SetReadDeadline(t time.Time) error {
 func (m *mockConn) SetWriteDeadline(t time.Time) error {
 	return m.Called(t).Error(0)
 }
-
-type mockServerable struct {
-	mock.Mock
-}
-
-func (m *mockServerable) Serve() error {
-	return m.Called().Error(0)
-}
-
-func (m *mockServerable) Shutdown(ctx context.Context) error {
-	return m.Called(ctx).Error(0)
-}
