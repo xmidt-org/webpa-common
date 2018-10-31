@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"time"
@@ -34,6 +35,10 @@ func (m *mockExecutor) ListenAndServe() error {
 
 func (m *mockExecutor) ListenAndServeTLS(certificateFile, keyFile string) error {
 	return m.Called(certificateFile, keyFile).Error(0)
+}
+
+func (m *mockExecutor) Shutdown(ctx context.Context) error {
+	return m.Called(ctx).Error(0)
 }
 
 type mockSecure struct {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -53,6 +54,8 @@ type executor interface {
 
 	ListenAndServe() error
 	ListenAndServeTLS(certificateFile, keyFile string) error
+
+	Shutdown(ctx context.Context) error
 }
 
 // Secure exposes the optional certificate information to be used when starting an HTTP server.
@@ -60,6 +63,24 @@ type Secure interface {
 	// Certificate returns the certificate information associated with this Secure instance.
 	// BOTH the returned file paths must be non-empty if a TLS server is desired.
 	Certificate() (certificateFile, keyFile string)
+}
+
+func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
+	var err error
+	logging.Debug(logger).Log(logging.MessageKey(), "starting restartable func", "errors", errs)
+	breakErrors := make(map[error]bool)
+	for _, elem := range errs {
+		breakErrors[elem] = true
+	}
+	for {
+		err = f()
+		if breakErrors[err] {
+			break
+		}
+		logging.Debug(logger).Log(logging.MessageKey(), "restartable func making a loop", logging.ErrorKey(), err)
+	}
+	logging.Debug(logger).Log(logging.MessageKey(), "restartable func exiting", logging.ErrorKey(), err)
+	return err
 }
 
 // Serve is like ListenAndServe, but accepts a custom net.Listener
@@ -73,16 +94,17 @@ func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer fu
 		)
 
 		if len(certificateFile) > 0 && len(keyFile) > 0 {
+
 			logger.Log(
 				level.Key(), level.ErrorValue(),
 				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), e.ServeTLS(l, certificateFile, keyFile),
+				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ServeTLS(l, certificateFile, keyFile) }, http.ErrServerClosed),
 			)
 		} else {
 			logger.Log(
 				level.Key(), level.ErrorValue(),
 				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), e.Serve(l),
+				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed),
 			)
 		}
 	}()
@@ -104,13 +126,13 @@ func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
 			logger.Log(
 				level.Key(), level.ErrorValue(),
 				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), e.ListenAndServeTLS(certificateFile, keyFile),
+				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ListenAndServeTLS(certificateFile, keyFile) }, http.ErrServerClosed),
 			)
 		} else {
 			logger.Log(
 				level.Key(), level.ErrorValue(),
 				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), e.ListenAndServe(),
+				logging.ErrorKey(), RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed),
 			)
 		}
 	}()
