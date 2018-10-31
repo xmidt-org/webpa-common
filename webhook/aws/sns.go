@@ -15,6 +15,7 @@ import (
 	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
+	"github.com/miekg/dns"
 	"github.com/spf13/viper"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -44,6 +45,7 @@ type SNSServer struct {
 	subscriptionArn atomic.Value
 	SVC             snsiface.SNSAPI
 	SelfUrl         *url.URL
+	SOAProvider     string
 	SNSValidator
 	notificationData     chan string
 	channelSize          int64
@@ -59,7 +61,7 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, http.Handler, log.Logger, xmetrics.Registry, func() time.Time)
+	Initialize(*mux.Router, *url.URL, string, http.Handler, log.Logger, xmetrics.Registry, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string) error
@@ -92,9 +94,9 @@ func NewSNSServer(v *viper.Viper) (ss *SNSServer, err error) {
 	svc := sns.New(sess)
 	// Initialize the server
 	ss = &SNSServer{
-		Config: *cfg,
-		SVC:    svc,
-		channelSize: 50,
+		Config:               *cfg,
+		SVC:                  svc,
+		channelSize:          50,
 		channelClientTimeout: 30 * time.Second,
 	}
 
@@ -124,8 +126,8 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // selfURL represents the webhook server URL &url.URL{Scheme:secure,Host:fqdn+port,Path:urlPath}
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
-func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.Handler,
-	logger log.Logger, registry xmetrics.Registry, now func() time.Time) {
+func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider string,
+	handler http.Handler, logger log.Logger, registry xmetrics.Registry, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
@@ -156,6 +158,14 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, handler http.
 			Path:   urlPath,
 		}
 	}
+
+	if soaProvider != "" {
+		ss.SOAProvider = soaProvider
+	} else {
+		// Test value for SOA provider
+		ss.SOAProvider = "localhost:5079"
+	}
+
 	ss.notificationData = make(chan string, ss.channelSize)
 
 	// set up logger
@@ -201,24 +211,40 @@ func (ss *SNSServer) DnsReady() (e error) {
 	}
 	defer cancel()
 
+	// Creating the dns client for our query
+	client := dns.Client{
+		Net: "tcp", // tcp to connect to the SOA provider? or udp (default)?
+		Dialer: &net.Dialer{
+			Timeout: ss.waitForDns,
+		},
+	}
+	// the message contains what we are looking for - the SOA record of the host
+	msg := dns.Msg{}
+	msg.SetQuestion(strings.SplitN(ss.SelfUrl.Host, ":", 2)[0]+".", dns.TypeANY)
+
+	defer cancel()
+
 	var check = func() <-chan struct{} {
 		var channel = make(chan struct{})
 
 		go func(c chan struct{}) {
 			var (
-				err  error
-				conn net.Conn
+				err      error
+				response *dns.Msg
 			)
 
 			for {
-				if conn, err = net.Dial("tcp", ss.SelfUrl.Host); err == nil {
-					conn.Close()
+				// sending the dns query to the soa provider
+				response, _, err = client.Exchange(&msg, ss.SOAProvider)
+				// if we found a record, then we are done
+				if err == nil && response != nil && response.Rcode == dns.RcodeSuccess && len(response.Answer) > 0 {
 					c <- struct{}{}
 					ss.metrics.DnsReady.Add(1.0)
 					return
 				}
+				// otherwise, we keep trying
 				ss.metrics.DnsReadyQueryCount.Add(1.0)
-				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready", "endpoint", ss.SelfUrl.Host, logging.ErrorKey(), err)
+				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready", "endpoint", ss.SelfUrl.Host, logging.ErrorKey(), err, "response", response)
 				time.Sleep(time.Second)
 			}
 		}(channel)
