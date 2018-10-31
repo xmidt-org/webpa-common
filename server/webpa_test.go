@@ -61,14 +61,14 @@ func TestListenAndServeNonSecure(t *testing.T) {
 		select {
 		case <-executorCalled:
 			// passing
-		case <-time.After(time.Millisecond):
+		case <-time.After(time.Second):
 			assert.Fail("the executor was not called")
 		}
 
 		select {
 		case <-finalizerCalled:
 			// passing
-		case <-time.After(time.Millisecond):
+		case <-time.After(time.Second):
 			if record.shouldCallFinal {
 				assert.Fail("the finalizer was not called")
 			}
@@ -118,14 +118,14 @@ func TestListenAndServeSecure(t *testing.T) {
 		select {
 		case <-executorCalled:
 			// passing
-		case <-time.After(time.Millisecond):
+		case <-time.After(time.Second):
 			assert.Fail("the executor was not called")
 		}
 
 		select {
 		case <-finalizerCalled:
 			// passing
-		case <-time.After(time.Millisecond):
+		case <-time.After(time.Second):
 			if record.shouldCallFinal {
 				assert.Fail("the finalizer was not called")
 			}
