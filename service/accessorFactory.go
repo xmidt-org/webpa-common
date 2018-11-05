@@ -1,6 +1,9 @@
 package service
 
-import "github.com/billhathaway/consistentHash"
+import (
+	"github.com/Comcast/webpa-common/xhttp/gate"
+	"github.com/billhathaway/consistentHash"
+)
 
 const DefaultVnodeCount = 211
 
@@ -35,6 +38,21 @@ func NewConsistentAccessorFactory(vnodeCount int) AccessorFactory {
 
 	return func(instances []string) Accessor {
 		return newConsistentAccessor(vnodeCount, instances)
+	}
+}
+
+// NewConsistentAccessorFactoryWithGate produces a factory which uses consistent hashing
+// of server nodes with the gate feature.  The returned factory does not modify instances passed to it.
+// Instances are hashed as is. If the gate is closed an error saying the gate is closed will be returned
+func NewConsistentAccessorFactoryWithGate(vnodeCount int, g gate.Interface) AccessorFactory {
+	if vnodeCount < 1 {
+		return func(instances []string) Accessor {
+			return GateAccessor(g, newConsistentAccessor(DefaultVnodeCount, instances))
+		}
+	}
+
+	return func(instances []string) Accessor {
+		return GateAccessor(g, newConsistentAccessor(vnodeCount, instances))
 	}
 }
 

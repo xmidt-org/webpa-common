@@ -38,7 +38,7 @@ func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http
 	}
 
 	instance, err := rh.Accessor.Get(key)
-	if err != nil {
+	if err != nil && instance == "" {
 		ctxLogger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "accessor failed to return an instance", logging.ErrorKey(), err)
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 		return
