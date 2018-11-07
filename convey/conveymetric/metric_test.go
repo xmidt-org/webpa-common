@@ -59,6 +59,7 @@ func TestGetValidKeyName(t *testing.T) {
 	assert := assert.New(t)
 
 	assert.Equal("basic", getValidKeyName("basic"))
+	assert.Equal(UnknownLabel, getValidKeyName(""))
 	assert.Equal(UnknownLabel, getValidKeyName(" "))
 	assert.Equal("hw_model", getValidKeyName("hw-model"))
 	assert.Equal("hw_model", getValidKeyName("hw model"))

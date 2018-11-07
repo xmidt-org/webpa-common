@@ -18,7 +18,7 @@ type CMetric interface {
 }
 
 var (
-	validKeyRegex   = regexp.MustCompile(`^[a-zA-Z_:]*$`)
+	validKeyRegex   = regexp.MustCompile(`^[a-zA-Z_:]+$`)
 	replaceRegex    = regexp.MustCompile(`[\W]+`)
 	underscoreRegex = regexp.MustCompile(`_+`)
 )
