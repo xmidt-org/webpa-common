@@ -21,10 +21,10 @@ const (
 // Closeable represents a semaphore than can be closed.  Once closed, a semaphore cannot be reopened.
 //
 // Any goroutines waiting for resources when a Closeable is closed will receive ErrClosed from the
-// blocked acquire method.  Subsequence attempts to acquire resources will also result in ErrClosed.
+// blocked acquire method.  Subsequent attempts to acquire resources will also result in ErrClosed.
 //
-// Both Close() and Release() are idempotent.  Once closed, Close() returns ErrClosed without modifying
-// the instance.  Release() will silently return if the semaphore has been closed.
+// Both Close() and Release() are idempotent.  Once closed, both methods return ErrClosed without modifying
+// the instance.
 type Closeable interface {
 	io.Closer
 	Interface
