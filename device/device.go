@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Comcast/webpa-common/convey/conveymetric"
 	"sync/atomic"
 	"time"
 
@@ -96,6 +97,8 @@ type device struct {
 	shutdown     chan struct{}
 	messages     chan *envelope
 	transactions *Transactions
+
+	conveyClosure conveymetric.MetricClosure
 }
 
 type deviceOptions struct {
