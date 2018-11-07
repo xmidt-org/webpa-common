@@ -42,9 +42,15 @@ func testCloseableTryAcquire(t *testing.T, cs Closeable, totalCount int) {
 	}
 
 	assert.False(cs.TryAcquire())
-	cs.Release()
+	assert.NoError(cs.Release())
 	assert.True(cs.TryAcquire())
 	assert.False(cs.TryAcquire())
+
+	assert.NoError(cs.Release())
+	assert.NoError(cs.Close())
+	assert.False(cs.TryAcquire())
+	assert.Equal(ErrClosed, cs.Close())
+	assert.Equal(ErrClosed, cs.Release())
 }
 
 func testCloseableAcquireSuccess(t *testing.T, cs Closeable, totalCount int) {
@@ -165,7 +171,9 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 	select {
 	case <-closeWait:
 		assert.False(cs.TryAcquire())
+		assert.Equal(ErrClosed, cs.Close())
 		assert.Equal(ErrClosed, cs.Acquire())
+		assert.Equal(ErrClosed, cs.Release())
 
 	case <-time.After(5 * time.Second):
 		assert.FailNow("Closed channel did not get signaled")
