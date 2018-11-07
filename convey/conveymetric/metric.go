@@ -3,7 +3,8 @@ package conveymetric
 import (
 	"fmt"
 	"github.com/Comcast/webpa-common/convey"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/go-kit/kit/metrics"
 )
 
 const UnknownLabel = "unknown"
@@ -12,25 +13,27 @@ type MetricClosure func()
 
 type CMetric interface {
 	Update(data convey.C) (MetricClosure, error)
-	GetMetrics() []prometheus.Collector
+	//GetMetrics() []prometheus.Collector
 }
 
-func NewConveyMetric(tag string, name string) CMetric {
+func NewConveyMetric(registry xmetrics.Registry, tag string, name string) CMetric {
 	return &cMetric{
-		Tag:     tag,
-		Name:    name,
-		metrics: make(map[string]prometheus.Gauge),
+		Registry: registry,
+		Tag:      tag,
+		Name:     name,
+		metrics:  make(map[string]metrics.Gauge),
 	}
 }
 
 type cMetric struct {
-	Tag     string
-	Name    string
-	metrics map[string]prometheus.Gauge
+	Registry xmetrics.Registry
+	Tag      string
+	Name     string
+	metrics  map[string]metrics.Gauge
 }
 
 func (m *cMetric) Update(data convey.C) (MetricClosure, error) {
-	var gague prometheus.Gauge
+	var gague metrics.Gauge
 
 	key := UnknownLabel
 
@@ -41,27 +44,22 @@ func (m *cMetric) Update(data convey.C) (MetricClosure, error) {
 	if val, found := m.metrics[key]; found {
 		gague = val
 	} else {
-		m.metrics[key] = prometheus.NewGauge(prometheus.GaugeOpts{
-			Name:      fmt.Sprintf("%s_%s_%s", m.Name, m.Tag, key),
-			Namespace: "convey",
-			Subsystem: "convey",
-			Help:      fmt.Sprintf("Convey Metrics %s for %s and value %s", m.Name, m.Tag, key),
-		})
+		m.metrics[key] = m.Registry.NewGauge(fmt.Sprintf("%s_%s_%s", m.Name, m.Tag, key))
 		gague = m.metrics[key]
 	}
 
-	gague.Inc()
-	return func() { gague.Dec() }, nil
+	gague.Add(float64(1))
+	return func() { gague.Add(float64(-1)) }, nil
 }
 
-func (m *cMetric) GetMetrics() []prometheus.Collector {
-	metrics := make([]prometheus.Collector, len(m.metrics))
-
-	index := 0
-	for _, v := range m.metrics {
-		metrics[index] = v
-		index++
-	}
-
-	return metrics
-}
+//func (m *cMetric) GetMetrics() []prometheus.Collector {
+//	metrics := make([]prometheus.Collector, len(m.metrics))
+//
+//	index := 0
+//	for _, v := range m.metrics {
+//		metrics[index] = v
+//		index++
+//	}
+//
+//	return metrics
+//}
