@@ -566,12 +566,78 @@ func testInstrumentedCloseableAcquireWaitTimeout(t *testing.T) {
 	}
 }
 
+func testInstrumentedCloseableAcquireWaitClose(t *testing.T) {
+	var (
+		assert    = assert.New(t)
+		resources = generic.NewCounter("test")
+		failures  = generic.NewCounter("test")
+		closed    = generic.NewGauge("test")
+		s         = InstrumentCloseable(CloseableMutex(), WithResources(resources), WithFailures(failures), WithClosed(closed))
+
+		ready  = make(chan struct{})
+		result = make(chan error)
+		timer  = make(chan time.Time)
+	)
+
+	assert.NotNil(s.Closed())
+	assert.Equal(MetricOpen, closed.Value())
+
+	go func() {
+		s.Acquire()
+		close(ready)
+		result <- s.AcquireWait(timer)
+	}()
+
+	select {
+	case <-ready:
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
+		assert.NoError(s.Close())
+	case <-time.After(time.Second):
+		assert.FailNow("Failed to spawn AcquireWait goroutine")
+	}
+
+	select {
+	case err := <-result:
+		assert.Equal(ErrClosed, err)
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Equal(float64(1.0), failures.Value())
+		assert.Equal(MetricClosed, closed.Value())
+
+		s.Release()
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Equal(float64(1.0), failures.Value())
+		assert.Equal(MetricClosed, closed.Value())
+	case <-time.After(time.Second):
+		assert.FailNow("AcquireWait blocked unexpectedly")
+	}
+
+	assert.Equal(ErrClosed, s.Close())
+	assert.Equal(float64(1.0), resources.Value())
+	assert.Equal(float64(1.0), failures.Value())
+	assert.Equal(MetricClosed, closed.Value())
+
+	select {
+	case <-s.Closed():
+		// passing
+	default:
+		assert.Fail("The Closed channel was not signaled")
+	}
+
+	assert.Equal(ErrClosed, s.AcquireWait(timer))
+	assert.Equal(float64(1.0), resources.Value())
+	assert.Equal(float64(2.0), failures.Value())
+	assert.Equal(MetricClosed, closed.Value())
+}
+
 func testInstrumentedCloseableAcquireCtxSuccess(t *testing.T) {
 	var (
 		assert    = assert.New(t)
 		resources = generic.NewCounter("test")
 		failures  = generic.NewCounter("test")
-		s         = Instrument(Mutex(), WithResources(resources), WithFailures(failures))
+		closed    = generic.NewGauge("test")
+		s         = InstrumentCloseable(CloseableMutex(), WithResources(resources), WithFailures(failures), WithClosed(closed))
 
 		ready       = make(chan struct{})
 		result      = make(chan error)
@@ -579,6 +645,8 @@ func testInstrumentedCloseableAcquireCtxSuccess(t *testing.T) {
 	)
 
 	defer cancel()
+	assert.NotNil(s.Closed())
+	assert.Equal(MetricOpen, closed.Value())
 
 	go func() {
 		s.Acquire()
@@ -590,7 +658,12 @@ func testInstrumentedCloseableAcquireCtxSuccess(t *testing.T) {
 	case <-ready:
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 		s.Release()
+
+		assert.Zero(resources.Value())
+		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 	case <-time.After(time.Second):
 		assert.FailNow("Failed to spawn AcquireCtx goroutine")
 	}
@@ -600,13 +673,32 @@ func testInstrumentedCloseableAcquireCtxSuccess(t *testing.T) {
 		assert.NoError(err)
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 
 		s.Release()
 		assert.Zero(resources.Value())
 		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 	case <-time.After(time.Second):
 		assert.FailNow("AcquireCtx blocked unexpectedly")
 	}
+
+	assert.NoError(s.Close())
+	assert.Zero(resources.Value())
+	assert.Zero(failures.Value())
+	assert.Equal(MetricClosed, closed.Value())
+
+	select {
+	case <-s.Closed():
+		// passing
+	default:
+		assert.Fail("The Closed channel was not signaled")
+	}
+
+	assert.Equal(ErrClosed, s.AcquireCtx(ctx))
+	assert.Zero(resources.Value())
+	assert.Equal(float64(1.0), failures.Value())
+	assert.Equal(MetricClosed, closed.Value())
 }
 
 func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
@@ -614,7 +706,8 @@ func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
 		assert    = assert.New(t)
 		resources = generic.NewCounter("test")
 		failures  = generic.NewCounter("test")
-		s         = Instrument(Mutex(), WithResources(resources), WithFailures(failures))
+		closed    = generic.NewGauge("test")
+		s         = InstrumentCloseable(CloseableMutex(), WithResources(resources), WithFailures(failures), WithClosed(closed))
 
 		ready       = make(chan struct{})
 		result      = make(chan error)
@@ -622,6 +715,8 @@ func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
 	)
 
 	defer cancel()
+	assert.NotNil(s.Closed())
+	assert.Equal(MetricOpen, closed.Value())
 
 	go func() {
 		s.Acquire()
@@ -633,6 +728,7 @@ func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
 	case <-ready:
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 		cancel()
 	case <-time.After(time.Second):
 		assert.FailNow("Failed to spawn AcquireCtx goroutine")
@@ -643,12 +739,91 @@ func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
 		assert.Equal(ctx.Err(), err)
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Equal(float64(1.0), failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 
 		s.Release()
 		assert.Zero(resources.Value())
 		assert.Equal(float64(1.0), failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
 	case <-time.After(time.Second):
 		assert.FailNow("AcquireCtx blocked unexpectedly")
+	}
+
+	assert.NoError(s.Close())
+	assert.Zero(resources.Value())
+	assert.Equal(float64(1.0), failures.Value())
+	assert.Equal(MetricClosed, closed.Value())
+
+	select {
+	case <-s.Closed():
+		// passing
+	default:
+		assert.Fail("The Closed channel was not signaled")
+	}
+}
+
+func testInstrumentedCloseableAcquireCtxClose(t *testing.T) {
+	var (
+		assert    = assert.New(t)
+		resources = generic.NewCounter("test")
+		failures  = generic.NewCounter("test")
+		closed    = generic.NewGauge("test")
+		s         = InstrumentCloseable(CloseableMutex(), WithResources(resources), WithFailures(failures), WithClosed(closed))
+
+		ready       = make(chan struct{})
+		result      = make(chan error)
+		ctx, cancel = context.WithCancel(context.Background())
+	)
+
+	defer cancel()
+	assert.NotNil(s.Closed())
+	assert.Equal(MetricOpen, closed.Value())
+
+	go func() {
+		s.Acquire()
+		close(ready)
+		result <- s.AcquireCtx(ctx)
+	}()
+
+	select {
+	case <-ready:
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Zero(failures.Value())
+		assert.Equal(MetricOpen, closed.Value())
+
+		assert.NoError(s.Close())
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Zero(failures.Value())
+		assert.Equal(MetricClosed, closed.Value())
+	case <-time.After(time.Second):
+		assert.FailNow("Failed to spawn AcquireCtx goroutine")
+	}
+
+	select {
+	case err := <-result:
+		assert.Equal(ErrClosed, err)
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Equal(float64(1.0), failures.Value())
+		assert.Equal(MetricClosed, closed.Value())
+
+		assert.Equal(ErrClosed, s.Release())
+		assert.Equal(float64(1.0), resources.Value())
+		assert.Equal(float64(1.0), failures.Value())
+		assert.Equal(MetricClosed, closed.Value())
+	case <-time.After(time.Second):
+		assert.FailNow("AcquireCtx blocked unexpectedly")
+	}
+
+	assert.Equal(ErrClosed, s.Close())
+	assert.Equal(float64(1.0), resources.Value())
+	assert.Equal(float64(1.0), failures.Value())
+	assert.Equal(MetricClosed, closed.Value())
+
+	select {
+	case <-s.Closed():
+		// passing
+	default:
+		assert.Fail("The Closed channel was not signaled")
 	}
 }
 
@@ -660,10 +835,12 @@ func TestInstrumentedCloseable(t *testing.T) {
 	t.Run("AcquireWait", func(t *testing.T) {
 		t.Run("Success", testInstrumentedCloseableAcquireWaitSuccess)
 		t.Run("Timeout", testInstrumentedCloseableAcquireWaitTimeout)
+		t.Run("Close", testInstrumentedCloseableAcquireWaitClose)
 	})
 
 	t.Run("AcquireCtx", func(t *testing.T) {
 		t.Run("Success", testInstrumentedCloseableAcquireCtxSuccess)
 		t.Run("Cancel", testInstrumentedCloseableAcquireCtxCancel)
+		t.Run("Close", testInstrumentedCloseableAcquireCtxClose)
 	})
 }
