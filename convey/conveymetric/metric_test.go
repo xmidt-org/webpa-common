@@ -15,13 +15,13 @@ func TestConveyMetric(t *testing.T) {
 		Subsystem: "basic",
 	})
 	assert.NoError(err)
-	conveyMetric := NewConveyMetric(registry, "hw_model", "HardwareModel")
+	conveyMetric := NewConveyMetric(registry, "hw-model", "HardwareModel")
 
 	//data, err := registry.Gather()
-	expectedName := "test_basic_HardwareModel_hw_model_hardware123abc"
+	expectedName := "test_basic_HardwareModel_hardware123abc"
 	assert.False(assertConveyMetric(assert, expectedName, registry, float64(-1)), "metric should not be in registry yet")
 
-	dec, err := conveyMetric.Update(convey.C{"data": "neat", "hw_model": "hardware123abc"})
+	dec, err := conveyMetric.Update(convey.C{"data": "neat", "hw-model": "hardware123abc"})
 
 	assert.True(assertConveyMetric(assert, expectedName, registry, float64(1)))
 
@@ -31,7 +31,7 @@ func TestConveyMetric(t *testing.T) {
 	assert.True(assertConveyMetric(assert, expectedName, registry, float64(0)))
 
 	// try with no `hw_model`
-	expectedName = "test_basic_HardwareModel_hw_model_unknown"
+	expectedName = "test_basic_HardwareModel_unknown"
 	dec, err = conveyMetric.Update(convey.C{"data": "neat"})
 	assert.True(assertConveyMetric(assert, expectedName, registry, float64(1)))
 

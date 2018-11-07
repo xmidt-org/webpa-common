@@ -43,7 +43,7 @@ func (m *cMetric) Update(data convey.C) (MetricClosure, error) {
 	if val, found := m.metrics[key]; found {
 		gague = val
 	} else {
-		m.metrics[key] = m.provider.NewGauge(fmt.Sprintf("%s_%s_%s", m.name, m.tag, key))
+		m.metrics[key] = m.provider.NewGauge(fmt.Sprintf("%s_%s", m.name, key))
 		gague = m.metrics[key]
 	}
 
