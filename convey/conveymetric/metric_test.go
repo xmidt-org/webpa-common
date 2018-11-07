@@ -17,42 +17,40 @@ func TestConveyMetric(t *testing.T) {
 	assert.NoError(err)
 	conveyMetric := NewConveyMetric(registry, "hw_model", "HardwareModel")
 
-	data, err := registry.Gather()
-	currentLen := len(data)
+	//data, err := registry.Gather()
+	expectedName := "test_basic_HardwareModel_hw_model_hardware123abc"
+	assert.False(assertConveyMetric(assert, expectedName, registry, float64(-1)), "metric should not be in registry yet")
 
-	dec, err := conveyMetric.Update(convey.C{"data": "neat", "hw_model": "apple"})
-	assert.NoError(err)
-	data, err = registry.Gather()
-	assert.NoError(err)
-	assert.True(currentLen < len(data))
-	assert.Len(data[len(data)-1].Metric, 1)
-	assert.Equal("test_basic_HardwareModel_hw_model_apple", *data[len(data)-1].Name)
-	assert.Equal(float64(1), data[len(data)-1].Metric[0].GetGauge().GetValue())
+	dec, err := conveyMetric.Update(convey.C{"data": "neat", "hw_model": "hardware123abc"})
+
+	assert.True(assertConveyMetric(assert, expectedName, registry, float64(1)))
 
 	// remove the update
 	dec()
 
-	data, err = registry.Gather()
-	assert.NoError(err)
-	assert.Len(data[len(data)-1].Metric, 1)
-	assert.Equal(float64(0), data[len(data)-1].Metric[0].GetGauge().GetValue())
-	currentLen = len(data)
+	assert.True(assertConveyMetric(assert, expectedName, registry, float64(0)))
 
-	// try with now `hw_model`
+	// try with no `hw_model`
+	expectedName = "test_basic_HardwareModel_hw_model_unknown"
 	dec, err = conveyMetric.Update(convey.C{"data": "neat"})
-	assert.NoError(err)
-	data, err = registry.Gather()
-	assert.NoError(err)
-	assert.True(currentLen < len(data))
-	assert.Len(data[len(data)-1].Metric, 1)
-	assert.Equal("test_basic_HardwareModel_hw_model_unknown", *data[len(data)-1].Name)
-	assert.Equal(float64(1), data[len(data)-1].Metric[0].GetGauge().GetValue())
+	assert.True(assertConveyMetric(assert, expectedName, registry, float64(1)))
 
 	// remove the update
 	dec()
+	assert.True(assertConveyMetric(assert, expectedName, registry, float64(0)))
 
-	data, err = registry.Gather()
+}
+
+func assertConveyMetric(assert *assert.Assertions, name string, registry xmetrics.Registry, expectedValue float64) bool {
+	data, err := registry.Gather()
 	assert.NoError(err)
-	assert.Len(data[len(data)-1].Metric, 1)
-	assert.Equal(float64(0), data[len(data)-1].Metric[0].GetGauge().GetValue())
+	for i := 0; i < len(data); i ++ {
+		if *data[i].Name == name {
+			// the test
+			assert.Equal(expectedValue, data[i].Metric[0].GetGauge().GetValue())
+			return true
+		}
+	}
+
+	return false
 }
