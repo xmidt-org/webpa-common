@@ -5,6 +5,8 @@ import (
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/provider"
+	"regexp"
+	"strings"
 )
 
 const UnknownLabel = "unknown"
@@ -14,6 +16,12 @@ type MetricClosure func()
 type CMetric interface {
 	Update(data convey.C) (MetricClosure, error)
 }
+
+var (
+	validKeyRegex   = regexp.MustCompile(`^[a-zA-Z_:]*$`)
+	replaceRegex    = regexp.MustCompile(`[\W]+`)
+	underscoreRegex = regexp.MustCompile(`_+`)
+)
 
 func NewConveyMetric(provider provider.Provider, tag string, name string) CMetric {
 	return &cMetric{
@@ -37,7 +45,7 @@ func (m *cMetric) Update(data convey.C) (MetricClosure, error) {
 	key := UnknownLabel
 
 	if item, ok := data[m.tag].(string); ok {
-		key = item
+		key = getValidKeyName(item)
 	}
 
 	if val, found := m.metrics[key]; found {
@@ -49,4 +57,20 @@ func (m *cMetric) Update(data convey.C) (MetricClosure, error) {
 
 	gague.Add(float64(1))
 	return func() { gague.Add(float64(-1)) }, nil
+}
+
+func getValidKeyName(str string) string {
+	if validKeyRegex.MatchString(str) {
+		return str
+	}
+	str = strings.TrimSpace(str)
+	if str == "" {
+		return UnknownLabel
+	}
+
+	str = replaceRegex.ReplaceAllLiteralString(str, "_")
+	str = strings.Trim(str, "_")
+	str = underscoreRegex.ReplaceAllLiteralString(str, "_")
+
+	return str
 }
