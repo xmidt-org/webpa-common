@@ -3,56 +3,36 @@ package conveymetric
 import (
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/xmetrics"
-	"github.com/stretchr/testify/assert"
+	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConveyMetric(t *testing.T) {
 	assert := assert.New(t)
 
-	registry, err := xmetrics.NewRegistry(&xmetrics.Options{
-		Namespace: "test",
-		Subsystem: "basic",
-	})
-	assert.NoError(err)
-	conveyMetric := NewConveyMetric(registry, "hw-model", "HardwareModel")
+	//namespace, subsystem, name := "test", "basic", "hardware"
 
-	//data, err := registry.Gather()
-	expectedName := "test_basic_HardwareModel_hardware123abc"
-	assert.False(assertConveyMetric(assert, expectedName, registry, float64(-1)), "metric should not be in registry yet")
+	gauge := xmetricstest.NewGauge("hardware")
+
+	conveyMetric := NewConveyMetric(gauge, "hw-model", "model")
 
 	dec, err := conveyMetric.Update(convey.C{"data": "neat", "hw-model": "hardware123abc"})
-
-	assert.True(assertConveyMetric(assert, expectedName, registry, float64(1)))
-
+	assert.NoError(err)
+	assert.Equal(float64(1), gauge.With("model", "hardware123abc").(xmetrics.Valuer).Value())
 	// remove the update
 	dec()
 
-	assert.True(assertConveyMetric(assert, expectedName, registry, float64(0)))
+	assert.Equal(float64(0), gauge.With("model", "hardware123abc").(xmetrics.Valuer).Value())
 
 	// try with no `hw_model`
-	expectedName = "test_basic_HardwareModel_unknown"
 	dec, err = conveyMetric.Update(convey.C{"data": "neat"})
-	assert.True(assertConveyMetric(assert, expectedName, registry, float64(1)))
+	assert.Equal(float64(1), gauge.With("model", UnknownLabel).(xmetrics.Valuer).Value())
 
 	// remove the update
 	dec()
-	assert.True(assertConveyMetric(assert, expectedName, registry, float64(0)))
-
-}
-
-func assertConveyMetric(assert *assert.Assertions, name string, registry xmetrics.Registry, expectedValue float64) bool {
-	data, err := registry.Gather()
-	assert.NoError(err)
-	for i := 0; i < len(data); i ++ {
-		if *data[i].Name == name {
-			// the test
-			assert.Equal(expectedValue, data[i].Metric[0].GetGauge().GetValue())
-			return true
-		}
-	}
-
-	return false
+	assert.Equal(float64(0), gauge.With("model", UnknownLabel).(xmetrics.Valuer).Value())
 }
 
 func TestGetValidKeyName(t *testing.T) {
@@ -68,5 +48,4 @@ func TestGetValidKeyName(t *testing.T) {
 	assert.Equal("hw_model", getValidKeyName(" hw	model@"))
 	assert.Equal("hw_model", getValidKeyName("hw@model"))
 	assert.Equal("hw_model", getValidKeyName("hw@ model"))
-
 }
