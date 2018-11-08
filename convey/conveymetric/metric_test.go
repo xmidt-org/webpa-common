@@ -34,18 +34,3 @@ func TestConveyMetric(t *testing.T) {
 	dec()
 	assert.Equal(float64(0), gauge.With("model", UnknownLabel).(xmetrics.Valuer).Value())
 }
-
-func TestGetValidKeyName(t *testing.T) {
-	assert := assert.New(t)
-
-	assert.Equal("basic", getValidKeyName("basic"))
-	assert.Equal(UnknownLabel, getValidKeyName(""))
-	assert.Equal(UnknownLabel, getValidKeyName(" "))
-	assert.Equal("hw_model", getValidKeyName("hw-model"))
-	assert.Equal("hw_model", getValidKeyName("hw model"))
-	assert.Equal("hw_model", getValidKeyName("hw	model"))
-	assert.Equal("hw_model", getValidKeyName(" hw	model"))
-	assert.Equal("hw_model", getValidKeyName(" hw	model@"))
-	assert.Equal("hw_model", getValidKeyName("hw@model"))
-	assert.Equal("hw_model", getValidKeyName("hw@ model"))
-}
