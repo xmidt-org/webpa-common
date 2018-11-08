@@ -81,7 +81,7 @@ func TestNew(t *testing.T) {
 	t.Run("ValidCount", testNewValidCount)
 }
 
-func testTryAcquire(t *testing.T, s Interface, totalCount int) {
+func testSemaphoreTryAcquire(t *testing.T, s Interface, totalCount int) {
 	assert := assert.New(t)
 	for i := 0; i < totalCount; i++ {
 		assert.True(s.TryAcquire())
@@ -93,7 +93,7 @@ func testTryAcquire(t *testing.T, s Interface, totalCount int) {
 	assert.False(s.TryAcquire())
 }
 
-func testAcquire(t *testing.T, s Interface, totalCount int) {
+func testSemaphoreAcquire(t *testing.T, s Interface, totalCount int) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -149,7 +149,7 @@ func testAcquire(t *testing.T, s Interface, totalCount int) {
 	assert.True(s.TryAcquire())
 }
 
-func testAcquireWait(t *testing.T, s Interface, totalCount int) {
+func testSemaphoreAcquireWait(t *testing.T, s Interface, totalCount int) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -199,7 +199,7 @@ func testAcquireWait(t *testing.T, s Interface, totalCount int) {
 	}
 }
 
-func testAcquireCtx(t *testing.T, s Interface, totalCount int) {
+func testSemaphoreAcquireCtx(t *testing.T, s Interface, totalCount int) {
 	var (
 		assert      = assert.New(t)
 		require     = require.New(t)
@@ -255,19 +255,19 @@ func TestSemaphore(t *testing.T) {
 	for _, c := range []int{1, 2, 5} {
 		t.Run(fmt.Sprintf("count=%d", c), func(t *testing.T) {
 			t.Run("TryAcquire", func(t *testing.T) {
-				testTryAcquire(t, New(c), c)
+				testSemaphoreTryAcquire(t, New(c), c)
 			})
 
 			t.Run("Acquire", func(t *testing.T) {
-				testAcquire(t, New(c), c)
+				testSemaphoreAcquire(t, New(c), c)
 			})
 
 			t.Run("AcquireWait", func(t *testing.T) {
-				testAcquireWait(t, New(c), c)
+				testSemaphoreAcquireWait(t, New(c), c)
 			})
 
 			t.Run("AcquireCtx", func(t *testing.T) {
-				testAcquireCtx(t, New(c), c)
+				testSemaphoreAcquireCtx(t, New(c), c)
 			})
 		})
 	}
@@ -275,18 +275,18 @@ func TestSemaphore(t *testing.T) {
 
 func TestMutex(t *testing.T) {
 	t.Run("TryAcquire", func(t *testing.T) {
-		testTryAcquire(t, Mutex(), 1)
+		testSemaphoreTryAcquire(t, Mutex(), 1)
 	})
 
 	t.Run("Acquire", func(t *testing.T) {
-		testAcquire(t, Mutex(), 1)
+		testSemaphoreAcquire(t, Mutex(), 1)
 	})
 
 	t.Run("AcquireWait", func(t *testing.T) {
-		testAcquireWait(t, Mutex(), 1)
+		testSemaphoreAcquireWait(t, Mutex(), 1)
 	})
 
 	t.Run("AcquireCtx", func(t *testing.T) {
-		testAcquireCtx(t, Mutex(), 1)
+		testSemaphoreAcquireCtx(t, Mutex(), 1)
 	})
 }
