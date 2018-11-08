@@ -245,3 +245,24 @@ func TestDnsReadySuccess(t *testing.T) {
 
 	assert.NotNil(err)
 }
+
+func TestDnsReadyNoSOASuccess(t *testing.T) {
+	assert := assert.New(t)
+
+	v := SetUpTestViperInstance(TEST_AWS_CFG)
+	ss, err := NewNotifier(v)
+
+	assert.Nil(err)
+	assert.NotNil(ss)
+
+	selfUrl := &url.URL{
+		Scheme: "http",
+		Host:   "host:port",
+	}
+	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
+	ss.Initialize(nil, selfUrl, "", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+
+	err = ss.DnsReady()
+
+	assert.NotNil(err)
+}
