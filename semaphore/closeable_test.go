@@ -120,6 +120,8 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 		closeWait   = make(chan struct{})
 	)
 
+	defer cs.Close()
+
 	go func() {
 		defer close(acquiredAll)
 		for i := 0; i < totalCount; i++ {
@@ -180,7 +182,7 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 	}
 }
 
-func testCloseableAcquireWait(t *testing.T, cs Closeable, totalCount int) {
+func testCloseableAcquireWaitSuccess(t *testing.T, cs Closeable, totalCount int) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
@@ -201,6 +203,8 @@ func testCloseableAcquireWait(t *testing.T, cs Closeable, totalCount int) {
 			assert.FailNow("Acquire blocked unexpectedly")
 		}
 	}
+
+	defer cs.Close()
 
 	// post condition: no point continuing if this fails
 	require.False(cs.TryAcquire())
@@ -230,7 +234,80 @@ func testCloseableAcquireWait(t *testing.T, cs Closeable, totalCount int) {
 	}
 }
 
-func testCloseableAcquireCtx(t *testing.T, cs Closeable, totalCount int) {
+func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		timer   = make(chan time.Time)
+
+		acquiredAll = make(chan struct{})
+		results     = make(chan error, totalCount)
+		closeWait   = make(chan struct{})
+	)
+
+	defer cs.Close()
+
+	go func() {
+		defer close(acquiredAll)
+		for i := 0; i < totalCount; i++ {
+			assert.NoError(cs.Acquire())
+		}
+	}()
+
+	select {
+	case <-acquiredAll:
+		// passing
+	case <-time.After(5 * time.Second):
+		assert.FailNow("Unable to acquire all resources")
+	}
+
+	// acquire all the things!
+	for i := 0; i < totalCount; i++ {
+		ready := make(chan struct{})
+		go func() {
+			close(ready)
+			results <- cs.AcquireWait(timer)
+		}()
+
+		select {
+		case <-ready:
+			// passing
+		case <-time.After(5 * time.Second):
+			assert.FailNow("Failed to spawn AcquireWait goroutine")
+		}
+	}
+
+	// post condition: no point continuing if this fails
+	require.False(cs.TryAcquire())
+
+	go func() {
+		defer close(closeWait)
+		<-cs.Closed()
+	}()
+
+	assert.NoError(cs.Close())
+	for i := 0; i < totalCount; i++ {
+		select {
+		case err := <-results:
+			assert.Equal(ErrClosed, err)
+		case <-time.After(5 * time.Second):
+			assert.FailNow("AcquireWait blocked unexpectedly")
+		}
+	}
+
+	select {
+	case <-closeWait:
+		assert.False(cs.TryAcquire())
+		assert.Equal(ErrClosed, cs.Close())
+		assert.Equal(ErrClosed, cs.Acquire())
+		assert.Equal(ErrClosed, cs.Release())
+
+	case <-time.After(5 * time.Second):
+		assert.FailNow("Closed channel did not get signaled")
+	}
+}
+
+func testCloseableAcquireCtxSuccess(t *testing.T, cs Closeable, totalCount int) {
 	var (
 		assert      = assert.New(t)
 		require     = require.New(t)
@@ -282,6 +359,79 @@ func testCloseableAcquireCtx(t *testing.T, cs Closeable, totalCount int) {
 	}
 }
 
+func testCloseableAcquireCtxClose(t *testing.T, cs Closeable, totalCount int) {
+	var (
+		assert      = assert.New(t)
+		require     = require.New(t)
+		ctx, cancel = context.WithCancel(context.Background())
+
+		acquiredAll = make(chan struct{})
+		results     = make(chan error, totalCount)
+		closeWait   = make(chan struct{})
+	)
+
+	defer cancel()
+
+	go func() {
+		defer close(acquiredAll)
+		for i := 0; i < totalCount; i++ {
+			assert.NoError(cs.Acquire())
+		}
+	}()
+
+	select {
+	case <-acquiredAll:
+		// passing
+	case <-time.After(5 * time.Second):
+		assert.FailNow("Unable to acquire all resources")
+	}
+
+	// acquire all the things!
+	for i := 0; i < totalCount; i++ {
+		ready := make(chan struct{})
+		go func() {
+			close(ready)
+			results <- cs.AcquireCtx(ctx)
+		}()
+
+		select {
+		case <-ready:
+			// passing
+		case <-time.After(5 * time.Second):
+			assert.FailNow("Could not spawn AcquireCtx goroutine")
+		}
+	}
+
+	// post condition: no point continuing if this fails
+	require.False(cs.TryAcquire())
+
+	go func() {
+		defer close(closeWait)
+		<-cs.Closed()
+	}()
+
+	assert.NoError(cs.Close())
+	for i := 0; i < totalCount; i++ {
+		select {
+		case err := <-results:
+			assert.Equal(ErrClosed, err)
+		case <-time.After(5 * time.Second):
+			assert.FailNow("AcquireCtx blocked unexpectedly")
+		}
+	}
+
+	select {
+	case <-closeWait:
+		assert.False(cs.TryAcquire())
+		assert.Equal(ErrClosed, cs.Close())
+		assert.Equal(ErrClosed, cs.Acquire())
+		assert.Equal(ErrClosed, cs.Release())
+
+	case <-time.After(5 * time.Second):
+		assert.FailNow("Closed channel did not get signaled")
+	}
+}
+
 func TestCloseable(t *testing.T) {
 	for _, c := range []int{1, 2, 5} {
 		t.Run(fmt.Sprintf("count=%d", c), func(t *testing.T) {
@@ -300,11 +450,23 @@ func TestCloseable(t *testing.T) {
 			})
 
 			t.Run("AcquireWait", func(t *testing.T) {
-				testCloseableAcquireWait(t, NewCloseable(c), c)
+				t.Run("Success", func(t *testing.T) {
+					testCloseableAcquireWaitSuccess(t, NewCloseable(c), c)
+				})
+
+				t.Run("Close", func(t *testing.T) {
+					testCloseableAcquireWaitClose(t, NewCloseable(c), c)
+				})
 			})
 
 			t.Run("AcquireCtx", func(t *testing.T) {
-				testCloseableAcquireCtx(t, NewCloseable(c), c)
+				t.Run("Success", func(t *testing.T) {
+					testCloseableAcquireCtxSuccess(t, NewCloseable(c), c)
+				})
+
+				t.Run("Close", func(t *testing.T) {
+					testCloseableAcquireCtxClose(t, NewCloseable(c), c)
+				})
 			})
 		})
 	}
@@ -326,10 +488,22 @@ func TestCloseableMutex(t *testing.T) {
 	})
 
 	t.Run("AcquireWait", func(t *testing.T) {
-		testCloseableAcquireWait(t, CloseableMutex(), 1)
+		t.Run("Success", func(t *testing.T) {
+			testCloseableAcquireWaitSuccess(t, CloseableMutex(), 1)
+		})
+
+		t.Run("Close", func(t *testing.T) {
+			testCloseableAcquireWaitClose(t, CloseableMutex(), 1)
+		})
 	})
 
 	t.Run("AcquireCtx", func(t *testing.T) {
-		testCloseableAcquireCtx(t, CloseableMutex(), 1)
+		t.Run("Success", func(t *testing.T) {
+			testCloseableAcquireCtxSuccess(t, CloseableMutex(), 1)
+		})
+
+		t.Run("Close", func(t *testing.T) {
+			testCloseableAcquireCtxClose(t, CloseableMutex(), 1)
+		})
 	})
 }
