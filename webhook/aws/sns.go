@@ -199,6 +199,12 @@ func (ss *SNSServer) PrepareAndStart() {
 //until the timeout is reached
 //if timeout value is 0s it will try forever
 func (ss *SNSServer) DnsReady() (e error) {
+
+	// if an SOA provider isn't given, we're done
+	if ss.SOAProvider == "" {
+		return nil
+	}
+
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
