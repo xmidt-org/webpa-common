@@ -101,7 +101,7 @@ func NewManager(o *Options) Manager {
 			Limit:    o.maxDevices(),
 			Measures: measures,
 		}),
-		conveyHWMetric: conveymetric.NewConveyMetric(o.metricsProvider(), "hw-model", "hardware_model"),
+		conveyHWMetric: conveymetric.NewConveyMetric(o.metricsProvider().NewGauge("hardware"), "hw-model", "model"),
 
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
