@@ -21,13 +21,13 @@ type CMetric interface {
 }
 
 // NewConveyMetric produces a CMetric where gauge is the internal structure to update, tag is the key in the C JSON
-// to update the gauge, and metricName is the `key` for the gauge cardinality.
+// to update the gauge, and label is the `key` for the gauge cardinality.
 //
-// Note: The Gauge must have the metricName as one of the constant labels
-func NewConveyMetric(gauge metrics.Gauge, tag string, metricName string) CMetric {
+// Note: The Gauge must have the label as one of the constant labels, (aka. the name of the gauge)
+func NewConveyMetric(gauge metrics.Gauge, tag string, label string) CMetric {
 	return &cMetric{
 		tag:   tag,
-		metricName:  metricName,
+		label: label,
 		gauge: gauge,
 	}
 }
@@ -35,7 +35,7 @@ func NewConveyMetric(gauge metrics.Gauge, tag string, metricName string) CMetric
 // cMetric is the internal CMetric implementation
 type cMetric struct {
 	tag   string
-	metricName  string
+	label string
 	gauge metrics.Gauge
 }
 
@@ -45,6 +45,6 @@ func (m *cMetric) Update(data convey.C) (MetricClosure, error) {
 		key = item
 	}
 
-	m.gauge.With(m.metricName, key).Add(1.0)
-	return func() { m.gauge.With(m.metricName, key).Add(-1.0) }, nil
+	m.gauge.With(m.label, key).Add(1.0)
+	return func() { m.gauge.With(m.label, key).Add(-1.0) }, nil
 }
