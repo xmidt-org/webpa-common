@@ -34,8 +34,13 @@ type Closeable interface {
 	Closed() <-chan struct{}
 }
 
-// NewCloseable returns a semaphore which honors close-once semantics.  The returned semaphore
-// is not as efficient as that returned from New().
+// NewCloseable returns a semaphore which honors close-once semantics.
+//
+// A Closeable semaphore has a very narrow set of use cases.  Closing the semaphore signals any goroutines
+// waiting for resources that those resources are no longer available.  This is useful in situations where
+// a transient resource, such as an external connection, will be shut down.  In order to implement closeable-ness,
+// a Closeable sacrifices some performance in the Acquire* methods.  For more general semaphore use cases,
+// use New() or Mutex() instead.
 func NewCloseable(count int) Closeable {
 	if count < 1 {
 		panic("The count must be positive")
