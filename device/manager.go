@@ -123,7 +123,7 @@ type manager struct {
 	conveyTranslator conveyhttp.HeaderTranslator
 
 	devices        *registry
-	conveyHWMetric conveymetric.CMetric
+	conveyHWMetric conveymetric.Interface
 
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration

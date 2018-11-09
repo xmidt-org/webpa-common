@@ -98,7 +98,7 @@ type device struct {
 	messages     chan *envelope
 	transactions *Transactions
 
-	conveyClosure conveymetric.MetricClosure
+	conveyClosure conveymetric.Closure
 }
 
 type deviceOptions struct {
