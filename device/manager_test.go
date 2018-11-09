@@ -3,6 +3,8 @@ package device
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/xmetrics"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -367,4 +369,25 @@ func TestManager(t *testing.T) {
 
 	t.Run("Disconnect", testManagerDisconnect)
 	t.Run("DisconnectIf", testManagerDisconnectIf)
+}
+
+func TestGaugeCardinality(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		r, err = xmetrics.NewRegistry(nil, Metrics)
+		m      = NewManager(&Options{
+			MetricsProvider: r,
+		})
+	)
+	assert.NoError(err)
+
+	assert.NotPanics(func() {
+		dec, err := m.(*manager).conveyHWMetric.Update(convey.C{"hw-model": "cardinality", "model": "f"})
+		assert.NoError(err)
+		dec()
+	})
+
+	assert.Panics(func() {
+		m.(*manager).measures.Models.With("neat", "bad").Add(-1)
+	})
 }

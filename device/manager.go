@@ -2,6 +2,7 @@ package device
 
 import (
 	"encoding/json"
+	"github.com/Comcast/webpa-common/convey/conveymetric"
 	"io"
 	"net/http"
 	"sync"
@@ -100,6 +101,8 @@ func NewManager(o *Options) Manager {
 			Limit:    o.maxDevices(),
 			Measures: measures,
 		}),
+		conveyHWMetric: conveymetric.NewConveyMetric(measures.Models, "hw-model", "model"),
+
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
@@ -119,7 +122,8 @@ type manager struct {
 	upgrader         *websocket.Upgrader
 	conveyTranslator conveyhttp.HeaderTranslator
 
-	devices *registry
+	devices        *registry
+	conveyHWMetric conveymetric.Interface
 
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
@@ -185,6 +189,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		}
 	}
 
+	metricClosure, err := m.conveyHWMetric.Update(convey)
+	if err != nil {
+		d.errorLog.Log(logging.MessageKey(), "failed to update convey metrics", logging.ErrorKey(), err)
+	}
+
+	d.conveyClosure = metricClosure
 	m.dispatch(event)
 
 	SetPongHandler(c, m.measures.Pong, m.readDeadline)
@@ -224,6 +234,7 @@ func (m *manager) pumpClose(d *device, c io.Closer, pumpError error) {
 			Device: d,
 		},
 	)
+	d.conveyClosure()
 }
 
 // readPump is the goroutine which handles the stream of WRP messages from a device.

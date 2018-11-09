@@ -15,6 +15,7 @@ const (
 	ConnectCounter            = "connect_count"
 	DisconnectCounter         = "disconnect_count"
 	DeviceLimitReachedCounter = "device_limit_reached_count"
+	ModelGauge                = "hardware_model"
 )
 
 // Metrics is the device module function that adds default device metrics
@@ -52,6 +53,11 @@ func Metrics() []xmetrics.Metric {
 			Name: DeviceLimitReachedCounter,
 			Type: "counter",
 		},
+		{
+			Name:       ModelGauge,
+			Type:       "gauge",
+			LabelNames: []string{"model"},
+		},
 	}
 }
 
@@ -65,6 +71,7 @@ type Measures struct {
 	Pong            xmetrics.Incrementer
 	Connect         xmetrics.Incrementer
 	Disconnect      xmetrics.Adder
+	Models          metrics.Gauge
 }
 
 // NewMeasures constructs a Measures given a go-kit metrics Provider
@@ -78,5 +85,6 @@ func NewMeasures(p provider.Provider) Measures {
 		Duplicates:      xmetrics.NewIncrementer(p.NewCounter(DuplicatesCounter)),
 		Connect:         xmetrics.NewIncrementer(p.NewCounter(ConnectCounter)),
 		Disconnect:      p.NewCounter(DisconnectCounter),
+		Models:          p.NewGauge(ModelGauge),
 	}
 }
