@@ -45,9 +45,9 @@ type mockSecure struct {
 	mock.Mock
 }
 
-func (m *mockSecure) Certificate() (string, string) {
+func (m *mockSecure) Certificate() ([]string, []string) {
 	arguments := m.Called()
-	return arguments.String(0), arguments.String(1)
+	return arguments.Get(0).([]string), arguments.Get(1).([]string)
 }
 
 type mockListener struct {

@@ -50,7 +50,7 @@ func TestListenAndServeNonSecure(t *testing.T) {
 		)
 
 		mockSecure.On("Certificate").
-			Return(record.certificateFile, record.keyFile).
+			Return([]string{record.certificateFile}, []string{record.keyFile}).
 			Once()
 
 		mockExecutor.On("ListenAndServe").
@@ -107,10 +107,10 @@ func TestListenAndServeSecure(t *testing.T) {
 		)
 
 		mockSecure.On("Certificate").
-			Return("file.cert", "file.key").
+			Return([]string{"file.cert"}, []string{"file.key"}).
 			Once()
 
-		mockExecutor.On("ListenAndServeTLS", "file.cert", "file.key").
+		mockExecutor.On("ListenAndServeTLS", "", "").
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
@@ -140,12 +140,13 @@ func TestBasicCertificate(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		testData = []struct {
-			certificateFile, keyFile string
+			certificateFiles, keyFiles []string
 		}{
-			{"", ""},
-			{"", "file.key"},
-			{"file.cert", ""},
-			{"file.cert", "file.key"},
+			{[]string{""}, []string{""}},
+			{[]string{""}, []string{"file.key"}},
+			{[]string{"file.cert"}, []string{""}},
+			{[]string{"file.cert"}, []string{"file.key"}},
+			{[]string{"fileA.cert", "fileB.cert"}, []string{"fileA.key", "fileB.key"}},
 		}
 	)
 
@@ -153,15 +154,15 @@ func TestBasicCertificate(t *testing.T) {
 		t.Logf("%#v", record)
 		var (
 			basic = Basic{
-				CertificateFile: record.certificateFile,
-				KeyFile:         record.keyFile,
+				CertificateFiles: record.certificateFiles,
+				KeyFiles:         record.keyFiles,
 			}
 
 			actualCertificateFile, actualKeyFile = basic.Certificate()
 		)
 
-		assert.Equal(record.certificateFile, actualCertificateFile)
-		assert.Equal(record.keyFile, actualKeyFile)
+		assert.Equal(record.certificateFiles, actualCertificateFile)
+		assert.Equal(record.keyFiles, actualKeyFile)
 	}
 }
 
@@ -226,12 +227,12 @@ func TestHealthCertificate(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		testData = []struct {
-			certificateFile, keyFile string
+			certificateFiles, keyFiles []string
 		}{
-			{"", ""},
-			{"", "file.key"},
-			{"file.cert", ""},
-			{"file.cert", "file.key"},
+			{[]string{""}, []string{""}},
+			{[]string{""}, []string{"file.key"}},
+			{[]string{"file.cert"}, []string{""}},
+			{[]string{"file.cert"}, []string{"file.key"}},
 		}
 	)
 
@@ -239,15 +240,15 @@ func TestHealthCertificate(t *testing.T) {
 		t.Logf("%#v", record)
 		var (
 			health = Health{
-				CertificateFile: record.certificateFile,
-				KeyFile:         record.keyFile,
+				CertificateFiles: record.certificateFiles,
+				KeyFiles:         record.keyFiles,
 			}
 
 			actualCertificateFile, actualKeyFile = health.Certificate()
 		)
 
-		assert.Equal(record.certificateFile, actualCertificateFile)
-		assert.Equal(record.keyFile, actualKeyFile)
+		assert.Equal(record.certificateFiles, actualCertificateFile)
+		assert.Equal(record.keyFiles, actualKeyFile)
 	}
 }
 
@@ -425,16 +426,16 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 		require  = require.New(t)
 		testData = []struct {
 			address            string
-			certificateFile    string
-			keyFile            string
+			certificateFiles   []string
+			keyFiles           []string
 			clientCACertFile   string
 			handler            *mockHandler
 			logConnectionState bool
 		}{
-			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true},
-			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true},
-			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true},
-			{":8081", "", "", "", new(mockHandler), false},
+			{"localhost:80", []string{"cert.pem"}, []string{"cert.key"}, "client_ca.pem", new(mockHandler), true},
+			{"localhost:8090", []string{"file.cert"}, []string{"file.key"}, "invalid.cert", new(mockHandler), true},
+			{"localhost:8090", []string{"file.cert"}, []string{"file.key"}, "", new(mockHandler), true},
+			{":8081", []string{}, []string{}, "", new(mockHandler), false},
 		}
 	)
 
@@ -446,8 +447,8 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			basic          = Basic{
 				Name:               expectedName,
 				Address:            record.address,
-				CertificateFile:    record.certificateFile,
-				KeyFile:            record.keyFile,
+				CertificateFiles:   record.certificateFiles,
+				KeyFiles:           record.keyFiles,
 				ClientCACertFile:   record.clientCACertFile,
 				LogConnectionState: record.logConnectionState,
 			}

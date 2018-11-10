@@ -62,7 +62,7 @@ type executor interface {
 type Secure interface {
 	// Certificate returns the certificate information associated with this Secure instance.
 	// BOTH the returned file paths must be non-empty if a TLS server is desired.
-	Certificate() (certificateFile, keyFile string)
+	Certificate() (certificateFiles, keyFiles []string)
 }
 
 func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
@@ -94,11 +94,11 @@ func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer fu
 		)
 
 		if len(certificateFile) > 0 && len(keyFile) > 0 {
-
+			// the assumption is tlsConfig has already been set
 			logger.Log(
 				level.Key(), level.ErrorValue(),
 				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ServeTLS(l, certificateFile, keyFile) }, http.ErrServerClosed),
+				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ServeTLS(l, "", "") }, http.ErrServerClosed),
 			)
 		} else {
 			logger.Log(
@@ -122,11 +122,12 @@ func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
 			logging.MessageKey(), "starting server",
 		)
 
-		if len(certificateFile) > 0 && len(keyFile) > 0 {
+		if (len(certificateFile) > 0 && len(keyFile) > 0) && (len(certificateFile[0]) > 0 && len(keyFile[0]) > 0) {
+			// the assumption is tlsConfig has already been set
 			logger.Log(
 				level.Key(), level.ErrorValue(),
 				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ListenAndServeTLS(certificateFile, keyFile) }, http.ErrServerClosed),
+				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ListenAndServeTLS("", "") }, http.ErrServerClosed),
 			)
 		} else {
 			logger.Log(
@@ -143,8 +144,8 @@ func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
 type Basic struct {
 	Name               string
 	Address            string
-	CertificateFile    string
-	KeyFile            string
+	CertificateFiles   []string
+	KeyFiles           []string
 	ClientCACertFile   string
 	LogConnectionState bool
 
@@ -206,8 +207,8 @@ func (b *Basic) writeTimeout() time.Duration {
 	return DefaultWriteTimeout
 }
 
-func (b *Basic) Certificate() (certificateFile, keyFile string) {
-	return b.CertificateFile, b.KeyFile
+func (b *Basic) Certificate() (certificateFiles, keyFiles []string) {
+	return b.CertificateFiles, b.KeyFiles
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
@@ -219,6 +220,34 @@ func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, 
 		Active:         activeConnections,
 		Rejected:       rejectedCounter,
 	})
+}
+
+func vaildCertSlices(certificateFiles, keyFiles []string) bool {
+	valid := true
+	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
+		for i := 0; i < len(certificateFiles); i ++ {
+			if !(len(certificateFiles[i]) > 0 && len(certificateFiles[i]) > 0) {
+				valid = false
+			}
+		}
+	} else {
+		valid = false
+	}
+	return valid
+}
+
+func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, err error) {
+	if !vaildCertSlices(certificateFiles, keyFiles) {
+		return nil, errors.New("certFiles and keyFiles are not vaild")
+	}
+
+	certs = make([]tls.Certificate, len(certificateFiles))
+	for i := 0; i < len(certificateFiles); i ++ {
+		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], certificateFiles[i])
+		return nil, err
+	}
+
+	return certs, nil
 }
 
 // New creates an http.Server using this instance's configuration.  The given logger is required,
@@ -234,20 +263,36 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 
 	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
-	certificateFile, keyFile := b.Certificate()
+	certificateFiles, keyFiles := b.Certificate()
 	// Only when HTTPS i.e. cert & key present, check for client CA and set TLS config for MTLS
-	if len(certificateFile) > 0 && len(keyFile) > 0 && len(b.ClientCACertFile) > 0 {
+	if (len(certificateFiles) > 0 && len(keyFiles) > 0) || len(b.ClientCACertFile) > 0 {
 
 		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
 		if err != nil {
 			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
 				logging.ErrorKey(), err)
+			certs, err := generateCerts(certificateFiles, keyFiles)
+			if err != nil {
+				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
+					logging.ErrorKey(), err)
+			} else {
+				tlsConfig = &tls.Config{}
+				tlsConfig.Certificates = certs
+				tlsConfig.BuildNameToCertificate()
+			}
 		} else {
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
 			tlsConfig = &tls.Config{
 				ClientCAs:  caCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
+			}
+			certs, err := generateCerts(certificateFiles, keyFiles)
+			if err != nil {
+				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
+					logging.ErrorKey(), err)
+			} else {
+				tlsConfig.Certificates = certs
 			}
 			tlsConfig.BuildNameToCertificate()
 		}
@@ -281,15 +326,15 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 type Metric struct {
 	Name               string
 	Address            string
-	CertificateFile    string
-	KeyFile            string
+	CertificateFiles   []string
+	KeyFiles           []string
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
 }
 
-func (m *Metric) Certificate() (certificateFile, keyFile string) {
-	return m.CertificateFile, m.KeyFile
+func (m *Metric) Certificate() (certificateFile, keyFile []string) {
+	return m.CertificateFiles, m.KeyFiles
 }
 
 func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, error) {
@@ -335,15 +380,15 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 type Health struct {
 	Name               string
 	Address            string
-	CertificateFile    string
-	KeyFile            string
+	CertificateFiles   []string
+	KeyFiles           []string
 	LogConnectionState bool
 	LogInterval        time.Duration
 	Options            []string
 }
 
-func (h *Health) Certificate() (certificateFile, keyFile string) {
-	return h.CertificateFile, h.KeyFile
+func (h *Health) Certificate() (certificateFile, keyFile []string) {
+	return h.CertificateFiles, h.KeyFiles
 }
 
 // NewHealth creates a Health instance from this instance's configuration.  If the Address
