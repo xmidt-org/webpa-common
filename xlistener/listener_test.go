@@ -1,6 +1,7 @@
 package xlistener
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"testing"
@@ -88,6 +89,57 @@ func testNewCustom(t *testing.T) {
 	expectedNext.AssertExpectations(t)
 }
 
+func testNewTLSCustom(t *testing.T) {
+	defer func() { netListen = net.Listen }()
+
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		expectedRejected = generic.NewCounter("test")
+		expectedActive   = generic.NewGauge("test")
+		expectedNext     = new(mockListener)
+	)
+
+	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
+
+	tlsListen = func(network, address string, config *tls.Config) (net.Listener, error) {
+		assert.Equal("tcp4", network)
+		assert.Equal(":8080", address)
+		assert.Equal(true, config.InsecureSkipVerify)
+		return expectedNext, nil
+	}
+
+	l, err := New(Options{
+		Logger:         logging.NewTestLogger(nil, t),
+		Rejected:       expectedRejected,
+		Active:         expectedActive,
+		Network:        "tcp4",
+		Address:        ":8080",
+		MaxConnections: 10,
+		Config: &tls.Config{
+			InsecureSkipVerify:true,
+		},
+	})
+
+	require.NoError(err)
+	require.NotNil(l)
+
+	assert.Equal(expectedNext, l.(*listener).Listener)
+	assert.NotNil(l.(*listener).logger)
+	assert.NotNil(l.(*listener).semaphore)
+
+	require.NotNil(l.(*listener).rejected)
+	l.(*listener).rejected.Inc()
+	assert.Equal(1.0, expectedRejected.Value())
+
+	require.NotNil(l.(*listener).active)
+	l.(*listener).active.Add(10.0)
+	assert.Equal(10.0, expectedActive.Value())
+
+	expectedNext.AssertExpectations(t)
+}
+
 func testNewListenError(t *testing.T) {
 	defer func() { netListen = net.Listen }()
 
@@ -110,6 +162,7 @@ func testNewListenError(t *testing.T) {
 func TestNew(t *testing.T) {
 	t.Run("Default", testNewDefault)
 	t.Run("Custom", testNewCustom)
+	t.Run("tlsCustom", testNewTLSCustom)
 	t.Run("ListenError", testNewListenError)
 }
 
