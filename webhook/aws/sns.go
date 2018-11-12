@@ -159,12 +159,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider s
 		}
 	}
 
-	if soaProvider != "" {
-		ss.SOAProvider = soaProvider
-	} else {
-		// Test value for SOA provider
-		ss.SOAProvider = "localhost:5079"
-	}
+	ss.SOAProvider = soaProvider
 
 	ss.notificationData = make(chan string, ss.channelSize)
 
@@ -250,7 +245,8 @@ func (ss *SNSServer) DnsReady() (e error) {
 				}
 				// otherwise, we keep trying
 				ss.metrics.DnsReadyQueryCount.Add(1.0)
-				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready", "endpoint", ss.SelfUrl.Host, logging.ErrorKey(), err, "response", response)
+				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready",
+					"endpoint", strings.SplitN(ss.SelfUrl.Host, ":", 2)[0]+".", logging.ErrorKey(), err, "response", response)
 				time.Sleep(time.Second)
 			}
 		}(channel)
