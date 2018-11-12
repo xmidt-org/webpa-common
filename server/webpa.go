@@ -85,28 +85,19 @@ func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
 
 // Serve is like ListenAndServe, but accepts a custom net.Listener
 func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer func()) {
-	certificateFile, keyFile := s.Certificate()
 	go func() {
 		defer finalizer()
 		logger.Log(
 			level.Key(), level.ErrorValue(),
 			logging.MessageKey(), "starting server",
 		)
-
-		if len(certificateFile) > 0 && len(keyFile) > 0 {
-			// the assumption is tlsConfig has already been set
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ServeTLS(l, "", "") }, http.ErrServerClosed),
-			)
-		} else {
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed),
-			)
-		}
+		// the assumption is tlsConfig has already been set
+		// Note: the tlsConfig should have the certs and goodness
+		logger.Log(
+			level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "server exited",
+			logging.ErrorKey(), RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed),
+		)
 	}()
 }
 
@@ -114,28 +105,20 @@ func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer fu
 // If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
 // is called to start the server.  Otherwise, e.ListenAndServe() is used.
 func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
-	certificateFile, keyFile := s.Certificate()
 	go func() {
 		defer finalizer()
 		logger.Log(
 			level.Key(), level.ErrorValue(),
 			logging.MessageKey(), "starting server",
 		)
+		// the assumption is tlsConfig has already been set
+		// Note: the tlsConfig should have the certs and goodness
+		logger.Log(
+			level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "server exited",
+			logging.ErrorKey(), RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed),
+		)
 
-		if (len(certificateFile) > 0 && len(keyFile) > 0) && (len(certificateFile[0]) > 0 && len(keyFile[0]) > 0) {
-			// the assumption is tlsConfig has already been set
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ListenAndServeTLS("", "") }, http.ErrServerClosed),
-			)
-		} else {
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed),
-			)
-		}
 	}()
 }
 
@@ -212,13 +195,14 @@ func (b *Basic) Certificate() (certificateFiles, keyFiles []string) {
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder) (net.Listener, error) {
+func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder, config *tls.Config) (net.Listener, error) {
 	return xlistener.New(xlistener.Options{
 		Logger:         logger,
 		Address:        b.Address,
 		MaxConnections: b.maxConnections(),
 		Active:         activeConnections,
 		Rejected:       rejectedCounter,
+		Config:         config,
 	})
 }
 
@@ -238,13 +222,16 @@ func vaildCertSlices(certificateFiles, keyFiles []string) bool {
 
 func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, err error) {
 	if !vaildCertSlices(certificateFiles, keyFiles) {
-		return nil, errors.New("certFiles and keyFiles are not vaild")
+		return []tls.Certificate{}, errors.New("certFiles and keyFiles are not vaild")
 	}
 
 	certs = make([]tls.Certificate, len(certificateFiles))
 	for i := 0; i < len(certificateFiles); i ++ {
-		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], certificateFiles[i])
-		return nil, err
+		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
+		if err != nil {
+			logging.Error(logging.DefaultLogger()).Log(logging.MessageKey(), "Failed to LoadX509KeyPair", "cert", certificateFiles[i], "key", keyFiles[i], logging.ErrorKey(), err)
+			return []tls.Certificate{}, err
+		}
 	}
 
 	return certs, nil
@@ -611,6 +598,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			primaryLogger,
 			activeConnections.With("server", "primary"),
 			rejectedCounter.With("server", "primary"),
+			primaryServer.TLSConfig,
 		)
 
 		if err != nil {
@@ -627,6 +615,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 				alternateLogger,
 				activeConnections.With("server", "alternate"),
 				rejectedCounter.With("server", "alternate"),
+				alternateServer.TLSConfig,
 			)
 
 			if err != nil {

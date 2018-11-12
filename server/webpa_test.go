@@ -49,10 +49,6 @@ func TestListenAndServeNonSecure(t *testing.T) {
 			}
 		)
 
-		mockSecure.On("Certificate").
-			Return([]string{record.certificateFile}, []string{record.keyFile}).
-			Once()
-
 		mockExecutor.On("ListenAndServe").
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
@@ -106,11 +102,7 @@ func TestListenAndServeSecure(t *testing.T) {
 			}
 		)
 
-		mockSecure.On("Certificate").
-			Return([]string{"file.cert"}, []string{"file.key"}).
-			Once()
-
-		mockExecutor.On("ListenAndServeTLS", "", "").
+		mockExecutor.On("ListenAndServe").
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
