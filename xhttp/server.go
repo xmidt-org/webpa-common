@@ -1,6 +1,7 @@
 package xhttp
 
 import (
+	"crypto/tls"
 	stdlog "log"
 	"net"
 	"net/http"
@@ -63,13 +64,13 @@ type StartOptions struct {
 	// DisableKeepAlives indicates whether the server should honor keep alives
 	DisableKeepAlives bool `json:"disableKeepAlives,omitempty"`
 
-	// CertificateFile is the HTTPS certificate file.  If both this field and KeyFile are set,
+	// CertificateFile is the HTTPS certificate file(s).  If both this field and KeyFile are set,
 	// an HTTPS starter function is created.
-	CertificateFile string `json:"certificateFile,omitempty"`
+	CertificateFiles []string `json:"certificateFiles,omitempty"`
 
-	// KeyFile is the HTTPS key file.  If both this field and CertificateFile are set,
+	// KeyFile is the HTTPS key file(s).  If both this field and CertificateFile are set,
 	// an HTTPS starter function is created.
-	KeyFile string `json:"keyFile,omitempty"`
+	KeyFiles []string `json:"keyFiles,omitempty"`
 }
 
 // NewStarter returns a starter closure for the given HTTP server.  The start options are first
@@ -79,7 +80,7 @@ type StartOptions struct {
 // The returned closure will invoke the correct method on the server to start it, e.g. Serve, ServeTLS, etc.
 // The selection of which server method is based on the options.  For example, if CertificateFile and KeyFile
 // are set, either of the xxxTLS methods will be invoked based on whether there is a Listener configured.
-func NewStarter(o StartOptions, s httpServer) func() error {
+func NewStarter(o StartOptions, s httpServer, loadConfig func([]string, []string) *tls.Config) func() error {
 	if o.Logger == nil {
 		o.Logger = logging.DefaultLogger()
 	}
@@ -87,14 +88,18 @@ func NewStarter(o StartOptions, s httpServer) func() error {
 	s.SetKeepAlivesEnabled(!o.DisableKeepAlives)
 
 	var starter func() error
-	if len(o.CertificateFile) > 0 && len(o.KeyFile) > 0 {
+	if len(o.CertificateFiles) > 0 && len(o.KeyFiles) > 0 {
+		if len(o.CertificateFiles) != len(o.KeyFiles) {
+			panic("len of CertificateFiles must equal len KeyFiles")
+		}
+		s.SetTLSConfig(loadConfig(o.CertificateFiles, o.KeyFiles))
 		if o.Listener != nil {
 			starter = func() error {
-				return s.ServeTLS(o.Listener, o.CertificateFile, o.KeyFile)
+				return s.ServeTLS(o.Listener, "", "")
 			}
 		} else {
 			starter = func() error {
-				return s.ListenAndServeTLS(o.CertificateFile, o.KeyFile)
+				return s.ListenAndServeTLS("", "")
 			}
 		}
 	} else {
@@ -131,6 +136,7 @@ type httpServer interface {
 	ServeTLS(net.Listener, string, string) error
 
 	SetKeepAlivesEnabled(bool)
+	SetTLSConfig(config *tls.Config)
 }
 
 // ServerOptions describes the superset of options for both construction an http.Server and
@@ -172,11 +178,11 @@ type ServerOptions struct {
 
 	// CertificateFile is the HTTPS certificate file.  If both this field and KeyFile are set,
 	// an HTTPS starter function is created.
-	CertificateFile string `json:"certificateFile,omitempty"`
+	CertificateFiles []string `json:"certificateFiles,omitempty"`
 
 	// KeyFile is the HTTPS key file.  If both this field and CertificateFile are set,
 	// an HTTPS starter function is created.
-	KeyFile string `json:"keyFile,omitempty"`
+	KeyFiles []string `json:"keyFiles,omitempty"`
 }
 
 // StartOptions produces a StartOptions with the corresponding values from this ServerOptions
@@ -192,8 +198,8 @@ func (so *ServerOptions) StartOptions() StartOptions {
 		),
 		Listener:          so.Listener,
 		DisableKeepAlives: so.DisableKeepAlives,
-		CertificateFile:   so.CertificateFile,
-		KeyFile:           so.KeyFile,
+		CertificateFiles:  so.CertificateFiles,
+		KeyFiles:          so.KeyFiles,
 	}
 }
 

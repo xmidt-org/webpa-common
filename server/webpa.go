@@ -58,13 +58,6 @@ type executor interface {
 	Shutdown(ctx context.Context) error
 }
 
-// Secure exposes the optional certificate information to be used when starting an HTTP server.
-type Secure interface {
-	// Certificate returns the certificate information associated with this Secure instance.
-	// BOTH the returned file paths must be non-empty if a TLS server is desired.
-	Certificate() (certificateFile, keyFile string)
-}
-
 func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
 	var err error
 	logging.Debug(logger).Log(logging.MessageKey(), "starting restartable func", "errors", errs)
@@ -84,57 +77,38 @@ func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
 }
 
 // Serve is like ListenAndServe, but accepts a custom net.Listener
-func Serve(logger log.Logger, s Secure, l net.Listener, e executor, finalizer func()) {
-	certificateFile, keyFile := s.Certificate()
+func Serve(logger log.Logger, l net.Listener, e executor, finalizer func()) {
 	go func() {
 		defer finalizer()
 		logger.Log(
 			level.Key(), level.ErrorValue(),
 			logging.MessageKey(), "starting server",
 		)
-
-		if len(certificateFile) > 0 && len(keyFile) > 0 {
-
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ServeTLS(l, certificateFile, keyFile) }, http.ErrServerClosed),
-			)
-		} else {
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed),
-			)
-		}
+		// the assumption is tlsConfig has already been set
+		// Note: the tlsConfig should have the certs and goodness
+		logger.Log(
+			level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "server exited",
+			logging.ErrorKey(), RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed),
+		)
 	}()
 }
 
-// ListenAndServe invokes the appropriate server method based on the secure information.
-// If Secure.Certificate() returns both a certificateFile and a keyFile, e.ListenAndServeTLS()
-// is called to start the server.  Otherwise, e.ListenAndServe() is used.
-func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
-	certificateFile, keyFile := s.Certificate()
+// ListenAndServe invokes the server method
+func ListenAndServe(logger log.Logger, e executor, finalizer func()) {
 	go func() {
 		defer finalizer()
 		logger.Log(
 			level.Key(), level.ErrorValue(),
 			logging.MessageKey(), "starting server",
 		)
-
-		if len(certificateFile) > 0 && len(keyFile) > 0 {
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, func() error { return e.ListenAndServeTLS(certificateFile, keyFile) }, http.ErrServerClosed),
-			)
-		} else {
-			logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "server exited",
-				logging.ErrorKey(), RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed),
-			)
-		}
+		// the assumption is tlsConfig has already been set
+		// Note: the tlsConfig should have the certs and goodness
+		logger.Log(
+			level.Key(), level.ErrorValue(),
+			logging.MessageKey(), "server exited",
+			logging.ErrorKey(), RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed),
+		)
 	}()
 }
 
@@ -143,8 +117,8 @@ func ListenAndServe(logger log.Logger, s Secure, e executor, finalizer func()) {
 type Basic struct {
 	Name               string
 	Address            string
-	CertificateFile    string
-	KeyFile            string
+	CertificateFiles   []string
+	KeyFiles           []string
 	ClientCACertFile   string
 	LogConnectionState bool
 
@@ -206,19 +180,47 @@ func (b *Basic) writeTimeout() time.Duration {
 	return DefaultWriteTimeout
 }
 
-func (b *Basic) Certificate() (certificateFile, keyFile string) {
-	return b.CertificateFile, b.KeyFile
-}
-
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder) (net.Listener, error) {
+func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder, config *tls.Config) (net.Listener, error) {
 	return xlistener.New(xlistener.Options{
 		Logger:         logger,
 		Address:        b.Address,
 		MaxConnections: b.maxConnections(),
 		Active:         activeConnections,
 		Rejected:       rejectedCounter,
+		Config:         config,
 	})
+}
+
+func vaildCertSlices(certificateFiles, keyFiles []string) bool {
+	valid := true
+	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
+		for i := 0; i < len(certificateFiles); i ++ {
+			if !(len(certificateFiles[i]) > 0 && len(certificateFiles[i]) > 0) {
+				valid = false
+			}
+		}
+	} else {
+		valid = false
+	}
+	return valid
+}
+
+func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, err error) {
+	if !vaildCertSlices(certificateFiles, keyFiles) {
+		return []tls.Certificate{}, errors.New("certFiles and keyFiles are not vaild")
+	}
+
+	certs = make([]tls.Certificate, len(certificateFiles))
+	for i := 0; i < len(certificateFiles); i ++ {
+		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
+		if err != nil {
+			logging.Error(logging.DefaultLogger()).Log(logging.MessageKey(), "Failed to LoadX509KeyPair", "cert", certificateFiles[i], "key", keyFiles[i], logging.ErrorKey(), err)
+			return []tls.Certificate{}, err
+		}
+	}
+
+	return certs, nil
 }
 
 // New creates an http.Server using this instance's configuration.  The given logger is required,
@@ -234,20 +236,35 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 
 	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
-	certificateFile, keyFile := b.Certificate()
 	// Only when HTTPS i.e. cert & key present, check for client CA and set TLS config for MTLS
-	if len(certificateFile) > 0 && len(keyFile) > 0 && len(b.ClientCACertFile) > 0 {
+	if (len(b.CertificateFiles) > 0 && len(b.KeyFiles) > 0) || len(b.ClientCACertFile) > 0 {
 
 		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
 		if err != nil {
 			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
 				logging.ErrorKey(), err)
+			certs, err := generateCerts(b.CertificateFiles, b.KeyFiles)
+			if err != nil {
+				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
+					logging.ErrorKey(), err)
+			} else {
+				tlsConfig = &tls.Config{}
+				tlsConfig.Certificates = certs
+				tlsConfig.BuildNameToCertificate()
+			}
 		} else {
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
 			tlsConfig = &tls.Config{
 				ClientCAs:  caCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
+			}
+			certs, err := generateCerts(b.CertificateFiles, b.KeyFiles)
+			if err != nil {
+				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
+					logging.ErrorKey(), err)
+			} else {
+				tlsConfig.Certificates = certs
 			}
 			tlsConfig.BuildNameToCertificate()
 		}
@@ -281,15 +298,11 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 type Metric struct {
 	Name               string
 	Address            string
-	CertificateFile    string
-	KeyFile            string
+	CertificateFiles   []string
+	KeyFiles           []string
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
-}
-
-func (m *Metric) Certificate() (certificateFile, keyFile string) {
-	return m.CertificateFile, m.KeyFile
 }
 
 func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, error) {
@@ -335,15 +348,11 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 type Health struct {
 	Name               string
 	Address            string
-	CertificateFile    string
-	KeyFile            string
+	CertificateFiles   []string
+	KeyFiles           []string
 	LogConnectionState bool
 	LogInterval        time.Duration
 	Options            []string
-}
-
-func (h *Health) Certificate() (certificateFile, keyFile string) {
-	return h.CertificateFile, h.KeyFile
 }
 
 // NewHealth creates a Health instance from this instance's configuration.  If the Address
@@ -566,6 +575,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			primaryLogger,
 			activeConnections.With("server", "primary"),
 			rejectedCounter.With("server", "primary"),
+			primaryServer.TLSConfig,
 		)
 
 		if err != nil {
@@ -582,6 +592,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 				alternateLogger,
 				activeConnections.With("server", "alternate"),
 				rejectedCounter.With("server", "alternate"),
+				alternateServer.TLSConfig,
 			)
 
 			if err != nil {
@@ -589,20 +600,19 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 				return err
 			}
 
-			Serve(alternateLogger, &w.Alternate, alternateListener, alternateServer, finalizer)
+			Serve(alternateLogger, alternateListener, alternateServer, finalizer)
 		}
 
-		Serve(primaryLogger, &w.Primary, primaryListener, primaryServer, finalizer)
+		Serve(primaryLogger, primaryListener, primaryServer, finalizer)
 
 		if healthHandler != nil && healthServer != nil {
-			ListenAndServe(log.With(logger, "serverName", w.Health.Name, "bindAddress", w.Health.Address), &w.Health, healthServer, finalizer)
+			ListenAndServe(log.With(logger, "serverName", w.Health.Name, "bindAddress", w.Health.Address), healthServer, finalizer)
 			healthHandler.Run(waitGroup, shutdown)
 		}
 
 		if pprofServer != nil {
 			ListenAndServe(
 				log.With(logger, "serverName", w.Pprof.Name, "bindAddress", w.Pprof.Address),
-				&w.Pprof,
 				pprofServer,
 				finalizer,
 			)
@@ -611,7 +621,6 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		if metricsServer != nil {
 			ListenAndServe(
 				log.With(logger, "serverName", w.Metric.Name, "bindAddress", w.Metric.Address),
-				&w.Metric,
 				metricsServer,
 				finalizer,
 			)

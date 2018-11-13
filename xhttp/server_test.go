@@ -1,6 +1,7 @@
 package xhttp
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"net/http"
@@ -96,7 +97,7 @@ func testNewStarterListenAndServe(t *testing.T) {
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
 			httpServer.On("ListenAndServe").Return(expectedError).Once()
 
-			starter := NewStarter(o, httpServer)
+			starter := NewStarter(o, httpServer, nil)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -127,7 +128,7 @@ func testNewStarterServe(t *testing.T) {
 			httpServer.On("Serve", listener).Return(expectedError).Once()
 			o.Listener = listener
 
-			starter := NewStarter(o, httpServer)
+			starter := NewStarter(o, httpServer, nil)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -138,6 +139,32 @@ func testNewStarterServe(t *testing.T) {
 			httpServer.AssertExpectations(t)
 		}
 	}
+}
+
+func testloadconfig(certificatFiles, keyFiles []string) *tls.Config {
+	certPem := []byte(`-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`)
+	keyPem := []byte(`-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`)
+	cert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		panic(err)
+	}
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	cfg.BuildNameToCertificate()
+	return cfg
 }
 
 func testNewStarterListenAndServeTLS(t *testing.T) {
@@ -153,11 +180,12 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 			httpServer := new(mockHTTPServer)
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
-			httpServer.On("ListenAndServeTLS", expectedCertificateFile, expectedKeyFile).Return(expectedError).Once()
-			o.CertificateFile = expectedCertificateFile
-			o.KeyFile = expectedKeyFile
+			httpServer.On("ListenAndServeTLS", "", "").Return(expectedError).Once()
+			httpServer.On("SetTLSConfig", testloadconfig(nil, nil)).Return(testloadconfig(nil, nil)).Once()
+			o.CertificateFiles = []string{expectedCertificateFile}
+			o.KeyFiles = []string{expectedKeyFile}
 
-			starter := NewStarter(o, httpServer)
+			starter := NewStarter(o, httpServer, testloadconfig)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -185,12 +213,13 @@ func testNewStarterServeTLS(t *testing.T) {
 			)
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
-			httpServer.On("ServeTLS", listener, expectedCertificateFile, expectedKeyFile).Return(expectedError).Once()
+			httpServer.On("ServeTLS", listener, "", "").Return(expectedError).Once()
+			httpServer.On("SetTLSConfig", testloadconfig(nil, nil)).Return(testloadconfig(nil, nil)).Once()
 			o.Listener = listener
-			o.CertificateFile = expectedCertificateFile
-			o.KeyFile = expectedKeyFile
+			o.CertificateFiles = []string{expectedCertificateFile}
+			o.KeyFiles = []string{expectedKeyFile}
 
-			starter := NewStarter(o, httpServer)
+			starter := NewStarter(o, httpServer, testloadconfig)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -220,8 +249,8 @@ func TestServerOptions(t *testing.T) {
 			Logger:            logger,
 			Listener:          listener,
 			DisableKeepAlives: true,
-			CertificateFile:   "cert.pem",
-			KeyFile:           "key.pem",
+			CertificateFiles:  []string{"cert.pem"},
+			KeyFiles:          []string{"key.pem"},
 		}
 	)
 
@@ -229,8 +258,8 @@ func TestServerOptions(t *testing.T) {
 	assert.NotNil(so.Logger)
 	assert.Equal(listener, so.Listener)
 	assert.True(so.DisableKeepAlives)
-	assert.Equal("cert.pem", so.CertificateFile)
-	assert.Equal("key.pem", so.KeyFile)
+	assert.Equal([]string{"cert.pem"}, so.CertificateFiles)
+	assert.Equal([]string{"key.pem"}, so.KeyFiles)
 	listener.AssertExpectations(t)
 }
 
@@ -251,8 +280,8 @@ func TestNewServer(t *testing.T) {
 			MaxHeaderBytes:    48287231,
 			Listener:          listener,
 			DisableKeepAlives: true,
-			CertificateFile:   "cert.pem",
-			KeyFile:           "key.pem",
+			CertificateFiles:  []string{"cert.pem"},
+			KeyFiles:          []string{"key.pem"},
 		}
 	)
 

@@ -1,6 +1,7 @@
 package xlistener
 
 import (
+	"crypto/tls"
 	"net"
 	"strconv"
 	"sync"
@@ -13,8 +14,13 @@ import (
 	"github.com/go-kit/kit/metrics/discard"
 )
 
-// netListen is the factory function for creating a net.Listener.  Defaults to net.Listen.  Only tests would change this variable.
-var netListen = net.Listen
+var (
+	// netListen is the factory function for creating a net.Listener.  Defaults to net.Listen.  Only tests would change this variable.
+	netListen = net.Listen
+
+	// tlsListen is the factory function for creating a tls.Listener.  Defaults to tls.Listen.  Only tests would change this variable.
+	tlsListen = tls.Listen
+)
 
 // Options defines the available options for configuring a listener
 type Options struct {
@@ -39,6 +45,8 @@ type Options struct {
 
 	// Next is the net.Listener to decorate.  If this field is set, Network and Address are ignored.
 	Next net.Listener
+
+	Config *tls.Config
 }
 
 // New constructs a new net.Listener using a set of options.
@@ -76,7 +84,11 @@ func New(o Options) (net.Listener, error) {
 		}
 
 		var err error
-		next, err = netListen(o.Network, o.Address)
+		if o.Config != nil {
+			next, err = tlsListen(o.Network, o.Address, o.Config)
+		} else {
+			next, err = netListen(o.Network, o.Address)
+		}
 		if err != nil {
 			return nil, err
 		}

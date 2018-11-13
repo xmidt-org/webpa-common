@@ -40,7 +40,6 @@ func TestListenAndServeNonSecure(t *testing.T) {
 
 			_, logger      = newTestLogger()
 			executorCalled = make(chan struct{}, 1)
-			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
 
 			finalizerCalled = make(chan struct{})
@@ -49,15 +48,11 @@ func TestListenAndServeNonSecure(t *testing.T) {
 			}
 		)
 
-		mockSecure.On("Certificate").
-			Return(record.certificateFile, record.keyFile).
-			Once()
-
 		mockExecutor.On("ListenAndServe").
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
-		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
+		ListenAndServe(logger, mockExecutor, finalizer)
 		select {
 		case <-executorCalled:
 			// passing
@@ -74,7 +69,6 @@ func TestListenAndServeNonSecure(t *testing.T) {
 			}
 		}
 
-		mockSecure.AssertExpectations(t)
 		mockExecutor.AssertExpectations(t)
 	}
 }
@@ -97,7 +91,6 @@ func TestListenAndServeSecure(t *testing.T) {
 
 			_, logger      = newTestLogger()
 			executorCalled = make(chan struct{}, 1)
-			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
 
 			finalizerCalled = make(chan struct{})
@@ -106,15 +99,11 @@ func TestListenAndServeSecure(t *testing.T) {
 			}
 		)
 
-		mockSecure.On("Certificate").
-			Return("file.cert", "file.key").
-			Once()
-
-		mockExecutor.On("ListenAndServeTLS", "file.cert", "file.key").
+		mockExecutor.On("ListenAndServe").
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
-		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
+		ListenAndServe(logger, mockExecutor, finalizer)
 		select {
 		case <-executorCalled:
 			// passing
@@ -131,37 +120,7 @@ func TestListenAndServeSecure(t *testing.T) {
 			}
 		}
 
-		mockSecure.AssertExpectations(t)
 		mockExecutor.AssertExpectations(t)
-	}
-}
-
-func TestBasicCertificate(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			certificateFile, keyFile string
-		}{
-			{"", ""},
-			{"", "file.key"},
-			{"file.cert", ""},
-			{"file.cert", "file.key"},
-		}
-	)
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		var (
-			basic = Basic{
-				CertificateFile: record.certificateFile,
-				KeyFile:         record.keyFile,
-			}
-
-			actualCertificateFile, actualKeyFile = basic.Certificate()
-		)
-
-		assert.Equal(record.certificateFile, actualCertificateFile)
-		assert.Equal(record.keyFile, actualKeyFile)
 	}
 }
 
@@ -219,35 +178,6 @@ func TestBasicNew(t *testing.T) {
 		if record.handler != nil {
 			record.handler.AssertExpectations(t)
 		}
-	}
-}
-
-func TestHealthCertificate(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			certificateFile, keyFile string
-		}{
-			{"", ""},
-			{"", "file.key"},
-			{"file.cert", ""},
-			{"file.cert", "file.key"},
-		}
-	)
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		var (
-			health = Health{
-				CertificateFile: record.certificateFile,
-				KeyFile:         record.keyFile,
-			}
-
-			actualCertificateFile, actualKeyFile = health.Certificate()
-		)
-
-		assert.Equal(record.certificateFile, actualCertificateFile)
-		assert.Equal(record.keyFile, actualKeyFile)
 	}
 }
 
@@ -425,16 +355,16 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 		require  = require.New(t)
 		testData = []struct {
 			address            string
-			certificateFile    string
-			keyFile            string
+			certificateFiles   []string
+			keyFiles           []string
 			clientCACertFile   string
 			handler            *mockHandler
 			logConnectionState bool
 		}{
-			{"localhost:80", "cert.pem", "cert.key", "client_ca.pem", new(mockHandler), true},
-			{"localhost:8090", "file.cert", "file.key", "invalid.cert", new(mockHandler), true},
-			{"localhost:8090", "file.cert", "file.key", "", new(mockHandler), true},
-			{":8081", "", "", "", new(mockHandler), false},
+			{"localhost:80", []string{"cert.pem"}, []string{"cert.key"}, "client_ca.pem", new(mockHandler), true},
+			{"localhost:8090", []string{"file.cert"}, []string{"file.key"}, "invalid.cert", new(mockHandler), true},
+			{"localhost:8090", []string{"file.cert"}, []string{"file.key"}, "", new(mockHandler), true},
+			{":8081", []string{}, []string{}, "", new(mockHandler), false},
 		}
 	)
 
@@ -446,8 +376,8 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			basic          = Basic{
 				Name:               expectedName,
 				Address:            record.address,
-				CertificateFile:    record.certificateFile,
-				KeyFile:            record.keyFile,
+				CertificateFiles:   record.certificateFiles,
+				KeyFiles:           record.keyFiles,
 				ClientCACertFile:   record.clientCACertFile,
 				LogConnectionState: record.logConnectionState,
 			}
