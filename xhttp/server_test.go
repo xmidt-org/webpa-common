@@ -97,7 +97,7 @@ func testNewStarterListenAndServe(t *testing.T) {
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
 			httpServer.On("ListenAndServe").Return(expectedError).Once()
 
-			starter := NewStarter(o, httpServer, nil)
+			starter := NewStarter(o, httpServer)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -128,7 +128,7 @@ func testNewStarterServe(t *testing.T) {
 			httpServer.On("Serve", listener).Return(expectedError).Once()
 			o.Listener = listener
 
-			starter := NewStarter(o, httpServer, nil)
+			starter := NewStarter(o, httpServer)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -180,12 +180,11 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 			httpServer := new(mockHTTPServer)
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
-			httpServer.On("ListenAndServeTLS", "", "").Return(expectedError).Once()
-			httpServer.On("SetTLSConfig", testloadconfig(nil, nil)).Return(testloadconfig(nil, nil)).Once()
+			httpServer.On("ListenAndServe", ).Return(expectedError).Once()
 			o.CertificateFiles = []string{expectedCertificateFile}
 			o.KeyFiles = []string{expectedKeyFile}
 
-			starter := NewStarter(o, httpServer, testloadconfig)
+			starter := NewStarter(o, httpServer)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {
@@ -213,13 +212,12 @@ func testNewStarterServeTLS(t *testing.T) {
 			)
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
-			httpServer.On("ServeTLS", listener, "", "").Return(expectedError).Once()
-			httpServer.On("SetTLSConfig", testloadconfig(nil, nil)).Return(testloadconfig(nil, nil)).Once()
+			httpServer.On("Serve", listener).Return(expectedError).Once()
 			o.Listener = listener
 			o.CertificateFiles = []string{expectedCertificateFile}
 			o.KeyFiles = []string{expectedKeyFile}
 
-			starter := NewStarter(o, httpServer, testloadconfig)
+			starter := NewStarter(o, httpServer)
 			require.NotNil(starter)
 
 			assert.NotPanics(func() {

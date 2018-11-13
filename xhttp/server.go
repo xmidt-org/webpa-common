@@ -1,7 +1,6 @@
 package xhttp
 
 import (
-	"crypto/tls"
 	stdlog "log"
 	"net"
 	"net/http"
@@ -80,7 +79,9 @@ type StartOptions struct {
 // The returned closure will invoke the correct method on the server to start it, e.g. Serve, ServeTLS, etc.
 // The selection of which server method is based on the options.  For example, if CertificateFile and KeyFile
 // are set, either of the xxxTLS methods will be invoked based on whether there is a Listener configured.
-func NewStarter(o StartOptions, s httpServer, loadConfig func([]string, []string) *tls.Config) func() error {
+//
+// Note: tlsConfig is expected to already be set
+func NewStarter(o StartOptions, s httpServer) func() error {
 	if o.Logger == nil {
 		o.Logger = logging.DefaultLogger()
 	}
@@ -88,29 +89,14 @@ func NewStarter(o StartOptions, s httpServer, loadConfig func([]string, []string
 	s.SetKeepAlivesEnabled(!o.DisableKeepAlives)
 
 	var starter func() error
-	if len(o.CertificateFiles) > 0 && len(o.KeyFiles) > 0 {
-		if len(o.CertificateFiles) != len(o.KeyFiles) {
-			panic("len of CertificateFiles must equal len KeyFiles")
-		}
-		s.SetTLSConfig(loadConfig(o.CertificateFiles, o.KeyFiles))
-		if o.Listener != nil {
-			starter = func() error {
-				return s.ServeTLS(o.Listener, "", "")
-			}
-		} else {
-			starter = func() error {
-				return s.ListenAndServeTLS("", "")
-			}
+
+	if o.Listener != nil {
+		starter = func() error {
+			return s.Serve(o.Listener)
 		}
 	} else {
-		if o.Listener != nil {
-			starter = func() error {
-				return s.Serve(o.Listener)
-			}
-		} else {
-			starter = func() error {
-				return s.ListenAndServe()
-			}
+		starter = func() error {
+			return s.ListenAndServe()
 		}
 	}
 
@@ -136,7 +122,6 @@ type httpServer interface {
 	ServeTLS(net.Listener, string, string) error
 
 	SetKeepAlivesEnabled(bool)
-	SetTLSConfig(config *tls.Config)
 }
 
 // ServerOptions describes the superset of options for both construction an http.Server and

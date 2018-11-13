@@ -1,7 +1,6 @@
 package xhttp
 
 import (
-	"crypto/tls"
 	"net"
 
 	"github.com/stretchr/testify/mock"
@@ -38,10 +37,6 @@ func (m *mockHTTPServer) ServeTLS(l net.Listener, certificateFile, keyFile strin
 
 func (m *mockHTTPServer) SetKeepAlivesEnabled(v bool) {
 	m.Called(v)
-}
-
-func (m *mockHTTPServer) SetTLSConfig(config *tls.Config) {
-	m.Called(config)
 }
 
 type mockListener struct {
