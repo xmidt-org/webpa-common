@@ -40,7 +40,6 @@ func TestListenAndServeNonSecure(t *testing.T) {
 
 			_, logger      = newTestLogger()
 			executorCalled = make(chan struct{}, 1)
-			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
 
 			finalizerCalled = make(chan struct{})
@@ -53,7 +52,7 @@ func TestListenAndServeNonSecure(t *testing.T) {
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
-		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
+		ListenAndServe(logger, mockExecutor, finalizer)
 		select {
 		case <-executorCalled:
 			// passing
@@ -70,7 +69,6 @@ func TestListenAndServeNonSecure(t *testing.T) {
 			}
 		}
 
-		mockSecure.AssertExpectations(t)
 		mockExecutor.AssertExpectations(t)
 	}
 }
@@ -93,7 +91,6 @@ func TestListenAndServeSecure(t *testing.T) {
 
 			_, logger      = newTestLogger()
 			executorCalled = make(chan struct{}, 1)
-			mockSecure     = new(mockSecure)
 			mockExecutor   = new(mockExecutor)
 
 			finalizerCalled = make(chan struct{})
@@ -106,7 +103,7 @@ func TestListenAndServeSecure(t *testing.T) {
 			Return(record.expectedError).
 			Run(func(mock.Arguments) { executorCalled <- struct{}{} })
 
-		ListenAndServe(logger, mockSecure, mockExecutor, finalizer)
+		ListenAndServe(logger, mockExecutor, finalizer)
 		select {
 		case <-executorCalled:
 			// passing
@@ -123,38 +120,7 @@ func TestListenAndServeSecure(t *testing.T) {
 			}
 		}
 
-		mockSecure.AssertExpectations(t)
 		mockExecutor.AssertExpectations(t)
-	}
-}
-
-func TestBasicCertificate(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			certificateFiles, keyFiles []string
-		}{
-			{[]string{""}, []string{""}},
-			{[]string{""}, []string{"file.key"}},
-			{[]string{"file.cert"}, []string{""}},
-			{[]string{"file.cert"}, []string{"file.key"}},
-			{[]string{"fileA.cert", "fileB.cert"}, []string{"fileA.key", "fileB.key"}},
-		}
-	)
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		var (
-			basic = Basic{
-				CertificateFiles: record.certificateFiles,
-				KeyFiles:         record.keyFiles,
-			}
-
-			actualCertificateFile, actualKeyFile = basic.Certificate()
-		)
-
-		assert.Equal(record.certificateFiles, actualCertificateFile)
-		assert.Equal(record.keyFiles, actualKeyFile)
 	}
 }
 
@@ -212,35 +178,6 @@ func TestBasicNew(t *testing.T) {
 		if record.handler != nil {
 			record.handler.AssertExpectations(t)
 		}
-	}
-}
-
-func TestHealthCertificate(t *testing.T) {
-	var (
-		assert   = assert.New(t)
-		testData = []struct {
-			certificateFiles, keyFiles []string
-		}{
-			{[]string{""}, []string{""}},
-			{[]string{""}, []string{"file.key"}},
-			{[]string{"file.cert"}, []string{""}},
-			{[]string{"file.cert"}, []string{"file.key"}},
-		}
-	)
-
-	for _, record := range testData {
-		t.Logf("%#v", record)
-		var (
-			health = Health{
-				CertificateFiles: record.certificateFiles,
-				KeyFiles:         record.keyFiles,
-			}
-
-			actualCertificateFile, actualKeyFile = health.Certificate()
-		)
-
-		assert.Equal(record.certificateFiles, actualCertificateFile)
-		assert.Equal(record.keyFiles, actualKeyFile)
 	}
 }
 

@@ -41,15 +41,6 @@ func (m *mockExecutor) Shutdown(ctx context.Context) error {
 	return m.Called(ctx).Error(0)
 }
 
-type mockSecure struct {
-	mock.Mock
-}
-
-func (m *mockSecure) Certificate() ([]string, []string) {
-	arguments := m.Called()
-	return arguments.Get(0).([]string), arguments.Get(1).([]string)
-}
-
 type mockListener struct {
 	mock.Mock
 }
