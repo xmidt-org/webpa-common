@@ -183,6 +183,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 		}
 
 		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not process device request", logging.ErrorKey(), err, "code", code)
+		httpResponse.Header().Set("X-Message-Error", err.Error())
 		xhttp.WriteErrorf(
 			httpResponse,
 			code,

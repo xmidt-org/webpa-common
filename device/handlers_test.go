@@ -512,7 +512,7 @@ func TestMessageHandler(t *testing.T) {
 			testMessageHandlerServeHTTPRouteError(t, ErrorNonUniqueID, http.StatusBadRequest)
 			testMessageHandlerServeHTTPRouteError(t, ErrorInvalidTransactionKey, http.StatusBadRequest)
 			testMessageHandlerServeHTTPRouteError(t, ErrorTransactionAlreadyRegistered, http.StatusBadRequest)
-			testMessageHandlerServeHTTPRouteError(t, errors.New("random error"), http.StatusInternalServerError)
+			testMessageHandlerServeHTTPRouteError(t, errors.New("random error"), http.StatusGatewayTimeout)
 		})
 
 		t.Run("Event", func(t *testing.T) {
