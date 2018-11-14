@@ -19,9 +19,6 @@ import (
 const (
 	DefaultMessageTimeout time.Duration = 2 * time.Minute
 	DefaultListRefresh    time.Duration = 10 * time.Second
-
-	StatusDeviceDisconnected int = 523
-	StatusDeviceTimeout      int = 524
 )
 
 // Timeout returns an Alice-style constructor which enforces a timeout for all device request contexts.
@@ -171,14 +168,8 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 
 	// deviceRequest carries the context through the routing infrastructure
 	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
-		code := http.StatusInternalServerError
+		code := http.StatusGatewayTimeout
 		switch err {
-		case context.Canceled:
-			code = http.StatusGatewayTimeout
-		case context.DeadlineExceeded:
-			code = http.StatusGatewayTimeout
-		case ErrorTransactionCancelled:
-			code = http.StatusGatewayTimeout
 		case ErrorInvalidDeviceName:
 			code = http.StatusBadRequest
 		case ErrorDeviceNotFound:
@@ -189,14 +180,6 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			code = http.StatusBadRequest
 		case ErrorTransactionAlreadyRegistered:
 			code = http.StatusBadRequest
-		case ErrorDeviceBusy:
-			code = StatusDeviceTimeout
-		case ErrorTransactionsClosed:
-			code = StatusDeviceDisconnected
-		case ErrorTransactionsAlreadyClosed:
-			code = StatusDeviceDisconnected
-		case ErrorDeviceClosed:
-			code = StatusDeviceDisconnected
 		}
 
 		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not process device request", logging.ErrorKey(), err, "code", code)
