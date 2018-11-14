@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	money "github.com/Comcast/golang-money"
 	"github.com/Comcast/webpa-common/concurrent"
 	"github.com/Comcast/webpa-common/health"
 	"github.com/Comcast/webpa-common/logging"
@@ -195,7 +196,7 @@ func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, 
 func vaildCertSlices(certificateFiles, keyFiles []string) bool {
 	valid := true
 	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
-		for i := 0; i < len(certificateFiles); i ++ {
+		for i := 0; i < len(certificateFiles); i++ {
 			if !(len(certificateFiles[i]) > 0 && len(certificateFiles[i]) > 0) {
 				valid = false
 			}
@@ -212,7 +213,7 @@ func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate
 	}
 
 	certs = make([]tls.Certificate, len(certificateFiles))
-	for i := 0; i < len(certificateFiles); i ++ {
+	for i := 0; i < len(certificateFiles); i++ {
 		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
 		if err != nil {
 			logging.Error(logging.DefaultLogger()).Log(logging.MessageKey(), "Failed to LoadX509KeyPair", "cert", certificateFiles[i], "key", keyFiles[i], logging.ErrorKey(), err)
@@ -506,7 +507,7 @@ func (w *WebPA) flavor() string {
 // it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
 // servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable, <-chan struct{}) {
+func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable, <-chan struct{}, ) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	var (
@@ -538,7 +539,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 	)
 
 	return healthHandler, concurrent.RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		primaryHandler = staticHeaders(w.decorateWithBasicMetrics(registry, primaryHandler))
+		primaryHandler = staticHeaders(w.decorate(registry, primaryHandler)))
 
 		// create all the servers first, so that we can populate the servers slice
 		// without worrying about concurrency
@@ -657,4 +658,34 @@ func (w *WebPA) decorateWithBasicMetrics(p xmetrics.PrometheusProvider, next htt
 			),
 		),
 	)
+}
+// decorateWithMoney wraps a WebPA server handler with Money tracing. 
+//
+// include petasos and talaria.
+func (w *WebPA) decorateWithMoney(next http.Handler) http.Handler {
+	var spanner money.HTTPSpanner
+	switch w.ApplicationName {
+	case tr1d1um:
+		spanner = money.NewHTTPSpanner(money.StarterON())
+		return spanner.Decorate(next)
+	case scytale:
+		spanner = money.NewHTTPSpanner(money.SubTracerON()
+		return spanner.Decorate(next)
+	/*
+	case petasos:
+		spanner = money.HTTPSpanner(money.SubTracerON())
+		return spanner.Decorate(next)
+
+	*/
+	/*
+	case talaria:
+		spanner = money.HTTPSpanner(money.SubTracerON())
+		return spanner.Decorate(next)
+	}
+	*/
+	return http.Handler
+}
+
+func(w *WebPA) decorate(p metrics xmetrics.PrometheusProvider, next http.Handler) http.Handler {
+	return w.decorateMoney(w.decorateWithBasicMetrics(p, next))
 }
