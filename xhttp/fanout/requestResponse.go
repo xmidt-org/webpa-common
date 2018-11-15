@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/textproto"
+	"strings"
 
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/gorilla/mux"
@@ -100,6 +101,30 @@ func ReturnHeaders(headers ...string) FanoutResponseFunc {
 				if values := result.Response.Header[key]; len(values) > 0 {
 					header[key] = append(header[key], values...)
 				}
+			}
+		}
+
+		return ctx
+	}
+}
+
+// ReturnHeadersWithPrefix copies zero or more headers from the fanout where the headerPrefix is matched in the response into the top-level HTTP response.
+func ReturnHeadersWithPrefix(headerPrefixs ...string) FanoutResponseFunc {
+	canonicalizedHeaders := make([]string, len(headerPrefixs))
+	for i := 0; i < len(headerPrefixs); i++ {
+		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headerPrefixs[i])
+	}
+
+	return func(ctx context.Context, response http.ResponseWriter, result Result) context.Context {
+		if result.Response != nil {
+			header := response.Header()
+			for _, prefix := range canonicalizedHeaders {
+				for key, results := range result.Response.Header {
+					if strings.HasPrefix(key, prefix) && len(results) > 0 {
+						header[key] = append(header[key], results...)
+					}
+				}
+
 			}
 		}
 
