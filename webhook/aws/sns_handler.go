@@ -403,7 +403,7 @@ func (ss *SNSServer) ListSubscriptionsByMatchingEndpoint() (*list.List, error) {
 			timestamp = 0
 			if !strings.EqualFold(*sub.Endpoint, ss.SelfUrl.String()) &&
 				strings.Contains(*sub.Endpoint, endpoint) &&
-				strings.Contains(*sub.subscriptionArn, ss.Config.Sns.TopicArn) {
+				strings.Contains(*sub.SubscriptionArn, ss.Config.Sns.TopicArn) {
 
 				fmt.Sscanf(*sub.Endpoint, endpoint+"/%d", &timestamp)
 				if timestamp == 0 || timestamp < currentTimestamp {
