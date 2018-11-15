@@ -44,7 +44,7 @@ import:
   subpackages:
   - api
 - package: github.com/ugorji/go
-  version: 00a57e09e383d445aeef6c6cd642969dc4360231
+  version: e5e69e061d4f7ee3a69b793cf9c1b41afe21918e
   subpackages:
   - codec
 - package: github.com/c9s/goprocinfo
