@@ -348,9 +348,9 @@ func (ss *SNSServer) Unsubscribe(subArn string) {
 
 	if err != nil {
 		ss.errorLog.Log(logging.MessageKey(), "SNS Unsubscribe error", logging.ErrorKey(), err)
+	} else {
+		ss.debugLog.Log(logging.MessageKey(), "Successfully unsubscribed from the SNS topic", "response", resp)
 	}
-
-	ss.debugLog.Log(logging.MessageKey(), "Successfully unsubscribed from the SNS topic", "response", resp)
 }
 
 func (ss *SNSServer) UnsubscribeOldSubscriptions() {
@@ -402,7 +402,8 @@ func (ss *SNSServer) ListSubscriptionsByMatchingEndpoint() (*list.List, error) {
 		for _, sub := range resp.Subscriptions {
 			timestamp = 0
 			if !strings.EqualFold(*sub.Endpoint, ss.SelfUrl.String()) &&
-				strings.Contains(*sub.Endpoint, endpoint) {
+				strings.Contains(*sub.Endpoint, endpoint) &&
+				strings.Contains(*sub.subscriptionArn, ss.Config.Sns.TopicArn) {
 
 				fmt.Sscanf(*sub.Endpoint, endpoint+"/%d", &timestamp)
 				if timestamp == 0 || timestamp < currentTimestamp {
