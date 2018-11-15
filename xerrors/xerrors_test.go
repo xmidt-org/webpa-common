@@ -178,9 +178,9 @@ func TestFirstCauseHTTP(t *testing.T) {
 		timeout         time.Duration
 		useDefer        bool
 	}{
-		{"client-timeout", time.Second, 5 * time.Millisecond, time.Millisecond, true},
-		{"context-cancel", time.Nanosecond, 5 * time.Millisecond, time.Millisecond, false},
-		{"context-timeout", time.Second, time.Millisecond, 5 * time.Millisecond, true},
+		{"client-timeout", time.Second, 500 * time.Millisecond, time.Millisecond, true},
+		{"context-cancel", time.Nanosecond, 500 * time.Millisecond, time.Millisecond, false},
+		{"context-timeout", time.Second, time.Millisecond, 500 * time.Millisecond, true},
 	}
 
 	for _, record := range testData {
