@@ -65,11 +65,11 @@ type StartOptions struct {
 
 	// CertificateFile is the HTTPS certificate file(s).  If both this field and KeyFile are set,
 	// an HTTPS starter function is created.
-	CertificateFiles []string `json:"certificateFiles,omitempty"`
+	CertificateFile []string `json:"certificateFile,omitempty"`
 
 	// KeyFile is the HTTPS key file(s).  If both this field and CertificateFile are set,
 	// an HTTPS starter function is created.
-	KeyFiles []string `json:"keyFiles,omitempty"`
+	KeyFile []string `json:"keyFile,omitempty"`
 }
 
 // NewStarter returns a starter closure for the given HTTP server.  The start options are first
@@ -163,11 +163,11 @@ type ServerOptions struct {
 
 	// CertificateFile is the HTTPS certificate file.  If both this field and KeyFile are set,
 	// an HTTPS starter function is created.
-	CertificateFiles []string `json:"certificateFiles,omitempty"`
+	CertificateFile []string `json:"certificateFile,omitempty"`
 
 	// KeyFile is the HTTPS key file.  If both this field and CertificateFile are set,
 	// an HTTPS starter function is created.
-	KeyFiles []string `json:"keyFiles,omitempty"`
+	KeyFile []string `json:"keyFile,omitempty"`
 }
 
 // StartOptions produces a StartOptions with the corresponding values from this ServerOptions
@@ -183,8 +183,8 @@ func (so *ServerOptions) StartOptions() StartOptions {
 		),
 		Listener:          so.Listener,
 		DisableKeepAlives: so.DisableKeepAlives,
-		CertificateFiles:  so.CertificateFiles,
-		KeyFiles:          so.KeyFiles,
+		CertificateFile:   so.CertificateFile,
+		KeyFile:           so.KeyFile,
 	}
 }
 

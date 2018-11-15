@@ -181,8 +181,8 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
 			httpServer.On("ListenAndServe", ).Return(expectedError).Once()
-			o.CertificateFiles = []string{expectedCertificateFile}
-			o.KeyFiles = []string{expectedKeyFile}
+			o.CertificateFile = []string{expectedCertificateFile}
+			o.KeyFile = []string{expectedKeyFile}
 
 			starter := NewStarter(o, httpServer)
 			require.NotNil(starter)
@@ -214,8 +214,8 @@ func testNewStarterServeTLS(t *testing.T) {
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
 			httpServer.On("Serve", listener).Return(expectedError).Once()
 			o.Listener = listener
-			o.CertificateFiles = []string{expectedCertificateFile}
-			o.KeyFiles = []string{expectedKeyFile}
+			o.CertificateFile = []string{expectedCertificateFile}
+			o.KeyFile = []string{expectedKeyFile}
 
 			starter := NewStarter(o, httpServer)
 			require.NotNil(starter)
@@ -247,8 +247,8 @@ func TestServerOptions(t *testing.T) {
 			Logger:            logger,
 			Listener:          listener,
 			DisableKeepAlives: true,
-			CertificateFiles:  []string{"cert.pem"},
-			KeyFiles:          []string{"key.pem"},
+			CertificateFile:   []string{"cert.pem"},
+			KeyFile:           []string{"key.pem"},
 		}
 	)
 
@@ -256,8 +256,8 @@ func TestServerOptions(t *testing.T) {
 	assert.NotNil(so.Logger)
 	assert.Equal(listener, so.Listener)
 	assert.True(so.DisableKeepAlives)
-	assert.Equal([]string{"cert.pem"}, so.CertificateFiles)
-	assert.Equal([]string{"key.pem"}, so.KeyFiles)
+	assert.Equal([]string{"cert.pem"}, so.CertificateFile)
+	assert.Equal([]string{"key.pem"}, so.KeyFile)
 	listener.AssertExpectations(t)
 }
 
@@ -278,8 +278,8 @@ func TestNewServer(t *testing.T) {
 			MaxHeaderBytes:    48287231,
 			Listener:          listener,
 			DisableKeepAlives: true,
-			CertificateFiles:  []string{"cert.pem"},
-			KeyFiles:          []string{"key.pem"},
+			CertificateFile:   []string{"cert.pem"},
+			KeyFile:           []string{"key.pem"},
 		}
 	)
 
