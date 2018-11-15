@@ -1,5 +1,5 @@
-hash: 2007505d901f81f3b30437c95894b2a2676650fbd5da3fa27cb1d14333c0bb4d
-updated: 2018-11-13T09:07:15.284685-08:00
+hash: 1f5f9074628760440629368cd535ea8680eb8bec5c6a8ff1b40041d8cb90ab61
+updated: 2018-11-15T14:18:58.698774-08:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -215,7 +215,7 @@ imports:
   subpackages:
   - msgp
 - name: github.com/ugorji/go
-  version: 00a57e09e383d445aeef6c6cd642969dc4360231
+  version: e5e69e061d4f7ee3a69b793cf9c1b41afe21918e
   subpackages:
   - codec
 - name: github.com/VividCortex/gohistogram
