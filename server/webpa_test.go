@@ -376,8 +376,8 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 			basic          = Basic{
 				Name:               expectedName,
 				Address:            record.address,
-				CertificateFiles:   record.certificateFiles,
-				KeyFiles:           record.keyFiles,
+				CertificateFile:   record.certificateFiles,
+				KeyFile:           record.keyFiles,
 				ClientCACertFile:   record.clientCACertFile,
 				LogConnectionState: record.logConnectionState,
 			}

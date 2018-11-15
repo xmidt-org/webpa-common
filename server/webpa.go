@@ -117,8 +117,8 @@ func ListenAndServe(logger log.Logger, e executor, finalizer func()) {
 type Basic struct {
 	Name               string
 	Address            string
-	CertificateFiles   []string
-	KeyFiles           []string
+	CertificateFile   []string
+	KeyFile           []string
 	ClientCACertFile   string
 	LogConnectionState bool
 
@@ -237,13 +237,13 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
 	// Only when HTTPS i.e. cert & key present, check for client CA and set TLS config for MTLS
-	if (len(b.CertificateFiles) > 0 && len(b.KeyFiles) > 0) || len(b.ClientCACertFile) > 0 {
+	if (len(b.CertificateFile) > 0 && len(b.KeyFile) > 0) || len(b.ClientCACertFile) > 0 {
 
 		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
 		if err != nil {
 			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
 				logging.ErrorKey(), err)
-			certs, err := generateCerts(b.CertificateFiles, b.KeyFiles)
+			certs, err := generateCerts(b.CertificateFile, b.KeyFile)
 			if err != nil {
 				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
 					logging.ErrorKey(), err)
@@ -259,7 +259,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 				ClientCAs:  caCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
 			}
-			certs, err := generateCerts(b.CertificateFiles, b.KeyFiles)
+			certs, err := generateCerts(b.CertificateFile, b.KeyFile)
 			if err != nil {
 				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
 					logging.ErrorKey(), err)
@@ -298,8 +298,8 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 type Metric struct {
 	Name               string
 	Address            string
-	CertificateFiles   []string
-	KeyFiles           []string
+	CertificateFile   []string
+	KeyFile           []string
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
@@ -348,8 +348,8 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 type Health struct {
 	Name               string
 	Address            string
-	CertificateFiles   []string
-	KeyFiles           []string
+	CertificateFile   []string
+	KeyFile           []string
 	LogConnectionState bool
 	LogInterval        time.Duration
 	Options            []string
