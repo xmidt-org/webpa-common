@@ -396,3 +396,89 @@ func TestReturnHeaders(t *testing.T) {
 		})
 	}
 }
+
+func testReturnHeadersWithPrefix(t *testing.T, fanoutResponse *http.Response, headerPrefixToCopy []string, expectedResponseHeader http.Header) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+		ctx     = context.WithValue(context.Background(), "foo", "bar")
+
+		response = httptest.NewRecorder()
+		rf       = ReturnHeadersWithPrefix(headerPrefixToCopy...)
+	)
+
+	require.NotNil(rf)
+	assert.Equal(ctx, rf(ctx, response, Result{Response: fanoutResponse}))
+	assert.Equal(expectedResponseHeader, response.Header())
+}
+
+func TestReturnHeadersWithPrefix(t *testing.T) {
+	testData := []struct {
+		fanoutResponse         *http.Response
+		prefixs                []string
+		expectedResponseHeader http.Header
+	}{
+		{
+			nil,
+			nil,
+			http.Header{},
+		},
+		{
+			&http.Response{},
+			nil,
+			http.Header{},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}}},
+			nil,
+			http.Header{},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-Does-Not-Exist"},
+			http.Header{},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-Does-Not-Exist", "X-Test-1"},
+			http.Header{"X-Test-1": []string{"foo"}},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-Does-Not-Exist", "x-TeSt-1"},
+			http.Header{"X-Test-1": []string{"foo"}},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-Test-3", "X-Test-1"},
+			http.Header{"X-Test-1": []string{"foo"}},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"x-TeST-3", "X-tESt-1"},
+			http.Header{"X-Test-1": []string{"foo"}},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-Test-3", "X-Test-1", "X-Test-2"},
+			http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-TEST-3", "x-TEsT-1", "x-TesT-2"},
+			http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}},
+		},
+		{
+			&http.Response{Header: http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}, "X-Test-3": []string{}}},
+			[]string{"X-TEST"},
+			http.Header{"X-Test-1": []string{"foo"}, "X-Test-2": []string{"foo", "bar"}},
+		},
+	}
+
+	for i, record := range testData {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			t.Logf("%#v", record)
+			testReturnHeadersWithPrefix(t, record.fanoutResponse, record.prefixs, record.expectedResponseHeader)
+		})
+	}
+}
