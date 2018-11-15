@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"github.com/stretchr/testify/mock"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,6 +124,20 @@ func (r mockOrder) Order(keys []string) []string {
 
 /******************* END MOCK DECLARATIONS ************************/
 
+type sortOrder struct {
+	Smaller bool
+}
+
+func (r sortOrder) Order(keys []string) []string {
+	sort.Slice(keys, func(i, j int) bool {
+		if r.Smaller {
+			return keys[i] < keys[j]
+		}
+		return keys[j] < keys[i]
+	})
+	return keys
+}
+
 func TestLayeredAccessor(t *testing.T) {
 	assert := assert.New(t)
 	la := NewLayeredAccesor(DefaultTrafficRouter(), DefaultOrder())
@@ -188,21 +203,20 @@ func TestLayeredAccessor(t *testing.T) {
 	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: testErrorNoRoute}}, err)
 	assert.Equal(dc2Instance, i)
 
-	fakeOrder := new(mockOrder)
-	la.(*layeredAccessor).accessorQueue = fakeOrder
-	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc2", "dc1"}).Once()
-	fakeOrder.On("Order", []string{"dc1", "dc2"}).Return([]string{"dc2", "dc1"}).Once()
+	sortedOrder := sortOrder{false}
+	la.(*layeredAccessor).accessorQueue = sortedOrder
 
 	dc1Instance := "a valid instance in dc1"
 	la.UpdateFailOver("dc1", MapAccessor{"test": dc1Instance}, nil)
-	fakeRouter.On("Route", dc1Instance).Return(nil).Once()
+	fakeRouter.On("Route", dc1Instance).Return(nil)
+
+	la.(*layeredAccessor).accessorQueue = new(sortOrder)
 
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: testErrorNoRoute}}, err)
 	assert.Equal(dc2Instance, i)
 
-	fakeOrder.On("Order", []string{"dc2", "dc1"}).Return([]string{"dc1", "dc2"})
-	fakeOrder.On("Order", []string{"dc1", "dc2"}).Return([]string{"dc1", "dc2"})
+	la.(*layeredAccessor).accessorQueue.(*sortOrder).Smaller = true
 
 	i, err = la.Get([]byte("test"))
 	assert.Equal(RouteError{Instance: i, ErrChain: ErrorChain{Err: testErrorNoRoute}}, err)
