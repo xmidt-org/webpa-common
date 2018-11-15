@@ -11,18 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const EqualityThreshold = 5000
-
-func Abs(n int64) int64 {
-	if n < 0 {
-		return -n
-	}
-	return n
-}
-func almostEqual(a, b time.Duration) bool {
-	return Abs(a.Nanoseconds()-b.Nanoseconds()) <= EqualityThreshold
-}
-
 func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	var (
 		assert              = assert.New(t)
@@ -41,11 +29,6 @@ func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	assert.Zero(statistics.MessagesReceived())
 	assert.Zero(statistics.Duplications())
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
-	expectedUpTime := time.Now().Sub(expectedConnectedAt)
-	uptime := statistics.UpTime()
-	assert.True(almostEqual(expectedUpTime, uptime),
-		"TimeSince Connected %dns,  UpTime %dns with a margin of %d, actual %d",
-		expectedUpTime.Nanoseconds(), uptime.Nanoseconds(), EqualityThreshold, Abs(expectedUpTime.Nanoseconds()-uptime.Nanoseconds()))
 
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
