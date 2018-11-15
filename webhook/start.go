@@ -154,6 +154,7 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 		err := sc.getAuthorization()
 		if err != nil {
 			rc <- Result{hooks, err}
+			return
 		}
 	}
 
