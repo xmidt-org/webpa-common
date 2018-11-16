@@ -2,8 +2,6 @@ package bookkeeping
 
 import (
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/go-kit/kit/log"
-	"github.com/justinas/alice"
 	"net/http"
 	"time"
 )
@@ -12,54 +10,51 @@ import (
 type RequestFunc func(request *http.Request) []interface{}
 
 // ResponseFunc takes the ResponseWriter and returns key value pairs from the request
-type ResponseFunc func(response http.ResponseWriter) []interface{}
+type ResponseFunc func(response *http.Response) []interface{}
 
 // Handler is for logging of the request and response
 type Handler struct {
-	Logger log.Logger
+	next   func(*http.Request) (*http.Response, error)
 	before []RequestFunc
 	after  []ResponseFunc
 }
 
-// buildChain creates an alice.Chain to be built upon the handler.
-func (h *Handler) buildChain() alice.Chain {
-	return alice.New(func(next http.Handler) http.Handler {
-		kv := make([]interface{}, 0)
-		return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-			for _, before := range h.before {
-				kv = append(kv, before(request)...)
-			}
+// transact is the HTTP transactor function that does the Bookkeeping
+func (h *Handler) transact(request *http.Request) (*http.Response, error) {
+	kv := []interface{}{logging.MessageKey(), "Bookkeeping transactor"}
+	for _, before := range h.before {
+		kv = append(kv, before(request)...)
+	}
 
-			start := time.Now()
-			next.ServeHTTP(response, request)
-			duration := time.Since(start)
+	start := time.Now()
+	response, err := h.next(request)
+	duration := time.Since(start)
+	kv = append(kv, "duration", duration)
 
-			for _, after := range h.after {
-				kv = append(kv, after(response)...)
-			}
-			kv = append(kv, "duration", duration)
-			h.Logger.Log(kv...)
-		})
-	})
+	if err != nil {
+		kv = append(kv, logging.MessageKey(), err)
+	}
+	for _, after := range h.after {
+		kv = append(kv, after(response)...)
+	}
+
+	logging.GetLogger(request.Context()).Log(kv...)
+	return response, err
 }
 
 // Option provides a single configuration option for a bookkeeping Handler
 type Option func(h *Handler)
 
-// New creates a new Handler to then generate an alice.Chain for handling bookkeeping of the transaction
-func New(logger log.Logger, options ...Option) alice.Chain {
-	if logger == nil {
-		logger = logging.DefaultLogger()
-	}
+// Transactor returns an HTTP transactor function used for Bookkeeping the request and response
+func Transactor(next func(*http.Request) (*http.Response, error), options ...Option) func(*http.Request) (*http.Response, error) {
 	h := &Handler{
-		Logger: log.With(logger, logging.MessageKey(), "bookkeeping logging"),
+		next: next,
 	}
 	for _, o := range options {
 		o(h)
 	}
-	return h.buildChain()
+	return h.transact
 }
-
 
 // WithRequests take a one or many RequestFuncs to build an Option for logging key value pairs from the
 // RequestFun
