@@ -172,8 +172,7 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 	}
 
 	getHooksChan := make(chan Result, 1)
-	ticker := time.NewTicker(sc.Duration)
-	defer ticker.Stop()
+	timeout := time.After(sc.Duration)
 
 	fn(sc, getHooksChan)
 	for {
@@ -188,7 +187,7 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 				return
 			}
 
-		case <-ticker.C:
+		case <-timeout:
 			rc <- Result{hooks, errors.New("Unable to obtain hook list in allotted time.")}
 			return
 		}
