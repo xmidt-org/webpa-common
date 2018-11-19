@@ -16,18 +16,21 @@ func TestEmptyBookkeeper(t *testing.T) {
 		require          = require.New(t)
 		transactorCalled = false
 
-		transactor = func(*http.Request) (*http.Response, error) {
-			transactorCalled = true
-			return nil, nil
-		}
-		bookkeeper = Transactor(transactor)
+		bookkeeper = New()
 		logger     = logging.NewCaptureLogger()
 	)
 	require.NotNil(bookkeeper)
 	req := httptest.NewRequest("GET", "/", nil)
 	req = req.WithContext(logging.WithLogger(req.Context(), logger))
 
-	bookkeeper(req)
+	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		transactorCalled = true
+		writer.Write([]byte("payload"))
+		writer.WriteHeader(200)
+	})
+	rr := httptest.NewRecorder()
+
+	bookkeeper(handler).ServeHTTP(rr, req)
 	assert.True(transactorCalled)
 
 	select {
@@ -45,22 +48,32 @@ func TestBookkeeper(t *testing.T) {
 		require          = require.New(t)
 		transactorCalled = false
 
-		transactor = func(*http.Request) (*http.Response, error) {
-			transactorCalled = true
-			return &http.Response{StatusCode:200}, nil
-		}
-		bookkeeper = Transactor(transactor, WithRequests(Path), WithResponses(Code))
+
+		bookkeeper = New(WithRequests(Path), WithResponses(Code))
 		logger     = logging.NewCaptureLogger()
 	)
+
+
 	require.NotNil(bookkeeper)
 	req := httptest.NewRequest("GET", "/", nil)
 	req = req.WithContext(logging.WithLogger(req.Context(), logger))
 
-	bookkeeper(req)
+	rr := httptest.NewRecorder()
+
+	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		transactorCalled = true
+		writer.Write([]byte("payload"))
+		writer.WriteHeader(200)
+	})
+
+
+	bookkeeper(handler).ServeHTTP(rr, req)
+
 	assert.True(transactorCalled)
 
 	select {
 	case result := <-logger.Output():
+		assert.Len(result, 4)
 		assert.Equal(req.URL.Path, result["path"])
 		assert.Equal(200, result["code"])
 	default:
