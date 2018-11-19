@@ -1,36 +1,58 @@
 package bookkeeping
 
 import (
+	"github.com/Comcast/webpa-common/xhttp"
+	"io/ioutil"
 	"net/http"
 	"net/textproto"
 	"strings"
 )
 
-func Code() ResponseFunc {
-	return func(response *http.Response) []interface{} {
-		return []interface{}{"code", response.StatusCode}
-	}
+func Code(response *http.Response) []interface{} {
+	return []interface{}{"code", response.StatusCode}
 }
-func Path() RequestFunc {
-	return func(request *http.Request) []interface{} {
-		return []interface{}{"path", request.URL.Path}
-	}
+func Path(request *http.Request) []interface{} {
+	return []interface{}{"path", request.URL.Path}
 }
 
-func RequestBody() RequestFunc {
-	return func(request *http.Request) []interface{} {
-
-		return []interface{}{"body"}
-
-	}
-}
-
-func ResponseBody() ResponseFunc {
-	return func(response *http.Response) []interface{} {
-
+func RequestBody(request *http.Request) []interface{} {
+	err := xhttp.EnsureRewindable(request)
+	if err != nil {
 		return []interface{}{}
-
 	}
+	data, err := ioutil.ReadAll(request.Body)
+	request.Body.Close()
+	if err != nil {
+		return []interface{}{}
+	}
+	xhttp.Rewind(request)
+	if len(data) == 0 {
+		return []interface{}{"req-body", "empty body"}
+	}
+	return []interface{}{"req-body", string(data)}
+
+}
+
+func ResponseBody(response *http.Response) []interface{} {
+	if response.Body == nil {
+		return []interface{}{"res-body", "empty body"}
+	}
+	body, getBody, err := xhttp.NewRewind(response.Body)
+	if err != nil {
+		return []interface{}{}
+	}
+	readCloser, err := getBody()
+	if err != nil {
+		return []interface{}{}
+	}
+	data, err := ioutil.ReadAll(body)
+	body.Close()
+	if err != nil {
+		return []interface{}{}
+	}
+	response.Body = readCloser
+	return []interface{}{"res-body", string(data)}
+
 }
 
 func RequestHeaders(headers ...string) RequestFunc {

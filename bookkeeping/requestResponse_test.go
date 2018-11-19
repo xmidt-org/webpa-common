@@ -1,12 +1,15 @@
 package bookkeeping
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -176,7 +179,7 @@ func TestReturnHeadersWithPrefix(t *testing.T) {
 func testUsePath(t *testing.T, request *http.Request, expectedKeyValuePair []interface{}) {
 	assert := assert.New(t)
 
-	kv := Path()(request)
+	kv := Path(request)
 	assert.Equal(expectedKeyValuePair, kv)
 }
 
@@ -196,6 +199,58 @@ func TestUsePath(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			t.Logf("%#v", record)
 			testUsePath(t, record.request, record.expected)
+		})
+	}
+}
+
+func testRequestBody(t *testing.T, request *http.Request, expectedKV []interface{}) {
+	assert := assert.New(t)
+
+	var kv []interface{}
+	assert.NotPanics(func() {
+		kv = RequestBody(request)
+	})
+	assert.Equal(expectedKV, kv)
+}
+
+func TestRequestBody(t *testing.T) {
+	testData := []struct {
+		request  *http.Request
+		expected []interface{}
+	}{
+		{httptest.NewRequest("POST", "http://foobar.com:8080", nil), []interface{}{"req-body", "empty body"}},
+		{httptest.NewRequest("POST", "http://foobar.com:8080", strings.NewReader("payload")), []interface{}{"req-body", "payload"}},
+	}
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Logf("%#v", record)
+			testRequestBody(t, record.request, record.expected)
+		})
+	}
+}
+
+func testResponseBody(t *testing.T, response *http.Response, expectedKV []interface{}) {
+	assert := assert.New(t)
+
+	var kv []interface{}
+	assert.NotPanics(func() {
+		kv = ResponseBody(response)
+	})
+	assert.Equal(expectedKV, kv)
+}
+
+func TestResponseBody(t *testing.T) {
+	testData := []struct {
+		response *http.Response
+		expected []interface{}
+	}{
+		{&http.Response{}, []interface{}{"res-body", "empty body"}},
+		{&http.Response{Body: ioutil.NopCloser(bytes.NewBufferString("payload"))}, []interface{}{"res-body", "payload"}},
+	}
+	for i, record := range testData {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			t.Logf("%#v", record)
+			testResponseBody(t, record.response, record.expected)
 		})
 	}
 }
