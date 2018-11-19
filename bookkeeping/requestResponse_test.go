@@ -1,11 +1,9 @@
 package bookkeeping
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -28,7 +26,6 @@ func testHeaders(t *testing.T, originalHeader http.Header, headersToCopy []strin
 	require.NotNil(rf)
 	returnedKeyValuePair := rf(request)
 	assert.Equal(expectedKeyValues, returnedKeyValuePair)
-
 }
 
 func TestBookkeepingHeaders(t *testing.T) {
@@ -229,7 +226,7 @@ func TestRequestBody(t *testing.T) {
 	}
 }
 
-func testResponseBody(t *testing.T, response *http.Response, expectedKV []interface{}) {
+func testResponseBody(t *testing.T, response CapturedResponse, expectedKV []interface{}) {
 	assert := assert.New(t)
 
 	var kv []interface{}
@@ -241,11 +238,11 @@ func testResponseBody(t *testing.T, response *http.Response, expectedKV []interf
 
 func TestResponseBody(t *testing.T) {
 	testData := []struct {
-		response *http.Response
+		response CapturedResponse
 		expected []interface{}
 	}{
-		{&http.Response{}, []interface{}{"res-body", "empty body"}},
-		{&http.Response{Body: ioutil.NopCloser(bytes.NewBufferString("payload"))}, []interface{}{"res-body", "payload"}},
+		{CapturedResponse{}, []interface{}{"res-body", "empty body"}},
+		{CapturedResponse{Payload: []byte("payload")}, []interface{}{"res-body", "payload"}},
 	}
 	for i, record := range testData {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {

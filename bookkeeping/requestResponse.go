@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-func Code(response *http.Response) []interface{} {
-	return []interface{}{"code", response.StatusCode}
+func Code(response CapturedResponse) []interface{} {
+	return []interface{}{"code", response.Code}
 }
 func Path(request *http.Request) []interface{} {
 	return []interface{}{"path", request.URL.Path}
@@ -33,101 +33,72 @@ func RequestBody(request *http.Request) []interface{} {
 
 }
 
-func ResponseBody(response *http.Response) []interface{} {
-	if response.Body == nil {
+func ResponseBody(response CapturedResponse) []interface{} {
+	if response.Payload == nil {
 		return []interface{}{"res-body", "empty body"}
 	}
-	body, getBody, err := xhttp.NewRewind(response.Body)
-	if err != nil {
-		return []interface{}{}
-	}
-	readCloser, err := getBody()
-	if err != nil {
-		return []interface{}{}
-	}
-	data, err := ioutil.ReadAll(body)
-	body.Close()
-	if err != nil {
-		return []interface{}{}
-	}
-	response.Body = readCloser
-	return []interface{}{"res-body", string(data)}
+
+	return []interface{}{"res-body", string(response.Payload)}
 
 }
 
 func RequestHeaders(headers ...string) RequestFunc {
-	canonicalizedHeaders := make([]string, len(headers))
-	for i := 0; i < len(headers); i++ {
-		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
-	}
+	canonicalizedHeaders := getCanoicalizedHeaders(headers...)
 	return func(request *http.Request) []interface{} {
-		kv := make([]interface{}, 0)
-		header := request.Header
-		for _, key := range canonicalizedHeaders {
-			if values := header[key]; len(values) > 0 {
-				kv = append(kv, key, values)
-			}
-		}
-		return kv
+		return parseHeader(request.Header, canonicalizedHeaders)
 	}
 }
 
 func ResponseHeaders(headers ...string) ResponseFunc {
-	canonicalizedHeaders := make([]string, len(headers))
-	for i := 0; i < len(headers); i++ {
-		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
-	}
-	return func(response *http.Response) []interface{} {
-		kv := make([]interface{}, 0)
-		header := response.Header
-		for _, key := range canonicalizedHeaders {
-			if values := header.Get(key); len(values) > 0 {
-				kv = append(kv, key, values)
-			}
-		}
-		return kv
+	canonicalizedHeaders := getCanoicalizedHeaders(headers...)
+	return func(response CapturedResponse) []interface{} {
+		return parseHeader(response.Header, canonicalizedHeaders)
 	}
 }
 
-func RequestHeadersWithPrefix(headers ...string) RequestFunc {
+func getCanoicalizedHeaders(headers ...string) []string {
 	canonicalizedHeaders := make([]string, len(headers))
 	for i := 0; i < len(headers); i++ {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
 	}
+	return canonicalizedHeaders
+}
+
+func parseHeader(header http.Header, canonicalizedHeaders []string) []interface{} {
+	kv := make([]interface{}, 0)
+	for _, key := range canonicalizedHeaders {
+		if values := header[key]; len(values) > 0 {
+			kv = append(kv, key, values)
+		}
+	}
+	return kv
+}
+
+func parseHeaderWithPrefix(header http.Header, canonicalizedHeaders []string) []interface{} {
+	kv := make([]interface{}, 0)
+	for _, prefix := range canonicalizedHeaders {
+		for key, results := range header {
+			if strings.HasPrefix(key, prefix) && len(results) > 0 {
+				kv = append(kv, key, results)
+			}
+		}
+	}
+	return kv
+}
+
+func RequestHeadersWithPrefix(headers ...string) RequestFunc {
+	canonicalizedHeaders := getCanoicalizedHeaders(headers...)
 	return func(request *http.Request) []interface{} {
 		if request == nil {
 			return []interface{}{}
 		}
-		kv := make([]interface{}, 0)
-		header := request.Header
-		for _, prefix := range canonicalizedHeaders {
-			for key, results := range header {
-
-				if strings.HasPrefix(key, prefix) && len(results) > 0 {
-					kv = append(kv, key, results)
-				}
-			}
-		}
-		return kv
+		return parseHeaderWithPrefix(request.Header, canonicalizedHeaders)
 	}
 }
 
 func ResponseHeadersWithPrefix(headers ...string) ResponseFunc {
-	canonicalizedHeaders := make([]string, len(headers))
-	for i := 0; i < len(headers); i++ {
-		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
-	}
-	return func(response *http.Response) []interface{} {
-		kv := make([]interface{}, 0)
-		header := response.Header
-		for _, prefix := range canonicalizedHeaders {
-			for key, results := range header {
-
-				if strings.HasPrefix(key, prefix) && len(results) > 0 {
-					kv = append(kv, key, results)
-				}
-			}
-		}
-		return kv
+	canonicalizedHeaders := getCanoicalizedHeaders(headers...)
+	return func(response CapturedResponse) []interface{} {
+		return parseHeaderWithPrefix(response.Header, canonicalizedHeaders)
 	}
 }
