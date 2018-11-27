@@ -3,6 +3,7 @@ package bookkeeping
 import (
 	"bytes"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/go-kit/kit/log"
 	"net/http"
 	"time"
 )
@@ -24,6 +25,8 @@ type Handler struct {
 	next   http.Handler
 	before []RequestFunc
 	after  []ResponseFunc
+
+	logger log.Logger
 }
 
 // Option provides a single configuration option for a bookkeeping Handler
@@ -31,7 +34,7 @@ type Option func(h *Handler)
 
 func New(options ...Option) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		if next == nil{
+		if next == nil {
 			panic("next can't be nil")
 		}
 		h := &Handler{
@@ -60,6 +63,13 @@ func WithResponses(responseFuncs ...ResponseFunc) Option {
 	}
 }
 
+// WithLogger will set a custom logger for the Bookkeeping Handler
+func WithLogger(logger log.Logger) Option {
+	return func(h *Handler) {
+		h.logger = logger
+	}
+}
+
 // ServeHTTP handles the bookkeeping given
 func (h *Handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	kv := []interface{}{logging.MessageKey(), "Bookkeeping transactor"}
@@ -84,7 +94,15 @@ func (h *Handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Re
 	for _, after := range h.after {
 		kv = append(kv, after(response)...)
 	}
-	logging.GetLogger(request.Context()).Log(kv...)
+
+	var logger log.Logger
+	if h.logger != nil {
+		logger = h.logger
+	} else {
+		logger = logging.GetLogger(request.Context())
+	}
+
+	logging.Info(logger).Log(kv...)
 }
 
 type writerInterceptor struct {
