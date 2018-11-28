@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	money "github.com/Comcast/golang-money"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/tracing/tracinghttp"
@@ -227,7 +228,9 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		}
 	)
 
-	result.Response, result.Err = h.transactor(request)
+	//TODO:transactor was decorated here
+	httpTrackerTransactor := result.HttpTracker.DecorateTransactor(h.transactor)
+	result.Response, result.Err = httpTrackerTransactor(request)
 	switch {
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
@@ -286,6 +289,11 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 			response.Header().Set("Content-Type", "application/octet-stream")
 		}
 
+		 // get, finish, and write the results to the responses header
+		httpTracker := result.HttpTracker
+		result, _ := httpTracker.Finish()
+		money.WriteMoneySpanHeaders(result, response)
+
 		response.WriteHeader(result.StatusCode)
 		count, err := response.Write(result.Body)
 		if err != nil {
@@ -293,8 +301,13 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		} else {
 			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "bytes", count)
 		}
-
 	} else {
+
+		 // get, finish, and write the results to the responses header
+		httpTracker := result.HttpTracker
+		result, _ := httpTracker.Finish()
+		money.WriteMoneySpanHeaders(result, response)
+
 		response.WriteHeader(result.StatusCode)
 	}
 }
@@ -316,6 +329,10 @@ func (h *Handler) handleErrorFinish(logger log.Logger, response http.ResponseWri
 			response.Header().Set("Content-Type", "application/octet-stream")
 		}
 
+		httpTracker := result.HttpTracker
+		result, _ := httpTracker.Finish()
+		money.WriteMoneySpanHeaders(result, response)
+
 		response.WriteHeader(result.StatusCode)
 		count, err := response.Write(result.Body)
 		if err != nil {
@@ -325,6 +342,11 @@ func (h *Handler) handleErrorFinish(logger log.Logger, response http.ResponseWri
 		}
 	} else {
 		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout error response", "statusCode", result.StatusCode)
+
+		httpTracker := result.HttpTracker
+		result, _ := httpTracker.Finish()
+		money.WriteMoneySpanHeaders(result, response)
+
 		response.WriteHeader(result.StatusCode)
 	}
 }
@@ -347,8 +369,16 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 		results = make(chan Result, len(requests))
 	)
 
-	for _, r := range requests {
-		go h.execute(logger, spanner, results, r)
+	//TODO: Finish up tracker logic here.  
+	httpTracker, ok := money.TrackerFromContext(original.Context())
+	if ok!{
+		for _, r := range requests {
+			go h.execute(logger, spanner, results, r, nil)
+		}
+	} else {
+		for _, r := range requests {
+			go h.execute(logger, spanner, results, r, httpTracker)
+		}
 	}
 
 	statusCode := 0
@@ -361,6 +391,10 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 			return
 
 		case r := <-results:
+			httpTracker := r.HttpTracker
+			trackerResult, _ := httpTracker.Finish()
+			money.WriteMoneySpanHeaders(trackerResult, response)
+
 			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
 			if r.Err != nil {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
