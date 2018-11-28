@@ -3,6 +3,7 @@ package fanout
 import (
 	"net/http"
 
+	money "github.com/Comcast/golang-money"
 	"github.com/Comcast/webpa-common/tracing"
 )
 
@@ -29,6 +30,9 @@ type Result struct {
 
 	// Span represents the execution block that handled this fanout transaction
 	Span tracing.Span
+
+	// HttpTracker represents the tracker that handled this fanout transaction
+	HttpTracker *money.HTTPTracker
 }
 
 // ShouldTerminateFunc is a predicate for determining if a fanout should terminate early given the results of
