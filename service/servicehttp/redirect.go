@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	money "github.com/Comcast/golang-money"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log/level"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -29,9 +30,16 @@ func Redirect(redirectCode int) gokithttp.EncodeResponseFunc {
 			instance = instance + strings.TrimRight(requestURI, "/")
 		}
 
+		httpTracker, ok := money.TrackerFromContext(ctx)
+		if ok {
+			result, _ := httpTracker.Finish()
+			money.WriteMoneySpanHeaders(result, rw)
+		}
+
 		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
 		rw.Header().Set("Location", instance)
 		rw.WriteHeader(redirectCode)
+
 		return nil
 	}
 }
