@@ -3,7 +3,6 @@ package bookkeeping
 import (
 	"bytes"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/go-kit/kit/log"
 	"net/http"
 	"time"
 )
@@ -20,24 +19,22 @@ type RequestFunc func(request *http.Request) []interface{}
 // ResponseFunc takes the ResponseWriter and returns key value pairs from the request
 type ResponseFunc func(response CapturedResponse) []interface{}
 
-// Handler is for logging of the request and response
-type Handler struct {
+// handler is for logging of the request and response
+type handler struct {
 	next   http.Handler
 	before []RequestFunc
 	after  []ResponseFunc
-
-	logger log.Logger
 }
 
-// Option provides a single configuration option for a bookkeeping Handler
-type Option func(h *Handler)
+// Option provides a single configuration option for a bookkeeping handler
+type Option func(h *handler)
 
 func New(options ...Option) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		if next == nil {
 			panic("next can't be nil")
 		}
-		h := &Handler{
+		h := &handler{
 			next: next,
 		}
 		for _, o := range options {
@@ -50,7 +47,7 @@ func New(options ...Option) func(next http.Handler) http.Handler {
 // WithRequests take a one or many RequestFuncs to build an Option for logging key value pairs from the
 // RequestFun
 func WithRequests(requestFuncs ...RequestFunc) Option {
-	return func(h *Handler) {
+	return func(h *handler) {
 		h.before = append(h.before, requestFuncs...)
 	}
 }
@@ -58,51 +55,39 @@ func WithRequests(requestFuncs ...RequestFunc) Option {
 // WithResponses take a one or many ResponseFunc to build an Option for logging key value pairs from the
 // ResponseFunc
 func WithResponses(responseFuncs ...ResponseFunc) Option {
-	return func(h *Handler) {
+	return func(h *handler) {
 		h.after = append(h.after, responseFuncs...)
 	}
 }
 
-// WithLogger will set a custom logger for the Bookkeeping Handler
-func WithLogger(logger log.Logger) Option {
-	return func(h *Handler) {
-		h.logger = logger
-	}
-}
-
 // ServeHTTP handles the bookkeeping given
-func (h *Handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
+func (h *handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Request) {
 	kv := []interface{}{logging.MessageKey(), "Bookkeeping transactor"}
 	for _, before := range h.before {
 		kv = append(kv, before(request)...)
 	}
-
 	w := &writerInterceptor{ResponseWriter: responseWriter}
 
 	start := time.Now()
+	defer func() {
+		duration := time.Since(start)
+
+		kv = append(kv, "duration", duration)
+
+		response := CapturedResponse{
+			Code:    w.code,
+			Payload: w.buffer.Bytes(),
+			Header:  w.Header(),
+		}
+
+		for _, after := range h.after {
+			kv = append(kv, after(response)...)
+		}
+
+		logging.Info(logging.GetLogger(request.Context())).Log(kv...)
+	}()
+
 	h.next.ServeHTTP(w, request)
-	duration := time.Since(start)
-
-	kv = append(kv, "duration", duration)
-
-	response := CapturedResponse{
-		Code:    w.code,
-		Payload: w.buffer.Bytes(),
-		Header:  w.Header(),
-	}
-
-	for _, after := range h.after {
-		kv = append(kv, after(response)...)
-	}
-
-	var logger log.Logger
-	if h.logger != nil {
-		logger = h.logger
-	} else {
-		logger = logging.GetLogger(request.Context())
-	}
-
-	logging.Info(logger).Log(kv...)
 }
 
 type writerInterceptor struct {
