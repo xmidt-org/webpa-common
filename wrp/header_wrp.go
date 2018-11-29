@@ -15,6 +15,8 @@ const (
 	SpansHeader           = "X-Midt-Spans"
 	PathHeader            = "X-Midt-Path"
 	SourceHeader          = "X-Midt-Source"
+	MoneyTraceHeader      = "X-Money-Trace"
+	MoneySpanHeader       = "X-Money-Span"
 )
 
 var ErrInvalidMsgType = errors.New("Invalid Message Type")
