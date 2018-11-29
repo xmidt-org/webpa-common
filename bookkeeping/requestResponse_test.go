@@ -173,33 +173,6 @@ func TestReturnHeadersWithPrefix(t *testing.T) {
 	}
 }
 
-func testUsePath(t *testing.T, request *http.Request, expectedKeyValuePair []interface{}) {
-	assert := assert.New(t)
-
-	kv := Path(request)
-	assert.Equal(expectedKeyValuePair, kv)
-}
-
-func TestUsePath(t *testing.T) {
-
-	testData := []struct {
-		request  *http.Request
-		expected []interface{}
-	}{
-		{httptest.NewRequest("POST", "http://foobar.com:8080/", nil), []interface{}{"path", "/"}},
-		{httptest.NewRequest("POST", "http://foobar.com:8080/neat", nil), []interface{}{"path", "/neat"}},
-		{httptest.NewRequest("POST", "http://foobar.com:8080/neat/stuff", nil), []interface{}{"path", "/neat/stuff"}},
-		{httptest.NewRequest("POST", "http://foobar.com:8080/neat/stuff?world=awesome", nil), []interface{}{"path", "/neat/stuff"}},
-	}
-
-	for i, record := range testData {
-		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			t.Logf("%#v", record)
-			testUsePath(t, record.request, record.expected)
-		})
-	}
-}
-
 func testRequestBody(t *testing.T, request *http.Request, expectedKV []interface{}) {
 	assert := assert.New(t)
 

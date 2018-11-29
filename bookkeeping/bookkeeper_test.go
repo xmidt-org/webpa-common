@@ -2,6 +2,9 @@ package bookkeeping
 
 import (
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/logging/logginghttp"
+	"github.com/Comcast/webpa-common/xhttp/xcontext"
+	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"net/http"
@@ -47,15 +50,23 @@ func TestBookkeeper(t *testing.T) {
 		require          = require.New(t)
 		transactorCalled = false
 
-		bookkeeper = New(WithRequests(Path), WithResponses(Code))
+		bookkeeper = New(WithResponses(Code))
 		logger     = logging.NewCaptureLogger()
 	)
 
 	require.NotNil(bookkeeper)
 	req := httptest.NewRequest("GET", "/", nil)
+
 	req = req.WithContext(logging.WithLogger(req.Context(), logger))
 
 	rr := httptest.NewRecorder()
+
+	customLogInfo := xcontext.Populate(0,
+		logginghttp.SetLogger(logger,
+			logginghttp.RequestInfo,
+		),
+		gokithttp.PopulateRequestContext,
+	)
 
 	handler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		transactorCalled = true
@@ -63,14 +74,14 @@ func TestBookkeeper(t *testing.T) {
 		writer.WriteHeader(200)
 	})
 
-	bookkeeper(handler).ServeHTTP(rr, req)
+	customLogInfo(bookkeeper(handler)).ServeHTTP(rr, req)
 
 	assert.True(transactorCalled)
 
 	select {
 	case result := <-logger.Output():
-		assert.Len(result, 6)
-		assert.Equal(req.URL.Path, result["path"])
+		assert.Len(result, 8)
+		assert.Equal(req.RequestURI, result["requestURI"])
 		assert.Equal(200, result["code"])
 	default:
 		assert.Fail("CaptureLogger must capture something")
