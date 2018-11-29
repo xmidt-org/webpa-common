@@ -11,9 +11,6 @@ import (
 func Code(response CapturedResponse) []interface{} {
 	return []interface{}{"code", response.Code}
 }
-func Path(request *http.Request) []interface{} {
-	return []interface{}{"path", request.URL.Path}
-}
 
 func RequestBody(request *http.Request) []interface{} {
 	err := xhttp.EnsureRewindable(request)
