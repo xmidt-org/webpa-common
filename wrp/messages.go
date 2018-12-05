@@ -136,20 +136,22 @@ func (msg *Message) SetIncludeSpans(value bool) *Message {
 type SimpleRequestResponse struct {
 	// Type is exposed principally for encoding.  This field *must* be set to SimpleRequestResponseMessageType,
 	// and is automatically set by the BeforeEncode method.
-	Type                    MessageType       `wrp:"msg_type"`
-	Source                  string            `wrp:"source"`
-	Destination             string            `wrp:"dest"`
-	ContentType             string            `wrp:"content_type,omitempty"`
-	Accept                  string            `wrp:"accept,omitempty"`
-	TransactionUUID         string            `wrp:"transaction_uuid,omitempty"`
-	Status                  *int64            `wrp:"status,omitempty"`
-	RequestDeliveryResponse *int64            `wrp:"rdr,omitempty"`
-	Headers                 []string          `wrp:"headers,omitempty"`
-	Metadata                map[string]string `wrp:"metadata,omitempty"`
-	Spans                   [][]string        `wrp:"spans,omitempty"`
-	IncludeSpans            *bool             `wrp:"include_spans,omitempty"`
-	Payload                 []byte            `wrp:"payload,omitempty"`
-	PartnerIDs              []string          `wrp:"partner_ids,omitempty"`
+	Type                    MessageType         `wrp:"msg_type"`
+	Source                  string              `wrp:"source"`
+	Destination             string              `wrp:"dest"`
+	ContentType             string              `wrp:"content_type,omitempty"`
+	Accept                  string              `wrp:"accept,omitempty"`
+	TransactionUUID         string              `wrp:"transaction_uuid,omitempty"`
+	Status                  *int64              `wrp:"status,omitempty"`
+	RequestDeliveryResponse *int64              `wrp:"rdr,omitempty"`
+	Headers                 []string            `wrp:"headers,omitempty"`
+	Metadata                map[string]string   `wrp:"metadata,omitempty"`
+	Spans                   [][]string          `wrp:"spans,omitempty"`
+	IncludeSpans            *bool               `wrp:"include_spans,omitempty"`
+	Payload                 []byte              `wrp:"payload,omitempty"`
+	PartnerIDs              []string            `wrp:"partner_ids,omitempty"`
+	TraceParent             string              `wrp:"trace_parent,omitempty"`
+	Traces                  []map[string]string `wrp:"traces,omitempty"`
 }
 
 // SetStatus simplifies setting the optional Status field, which is a pointer type tagged with omitempty.
