@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	money "github.com/Comcast/golang-money"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/Comcast/webpa-common/xhttp"
@@ -140,7 +141,10 @@ func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceReques
 }
 
 func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpRequest *http.Request) {
-	deviceRequest, err := mh.decodeRequest(httpRequest)
+	httpTracker, _ := money.TrackerFromContext(httpRequest.Context())
+
+	moneyBridge := money.NewBridge(httpTracker)
+	deviceRequest, err := moneyBridge.Decode(mh.decodeRequest, httpRequest, wrp.Msgpack)
 	if err != nil {
 		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to decode request", logging.ErrorKey(), err)
 		xhttp.WriteErrorf(
@@ -151,6 +155,19 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 		)
 
 		return
+	} else {
+		deviceRequest, err := moneyBridge.Decode(mh.decodeRequest, httpRequest, wrp.Msgpack)
+		if err != nil {
+			mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to decode request", logging.ErrorKey(), err)
+			xhttp.WriteErrorf(
+				httpResponse,
+				http.StatusBadRequest,
+				"Unable to decode request: %s",
+				err,
+			)
+
+			return
+		}
 	}
 
 	responseFormat, err := wrp.FormatFromContentType(httpRequest.Header.Get("Accept"), deviceRequest.Format)
@@ -191,7 +208,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			err,
 		)
 	} else if deviceResponse != nil {
-		if err := EncodeResponse(httpResponse, deviceResponse, responseFormat); err != nil {
+		if err := moneyBridge.Encode(EncodeResponse, httpResponse, deviceResponse, responseFormat); err != nil {
 			mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Error while writing transaction response", logging.ErrorKey(), err)
 		}
 	}
