@@ -3,6 +3,7 @@ package bookkeeping
 import (
 	"bytes"
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/xhttp/xcontext"
 	"net/http"
 	"time"
 )
@@ -66,10 +67,12 @@ func (h *handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Re
 	for _, before := range h.before {
 		kv = append(kv, before(request)...)
 	}
-	w := &writerInterceptor{ResponseWriter: responseWriter}
+	responseWriter, request = xcontext.WithContext(responseWriter, request, request.Context())
+	w := &writerInterceptor{ResponseWriter: responseWriter, ContextAware: responseWriter.(xcontext.ContextAware)}
 
 	start := time.Now()
 	defer func() {
+		ctx := xcontext.Context(responseWriter, request)
 		duration := time.Since(start)
 
 		kv = append(kv, "duration", duration)
@@ -84,13 +87,14 @@ func (h *handler) ServeHTTP(responseWriter http.ResponseWriter, request *http.Re
 			kv = append(kv, after(response)...)
 		}
 
-		logging.Info(logging.GetLogger(request.Context())).Log(kv...)
+		logging.Info(logging.GetLogger(ctx)).Log(kv...)
 	}()
 
 	h.next.ServeHTTP(w, request)
 }
 
 type writerInterceptor struct {
+	xcontext.ContextAware
 	http.ResponseWriter
 	code   int
 	buffer bytes.Buffer
