@@ -1,0 +1,84 @@
+package xcontext
+
+import (
+	"context"
+	"net/http"
+)
+
+// ContextAware is an optional mixin implemented by anything with can hold a context
+type ContextAware interface {
+	// Context *never* returns a nil context
+	Context() context.Context
+	SetContext(context.Context)
+}
+
+type contextAwareResponseWriter struct {
+	http.ResponseWriter
+
+	// NOTE: Accessing the context is intentionally not concurrency safe
+	ctx context.Context
+}
+
+func (carw *contextAwareResponseWriter) Context() context.Context {
+	if carw.ctx != nil {
+		return carw.ctx
+	}
+	// mimic net/http.Request.Context()
+	// this allows contextAwareResponseWriter{response} to be valid
+	return context.Background()
+}
+
+func (carw *contextAwareResponseWriter) SetContext(ctx context.Context) {
+	if ctx == nil {
+		// mimic the behavior of the net/http package
+		panic("nil context")
+	}
+
+	carw.ctx = ctx
+}
+
+func Context(response http.ResponseWriter, request *http.Request) context.Context {
+	if ca, ok := response.(ContextAware); ok {
+		return ca.Context()
+	}
+
+	// fallback to the request's context
+	return request.Context()
+}
+
+// SetContext associates a context with a response.  Useful for decorated code that needs to communicate
+// a context back up the call stack.
+//
+// Note that since ContextAware is an optional interface, it's possible that the supplied ResponseWriter does
+// not implement ContextAware.  This is tolerated, so as to be backward compatible.
+//
+// The returned ResponseWriter will always be ContextAware.  This writer can be used for subsequent handling code.
+func SetContext(response http.ResponseWriter, ctx context.Context) http.ResponseWriter {
+	if ca, ok := response.(ContextAware); ok {
+		ca.SetContext(ctx)
+		return response
+	}
+
+	if ctx == nil {
+		panic("nil context")
+	}
+
+	return &contextAwareResponseWriter{response, ctx}
+}
+
+// WithContext associates a context with the response/request pair that can later be accessed via the Context function.
+// If response is already ContextAware, it is used and returned as is.
+//
+// Useful for code that is decorating http handling code in order to establish a context.
+func WithContext(response http.ResponseWriter, request *http.Request, ctx context.Context) (http.ResponseWriter, *http.Request) {
+	if ca, ok := response.(ContextAware); ok {
+		ca.SetContext(ctx)
+		return response, request.WithContext(ctx)
+	}
+
+	if ctx == nil {
+		panic("nil context")
+	}
+
+	return &contextAwareResponseWriter{response, ctx}, request.WithContext(ctx)
+}
