@@ -18,7 +18,7 @@ func Populate(timeout time.Duration, rf ...gokithttp.RequestFunc) func(http.Hand
 	if timeout > 0 || len(rf) > 0 {
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-				ctx := request.Context()
+				ctx := Context(response, request)
 				for _, f := range rf {
 					ctx = f(ctx, request)
 				}
@@ -28,8 +28,8 @@ func Populate(timeout time.Duration, rf ...gokithttp.RequestFunc) func(http.Hand
 					ctx, cancel = context.WithTimeout(ctx, timeout)
 					defer cancel()
 				}
-
-				next.ServeHTTP(response, request.WithContext(ctx))
+				response, request = WithContext(response, request, ctx)
+				next.ServeHTTP(response, request)
 			})
 		}
 	}

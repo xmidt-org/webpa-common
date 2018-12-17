@@ -74,7 +74,7 @@ func TestBookkeeper(t *testing.T) {
 		writer.WriteHeader(200)
 	})
 
-	customLogInfo(bookkeeper(handler)).ServeHTTP(rr, req)
+	bookkeeper(customLogInfo(handler)).ServeHTTP(rr, req)
 
 	assert.True(transactorCalled)
 
