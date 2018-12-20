@@ -1,6 +1,7 @@
 package servicehttp
 
 import (
+	"log"
 	"net/http"
 	"strings"
 
@@ -18,6 +19,9 @@ type KeyFunc func(*http.Request) ([]byte, error)
 // RedirectHandler is an http.Handler that redirects all incoming requests using a key obtained
 // from a request.  The Accessor is passed the key to return the appropriate instance to redirect to.
 type RedirectHandler struct {
+	// Logger is the logger to which all output from ServeHTTP is sent
+	Logger log.Logger
+
 	// KeyFunc is the function used to extract a hash key from a request
 	KeyFunc KeyFunc
 
