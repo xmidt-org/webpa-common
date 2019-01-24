@@ -4,6 +4,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/spf13/viper"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +28,7 @@ func testMustUnmarshalSuccess(t *testing.T) {
 		unmarshaler = new(mockUnmarshaler)
 	)
 
-	unmarshaler.On("Unmarshal", "valid").Return(nil).Once()
+	unmarshaler.On("Unmarshal", "valid", []viper.DecoderConfigOption(nil)).Return(nil).Once()
 
 	assert.NotPanics(func() {
 		MustUnmarshal(unmarshaler, "valid")
@@ -41,7 +43,7 @@ func testMustUnmarshalError(t *testing.T) {
 		unmarshaler = new(mockUnmarshaler)
 	)
 
-	unmarshaler.On("Unmarshal", "invalid").Return(errors.New("expected")).Once()
+	unmarshaler.On("Unmarshal", "invalid", []viper.DecoderConfigOption(nil)).Return(errors.New("expected")).Once()
 
 	assert.Panics(func() {
 		MustUnmarshal(unmarshaler, "invalid")
