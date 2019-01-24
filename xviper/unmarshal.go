@@ -1,8 +1,10 @@
 package xviper
 
+import "github.com/spf13/viper"
+
 // Unmarshaler describes the subset of Viper behavior dealing with unmarshaling into arbitrary values.
 type Unmarshaler interface {
-	Unmarshal(interface{}) error
+	Unmarshal(interface{}, ...viper.DecoderConfigOption) error
 }
 
 // KeyUnmarshaler describes the subset of Viper behavior for unmarshaling an arbitrary configuration key.
@@ -16,7 +18,7 @@ type InvalidUnmarshaler struct {
 	Err error
 }
 
-func (iu InvalidUnmarshaler) Unmarshal(interface{}) error {
+func (iu InvalidUnmarshaler) Unmarshal(interface{}, ...viper.DecoderConfigOption) error {
 	return iu.Err
 }
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
@@ -75,6 +76,7 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 	v.AddConfigPath(fmt.Sprintf("$HOME/.%s", applicationName))
 	v.AddConfigPath(".")
 
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.SetEnvPrefix(applicationName)
 	v.AutomaticEnv()
 

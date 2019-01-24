@@ -1,6 +1,9 @@
 package xviper
 
-import "github.com/stretchr/testify/mock"
+import (
+	"github.com/spf13/viper"
+	"github.com/stretchr/testify/mock"
+)
 
 type mockConfiger struct {
 	mock.Mock
@@ -22,7 +25,7 @@ type mockUnmarshaler struct {
 	mock.Mock
 }
 
-func (m *mockUnmarshaler) Unmarshal(v interface{}) error {
+func (m *mockUnmarshaler) Unmarshal(v interface{}, ...viper.DecoderConfigOption) error {
 	return m.Called(v).Error(0)
 }
 
