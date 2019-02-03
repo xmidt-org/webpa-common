@@ -2,11 +2,12 @@ package device
 
 import (
 	"encoding/json"
-	"github.com/Comcast/webpa-common/convey/conveymetric"
 	"io"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/Comcast/webpa-common/convey/conveymetric"
 
 	"github.com/Comcast/webpa-common/convey/conveyhttp"
 	"github.com/Comcast/webpa-common/logging"
@@ -145,8 +146,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	d := newDevice(deviceOptions{ID: id, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
 	convey, conveyErr := m.conveyTranslator.FromHeader(request.Header)
+	d := newDevice(deviceOptions{ID: id, C: convey, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
 	if conveyErr == nil {
 		d.infoLog.Log("convey", convey)
 	} else if conveyErr != conveyhttp.ErrMissingHeader {
