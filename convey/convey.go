@@ -23,9 +23,36 @@ var (
 	}
 )
 
+// Interface represents a read-only view of a convey, and is the standard way to access
+// convey information.
+type Interface interface {
+	Get(key string) (interface{}, bool)
+	GetString(key string) (string, bool)
+}
+
 // C represents an arbitrary block of JSON which base64-encoded and typically
-// transmitted as an HTTP header.  This is the central type used by this package.
+// transmitted as an HTTP header.  Access should normally be done through an instance
+// of Interface, which this type implements.
 type C map[string]interface{}
+
+func (c C) Get(key string) (interface{}, bool) {
+	if len(c) == 0 {
+		return nil, false
+	}
+
+	v, ok := c[key]
+	return v, ok
+}
+
+func (c C) GetString(key string) (string, bool) {
+	if v, ok := c.Get(key); ok {
+		if s, ok := v.(string); ok {
+			return s, ok
+		}
+	}
+
+	return "", false
+}
 
 // Translator provides translation between the on-the-wire representation of a convey map
 // and its runtime representation.  Instances of Translator are safe for concurrent usage.

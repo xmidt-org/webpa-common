@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/Comcast/webpa-common/convey/conveymetric"
 	"sync/atomic"
 	"time"
+
+	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/convey/conveymetric"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
@@ -79,6 +81,9 @@ type Interface interface {
 
 	// Statistics returns the current, tracked Statistics instance for this device
 	Statistics() Statistics
+
+	// Convey returns a read-only view of the device convey information
+	Convey() convey.Interface
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -98,11 +103,13 @@ type device struct {
 	messages     chan *envelope
 	transactions *Transactions
 
+	c             convey.Interface
 	conveyClosure conveymetric.Closure
 }
 
 type deviceOptions struct {
 	ID          ID
+	C           convey.Interface
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
@@ -110,6 +117,10 @@ type deviceOptions struct {
 
 // newDevice is an internal factory function for devices
 func newDevice(o deviceOptions) *device {
+	if o.C == nil {
+		o.C = make(convey.C)
+	}
+
 	if o.ConnectedAt.IsZero() {
 		o.ConnectedAt = time.Now()
 	}
@@ -128,6 +139,7 @@ func newDevice(o deviceOptions) *device {
 		infoLog:      logging.Info(o.Logger, "id", o.ID),
 		debugLog:     logging.Debug(o.Logger, "id", o.ID),
 		statistics:   NewStatistics(nil, o.ConnectedAt),
+		c:            o.C,
 		state:        stateOpen,
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, o.QueueSize),
@@ -264,4 +276,8 @@ func (d *device) Send(request *Request) (*Response, error) {
 
 func (d *device) Statistics() Statistics {
 	return d.statistics
+}
+
+func (d *device) Convey() convey.Interface {
+	return d.c
 }

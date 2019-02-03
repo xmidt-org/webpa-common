@@ -3,6 +3,7 @@ package device
 import (
 	"net/http"
 
+	"github.com/Comcast/webpa-common/convey"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -83,6 +84,12 @@ func (m *MockDevice) Closed() bool {
 func (m *MockDevice) Statistics() Statistics {
 	arguments := m.Called()
 	first, _ := arguments.Get(0).(Statistics)
+	return first
+}
+
+func (m *MockDevice) Convey() convey.Interface {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(convey.Interface)
 	return first
 }
 
