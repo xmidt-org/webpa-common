@@ -29,7 +29,15 @@ type Comply interface {
 	Compliance() Compliance
 }
 
+// GetCompliance examines an error for Compliance information.
+//   If err is nil, Full is returned
+//   If err implements Comply, the result of the Compliance method is returne
+//   Otherwise, Invalid is returned
 func GetCompliance(err error) Compliance {
+	if err == nil {
+		return Full
+	}
+
 	if c, ok := err.(Comply); ok {
 		return c.Compliance()
 	}

@@ -84,6 +84,10 @@ type Interface interface {
 
 	// Convey returns a read-only view of the device convey information
 	Convey() convey.Interface
+
+	// ConveyCompliance returns the result of attempting to parse the convey information
+	// sent during device connection
+	ConveyCompliance() convey.Compliance
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -104,12 +108,14 @@ type device struct {
 	transactions *Transactions
 
 	c             convey.Interface
+	compliance    convey.Compliance
 	conveyClosure conveymetric.Closure
 }
 
 type deviceOptions struct {
 	ID          ID
 	C           convey.Interface
+	Compliance  convey.Compliance
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
@@ -117,10 +123,6 @@ type deviceOptions struct {
 
 // newDevice is an internal factory function for devices
 func newDevice(o deviceOptions) *device {
-	if o.C == nil {
-		o.C = make(convey.C)
-	}
-
 	if o.ConnectedAt.IsZero() {
 		o.ConnectedAt = time.Now()
 	}
@@ -140,6 +142,7 @@ func newDevice(o deviceOptions) *device {
 		debugLog:     logging.Debug(o.Logger, "id", o.ID),
 		statistics:   NewStatistics(nil, o.ConnectedAt),
 		c:            o.C,
+		compliance:   o.Compliance,
 		state:        stateOpen,
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, o.QueueSize),
@@ -280,4 +283,8 @@ func (d *device) Statistics() Statistics {
 
 func (d *device) Convey() convey.Interface {
 	return d.c
+}
+
+func (d *device) ConveyCompliance() convey.Compliance {
+	return d.compliance
 }

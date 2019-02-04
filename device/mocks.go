@@ -93,6 +93,12 @@ func (m *MockDevice) Convey() convey.Interface {
 	return first
 }
 
+func (m *MockDevice) ConveyCompliance() convey.Compliance {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(convey.Compliance)
+	return first
+}
+
 func (m *MockDevice) Send(request *Request) (*Response, error) {
 	arguments := m.Called(request)
 	first, _ := arguments.Get(0).(*Response)
