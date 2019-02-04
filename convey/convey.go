@@ -90,8 +90,11 @@ func (t *translator) ReadFrom(source io.Reader) (C, error) {
 	)
 
 	var convey C
-	err := decoder.Decode(&convey)
-	return convey, err
+	if err := decoder.Decode(&convey); err != nil {
+		return nil, Error{err, Invalid}
+	}
+
+	return convey, nil
 }
 
 func (t *translator) WriteTo(destination io.Writer, source C) error {
@@ -102,7 +105,11 @@ func (t *translator) WriteTo(destination io.Writer, source C) error {
 	).Encode(source)
 
 	encoder.Close()
-	return err
+	if err != nil {
+		return Error{err, Invalid}
+	}
+
+	return nil
 }
 
 // ReadString uses the supplied Translator to extract a C instance from an arbitrary string
