@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/convey/conveymetric"
 
 	"github.com/Comcast/webpa-common/convey/conveyhttp"
@@ -146,12 +147,19 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	convey, conveyErr := m.conveyTranslator.FromHeader(request.Header)
-	d := newDevice(deviceOptions{ID: id, C: convey, QueueSize: m.deviceMessageQueueSize, Logger: m.logger})
-	if conveyErr == nil {
-		d.infoLog.Log("convey", convey)
-	} else if conveyErr != conveyhttp.ErrMissingHeader {
-		d.errorLog.Log(logging.MessageKey(), "badly formatted convey data", logging.ErrorKey(), conveyErr)
+	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
+	d := newDevice(deviceOptions{
+		ID:         id,
+		C:          cvy,
+		Compliance: convey.GetCompliance(cvyErr),
+		QueueSize:  m.deviceMessageQueueSize,
+		Logger:     m.logger,
+	})
+
+	if cvyErr == nil {
+		d.infoLog.Log("convey", cvy)
+	} else {
+		d.errorLog.Log(logging.MessageKey(), "bad or missing convey data", logging.ErrorKey(), cvyErr)
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
@@ -180,8 +188,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Device: d,
 	}
 
-	if conveyErr == nil {
-		bytes, err := json.Marshal(convey)
+	if cvyErr == nil {
+		bytes, err := json.Marshal(cvy)
 		if err == nil {
 			event.Format = wrp.JSON
 			event.Contents = bytes
@@ -190,7 +198,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		}
 	}
 
-	metricClosure, err := m.conveyHWMetric.Update(convey)
+	metricClosure, err := m.conveyHWMetric.Update(cvy)
 	if err != nil {
 		d.errorLog.Log(logging.MessageKey(), "failed to update convey metrics", logging.ErrorKey(), err)
 	}
