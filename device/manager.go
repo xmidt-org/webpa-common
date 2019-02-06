@@ -9,6 +9,7 @@ import (
 
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/convey/conveymetric"
+	"github.com/Comcast/webpa-common/secure/handler"
 
 	"github.com/Comcast/webpa-common/convey/conveyhttp"
 	"github.com/Comcast/webpa-common/logging"
@@ -147,19 +148,36 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
+	var (
+		partnerIDs                   []string
+		satClientID                  string
+		secureContext, securePresent = handler.FromContext(request.Context())
+	)
+
+	if securePresent {
+		partnerIDs = secureContext.PartnerIDs
+		satClientID = secureContext.SatClientID
+	}
+
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
 	d := newDevice(deviceOptions{
-		ID:         id,
-		C:          cvy,
-		Compliance: convey.GetCompliance(cvyErr),
-		QueueSize:  m.deviceMessageQueueSize,
-		Logger:     m.logger,
+		ID:          id,
+		C:           cvy,
+		Compliance:  convey.GetCompliance(cvyErr),
+		QueueSize:   m.deviceMessageQueueSize,
+		PartnerIDs:  partnerIDs,
+		SatClientID: satClientID,
+		Logger:      m.logger,
 	})
 
 	if cvyErr == nil {
 		d.infoLog.Log("convey", cvy)
 	} else {
 		d.errorLog.Log(logging.MessageKey(), "bad or missing convey data", logging.ErrorKey(), cvyErr)
+	}
+
+	if !securePresent {
+		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
