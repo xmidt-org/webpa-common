@@ -151,12 +151,14 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	var (
 		partnerIDs                   []string
 		satClientID                  string
+		trust                        Trust
 		secureContext, securePresent = handler.FromContext(request.Context())
 	)
 
 	if securePresent {
 		partnerIDs = secureContext.PartnerIDs
 		satClientID = secureContext.SatClientID
+		trust = Trusted
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
@@ -167,6 +169,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		QueueSize:   m.deviceMessageQueueSize,
 		PartnerIDs:  partnerIDs,
 		SatClientID: satClientID,
+		Trust:       trust,
 		Logger:      m.logger,
 	})
 
