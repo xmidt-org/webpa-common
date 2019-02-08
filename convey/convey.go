@@ -33,11 +33,6 @@ type Interface interface {
 	// GetString is like Get, but coerces the key into a string.  As with Get, this method
 	// returns false if no such key exists.
 	GetString(key string) (string, bool)
-
-	// CopyStringsTo coerces and transfers a subset of this convey's keys onto map.
-	// An attempt is made to transfer all keys.  If any of the keys are not present,
-	// an error is returned.
-	CopyStringsTo(destination map[string]string, keys ...string) error
 }
 
 // C represents an arbitrary block of JSON which base64-encoded and typically
@@ -60,24 +55,6 @@ func (c C) GetString(key string) (string, bool) {
 	}
 
 	return "", false
-}
-
-func (c C) CopyStringsTo(destination map[string]string, keys ...string) error {
-	var notPresent []string
-
-	for _, k := range keys {
-		if v, ok := c.GetString(k); ok {
-			destination[k] = v
-		} else {
-			notPresent = append(notPresent, k)
-		}
-	}
-
-	if len(notPresent) > 0 {
-		return Error{fmt.Errorf("Missing keys: %v", notPresent), MissingFields}
-	}
-
-	return nil
 }
 
 // Translator provides translation between the on-the-wire representation of a convey map
