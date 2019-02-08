@@ -94,6 +94,9 @@ type Interface interface {
 
 	// SatClientID returns the SAT JWT token passed when the device connected
 	SatClientID() string
+
+	// Trust returns the trust level of this device
+	Trust() Trust
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -119,6 +122,8 @@ type device struct {
 
 	partnerIDs  []string
 	satClientID string
+
+	trust Trust
 }
 
 type deviceOptions struct {
@@ -127,6 +132,7 @@ type deviceOptions struct {
 	Compliance  convey.Compliance
 	PartnerIDs  []string
 	SatClientID string
+	Trust       Trust
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
@@ -163,6 +169,7 @@ func newDevice(o deviceOptions) *device {
 		transactions: NewTransactions(),
 		partnerIDs:   partnerIDs,
 		satClientID:  o.SatClientID,
+		trust:        o.Trust,
 	}
 }
 
@@ -311,4 +318,8 @@ func (d *device) PartnerIDs() []string {
 
 func (d *device) SatClientID() string {
 	return d.satClientID
+}
+
+func (d *device) Trust() Trust {
+	return d.trust
 }

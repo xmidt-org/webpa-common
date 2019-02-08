@@ -111,6 +111,12 @@ func (m *MockDevice) SatClientID() string {
 	return first
 }
 
+func (m *MockDevice) Trust() Trust {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(Trust)
+	return first
+}
+
 func (m *MockDevice) Send(request *Request) (*Response, error) {
 	arguments := m.Called(request)
 	first, _ := arguments.Get(0).(*Response)
