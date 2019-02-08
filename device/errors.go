@@ -6,6 +6,7 @@ import (
 
 var (
 	ErrorMissingDeviceNameContext     = errors.New("Missing device ID in request context")
+	ErrorMissingSecureContext         = errors.New("Missing security information in request context")
 	ErrorMissingDeviceNameHeader      = errors.New("Missing device name header")
 	ErrorMissingDeviceNameVar         = errors.New("Missing device name path variable")
 	ErrorMissingPathVars              = errors.New("Missing URI path variables")

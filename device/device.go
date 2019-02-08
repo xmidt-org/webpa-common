@@ -88,6 +88,12 @@ type Interface interface {
 	// ConveyCompliance returns the result of attempting to parse the convey information
 	// sent during device connection
 	ConveyCompliance() convey.Compliance
+
+	// PartnerIDs returns the array of partner ids established when the device connected
+	PartnerIDs() []string
+
+	// SatClientID returns the SAT JWT token passed when the device connected
+	SatClientID() string
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -110,12 +116,17 @@ type device struct {
 	c             convey.Interface
 	compliance    convey.Compliance
 	conveyClosure conveymetric.Closure
+
+	partnerIDs  []string
+	satClientID string
 }
 
 type deviceOptions struct {
 	ID          ID
 	C           convey.Interface
 	Compliance  convey.Compliance
+	PartnerIDs  []string
+	SatClientID string
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
@@ -135,6 +146,9 @@ func newDevice(o deviceOptions) *device {
 		o.QueueSize = DefaultDeviceMessageQueueSize
 	}
 
+	var partnerIDs []string
+	partnerIDs = append(partnerIDs, o.PartnerIDs...)
+
 	return &device{
 		id:           o.ID,
 		errorLog:     logging.Error(o.Logger, "id", o.ID),
@@ -147,6 +161,8 @@ func newDevice(o deviceOptions) *device {
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, o.QueueSize),
 		transactions: NewTransactions(),
+		partnerIDs:   partnerIDs,
+		satClientID:  o.SatClientID,
 	}
 }
 
@@ -287,4 +303,12 @@ func (d *device) Convey() convey.Interface {
 
 func (d *device) ConveyCompliance() convey.Compliance {
 	return d.compliance
+}
+
+func (d *device) PartnerIDs() []string {
+	return d.partnerIDs
+}
+
+func (d *device) SatClientID() string {
+	return d.satClientID
 }

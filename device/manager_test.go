@@ -3,8 +3,6 @@ package device
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Comcast/webpa-common/convey"
-	"github.com/Comcast/webpa-common/xmetrics"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,10 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Comcast/webpa-common/convey"
+	"github.com/Comcast/webpa-common/xmetrics"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/wrp"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -294,6 +296,7 @@ func testManagerRouteDeviceNotFound(t *testing.T) {
 func testManagerConnectIncludesConvey(t *testing.T) {
 	var (
 		assert      = assert.New(t)
+		require     = require.New(t)
 		connectWait = new(sync.WaitGroup)
 		contents    = make(chan []byte, 1)
 
@@ -334,11 +337,10 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 	}
 
 	deviceConnection, _, err := dialer.DialDevice(string(testDeviceIDs[0]), connectURL, *header)
-	if err != nil {
-		assert.Fail("Unable to dial test device: %s", err)
-	}
+	require.NotNil(deviceConnection)
+	require.NoError(err)
 
-	defer assert.Nil(deviceConnection.Close())
+	defer assert.NoError(deviceConnection.Close())
 
 	connectWait.Wait()
 	close(contents)

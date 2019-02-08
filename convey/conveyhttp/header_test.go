@@ -20,7 +20,7 @@ func testHeaderTranslatorFromHeader(t *testing.T, actualHeaderName, expectedHead
 
 	c, err := headerTranslator.FromHeader(header)
 	assert.Empty(c)
-	assert.Equal(ErrMissingHeader, err)
+	assert.Error(err)
 
 	value, err := convey.WriteString(expectedTranslator, convey.C{"foo": "bar"})
 	require.NotEmpty(value)
