@@ -1,5 +1,7 @@
 package wrpmeta
 
+import "fmt"
+
 // Source represents some source of string key/value pairs that are used to
 // copy into metadata.
 type Source interface {
@@ -7,7 +9,18 @@ type Source interface {
 	// This method will return true to indicate that key was found in the source.
 	// A false return indicates either (1) the key was not in this source, or (2) the
 	// key's value could not be converted to a string.
-	GetString(key string) (value string, success bool)
+	GetString(key string) (value string, ok bool)
+}
+
+// SourceMap is a general map type that implements Source.
+type SourceMap map[string]interface{}
+
+func (sm SourceMap) GetString(key string) (string, bool) {
+	if raw, ok := sm[key]; ok {
+		return fmt.Sprintf("%v", raw), true
+	}
+
+	return "", false
 }
 
 // Field describes a single key/value to copy from a source into metadata
@@ -34,7 +47,8 @@ type Builder interface {
 	// in a no-op.
 	Apply(Source, ...Field) Builder
 
-	// Set sets an arbitrary key/value pair into the final metadata
+	// Set sets an arbitrary key/value pair into the final metadata.  This method never affects
+	// the tracking of missing fields.
 	Set(key, value string) Builder
 
 	// Add allows concatenation of builder products.  The output of Build may be passed
@@ -72,8 +86,6 @@ func (b *builder) Apply(source Source, fields ...Field) Builder {
 				to             = f.To
 			)
 
-			b.allFieldsPresent = b.allFieldsPresent || present
-
 			if len(to) == 0 {
 				to = f.From
 			}
@@ -82,6 +94,7 @@ func (b *builder) Apply(source Source, fields ...Field) Builder {
 				b.product[to] = value
 			} else if len(f.Default) > 0 {
 				b.product[to] = f.Default
+				b.allFieldsPresent = false
 			}
 		}
 	}
