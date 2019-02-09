@@ -3,11 +3,11 @@ package convey
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"io"
 	"reflect"
 	"strings"
 
+	"github.com/Comcast/webpa-common/wrp/wrpmeta"
 	"github.com/ugorji/go/codec"
 )
 
@@ -27,18 +27,20 @@ var (
 // Interface represents a read-only view of a convey, and is the standard way to access
 // convey information.
 type Interface interface {
+	wrpmeta.Source
+
 	// Get retrieves the raw value for a key, returning false if no such key exists
 	Get(key string) (interface{}, bool)
-
-	// GetString is like Get, but coerces the key into a string.  As with Get, this method
-	// returns false if no such key exists.
-	GetString(key string) (string, bool)
 }
 
 // C represents an arbitrary block of JSON which base64-encoded and typically
 // transmitted as an HTTP header.  Access should normally be done through an instance
 // of Interface, which this type implements.
 type C map[string]interface{}
+
+func (c C) GetString(key string) (string, bool) {
+	return wrpmeta.SourceMap(c).GetString(key)
+}
 
 func (c C) Get(key string) (interface{}, bool) {
 	if len(c) == 0 {
@@ -47,14 +49,6 @@ func (c C) Get(key string) (interface{}, bool) {
 
 	v, ok := c[key]
 	return v, ok
-}
-
-func (c C) GetString(key string) (string, bool) {
-	if v, ok := c.Get(key); ok {
-		return fmt.Sprintf("%v", v), true
-	}
-
-	return "", false
 }
 
 // Translator provides translation between the on-the-wire representation of a convey map
