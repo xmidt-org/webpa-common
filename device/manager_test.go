@@ -193,9 +193,9 @@ func testManagerDisconnect(t *testing.T) {
 	defer closeTestDevices(assert, testDevices)
 
 	connectWait.Wait()
-	assert.Zero(manager.Disconnect(ID("nosuch")))
+	assert.Zero(manager.Disconnect(ID("nosuch"), CloseReason{}))
 	for _, id := range testDeviceIDs {
-		assert.Equal(true, manager.Disconnect(id))
+		assert.Equal(true, manager.Disconnect(id, CloseReason{}))
 	}
 
 	disconnectWait.Wait()
@@ -239,7 +239,7 @@ func testManagerDisconnectIf(t *testing.T) {
 	manager.VisitAll(deviceSet.managerCapture())
 	assert.Equal(len(testDeviceIDs), deviceSet.len())
 
-	assert.Zero(manager.DisconnectIf(func(ID) bool { return false }))
+	assert.Zero(manager.DisconnectIf(func(ID) (CloseReason, bool) { return CloseReason{}, false }))
 	select {
 	case <-disconnections:
 		assert.Fail("No disconnections should have occurred")
@@ -248,7 +248,7 @@ func testManagerDisconnectIf(t *testing.T) {
 	}
 
 	for _, id := range testDeviceIDs {
-		assert.Equal(1, manager.DisconnectIf(func(candidate ID) bool { return candidate == id }))
+		assert.Equal(1, manager.DisconnectIf(func(candidate ID) (CloseReason, bool) { return CloseReason{}, candidate == id }))
 		select {
 		case actual := <-disconnections:
 			assert.Equal(id, actual.ID())

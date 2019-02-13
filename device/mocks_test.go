@@ -183,32 +183,32 @@ func TestMockConnector(t *testing.T) {
 		id2 = ID("test2")
 
 		predicateCalled = false
-		predicate       = func(candidate ID) bool {
+		predicate       = func(candidate ID) (CloseReason, bool) {
 			predicateCalled = true
-			return false
+			return CloseReason{}, false
 		}
 	)
 
 	c.On("Connect", response, request, header).Return(expectedDevice, expectedConnectError).Once()
-	c.On("Disconnect", id1).Return(true).Once()
-	c.On("Disconnect", id2).Return(false).Once()
-	c.On("DisconnectIf", mock.MatchedBy(func(func(ID) bool) bool { return true })).Return(5).
+	c.On("Disconnect", id1, CloseReason{}).Return(true).Once()
+	c.On("Disconnect", id2, CloseReason{}).Return(false).Once()
+	c.On("DisconnectIf", mock.MatchedBy(func(func(ID) (CloseReason, bool)) bool { return true })).Return(5).
 		Run(func(arguments mock.Arguments) {
-			arguments.Get(0).(func(ID) bool)(id1)
+			arguments.Get(0).(func(ID) (CloseReason, bool))(id1)
 		}).Once()
-	c.On("DisconnectAll").Return(12).Once()
+	c.On("DisconnectAll", CloseReason{}).Return(12).Once()
 
 	actualDevice, actualConnectError := c.Connect(response, request, header)
 	assert.Equal(expectedDevice, actualDevice)
 	assert.Equal(expectedConnectError, actualConnectError)
 
-	assert.True(c.Disconnect(id1))
-	assert.False(c.Disconnect(id2))
+	assert.True(c.Disconnect(id1, CloseReason{}))
+	assert.False(c.Disconnect(id2, CloseReason{}))
 
 	assert.Equal(5, c.DisconnectIf(predicate))
 	assert.True(predicateCalled)
 
-	assert.Equal(12, c.DisconnectAll())
+	assert.Equal(12, c.DisconnectAll(CloseReason{}))
 
 	c.AssertExpectations(t)
 }

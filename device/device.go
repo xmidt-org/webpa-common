@@ -97,6 +97,10 @@ type Interface interface {
 
 	// Trust returns the trust level of this device
 	Trust() Trust
+
+	// CloseReason returns the metadata explaining why a device was closed.  If this device
+	// is not closed, this method's return is undefined.
+	CloseReason() CloseReason
 }
 
 // device is the internal Interface implementation.  This type holds the internal
@@ -124,6 +128,8 @@ type device struct {
 	satClientID string
 
 	trust Trust
+
+	closeReason atomic.Value
 }
 
 type deviceOptions struct {
@@ -191,10 +197,16 @@ func (d *device) MarshalJSON() ([]byte, error) {
 	return output.Bytes(), err
 }
 
-func (d *device) requestClose() error {
+func (d *device) requestClose(reason CloseReason) error {
 	if atomic.CompareAndSwapInt32(&d.state, stateOpen, stateClosed) {
 		close(d.shutdown)
 		d.transactions.Close()
+
+		if len(reason.Text) == 0 {
+			reason.Text = "unknown"
+		}
+
+		d.closeReason.Store(reason)
 	}
 
 	return nil
@@ -322,4 +334,12 @@ func (d *device) SatClientID() string {
 
 func (d *device) Trust() Trust {
 	return d.trust
+}
+
+func (d *device) CloseReason() CloseReason {
+	if v, ok := d.closeReason.Load().(CloseReason); ok {
+		return v
+	}
+
+	return CloseReason{}
 }

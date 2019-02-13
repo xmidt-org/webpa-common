@@ -72,7 +72,7 @@ func (r *registry) add(newDevice *device) error {
 		r.lock.Unlock()
 		r.limitReached.Inc()
 		r.disconnect.Add(1.0)
-		newDevice.requestClose()
+		newDevice.requestClose(CloseReason{Err: errDeviceLimitReached, Text: "device-limit-reached"})
 		return errDeviceLimitReached
 	}
 
@@ -85,14 +85,14 @@ func (r *registry) add(newDevice *device) error {
 		r.disconnect.Add(1.0)
 		r.duplicates.Inc()
 		newDevice.Statistics().AddDuplications(existing.Statistics().Duplications() + 1)
-		existing.requestClose()
+		existing.requestClose(CloseReason{Text: "duplicate"})
 	}
 
 	r.connect.Inc()
 	return nil
 }
 
-func (r *registry) remove(id ID) (*device, bool) {
+func (r *registry) remove(id ID, reason CloseReason) (*device, bool) {
 	r.lock.Lock()
 	existing, ok := r.data[id]
 	if ok {
@@ -104,19 +104,22 @@ func (r *registry) remove(id ID) (*device, bool) {
 
 	if existing != nil {
 		r.disconnect.Add(1.0)
-		existing.requestClose()
+		existing.requestClose(reason)
 	}
 
 	return existing, ok
 }
 
-func (r *registry) removeIf(f func(d *device) bool) int {
+func (r *registry) removeIf(f func(d *device) (CloseReason, bool)) int {
 	// first, gather up all the devices that match the predicate
 	matched := make([]*device, 0, 100)
+	reasons := make([]CloseReason, 0, 100)
+
 	r.lock.RLock()
 	for _, d := range r.data {
-		if f(d) {
+		if reason, ok := f(d); ok {
 			matched = append(matched, d)
+			reasons = append(reasons, reason)
 		}
 	}
 
@@ -129,7 +132,7 @@ func (r *registry) removeIf(f func(d *device) bool) int {
 	// now, remove each device one at a time, releasing the write
 	// lock in between
 	count := 0
-	for _, d := range matched {
+	for i, d := range matched {
 		r.lock.Lock()
 
 		// allow for barging
@@ -143,7 +146,7 @@ func (r *registry) removeIf(f func(d *device) bool) int {
 
 		if ok {
 			count++
-			d.requestClose()
+			d.requestClose(reasons[i])
 		}
 	}
 
@@ -154,7 +157,7 @@ func (r *registry) removeIf(f func(d *device) bool) int {
 	return count
 }
 
-func (r *registry) removeAll() int {
+func (r *registry) removeAll(reason CloseReason) int {
 	r.lock.Lock()
 	original := r.data
 	r.data = make(map[ID]*device, r.initialCapacity)
@@ -163,7 +166,7 @@ func (r *registry) removeAll() int {
 
 	count := len(original)
 	for _, d := range original {
-		d.requestClose()
+		d.requestClose(reason)
 	}
 
 	r.disconnect.Add(float64(count))
