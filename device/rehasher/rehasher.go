@@ -57,14 +57,6 @@ func WithIsRegistered(f func(string) bool) Option {
 	}
 }
 
-// WithEnvironment configures a rehasher to use a service discovery environment.
-func WithEnvironment(e service.Environment) Option {
-	return func(r *rehasher) {
-		r.accessorFactory = e.AccessorFactory()
-		r.isRegistered = e.IsRegistered
-	}
-}
-
 // WithMetricsProvider configures a metrics subsystem the resulting rehasher will use to track things.
 // A nil provider passed to this option means to discard all metrics.
 func WithMetricsProvider(p provider.Provider) Option {
@@ -155,7 +147,7 @@ func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Access
 					"id", candidate,
 				)
 
-				return device.CloseReason{Text: RehashError}, true
+				return device.CloseReason{Err: err, Text: RehashError}, true
 
 			case !r.isRegistered(instance):
 				logger.Log(level.Key(), level.InfoValue(),
@@ -194,7 +186,7 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 	switch {
 	case e.Err != nil:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
-		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryError})
+		r.connector.DisconnectAll(device.CloseReason{Err: e.Err, Text: ServiceDiscoveryError})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
 
 	case e.Stopped:

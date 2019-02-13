@@ -19,6 +19,13 @@ type Accessor interface {
 	Get(key []byte) (string, error)
 }
 
+// AccessorFunc is a function type that implements Accessor
+type AccessorFunc func([]byte) (string, error)
+
+func (af AccessorFunc) Get(key []byte) (string, error) {
+	return af(key)
+}
+
 type emptyAccessor struct{}
 
 func (ea emptyAccessor) Get([]byte) (string, error) {

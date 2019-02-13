@@ -48,7 +48,7 @@ func (sm *stubManager) Connect(http.ResponseWriter, *http.Request, http.Header) 
 	return nil, nil
 }
 
-func (sm *stubManager) Disconnect(id device.ID) bool {
+func (sm *stubManager) Disconnect(id device.ID, reason device.CloseReason) bool {
 	select {
 	case sm.disconnect <- struct{}{}:
 	default:
@@ -66,12 +66,12 @@ func (sm *stubManager) Disconnect(id device.ID) bool {
 	return false
 }
 
-func (sm *stubManager) DisconnectIf(func(device.ID) bool) int {
+func (sm *stubManager) DisconnectIf(func(device.ID) (device.CloseReason, bool)) int {
 	sm.assert.Fail("DisconnectIf is not supported")
 	return -1
 }
 
-func (sm *stubManager) DisconnectAll() int {
+func (sm *stubManager) DisconnectAll(device.CloseReason) int {
 	sm.assert.Fail("DisconnectAll is not supported")
 	return -1
 }
