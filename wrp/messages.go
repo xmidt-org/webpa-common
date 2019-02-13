@@ -95,6 +95,10 @@ func (msg *Message) From() string {
 	return msg.Source
 }
 
+func (msg *Message) HasMoney() bool {
+	return msg.Traces != nil
+}
+
 func (msg *Message) IsTransactionPart() bool {
 	return msg.Type.SupportsTransaction() && len(msg.TransactionUUID) > 0
 }

@@ -321,7 +321,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		}
 
 		// invoke money by injecting a tracker into event's context
-		if m.templateFuncs != nil {
+		if message.HasMoney() {
 			for i, z := range m.templateFuncs {
 				switch z.(type) {
 				case func(*wrp.Message) context.Context:
