@@ -1,7 +1,10 @@
 package xcontext
 
 import (
+	"bufio"
 	"context"
+	"errors"
+	"net"
 	"net/http"
 )
 
@@ -14,17 +17,41 @@ type ContextAware interface {
 
 type contextAwareResponseWriter struct {
 	http.ResponseWriter
-
-	// NOTE: Accessing the context is intentionally not concurrency safe
 	ctx context.Context
+}
+
+var _ ContextAware = &contextAwareResponseWriter{}
+var _ http.Hijacker = &contextAwareResponseWriter{}
+var _ http.Flusher = &contextAwareResponseWriter{}
+var _ http.Pusher = &contextAwareResponseWriter{}
+
+func (carw contextAwareResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := carw.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+
+	return nil, nil, errors.New("Hijacker not supported")
+}
+
+func (carw contextAwareResponseWriter) Flush() {
+	if f, ok := carw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (carw contextAwareResponseWriter) Push(target string, opts *http.PushOptions) error {
+	if p, ok := carw.ResponseWriter.(http.Pusher); ok {
+		return p.Push(target, opts)
+	}
+
+	return errors.New("Pusher not supported")
 }
 
 func (carw *contextAwareResponseWriter) Context() context.Context {
 	if carw.ctx != nil {
 		return carw.ctx
 	}
-	// mimic net/http.Request.Context()
-	// this allows contextAwareResponseWriter{response} to be valid
+
 	return context.Background()
 }
 
@@ -77,7 +104,7 @@ func WithContext(response http.ResponseWriter, request *http.Request, ctx contex
 	}
 
 	if ctx == nil {
-		panic("nil context")
+		ctx = context.Background()
 	}
 
 	return &contextAwareResponseWriter{response, ctx}, request.WithContext(ctx)
