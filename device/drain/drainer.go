@@ -27,6 +27,8 @@ const (
 	MetricNotDraining float64 = 0.0
 	MetricDraining    float64 = 1.0
 
+	Drained = "drained"
+
 	// disconnectBatchSize is the arbitrary size of batches used when no rate is associated with the drain,
 	// i.e. disconnect as fast as possible
 	disconnectBatchSize int = 1000
@@ -272,7 +274,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 		for finished := false; more && !finished; {
 			select {
 			case id := <-batch:
-				if dr.connector.Disconnect(id) {
+				if dr.connector.Disconnect(id, device.CloseReason{Text: Drained}) {
 					drained++
 				}
 			case <-jc.cancel:

@@ -14,6 +14,15 @@ import (
 	"github.com/Comcast/webpa-common/service/monitor"
 )
 
+const (
+	RehashError         = "rehash-error"
+	RehashOtherInstance = "rehash-other-instance"
+
+	ServiceDiscoveryError       = "service-discovery-error"
+	ServiceDiscoveryStopped     = "service-discovery-stopped"
+	ServiceDiscoveryNoInstances = "service-discovery-no-instances"
+)
+
 // Option is a configuration option for a rehasher
 type Option func(*rehasher)
 
@@ -45,14 +54,6 @@ func WithAccessorFactory(af service.AccessorFactory) Option {
 func WithIsRegistered(f func(string) bool) Option {
 	return func(r *rehasher) {
 		r.isRegistered = f
-	}
-}
-
-// WithEnvironment configures a rehasher to use a service discovery environment.
-func WithEnvironment(e service.Environment) Option {
-	return func(r *rehasher) {
-		r.accessorFactory = e.AccessorFactory()
-		r.isRegistered = e.IsRegistered
 	}
 }
 
@@ -136,7 +137,7 @@ func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Access
 	var (
 		keepCount = 0
 
-		disconnectCount = r.connector.DisconnectIf(func(candidate device.ID) bool {
+		disconnectCount = r.connector.DisconnectIf(func(candidate device.ID) (device.CloseReason, bool) {
 			instance, err := accessor.Get(candidate.Bytes())
 			switch {
 			case err != nil:
@@ -146,7 +147,7 @@ func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Access
 					"id", candidate,
 				)
 
-				return true
+				return device.CloseReason{Err: err, Text: RehashError}, true
 
 			case !r.isRegistered(instance):
 				logger.Log(level.Key(), level.InfoValue(),
@@ -155,12 +156,12 @@ func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Access
 					"id", candidate,
 				)
 
-				return true
+				return device.CloseReason{Text: RehashOtherInstance}, true
 
 			default:
 				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "id", candidate)
 				keepCount++
-				return false
+				return device.CloseReason{}, false
 			}
 		})
 
@@ -185,12 +186,12 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 	switch {
 	case e.Err != nil:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
-		r.connector.DisconnectAll()
+		r.connector.DisconnectAll(device.CloseReason{Err: e.Err, Text: ServiceDiscoveryError})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
 
 	case e.Stopped:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
-		r.connector.DisconnectAll()
+		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryStopped})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
 
 	case e.EventCount == 1:
@@ -201,7 +202,7 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
-		r.connector.DisconnectAll()
+		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryNoInstances})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
 	}
 }

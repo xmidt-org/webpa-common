@@ -35,180 +35,308 @@ func testNewMissingIsRegistered(t *testing.T) {
 	c.AssertExpectations(t)
 }
 
-func testNewWithIsRegistered(t *testing.T) {
+func testNewNilLogger(t *testing.T) {
 	var (
-		assert  = assert.New(t)
-		require = require.New(t)
+		assert = assert.New(t)
 
-		c = new(device.MockConnector)
-		e = new(service.MockEnvironment)
-		a = new(service.MockAccessor)
+		isRegistered = func(string) bool {
+			assert.Fail("isRegistered should not have been called")
+			return false
+		}
 
-		i                   = new(service.MockInstancer)
-		contextualInstancer = service.NewContextualInstancer(
-			i,
-			map[string]interface{}{"server": "localhost:8000"},
+		connector = new(device.MockConnector)
+		r         = New(
+			connector,
+			WithLogger(nil),
+			WithIsRegistered(isRegistered),
 		)
-
-		errorID          = device.ID("error")
-		keepID           = device.ID("keep")
-		disconnectID     = device.ID("disconnect")
-		predicateCapture = make(chan func(device.ID) bool, 1)
 	)
 
-	a.On("Get", errorID.Bytes()).Return("", errors.New("expected")).Once()
-	a.On("Get", keepID.Bytes()).Return("keep", error(nil)).Once()
-	a.On("Get", disconnectID.Bytes()).Return("disconnect", error(nil)).Once()
-
-	e.On("IsRegistered", "keep").Return(true)
-	e.On("IsRegistered", "disconnect").Return(false)
-
-	c.On("DisconnectAll").Return(0).Times(3)
-	c.On("DisconnectIf", mock.AnythingOfType("func(device.ID) bool")).Return(1).Once().
-		Run(func(arguments mock.Arguments) {
-			predicateCapture <- arguments.Get(0).(func(device.ID) bool)
-		})
-
-	l := New(c, WithLogger(nil), WithAccessorFactory(func([]string) service.Accessor { return a }), WithIsRegistered(e.IsRegistered), WithMetricsProvider(nil))
-	require.NotNil(l)
-
-	l.MonitorEvent(monitor.Event{Key: "testNewWithIsRegistered", Instancer: contextualInstancer, EventCount: 1})
-	l.MonitorEvent(monitor.Event{Key: "testNewWithIsRegistered", Instancer: contextualInstancer, EventCount: 2, Err: errors.New("service discovery error")})
-	l.MonitorEvent(monitor.Event{Key: "testNewWithIsRegistered", Instancer: contextualInstancer, EventCount: 2, Stopped: true})
-	l.MonitorEvent(monitor.Event{})
-	l.MonitorEvent(monitor.Event{Key: "testNewWithIsRegistered", Instancer: contextualInstancer, EventCount: 4, Instances: []string{"keep", "disconnect"}})
-
-	select {
-	case predicate := <-predicateCapture:
-		assert.True(predicate(errorID))
-		assert.False(predicate(keepID))
-		assert.True(predicate(disconnectID))
-	case <-time.After(time.Second):
-		require.Fail("No predicate sent")
-	}
-
-	a.AssertExpectations(t)
-	c.AssertExpectations(t)
-	e.AssertExpectations(t)
-	i.AssertExpectations(t)
+	assert.NotNil(r)
+	connector.AssertExpectations(t)
 }
 
-func testNewWithEnvironment(t *testing.T) {
-	const key = "testNewWithEnvironment"
-
+func testNewNilMetricsProvider(t *testing.T) {
 	var (
-		assert   = assert.New(t)
-		require  = require.New(t)
-		provider = xmetricstest.NewProvider(nil, Metrics)
+		assert = assert.New(t)
 
-		c  = new(device.MockConnector)
-		r  = new(device.MockRegistry)
-		e  = new(service.MockEnvironment)
-		a  = new(service.MockAccessor)
-		af = service.AccessorFactory(func([]string) service.Accessor {
-			return a
-		})
-
-		i                   = new(service.MockInstancer)
-		contextualInstancer = service.NewContextualInstancer(
-			i,
-			map[string]interface{}{"server": "localhost:8000"},
-		)
-
-		errorID      = device.ID("error")
-		keepID       = device.ID("keep")
-		disconnectID = device.ID("disconnect")
-
-		expectedStart = time.Now()
-		expectedEnd   = expectedStart.Add(10 * time.Second)
-		started       = false
-		now           = func() time.Time {
-			if started {
-				return expectedEnd
-			}
-
-			started = true
-			return expectedStart
+		isRegistered = func(string) bool {
+			assert.Fail("isRegistered should not have been called")
+			return false
 		}
+
+		connector = new(device.MockConnector)
+		r         = New(
+			connector,
+			WithLogger(logging.NewTestLogger(nil, t)),
+			WithIsRegistered(isRegistered),
+			WithMetricsProvider(nil),
+		)
 	)
 
-	a.On("Get", errorID.Bytes()).Return("", errors.New("expected")).Once()
-	a.On("Get", keepID.Bytes()).Return("keep", error(nil)).Once()
-	a.On("Get", disconnectID.Bytes()).Return("disconnect", error(nil)).Once()
-
-	e.On("AccessorFactory").Return(af).Once()
-	e.On("IsRegistered", "keep").Return(true)
-	e.On("IsRegistered", "disconnect").Return(false)
-
-	c.On("DisconnectAll").Return(0).Times(3)
-	c.On("DisconnectIf", mock.AnythingOfType("func(device.ID) bool")).Return(1).Once().
-		Run(func(arguments mock.Arguments) {
-			f := arguments.Get(0).(func(device.ID) bool)
-			assert.True(f(errorID))
-			assert.False(f(keepID))
-			assert.True(f(disconnectID))
-		})
-
-	l := New(c, WithLogger(logging.NewTestLogger(nil, t)), WithEnvironment(e), WithMetricsProvider(provider))
-	require.NotNil(l)
-	l.(*rehasher).now = now
-
-	// this will be ignored, as the first event
-	l.MonitorEvent(monitor.Event{Key: key, Instancer: contextualInstancer, EventCount: 1})
-	provider.Assert(t, RehashKeepDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryError)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryStopped)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashTimestamp, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDurationMilliseconds, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-
-	l.MonitorEvent(monitor.Event{Key: key, Instancer: contextualInstancer, EventCount: 2, Err: errors.New("service discovery error")})
-	provider.Assert(t, RehashKeepDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryError)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryStopped)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashTimestamp, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDurationMilliseconds, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-
-	l.MonitorEvent(monitor.Event{Key: key, Instancer: contextualInstancer, EventCount: 2, Stopped: true})
-	provider.Assert(t, RehashKeepDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryError)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryStopped)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashTimestamp, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDurationMilliseconds, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-
-	l.MonitorEvent(monitor.Event{Key: key, EventCount: 3})
-	provider.Assert(t, RehashKeepDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectDevice, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryError)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryStopped)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashTimestamp, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-	provider.Assert(t, RehashDurationMilliseconds, service.ServiceLabel, key)(xmetricstest.Value(0.0))
-
-	l.MonitorEvent(monitor.Event{Key: key, Instancer: contextualInstancer, EventCount: 4, Instances: []string{"keep", "disconnect"}})
-	provider.Assert(t, RehashKeepDevice, service.ServiceLabel, key)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectDevice, service.ServiceLabel, key)(xmetricstest.Value(1.0)) // uses the return value of DisconnectIf
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryError)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashDisconnectAllCounter, service.ServiceLabel, key, ReasonLabel, DisconnectAllServiceDiscoveryStopped)(xmetricstest.Value(1.0))
-	provider.Assert(t, RehashTimestamp, service.ServiceLabel, key)(xmetricstest.Value(float64(expectedStart.UTC().Unix())))
-	provider.Assert(t, RehashDurationMilliseconds, service.ServiceLabel, key)(xmetricstest.Value(float64(10 * time.Second / time.Millisecond)))
-
-	a.AssertExpectations(t)
-	c.AssertExpectations(t)
-	r.AssertExpectations(t)
-	e.AssertExpectations(t)
-	i.AssertExpectations(t)
+	assert.NotNil(r)
+	connector.AssertExpectations(t)
 }
 
 func TestNew(t *testing.T) {
 	t.Run("NilConnector", testNewNilConnector)
 	t.Run("MissingIsRegistered", testNewMissingIsRegistered)
-	t.Run("WithIsRegistered", testNewWithIsRegistered)
-	t.Run("WithEnvironment", testNewWithEnvironment)
+	t.Run("NilLogger", testNewNilLogger)
+	t.Run("NilMetricsProvider", testNewNilMetricsProvider)
+}
+
+func testRehasherServiceDiscoveryError(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil, Metrics)
+
+		isRegistered = func(string) bool {
+			assert.Fail("isRegistered should not have been called")
+			return false
+		}
+
+		serviceDiscoveryError = errors.New("service discovery error")
+		connector             = new(device.MockConnector)
+		r                     = New(
+			connector,
+			WithLogger(logging.NewTestLogger(nil, t)),
+			WithIsRegistered(isRegistered),
+			WithMetricsProvider(provider),
+		)
+	)
+
+	require.NotNil(r)
+	connector.On("DisconnectAll", device.CloseReason{Err: serviceDiscoveryError, Text: ServiceDiscoveryError}).Return(12)
+	provider.Expect(RehashKeepDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectAllCounter, service.ServiceLabel, "test", ReasonLabel, DisconnectAllServiceDiscoveryError)(
+		xmetricstest.Counter,
+		xmetricstest.Value(1.0),
+	)
+	provider.Expect(RehashTimestamp, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDurationMilliseconds, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+
+	r.MonitorEvent(monitor.Event{EventCount: 10, Key: "test", Err: serviceDiscoveryError})
+
+	connector.AssertExpectations(t)
+	provider.AssertExpectations(t)
+}
+
+func testRehasherServiceDiscoveryStopped(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil, Metrics)
+
+		isRegistered = func(string) bool {
+			assert.Fail("isRegistered should not have been called")
+			return false
+		}
+
+		connector = new(device.MockConnector)
+		r         = New(
+			connector,
+			WithLogger(logging.NewTestLogger(nil, t)),
+			WithIsRegistered(isRegistered),
+			WithMetricsProvider(provider),
+		)
+	)
+
+	require.NotNil(r)
+	connector.On("DisconnectAll", device.CloseReason{Text: ServiceDiscoveryStopped}).Return(0)
+	provider.Expect(RehashKeepDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectAllCounter, service.ServiceLabel, "test", ReasonLabel, DisconnectAllServiceDiscoveryStopped)(
+		xmetricstest.Counter,
+		xmetricstest.Value(1.0),
+	)
+	provider.Expect(RehashTimestamp, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDurationMilliseconds, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+
+	r.MonitorEvent(monitor.Event{Key: "test", EventCount: 10, Stopped: true})
+
+	connector.AssertExpectations(t)
+	provider.AssertExpectations(t)
+}
+
+func testRehasherInitialEvent(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil, Metrics)
+
+		isRegistered = func(string) bool {
+			assert.Fail("isRegistered should not have been called")
+			return false
+		}
+
+		connector = new(device.MockConnector)
+		r         = New(
+			connector,
+			WithLogger(logging.NewTestLogger(nil, t)),
+			WithIsRegistered(isRegistered),
+			WithMetricsProvider(provider),
+		)
+	)
+
+	require.NotNil(r)
+	provider.Expect(RehashKeepDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectAllCounter, service.ServiceLabel, "test")(xmetricstest.Counter, xmetricstest.Value(0.0))
+	provider.Expect(RehashTimestamp, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDurationMilliseconds, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+
+	r.MonitorEvent(monitor.Event{Key: "test", EventCount: 1})
+
+	connector.AssertExpectations(t)
+	provider.AssertExpectations(t)
+}
+
+func testRehasherNoInstances(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil, Metrics)
+
+		isRegistered = func(string) bool {
+			assert.Fail("isRegistered should not have been called")
+			return false
+		}
+
+		connector = new(device.MockConnector)
+		r         = New(
+			connector,
+			WithLogger(logging.NewTestLogger(nil, t)),
+			WithIsRegistered(isRegistered),
+			WithMetricsProvider(provider),
+		)
+	)
+
+	require.NotNil(r)
+	connector.On("DisconnectAll", device.CloseReason{Text: ServiceDiscoveryNoInstances}).Return(0)
+	provider.Expect(RehashKeepDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDisconnectAllCounter, service.ServiceLabel, "test", ReasonLabel, DisconnectAllServiceDiscoveryNoInstances)(
+		xmetricstest.Counter,
+		xmetricstest.Value(1.0),
+	)
+	provider.Expect(RehashTimestamp, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+	provider.Expect(RehashDurationMilliseconds, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(0.0))
+
+	r.MonitorEvent(monitor.Event{Key: "test", EventCount: 10})
+
+	connector.AssertExpectations(t)
+	provider.AssertExpectations(t)
+}
+
+func testRehasherRehash(t *testing.T) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil, Metrics)
+
+		keepID   = device.ID("keep")
+		keepNode = "keep.xfinity.net"
+
+		rehashedID = device.ID("rehashed")
+		rehashNode = "rehash.xfinity.net"
+
+		accessorErrorID = device.ID("accessorError")
+		accessorError   = errors.New("expected accessor error")
+
+		expectedNodes   = []string{keepNode, rehashNode}
+		accessorFactory = service.AccessorFactory(func(actualNodes []string) service.Accessor {
+			assert.Equal(expectedNodes, actualNodes)
+			return service.AccessorFunc(func(key []byte) (string, error) {
+				switch string(key) {
+				case string(keepID):
+					return keepNode, nil
+
+				case string(rehashedID):
+					return rehashNode, nil
+
+				case string(accessorErrorID):
+					return "", accessorError
+
+				default:
+					assert.Fail("Invalid accessor key")
+					return "", errors.New("test failure: invalid accessor key")
+				}
+			})
+		})
+
+		isRegistered = func(v string) bool {
+			return keepNode == v
+		}
+
+		expectedDuration = 10 * time.Minute
+		start            = time.Now()
+		end              = start.Add(expectedDuration)
+		nowFirst         = true
+		now              = func() time.Time {
+			if nowFirst {
+				nowFirst = false
+				return start
+			}
+
+			return end
+		}
+
+		connector = new(device.MockConnector)
+		r         = New(
+			connector,
+			WithLogger(logging.NewTestLogger(nil, t)),
+			WithIsRegistered(isRegistered),
+			WithAccessorFactory(accessorFactory),
+			WithMetricsProvider(provider),
+		)
+	)
+
+	require.NotNil(r)
+	r.(*rehasher).now = now
+	connector.On("DisconnectIf", mock.MatchedBy(
+		func(func(device.ID) (device.CloseReason, bool)) bool { return true },
+	)).
+		Run(func(arguments mock.Arguments) {
+			f := arguments.Get(0).(func(device.ID) (device.CloseReason, bool))
+
+			reason, closed := f(keepID)
+			assert.Equal(device.CloseReason{}, reason)
+			assert.False(closed)
+
+			reason, closed = f(rehashedID)
+			assert.Equal(device.CloseReason{Text: RehashOtherInstance}, reason)
+			assert.True(closed)
+
+			reason, closed = f(accessorErrorID)
+			assert.Equal(device.CloseReason{Err: accessorError, Text: RehashError}, reason)
+			assert.True(closed)
+		}).
+		Return(2)
+
+	provider.Expect(RehashKeepDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(1.0))
+	provider.Expect(RehashDisconnectDevice, service.ServiceLabel, "test")(xmetricstest.Gauge, xmetricstest.Value(2.0))
+	provider.Expect(RehashDisconnectAllCounter, service.ServiceLabel, "test")(xmetricstest.Counter, xmetricstest.Value(0.0))
+	provider.Expect(RehashTimestamp, service.ServiceLabel, "test")(
+		xmetricstest.Gauge,
+		xmetricstest.Value(float64(start.UTC().Unix())),
+	)
+	provider.Expect(RehashDurationMilliseconds, service.ServiceLabel, "test")(
+		xmetricstest.Gauge,
+		xmetricstest.Value(float64(expectedDuration/time.Millisecond)),
+	)
+
+	r.MonitorEvent(monitor.Event{Key: "test", EventCount: 10, Instances: expectedNodes})
+
+	connector.AssertExpectations(t)
+	provider.AssertExpectations(t)
+}
+
+func TestRehasher(t *testing.T) {
+	t.Run("ServiceDiscoveryError", testRehasherServiceDiscoveryError)
+	t.Run("ServiceDiscoveryStopped", testRehasherServiceDiscoveryStopped)
+	t.Run("InitialEvent", testRehasherInitialEvent)
+	t.Run("NoInstances", testRehasherNoInstances)
+	t.Run("Rehash", testRehasherRehash)
 }

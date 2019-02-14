@@ -179,7 +179,7 @@ func testRegistryRemoveAndGet(t *testing.T) {
 	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
 	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
 
-	existing, ok = r.remove(ID("nosuch"))
+	existing, ok = r.remove(ID("nosuch"), CloseReason{})
 	assert.Nil(existing)
 	assert.False(ok)
 	assert.False(initial.Closed())
@@ -189,7 +189,7 @@ func testRegistryRemoveAndGet(t *testing.T) {
 	p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
 	p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
 
-	existing, ok = r.remove(ID("test"))
+	existing, ok = r.remove(ID("test"), CloseReason{})
 	assert.True(existing == initial)
 	assert.True(ok)
 	assert.True(initial.Closed())
@@ -239,8 +239,8 @@ func testRegistryRemoveIf(t *testing.T) {
 
 	assert.Equal(
 		0,
-		r.removeIf(func(*device) bool {
-			return false
+		r.removeIf(func(*device) (CloseReason, bool) {
+			return CloseReason{}, false
 		}),
 	)
 
@@ -253,8 +253,8 @@ func testRegistryRemoveIf(t *testing.T) {
 
 	assert.Equal(
 		1,
-		r.removeIf(func(*device) bool {
-			return true
+		r.removeIf(func(*device) (CloseReason, bool) {
+			return CloseReason{}, true
 		}),
 	)
 
@@ -290,7 +290,7 @@ func testRegistryRemoveAll(t *testing.T) {
 		require.NoError(r.add(d))
 	}
 
-	r.removeAll()
+	r.removeAll(CloseReason{})
 	p.Assert(t, DeviceCounter)(xmetricstest.Value(0.0))
 	p.Assert(t, ConnectCounter)(xmetricstest.Value(3.0))
 	p.Assert(t, DisconnectCounter)(xmetricstest.Value(3.0))

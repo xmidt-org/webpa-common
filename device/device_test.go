@@ -94,9 +94,9 @@ func TestDevice(t *testing.T) {
 		cancel()
 
 		assert.False(device.Closed())
-		device.requestClose()
+		device.requestClose(CloseReason{Text: "test"})
 		assert.True(device.Closed())
-		device.requestClose()
+		device.requestClose(CloseReason{Text: "test"})
 		assert.True(device.Closed())
 
 		response, err := device.Send(&Request{Message: testMessage})

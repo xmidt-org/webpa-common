@@ -31,7 +31,7 @@ type Connector interface {
 
 	// Disconnect disconnects the device associated with the given id.
 	// If the id was found, this method returns true.
-	Disconnect(ID) bool
+	Disconnect(ID, CloseReason) bool
 
 	// DisconnectIf iterates over all devices known to this manager, applying the
 	// given predicate.  For any devices that result in true, this method disconnects them.
@@ -43,11 +43,11 @@ type Connector interface {
 	//
 	// No methods on this Manager should be called from within the predicate function, or
 	// a deadlock will likely occur.
-	DisconnectIf(func(ID) bool) int
+	DisconnectIf(func(ID) (CloseReason, bool)) int
 
 	// DisconnectAll disconnects all devices from this instance, and returns the count of
 	// devices disconnected.
-	DisconnectAll() int
+	DisconnectAll(CloseReason) int
 }
 
 // Router handles dispatching messages to devices.
@@ -248,14 +248,14 @@ func (m *manager) dispatch(e *Event) {
 // Note that the write pump does additional cleanup.  In particular, the write pump
 // dispatches message failed events for any messages that were waiting to be delivered
 // at the time of pump closure.
-func (m *manager) pumpClose(d *device, c io.Closer, pumpError error) {
+func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	// remove will invoke requestClose()
-	m.devices.remove(d.id)
+	m.devices.remove(d.id, reason)
 
 	closeError := c.Close()
 
 	d.errorLog.Log(logging.MessageKey(), "Closed device connection",
-		"closeError", closeError, "pumpError", pumpError,
+		"closeError", closeError, "reasonError", reason.Err, "reason", reason.Text,
 		"finalStatistics", d.Statistics().String())
 
 	m.dispatch(
@@ -280,7 +280,9 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 	// all the read pump has to do is ensure the device and the connection are closed
 	// it is the write pump's responsibility to do further cleanup
-	defer closeOnce.Do(func() { m.pumpClose(d, r, readError) })
+	defer func() {
+		closeOnce.Do(func() { m.pumpClose(d, r, CloseReason{Err: readError, Text: "readerror"}) })
+	}()
 
 	for {
 		messageType, data, readError := r.ReadMessage()
@@ -362,7 +364,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	// the configured listener
 	defer func() {
 		pingTicker.Stop()
-		closeOnce.Do(func() { m.pumpClose(d, w, writeError) })
+		closeOnce.Do(func() { m.pumpClose(d, w, CloseReason{Err: writeError, Text: "write-error"}) })
 
 		// notify listener of any message that just now failed
 		// any writeError is passed via this event
@@ -449,19 +451,19 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	}
 }
 
-func (m *manager) Disconnect(id ID) bool {
-	_, ok := m.devices.remove(id)
+func (m *manager) Disconnect(id ID, reason CloseReason) bool {
+	_, ok := m.devices.remove(id, reason)
 	return ok
 }
 
-func (m *manager) DisconnectIf(filter func(ID) bool) int {
-	return m.devices.removeIf(func(d *device) bool {
+func (m *manager) DisconnectIf(filter func(ID) (CloseReason, bool)) int {
+	return m.devices.removeIf(func(d *device) (CloseReason, bool) {
 		return filter(d.id)
 	})
 }
 
-func (m *manager) DisconnectAll() int {
-	return m.devices.removeAll()
+func (m *manager) DisconnectAll(reason CloseReason) int {
+	return m.devices.removeAll(reason)
 }
 
 func (m *manager) Len() int {

@@ -19,16 +19,16 @@ func (m *MockConnector) Connect(response http.ResponseWriter, request *http.Requ
 	return first, arguments.Error(1)
 }
 
-func (m *MockConnector) Disconnect(id ID) bool {
-	return m.Called(id).Bool(0)
+func (m *MockConnector) Disconnect(id ID, reason CloseReason) bool {
+	return m.Called(id, reason).Bool(0)
 }
 
-func (m *MockConnector) DisconnectIf(predicate func(ID) bool) int {
+func (m *MockConnector) DisconnectIf(predicate func(ID) (CloseReason, bool)) int {
 	return m.Called(predicate).Int(0)
 }
 
-func (m *MockConnector) DisconnectAll() int {
-	return m.Called().Int(0)
+func (m *MockConnector) DisconnectAll(reason CloseReason) int {
+	return m.Called(reason).Int(0)
 }
 
 type MockRegistry struct {
@@ -114,6 +114,12 @@ func (m *MockDevice) SatClientID() string {
 func (m *MockDevice) Trust() Trust {
 	arguments := m.Called()
 	first, _ := arguments.Get(0).(Trust)
+	return first
+}
+
+func (m *MockDevice) CloseReason() CloseReason {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(CloseReason)
 	return first
 }
 
