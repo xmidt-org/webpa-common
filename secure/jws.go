@@ -13,6 +13,12 @@ type defaultJWSParser int
 
 func (parser defaultJWSParser) ParseJWS(token *Token) (jws.JWS, error) {
 	if jwtToken, err := jws.ParseJWT(token.Bytes()); err == nil {
+		if trust, ok := jwtToken.Claims().Get("trust").(string); ok {
+			if len(trust) > 0 {
+				token.trust = trust
+			}
+		}
+
 		return jwtToken.(jws.JWS), nil
 	} else {
 		return nil, err
