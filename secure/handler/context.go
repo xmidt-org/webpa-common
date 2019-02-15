@@ -10,6 +10,7 @@ type ContextValues struct {
 	Method      string
 	Path        string
 	PartnerIDs  []string
+	Trust       string
 }
 
 //NewContextWithValue returns a context with the specified context values

@@ -16,6 +16,8 @@ const (
 	Basic               TokenType = "Basic"
 	Bearer              TokenType = "Bearer"
 	Digest              TokenType = "Digest"
+
+	Untrusted = "0"
 )
 
 // ParseTokenType returns the TokenType corresponding to a string.
@@ -37,6 +39,7 @@ func ParseTokenType(value string) (TokenType, error) {
 type Token struct {
 	tokenType TokenType
 	value     string
+	trust     string
 }
 
 // String returns an on-the-wire representation of this token, suitable
@@ -56,6 +59,10 @@ func (t *Token) Type() TokenType {
 
 func (t *Token) Value() string {
 	return t.value
+}
+
+func (t *Token) Trust() string {
+	return t.trust
 }
 
 func (t *Token) Bytes() []byte {
@@ -91,6 +98,7 @@ func ParseAuthorization(value string) (*Token, error) {
 	return &Token{
 		tokenType: tokenType,
 		value:     matches[2],
+		trust:     Untrusted,
 	}, nil
 }
 
