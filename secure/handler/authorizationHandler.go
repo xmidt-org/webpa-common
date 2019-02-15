@@ -106,6 +106,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		contextValues := &ContextValues{
 			Method: request.Method,
 			Path:   request.URL.Path,
+			Trust:  secure.Untrusted, // trust isn't set on the token until validation (ugh)
 		}
 
 		sharedContext := NewContextWithValue(request.Context(), contextValues)
@@ -116,6 +117,9 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to populate context", logging.ErrorKey(), err)
 			}
 
+			// this is absolutely horrible, but it's the only way we can do it for now.
+			// TODO: address this in a redesign
+			contextValues.Trust = token.Trust()
 			delegate.ServeHTTP(response, request.WithContext(sharedContext))
 			return
 		}
