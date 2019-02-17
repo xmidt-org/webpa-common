@@ -14,6 +14,26 @@ import (
 	"github.com/hashicorp/consul/api"
 )
 
+// Environment is a consul-specific interface for the service discovery environment.
+// A primary use case is obtaining access to the underlying consul client for use
+// in direct API calls.
+type Environment interface {
+	service.Environment
+
+	// Client returns the underlying Consul client object used to construct this
+	// environment
+	Client() *api.Client
+}
+
+type environment struct {
+	service.Environment
+	client *api.Client
+}
+
+func (e environment) Client() *api.Client {
+	return e.client
+}
+
 func generateID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
@@ -55,16 +75,6 @@ func defaultClientFactory(client *api.Client) (gokitconsul.Client, ttlUpdater) {
 }
 
 var clientFactory = defaultClientFactory
-
-func newClient(co Options) (gokitconsul.Client, ttlUpdater, error) {
-	consulClient, err := api.NewClient(co.config())
-	if err != nil {
-		return nil, nil, err
-	}
-
-	gokitClient, updater := clientFactory(consulClient)
-	return gokitClient, updater, nil
-}
 
 func newInstancer(l log.Logger, c gokitconsul.Client, w Watch) sd.Instancer {
 	return service.NewContextualInstancer(
@@ -130,22 +140,24 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 		return nil, nil
 	}
 
-	c, u, err := newClient(co)
+	consulClient, err := api.NewClient(co.config())
 	if err != nil {
 		return nil, err
 	}
 
-	r, closer, err := newRegistrars(l, registrationScheme, c, u, co)
+	gokitClient, updater := clientFactory(consulClient)
+	r, closer, err := newRegistrars(l, registrationScheme, gokitClient, updater, co)
 	if err != nil {
 		return nil, err
 	}
 
-	return service.NewEnvironment(
-		append(
-			eo,
-			service.WithRegistrars(r),
-			service.WithInstancers(newInstancers(l, c, co)),
-			service.WithCloser(closer),
-		)...,
-	), nil
+	return environment{
+		service.NewEnvironment(
+			append(
+				eo,
+				service.WithRegistrars(r),
+				service.WithInstancers(newInstancers(l, gokitClient, co)),
+				service.WithCloser(closer),
+			)...,
+		), consulClient}, nil
 }
