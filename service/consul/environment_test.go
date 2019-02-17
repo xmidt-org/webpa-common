@@ -122,6 +122,9 @@ func testNewEnvironmentFull(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(e)
 
+	_, ok := e.(Environment)
+	assert.True(ok)
+
 	e.Register()
 	e.Deregister()
 
