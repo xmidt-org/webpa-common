@@ -111,10 +111,8 @@ func (m *MockDevice) SatClientID() string {
 	return first
 }
 
-func (m *MockDevice) Trust() Trust {
-	arguments := m.Called()
-	first, _ := arguments.Get(0).(Trust)
-	return first
+func (m *MockDevice) Trust() string {
+	return m.Called().String(0)
 }
 
 func (m *MockDevice) CloseReason() CloseReason {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/convey/conveymetric"
+	"github.com/Comcast/webpa-common/secure"
 	"github.com/Comcast/webpa-common/secure/handler"
 
 	"github.com/Comcast/webpa-common/convey/conveyhttp"
@@ -151,14 +152,14 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	var (
 		partnerIDs                   []string
 		satClientID                  string
-		trust                        Trust
+		trust                        = secure.Untrusted
 		secureContext, securePresent = handler.FromContext(request.Context())
 	)
 
 	if securePresent {
 		partnerIDs = secureContext.PartnerIDs
 		satClientID = secureContext.SatClientID
-		trust = Trusted
+		trust = secureContext.Trust
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)

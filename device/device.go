@@ -9,6 +9,7 @@ import (
 
 	"github.com/Comcast/webpa-common/convey"
 	"github.com/Comcast/webpa-common/convey/conveymetric"
+	"github.com/Comcast/webpa-common/secure"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
@@ -96,7 +97,7 @@ type Interface interface {
 	SatClientID() string
 
 	// Trust returns the trust level of this device
-	Trust() Trust
+	Trust() string
 
 	// CloseReason returns the metadata explaining why a device was closed.  If this device
 	// is not closed, this method's return is undefined.
@@ -127,7 +128,7 @@ type device struct {
 	partnerIDs  []string
 	satClientID string
 
-	trust Trust
+	trust string
 
 	closeReason atomic.Value
 }
@@ -138,7 +139,7 @@ type deviceOptions struct {
 	Compliance  convey.Compliance
 	PartnerIDs  []string
 	SatClientID string
-	Trust       Trust
+	Trust       string
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
@@ -156,6 +157,10 @@ func newDevice(o deviceOptions) *device {
 
 	if o.QueueSize < 1 {
 		o.QueueSize = DefaultDeviceMessageQueueSize
+	}
+
+	if len(o.Trust) == 0 {
+		o.Trust = secure.Untrusted
 	}
 
 	var partnerIDs []string
@@ -332,7 +337,7 @@ func (d *device) SatClientID() string {
 	return d.satClientID
 }
 
-func (d *device) Trust() Trust {
+func (d *device) Trust() string {
 	return d.trust
 }
 
