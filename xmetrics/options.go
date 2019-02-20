@@ -1,8 +1,6 @@
 package xmetrics
 
 import (
-	"os"
-
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,6 +35,9 @@ type Options struct {
 	// DisableProcessCollector controls whether the Process Collector is registered with the Registry.  By default this is false,
 	// meaning that a ProcessCollector is registered.
 	DisableProcessCollector bool
+
+	// ReportProcessCollectorErrors is the value passed to NewProcessCollector via the ProcessCollectorOpts.ReportErrors field
+	ReportProcessCollectorErrors bool
 
 	// Metrics defines the set of predefined metrics.  These metrics will be defined immediately by an Registry
 	// created using this Options instance.  This field is optional.
@@ -92,7 +93,12 @@ func (o *Options) registry() *prometheus.Registry {
 	}
 
 	if !o.disableProcessCollector() {
-		pr.MustRegister(prometheus.NewProcessCollector(os.Getpid(), o.namespace()))
+		pr.MustRegister(prometheus.NewProcessCollector(
+			prometheus.ProcessCollectorOpts{
+				Namespace:    o.namespace(),
+				ReportErrors: o.reportProcessCollectorErrors(),
+			},
+		))
 	}
 
 	return pr
@@ -109,6 +115,14 @@ func (o *Options) disableGoCollector() bool {
 func (o *Options) disableProcessCollector() bool {
 	if o != nil {
 		return o.DisableProcessCollector
+	}
+
+	return false
+}
+
+func (o *Options) reportProcessCollectorErrors() bool {
+	if o != nil {
+		return o.ReportProcessCollectorErrors
 	}
 
 	return false
