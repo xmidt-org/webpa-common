@@ -3,7 +3,9 @@ package consul
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
@@ -11,7 +13,12 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
+	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
+)
+
+var (
+	errNoDatacenters = errors.New("Could not acquire datacenters")
 )
 
 // Environment is a consul-specific interface for the service discovery environment.
@@ -20,17 +27,16 @@ import (
 type Environment interface {
 	service.Environment
 
-	// Client returns the underlying Consul client object used to construct this
-	// environment
-	Client() *api.Client
+	// Client returns the custom consul Client interface exposed by this package
+	Client() Client
 }
 
 type environment struct {
 	service.Environment
-	client *api.Client
+	client Client
 }
 
-func (e environment) Client() *api.Client {
+func (e environment) Client() Client {
 	return e.client
 }
 
@@ -62,46 +68,94 @@ func ensureIDs(r *api.AgentServiceRegistration) {
 }
 
 func newInstancerKey(w Watch) string {
+	datacenter := w.QueryOptions.Datacenter
+	if w.AllDatacenters {
+		datacenter = "*all*"
+	}
+
 	return fmt.Sprintf(
-		"%s%s{passingOnly=%t}",
+		"%s%s{passingOnly=%t}{datacenter=%s}",
 		w.Service,
 		w.Tags,
 		w.PassingOnly,
+		datacenter,
 	)
 }
 
-func defaultClientFactory(client *api.Client) (gokitconsul.Client, ttlUpdater) {
-	return gokitconsul.NewClient(client), client.Agent()
+func defaultClientFactory(client *api.Client) (Client, ttlUpdater) {
+	return NewClient(client), client.Agent()
 }
 
 var clientFactory = defaultClientFactory
 
-func newInstancer(l log.Logger, c gokitconsul.Client, w Watch) sd.Instancer {
+func getDatacenters(l log.Logger, c Client, co Options) ([]string, error) {
+	datacenters, err := c.Datacenters()
+	if err == nil {
+		return datacenters, nil
+	}
+
+	l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not acquire datacenters on initial attempt", logging.ErrorKey(), err)
+
+	d := 30 * time.Millisecond
+	for retry := 0; retry < co.datacenterRetries(); retry++ {
+		time.Sleep(d)
+		d = conn.Exponential(d)
+
+		datacenters, err = c.Datacenters()
+		if err == nil {
+			return datacenters, nil
+		}
+
+		l.Log(level.Key(), level.ErrorValue(), "retryCount", retry, logging.MessageKey(), "Could not acquire datacenters", logging.ErrorKey(), err)
+	}
+
+	return nil, errNoDatacenters
+}
+
+func newInstancer(l log.Logger, c Client, w Watch) sd.Instancer {
 	return service.NewContextualInstancer(
-		gokitconsul.NewInstancer(
-			c,
-			log.With(l, "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly),
-			w.Service,
-			w.Tags,
-			w.PassingOnly,
-		),
+		NewInstancer(InstancerOptions{
+			Client:       c,
+			Logger:       l,
+			Service:      w.Service,
+			Tags:         w.Tags,
+			PassingOnly:  w.PassingOnly,
+			QueryOptions: w.QueryOptions,
+		}),
 		map[string]interface{}{
 			"service":     w.Service,
 			"tags":        w.Tags,
 			"passingOnly": w.PassingOnly,
+			"datacenter":  w.QueryOptions.Datacenter,
 		},
 	)
 }
 
-func newInstancers(l log.Logger, c gokitconsul.Client, co Options) (i service.Instancers) {
+func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, err error) {
+	var datacenters []string
+
 	for _, w := range co.watches() {
 		key := newInstancerKey(w)
 		if i.Has(key) {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly)
+			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
 			continue
 		}
 
-		i.Set(key, newInstancer(l, c, w))
+		if w.AllDatacenters {
+			if len(datacenters) == 0 {
+				datacenters, err = getDatacenters(l, c, co)
+				if err != nil {
+					return
+				}
+			}
+
+			for _, datacenter := range datacenters {
+				w.QueryOptions.Datacenter = datacenter
+				i.Set(key, newInstancer(l, c, w))
+			}
+		} else {
+			i.Set(key, newInstancer(l, c, w))
+		}
 	}
 
 	return
@@ -145,8 +199,13 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 		return nil, err
 	}
 
-	gokitClient, updater := clientFactory(consulClient)
-	r, closer, err := newRegistrars(l, registrationScheme, gokitClient, updater, co)
+	client, updater := clientFactory(consulClient)
+	r, closer, err := newRegistrars(l, registrationScheme, client, updater, co)
+	if err != nil {
+		return nil, err
+	}
+
+	i, err := newInstancers(l, client, co)
 	if err != nil {
 		return nil, err
 	}
@@ -156,8 +215,8 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 			append(
 				eo,
 				service.WithRegistrars(r),
-				service.WithInstancers(newInstancers(l, gokitClient, co)),
+				service.WithInstancers(i),
 				service.WithCloser(closer),
 			)...,
-		), consulClient}, nil
+		), NewClient(consulClient)}, nil
 }
