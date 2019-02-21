@@ -3,10 +3,14 @@ package consul
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"sort"
+	"sync"
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
@@ -34,7 +38,7 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 
 	i := &instancer{
 		client:      o.Client,
-		logger:      log.With(o.Logger, "service", o.Service, "tags", fmt.Sprint(o.Tags)),
+		logger:      log.With(o.Logger, "service", o.Service, "tags", fmt.Sprint(o.Tags), "passingOnly", o.PassingOnly, "datacenter", o.QueryOptions.Datacenter),
 		service:     o.Service,
 		passingOnly: o.PassingOnly,
 		stop:        make(chan struct{}),
@@ -50,9 +54,9 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 	// grab the initial set of instances
 	instances, index, err := i.getInstances(defaultIndex, nil)
 	if err == nil {
-		i.logger.Log("instances", len(instances))
+		i.logger.Log(level.Key(), level.InfoValue(), "instances", len(instances))
 	} else {
-		i.logger.Log(logging.ErrorKey(), err)
+		i.logger.Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), err)
 	}
 
 	i.update(sd.Event{Instances: instances, Err: err})
@@ -73,10 +77,25 @@ type instancer struct {
 	queryOptions api.QueryOptions
 
 	stop chan struct{}
+
+	registerLock sync.Mutex
+	state        sd.Event
+	registry     map[chan<- sd.Event]bool
 }
 
 func (i *instancer) update(e sd.Event) {
-	// TODO
+	sort.Strings(e.Instances)
+	defer i.registerLock.Unlock()
+	i.registerLock.Lock()
+
+	if reflect.DeepEqual(i.state, e) {
+		return
+	}
+
+	i.state = e
+	for c := range i.registry {
+		c <- i.state
+	}
 }
 
 func (i *instancer) loop(lastIndex uint64) {
@@ -183,11 +202,18 @@ func makeInstances(entries []*api.ServiceEntry) []string {
 }
 
 func (i *instancer) Register(ch chan<- sd.Event) {
-	// TODO
+	defer i.registerLock.Unlock()
+	i.registerLock.Lock()
+	i.registry[ch] = true
+
+	// push the current state to the new channel
+	ch <- i.state
 }
 
 func (i *instancer) Deregister(ch chan<- sd.Event) {
-	// TODO
+	defer i.registerLock.Unlock()
+	i.registerLock.Lock()
+	delete(i.registry, ch)
 }
 
 func (i *instancer) Stop() {

@@ -3,7 +3,6 @@ package consul
 import (
 	"time"
 
-	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/mock"
 )
@@ -26,9 +25,9 @@ type mockClientFactory struct {
 	mock.Mock
 }
 
-func (m *mockClientFactory) NewClient(c *api.Client) (gokitconsul.Client, ttlUpdater) {
+func (m *mockClientFactory) NewClient(c *api.Client) (Client, ttlUpdater) {
 	arguments := m.Called(c)
-	return arguments.Get(0).(gokitconsul.Client),
+	return arguments.Get(0).(Client),
 		arguments.Get(1).(ttlUpdater)
 }
 
@@ -55,6 +54,8 @@ type mockClient struct {
 	mock.Mock
 }
 
+var _ Client = (*mockClient)(nil)
+
 func (m *mockClient) Register(r *api.AgentServiceRegistration) error {
 	return m.Called(r).Error(0)
 }
@@ -71,6 +72,12 @@ func (m *mockClient) Service(service, tag string, passingOnly bool, queryOpts *a
 	)
 
 	return first, second, arguments.Error(2)
+}
+
+func (m *mockClient) Datacenters() ([]string, error) {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).([]string)
+	return first, arguments.Error(1)
 }
 
 type mockTTLUpdater struct {
