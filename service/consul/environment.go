@@ -20,17 +20,16 @@ import (
 type Environment interface {
 	service.Environment
 
-	// Client returns the underlying Consul client object used to construct this
-	// environment
-	Client() *api.Client
+	// Client returns the custom consul Client interface exposed by this package
+	Client() Client
 }
 
 type environment struct {
 	service.Environment
-	client *api.Client
+	client Client
 }
 
-func (e environment) Client() *api.Client {
+func (e environment) Client() Client {
 	return e.client
 }
 
@@ -159,5 +158,5 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 				service.WithInstancers(newInstancers(l, gokitClient, co)),
 				service.WithCloser(closer),
 			)...,
-		), consulClient}, nil
+		), NewClient(consulClient)}, nil
 }
