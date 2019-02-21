@@ -25,9 +25,9 @@ func NewClient(c *api.Client) Client {
 // client implements go-kit's consul Client interface and extends it to the local Client interface
 type client struct {
 	gokitconsul.Client
-	*api.Client
+	c *api.Client
 }
 
 func (c client) Datacenters() ([]string, error) {
-	return client.Catalog().Datacenters()
+	return c.c.Catalog().Datacenters()
 }
