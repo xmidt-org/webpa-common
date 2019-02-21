@@ -42,6 +42,7 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 		service:     o.Service,
 		passingOnly: o.PassingOnly,
 		stop:        make(chan struct{}),
+		registry:    make(map[chan<- sd.Event]bool),
 	}
 
 	if len(o.Tags) > 0 {
