@@ -163,24 +163,27 @@ func (i *instancer) getInstances(lastIndex uint64, stop <-chan struct{}) ([]stri
 	}
 }
 
+func filterEntry(candidate *api.ServiceEntry, requiredTags []string) bool {
+	serviceTags := make(map[string]bool, len(candidate.Service.Tags))
+	for _, tag := range candidate.Service.Tags {
+		serviceTags[tag] = true
+	}
+
+	for _, requiredTag := range requiredTags {
+		if !serviceTags[requiredTag] {
+			return false
+		}
+	}
+
+	return true
+}
+
 // filterEntries is similar to go-kit's version: since consul does not support multiple tags
 // in blocking queries, we have to filter manually for multiple tags.
-func filterEntries(entries []*api.ServiceEntry, tags []string) []*api.ServiceEntry {
+func filterEntries(entries []*api.ServiceEntry, requiredTags []string) []*api.ServiceEntry {
 	var filtered []*api.ServiceEntry
 	for _, entry := range entries {
-		serviceTags := make(map[string]bool, len(entry.Service.Tags))
-		for _, tag := range entry.Service.Tags {
-			serviceTags[tag] = true
-		}
-
-		count := 0
-		for _, tag := range tags {
-			if serviceTags[tag] {
-				count++
-			}
-		}
-
-		if count == len(serviceTags) {
+		if filterEntry(entry, requiredTags) {
 			filtered = append(filtered, entry)
 		}
 	}
@@ -193,9 +196,10 @@ func makeInstances(entries []*api.ServiceEntry) []string {
 	instances := make([]string, len(entries))
 	for i, entry := range entries {
 		address := entry.Node.Address
-		if entry.Service.Address != "" {
+		if len(entry.Service.Address) > 0 {
 			address = entry.Service.Address
 		}
+
 		instances[i] = fmt.Sprintf("%s:%d", address, entry.Service.Port)
 	}
 
