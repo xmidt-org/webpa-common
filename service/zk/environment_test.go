@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	gokitzk "github.com/go-kit/kit/sd/zk"
 	"github.com/samuel/go-zookeeper/zk"
@@ -23,7 +24,7 @@ func testNewEnvironmentEmpty(t *testing.T) {
 
 	e, err := NewEnvironment(nil, Options{})
 	assert.Nil(e)
-	assert.NoError(err)
+	assert.Equal(service.ErrIncomplete, err)
 
 	clientFactory.AssertExpectations(t)
 }

@@ -191,7 +191,7 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 	}
 
 	if len(co.Watches) == 0 && len(co.Registrations) == 0 {
-		return nil, nil
+		return nil, service.ErrIncomplete
 	}
 
 	consulClient, err := api.NewClient(co.config())
