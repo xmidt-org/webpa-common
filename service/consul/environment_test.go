@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Comcast/webpa-common/logging"
+	"github.com/Comcast/webpa-common/service"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -20,7 +21,7 @@ func testNewEnvironmentEmpty(t *testing.T) {
 
 	e, err := NewEnvironment(nil, "http", Options{})
 	assert.Nil(e)
-	assert.NoError(err)
+	assert.Equal(service.ErrIncomplete, err)
 
 	clientFactory.AssertExpectations(t)
 }

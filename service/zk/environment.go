@@ -89,7 +89,7 @@ func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Env
 	}
 
 	if len(zo.Watches) == 0 && len(zo.Registrations) == 0 {
-		return nil, nil
+		return nil, service.ErrIncomplete
 	}
 
 	c, err := newClient(l, zo)

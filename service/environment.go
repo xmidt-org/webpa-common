@@ -1,10 +1,18 @@
 package service
 
 import (
+	"errors"
 	"io"
 	"sync"
 
 	"github.com/go-kit/kit/sd"
+)
+
+var (
+	// ErrIncomplete is returned by platform-specific code that creates environments
+	// whenever the configuration is incomplete: it contains connection information
+	// but no watches or registrations.
+	ErrIncomplete = errors.New("No watches or registrations configured")
 )
 
 // NopCloser is a closer function that does nothing.  It always returns a nil error.  Useful
