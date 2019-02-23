@@ -1,6 +1,8 @@
 package servicecfg
 
 import (
+	"errors"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/service"
 	"github.com/Comcast/webpa-common/service/consul"
@@ -14,6 +16,8 @@ import (
 var (
 	zookeeperEnvironmentFactory = zk.NewEnvironment
 	consulEnvironmentFactory    = consul.NewEnvironment
+
+	errNoServiceDiscovery = errors.New("No service discovery configured")
 )
 
 func NewEnvironment(l log.Logger, u xviper.Unmarshaler, options ...service.Option) (service.Environment, error) {
@@ -61,5 +65,5 @@ func NewEnvironment(l log.Logger, u xviper.Unmarshaler, options ...service.Optio
 		return consulEnvironmentFactory(l, o.DefaultScheme, *o.Consul, eo...)
 	}
 
-	return nil, nil
+	return nil, errNoServiceDiscovery
 }

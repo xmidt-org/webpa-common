@@ -26,7 +26,7 @@ func testNewEnvironmentEmpty(t *testing.T) {
 
 	e, err := NewEnvironment(nil, v)
 	assert.Nil(e)
-	assert.NoError(err)
+	assert.Error(err)
 }
 
 func testNewEnvironmentUnmarshalError(t *testing.T) {
