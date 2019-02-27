@@ -271,9 +271,9 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 // finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
 // is only invoked when a particular fanout response terminates the fanout, i.e. is considered successful.
-func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result Result) {
+func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result Result, after []FanoutResponseFunc) {
 	ctx := result.Request.Context()
-	for _, rf := range h.after {
+	for _, rf := range after {
 		// NOTE: we don't use the context for anything here,
 		// but to preserve go-kit semantics we pass it to each after function
 		ctx = rf(ctx, response, result)
@@ -293,38 +293,8 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		} else {
 			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "bytes", count)
 		}
-
 	} else {
-		response.WriteHeader(result.StatusCode)
-	}
-}
-
-// finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
-// is only invoked when a particular fanout response terminates the fanout, and is considered a failure
-func (h *Handler) handleErrorFinish(logger log.Logger, response http.ResponseWriter, result Result) {
-	ctx := result.Request.Context()
-	for _, rf := range h.failure {
-		// NOTE: we don't use the context for anything here,
-		// but to preserve go-kit semantics we pass it to each after function
-		ctx = rf(ctx, response, result)
-	}
-
-	if len(result.Body) > 0 {
-		if len(result.ContentType) > 0 {
-			response.Header().Set("Content-Type", result.ContentType)
-		} else {
-			response.Header().Set("Content-Type", "application/octet-stream")
-		}
-
-		response.WriteHeader(result.StatusCode)
-		count, err := response.Write(result.Body)
-		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout error response", "bytes", count, logging.ErrorKey(), err)
-		} else {
-			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout error response", "bytes", count)
-		}
-	} else {
-		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout error response", "statusCode", result.StatusCode)
+		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "statusCode", result.StatusCode)
 		response.WriteHeader(result.StatusCode)
 	}
 }
@@ -370,7 +340,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 			if h.shouldTerminate(r) {
 				// this was a "success", so no reason to wait any longer
-				h.finish(logger, response, r)
+				h.finish(logger, response, r, h.after)
 				return
 			}
 
@@ -382,5 +352,5 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	}
 
 	logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "all fanout requests failed", "statusCode", statusCode, "url", original.URL)
-	h.handleErrorFinish(logger, response, latestResponse)
+	h.finish(logger, response, latestResponse, h.failure)
 }
