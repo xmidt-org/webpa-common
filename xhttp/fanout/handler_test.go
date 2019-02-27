@@ -121,7 +121,7 @@ func testHandlerBadTransactor(t *testing.T) {
 	).Respond(nil, nil).Once().Run(func(mock.Arguments) { complete <- struct{}{} })
 
 	handler.ServeHTTP(response, original)
-	assert.Equal(http.StatusInternalServerError, response.Code)
+	assert.Equal(http.StatusServiceUnavailable, response.Code)
 
 	select {
 	case <-complete:

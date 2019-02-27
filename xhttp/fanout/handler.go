@@ -259,7 +259,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 	default:
 		// this "should" never happen, but just in case set a known status code
-		result.StatusCode = http.StatusInternalServerError
+		result.StatusCode = http.StatusServiceUnavailable
 		result.Err = errBadTransactor
 		result.Body = []byte(errBadTransactor.Error())
 		result.ContentType = "test/plain"
