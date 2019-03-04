@@ -1,5 +1,5 @@
-hash: 5662c75c3c5eb30b878f6a2372e6876710bf63232c2757959cec93e62b516da1
-updated: 2019-02-20T15:41:16.196416-08:00
+hash: 84b449a3e91a0a407971a51280c26c3424575ac3027d6fd27dca9da7aeff3d93
+updated: 2019-03-03T19:12:00.678743-08:00
 imports:
 - name: github.com/armon/go-metrics
   version: 783273d703149aaeb9897cf58613d5af48861c25
@@ -44,7 +44,7 @@ imports:
 - name: github.com/cenk/backoff
   version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/facebookgo/clock
@@ -82,7 +82,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/protobuf
-  version: b4deda0973fb4c70b50d226b1af49f3da59f5265
+  version: 925541529c1fa6821df4e44ce2723319eb2be768
   subpackages:
   - proto
 - name: github.com/gorilla/context
@@ -94,7 +94,7 @@ imports:
 - name: github.com/gorilla/websocket
   version: ea4d1f681babbce9545c9c5f3d5194a789c89f5b
 - name: github.com/hashicorp/consul
-  version: 9a494b5fb9c86180a5702e29c485df1507a47198
+  version: c97c712e96e0e53308054d5e1180289fe02dce38
   subpackages:
   - api
 - name: github.com/hashicorp/go-cleanhttp
