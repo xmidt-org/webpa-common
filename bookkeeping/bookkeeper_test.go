@@ -1,15 +1,16 @@
 package bookkeeping
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/logging/logginghttp"
 	"github.com/Comcast/webpa-common/xhttp/xcontext"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestEmptyBookkeeper(t *testing.T) {
@@ -61,7 +62,7 @@ func TestBookkeeper(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 
-	customLogInfo := xcontext.Populate(0,
+	customLogInfo := xcontext.Populate(
 		logginghttp.SetLogger(logger,
 			logginghttp.RequestInfo,
 		),
