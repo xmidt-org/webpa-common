@@ -8,8 +8,10 @@ import (
 	"github.com/Comcast/webpa-common/xhttp"
 )
 
+// defaultTimedOut is the default http.Handler used for timeout responses
 var defaultTimedOut = xhttp.Constant{Code: http.StatusGatewayTimeout}
 
+// timeoutHandler is the internal decorator handler that handles timeouts in its ServeHTTP method
 type timeoutHandler struct {
 	timeout  time.Duration
 	timedOut http.Handler
@@ -47,22 +49,34 @@ func (th *timeoutHandler) ServeHTTP(response http.ResponseWriter, request *http.
 	}
 }
 
+// Options holds the set of configurable options for a timeout constructor.
+type Options struct {
+	// Timeout is the time allowed for the decorated handler's ServeHTTP method to run.
+	// If unset or nonpositive, no decoration is performed.
+	Timeout time.Duration
+
+	// TimedOut is the optional http.Handler that is executed with the original http.Request
+	// whenever a timeout occurs.  If unset, a default handler is used that simply sets the response
+	// code to http.StatusGatewayTimeout.
+	TimedOut http.Handler
+}
+
 // NewConstructor returns an Alice-style constructor that enforces a timeout for any handler it decorates.
 // If timeout is nonpositive, a constructor is returned that does no decoration.
 // If timedOut is nil, a default timedOut handler is used that just sets an http.StatusGatewayTimeout response code.
-func NewConstructor(timeout time.Duration, timedOut http.Handler) func(http.Handler) http.Handler {
-	if timeout <= 0 {
+func NewConstructor(o Options) func(http.Handler) http.Handler {
+	if o.Timeout <= 0 {
 		return xhttp.NilConstructor
 	}
 
-	if timedOut == nil {
-		timedOut = defaultTimedOut
+	if o.TimedOut == nil {
+		o.TimedOut = defaultTimedOut
 	}
 
 	return func(next http.Handler) http.Handler {
 		return &timeoutHandler{
-			timeout:  timeout,
-			timedOut: timedOut,
+			timeout:  o.Timeout,
+			timedOut: o.TimedOut,
 			next:     next,
 		}
 	}
