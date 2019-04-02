@@ -1,9 +1,7 @@
 package xcontext
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
@@ -14,8 +12,8 @@ import (
 //
 // This function mimics the behavior of go-kit's transport/http package without requiring and endpoint with
 // encoding and decoding.
-func Populate(timeout time.Duration, rf ...gokithttp.RequestFunc) func(http.Handler) http.Handler {
-	if timeout > 0 || len(rf) > 0 {
+func Populate(rf ...gokithttp.RequestFunc) func(http.Handler) http.Handler {
+	if len(rf) > 0 {
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 				ctx := Context(response, request)
@@ -23,11 +21,6 @@ func Populate(timeout time.Duration, rf ...gokithttp.RequestFunc) func(http.Hand
 					ctx = f(ctx, request)
 				}
 
-				if timeout > 0 {
-					var cancel func()
-					ctx, cancel = context.WithTimeout(ctx, timeout)
-					defer cancel()
-				}
 				response, request = WithContext(response, request, ctx)
 				next.ServeHTTP(response, request)
 			})

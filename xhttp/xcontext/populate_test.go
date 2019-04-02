@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/Comcast/webpa-common/xhttp"
 	gokithttp "github.com/go-kit/kit/transport/http"
@@ -21,7 +20,7 @@ func testPopulateNoDecoration(t *testing.T) {
 
 		next http.Handler = xhttp.Constant{}
 
-		constructor = Populate(-1)
+		constructor = Populate()
 	)
 
 	require.NotNil(constructor)
@@ -39,9 +38,6 @@ func testPopulate(t *testing.T, funcCount int) {
 		nextCalled = false
 		next       = http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 			nextCalled = true
-			deadline, ok := request.Context().Deadline()
-			assert.False(deadline.IsZero())
-			assert.True(ok)
 
 			for i := 0; i < funcCount; i++ {
 				assert.Equal(fmt.Sprintf("value-%d", i), request.Context().Value(fmt.Sprintf("key-%d", i)))
@@ -61,7 +57,7 @@ func testPopulate(t *testing.T, funcCount int) {
 		}
 	}
 
-	constructor := Populate(100*time.Second, funcs...)
+	constructor := Populate(funcs...)
 	require.NotNil(constructor)
 	decorated := constructor(next)
 	require.NotNil(decorated)

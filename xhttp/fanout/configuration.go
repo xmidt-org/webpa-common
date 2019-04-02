@@ -6,6 +6,7 @@ import (
 
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/Comcast/webpa-common/xhttp/xcontext"
+	"github.com/Comcast/webpa-common/xhttp/xtimeout"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/justinas/alice"
 )
@@ -130,7 +131,10 @@ func NewTransactor(c Configuration) func(*http.Request) (*http.Response, error) 
 // more application-layer request functions.
 func NewChain(c Configuration, rf ...gokithttp.RequestFunc) alice.Chain {
 	return alice.New(
-		xcontext.Populate(c.fanoutTimeout(), rf...),
+		xtimeout.NewConstructor(xtimeout.Options{
+			Timeout: c.fanoutTimeout(),
+		}),
+		xcontext.Populate(rf...),
 		xhttp.Busy(c.concurrency()),
 	)
 }
