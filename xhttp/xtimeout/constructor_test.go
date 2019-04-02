@@ -28,9 +28,13 @@ func testTimeoutHandlerPanic(t *testing.T) {
 	)
 
 	require.NotNil(handler)
-	assert.Panics(func() {
-		handler.ServeHTTP(response, request)
-	})
+
+	defer func() {
+		assert.Equal("expected", recover())
+	}()
+
+	handler.ServeHTTP(response, request)
+	assert.Fail("ServeHTTP should have panicked")
 }
 
 func testTimeoutHandlerSuccess(t *testing.T) {
