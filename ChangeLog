@@ -2,3 +2,6 @@
 - initial creation
 * Sun Mar 3 2019 John Bass 
 - Upgraded to consul v1.4.2
+* Tue Apr 2 2019 John Bass 
+- Added xhttp.BufferedWriter
+- Added xtimeout package for a more configurable TimeoutHandler
