@@ -1,0 +1,22 @@
+---
+clientConfig:
+  timeOut: 5
+transportConfig:
+  tlsHandshakeTimeout: 10 
+  disableKeepAlives: true
+  disableCompression: true
+  maxIdleConns: 5
+  maxIdleConnsPerHost: 5
+  maxConnsPerHost: 5
+  idleConnTimeOut: 30
+  responseHeaderTimeOut: 25
+  expectContinueTimeOut: 30
+  maxResponseHeaderBytes: 12 
+tlsConfig:
+  serverName: wes
+  insecureSkipVerify: true
+  minVersion: 0x0300
+  maxVersion: 0x0304
+retryOptionsConfig: 
+  retries: 10
+  interval: 12
