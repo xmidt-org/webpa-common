@@ -5,8 +5,8 @@
 		"keyFile": "file.key",
 		"clientCACertFile": "cacert.pem",
 		"logConnectionState": true,
-        "minVersion": "1.0", 
-        "maxVersion": "1.3"
+        "minVersion": "0x0301",
+        "maxVersion": "0x0304"
 	},
 
 	"alternate": {
