@@ -117,10 +117,12 @@ func ListenAndServe(logger log.Logger, e executor, finalizer func()) {
 type Basic struct {
 	Name               string
 	Address            string
-	CertificateFile   []string
-	KeyFile           []string
+	CertificateFile    []string
+	KeyFile            []string
 	ClientCACertFile   string
 	LogConnectionState bool
+	MinVersion         uint16
+	MaxVersion         uint16
 
 	MaxConnections    int
 	DisableKeepAlives bool
@@ -129,6 +131,24 @@ type Basic struct {
 	ReadHeaderTimeout time.Duration
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
+}
+
+func (b *Basic) minVersion() uint16 {
+	if b != nil && b.MinVersion != 0 {
+		return b.MinVersion
+	}
+
+	// accept all versions
+	return 0
+}
+
+func (b *Basic) maxVersion() uint16 {
+	if b != nil && b.MaxVersion != 0 {
+		return b.MaxVersion
+	}
+
+	// accept all versions
+	return 0
 }
 
 func (b *Basic) maxConnections() int {
@@ -195,7 +215,7 @@ func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, 
 func vaildCertSlices(certificateFiles, keyFiles []string) bool {
 	valid := true
 	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
-		for i := 0; i < len(certificateFiles); i ++ {
+		for i := 0; i < len(certificateFiles); i++ {
 			if !(len(certificateFiles[i]) > 0 && len(certificateFiles[i]) > 0) {
 				valid = false
 			}
@@ -212,7 +232,7 @@ func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate
 	}
 
 	certs = make([]tls.Certificate, len(certificateFiles))
-	for i := 0; i < len(certificateFiles); i ++ {
+	for i := 0; i < len(certificateFiles); i++ {
 		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
 		if err != nil {
 			logging.Error(logging.DefaultLogger()).Log(logging.MessageKey(), "Failed to LoadX509KeyPair", "cert", certificateFiles[i], "key", keyFiles[i], logging.ErrorKey(), err)
@@ -258,6 +278,8 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 			tlsConfig = &tls.Config{
 				ClientCAs:  caCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
+				MaxVersion: b.maxVersion(),
+				MinVersion: b.minVersion(),
 			}
 			certs, err := generateCerts(b.CertificateFile, b.KeyFile)
 			if err != nil {
@@ -298,8 +320,8 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 type Metric struct {
 	Name               string
 	Address            string
-	CertificateFile   []string
-	KeyFile           []string
+	CertificateFile    []string
+	KeyFile            []string
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
@@ -348,8 +370,8 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 type Health struct {
 	Name               string
 	Address            string
-	CertificateFile   []string
-	KeyFile           []string
+	CertificateFile    []string
+	KeyFile            []string
 	LogConnectionState bool
 	LogInterval        time.Duration
 	Options            []string
