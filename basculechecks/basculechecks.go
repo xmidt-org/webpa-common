@@ -10,6 +10,14 @@ import (
 	"github.com/Comcast/comcast-bascule/bascule"
 )
 
+var (
+	ErrNoVals                 = errors.New("expected at least one value")
+	ErrNoAuth                 = errors.New("couldn't get request info: authorization not found")
+	ErrNonstringVal           = errors.New("expected value to be a string")
+	ErrEmptyString            = errors.New("expected string to be nonempty")
+	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
+)
+
 type CapabilityConfig struct {
 	FirstPiece      string
 	SecondPiece     string
@@ -20,22 +28,22 @@ type CapabilityConfig struct {
 func CreateValidCapabilityCheck(config CapabilityConfig) func(context.Context, []interface{}) error {
 	return func(ctx context.Context, vals []interface{}) error {
 		if len(vals) == 0 {
-			return errors.New("expected at least one value")
+			return ErrNoVals
 		}
 
 		auth, ok := bascule.FromContext(ctx)
 		if !ok {
-			return errors.New("couldn't get request info")
+			return ErrNoAuth
 		}
 		reqVal := auth.Request
 
 		for _, val := range vals {
 			str, ok := val.(string)
 			if !ok {
-				return errors.New("expected value to be a string")
+				return ErrNonstringVal
 			}
 			if len(str) == 0 {
-				return errors.New("expected string to be nonempty")
+				return ErrEmptyString
 			}
 			pieces := strings.Split(str, ":")
 			if len(pieces) != 5 {
@@ -56,6 +64,6 @@ func CreateValidCapabilityCheck(config CapabilityConfig) func(context.Context, [
 				return nil
 			}
 		}
-		return errors.New("no valid capability for endpoint")
+		return ErrNoValidCapabilityFound
 	}
 }
