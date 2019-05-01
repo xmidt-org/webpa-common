@@ -2,13 +2,16 @@ package bookkeeping
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testHeaders(t *testing.T, originalHeader http.Header, headersToCopy []string, expectedKeyValues []interface{}) {
@@ -91,15 +94,16 @@ func TestBookkeepingHeaders(t *testing.T) {
 
 func testReturnHeadersWithPrefix(t *testing.T, request *http.Request, headerPrefixToCopy []string, expectedKV []interface{}) {
 	var (
-		assert  = assert.New(t)
 		require = require.New(t)
-
-		rf = RequestHeadersWithPrefix(headerPrefixToCopy...)
+		rf      = RequestHeadersWithPrefix(headerPrefixToCopy...)
 	)
 
 	require.NotNil(rf)
 	kv := rf(request)
-	assert.Equal(expectedKV, kv)
+
+	if ok := reflect.DeepEqual(expectedKV, kv); !ok {
+		t.Errorf("Expecting: %v\n but got: %v\n", spew.Sdump(expectedKV), spew.Sdump(kv))
+	}
 }
 
 func TestReturnHeadersWithPrefix(t *testing.T) {
