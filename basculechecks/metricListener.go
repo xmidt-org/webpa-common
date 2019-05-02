@@ -21,6 +21,10 @@ func (m *MetricListener) OnAuthenticated(auth bascule.Authentication) {
 		return // measure tools are not defined, skip
 	}
 
+	if auth.Token == nil {
+		return
+	}
+
 	c, ok := auth.Token.Attributes().Get("claims")
 	if !ok {
 		return // if there aren't any claims, skip
@@ -63,7 +67,7 @@ func WithNbfLeeway(n time.Duration) Option {
 	}
 }
 
-func NewMetricListener(m *JWTValidationMeasures, options ...Option) MetricListener {
+func NewMetricListener(m *JWTValidationMeasures, options ...Option) *MetricListener {
 	listener := MetricListener{
 		measures: m,
 	}
@@ -71,5 +75,5 @@ func NewMetricListener(m *JWTValidationMeasures, options ...Option) MetricListen
 	for _, o := range options {
 		o(&listener)
 	}
-	return listener
+	return &listener
 }
