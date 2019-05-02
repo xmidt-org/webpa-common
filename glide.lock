@@ -1,5 +1,5 @@
-hash: 84b449a3e91a0a407971a51280c26c3424575ac3027d6fd27dca9da7aeff3d93
-updated: 2019-04-29T14:45:02.618881-07:00
+hash: 7b8e10bd480fc94f7d020b3d4af2896930ab5bdf5fda3b0e790a402c7e726c5e
+updated: 2019-05-02T10:42:20.218561-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -44,9 +44,11 @@ imports:
 - name: github.com/cenk/backoff
   version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
 - name: github.com/Comcast/comcast-bascule
-  version: 53d4ab33154832b26e4767505ff3bc3c44c52f38
+  version: 4b5f56ccdac0a2c1cc3b9f6e4bf286b84f74b5a7
   subpackages:
   - bascule
+  - bascule/basculehttp
+  - bascule/key
 - name: github.com/davecgh/go-spew
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
