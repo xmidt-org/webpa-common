@@ -18,6 +18,10 @@ func NewWebPAClient(om OutboundMeasures, t func(*http.Request) (*http.Response, 
 	}
 }
 
+func (w *WebPAClient) WithTransactor(t func(*http.Request) (*http.Response, error)) {
+	w.client = t
+}
+
 func (w *WebPAClient) Transact(r *http.Request) (*http.Response, error) {
 	return w.client(r)
 }
