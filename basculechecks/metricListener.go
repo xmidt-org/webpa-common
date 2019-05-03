@@ -9,8 +9,8 @@ import (
 )
 
 type MetricListener struct {
-	expLeeway time.Duration `json:"expLeeway"`
-	nbfLeeway time.Duration `json:"nbfLeeway"`
+	expLeeway time.Duration
+	nbfLeeway time.Duration
 	measures  *JWTValidationMeasures
 }
 
