@@ -50,6 +50,9 @@ func (m *MetricListener) OnAuthenticated(auth bascule.Authentication) {
 }
 
 func (m *MetricListener) OnErrorResponse(e basculehttp.ErrorResponseReason, _ error) {
+	if m.measures == nil {
+		return
+	}
 	m.measures.ValidationReason.With(ReasonLabel, e.String()).Add(1)
 }
 
