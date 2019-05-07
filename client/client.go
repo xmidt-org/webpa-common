@@ -55,7 +55,7 @@ func (c *HTTPClientConfig) NewClient() (*http.Client, error) {
 	return client, nil
 }
 
-func (c *HTTPClientConfig) NewTransactor() (func(*http.Request) (*http.Response, error), error) {
+func (c *HTTPClientConfig) NewTransactor(om OutboundMeasures, or OutboundMetricOptions) (func(*http.Request) (*http.Response, error), error) {
 	client := new(http.Client)
 
 	ok := c.ClientConfig.IsEmpty()
@@ -89,7 +89,7 @@ func (c *HTTPClientConfig) NewTransactor() (func(*http.Request) (*http.Response,
 			transport.TLSClientConfig = tls
 		}
 
-		client.Transport = http.RoundTripper(transport)
+		client.Transport = DecorateRoundTriperWithMetrics(or, om, http.RoundTripper(transport))
 	}
 
 	return client.Do, nil

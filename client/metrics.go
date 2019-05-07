@@ -52,11 +52,11 @@ func Metrics() []xmetrics.Metric {
 }
 
 type OutboundMetricOptions struct {
-	InFlight        bool
 	RequestDuration bool
-	RequestCounter  bool
 	DroppedMessages bool
+	RequestCounter  bool
 	OutboundRetries bool
+	InFlight        bool
 }
 
 type OutboundMeasures struct {
@@ -118,13 +118,22 @@ func InstrumentOutboundDroppedMessages(counter *prometheus.CounterVec, next http
 	})
 }
 
-// DecorateClientWithMetrics produces an http.RoundTripper from the configured Outbounder
-// that is also decorated with appropriate metrics.
-//
-// RequestCounter, RequestDuration, DroppedMessages Inflight,
-func DecorateClientWithMetrics(om OutboundMeasures, roundtripper http.RoundTripper) http.RoundTripper {
-	return promhttp.RoundTripperFunc(InstrumentOutboundCounter(om.RequestCounter,
-		InstrumentOutboundDuration(om.RequestDuration,
-			InstrumentOutboundDroppedMessages(om.DroppedMessages,
-				promhttp.InstrumentRoundTripperInFlight(om.InFlight, roundtripper)))))
+func DecorateRoundTriperWithMetrics(o OutboundMetricOptions, om OutboundMeasures, roundTripper http.RoundTripper) http.RoundTripper {
+	if o.RequestDuration {
+		roundTripper = InstrumentOutboundDuration(om.RequestDuration, roundTripper)
+	}
+
+	if o.RequestCounter {
+		roundTripper = InstrumentOutboundCounter(om.RequestCounter, roundTripper)
+	}
+
+	if o.InFlight {
+		roundTripper = promhttp.InstrumentRoundTripperInFlight(om.InFlight, roundTripper)
+	}
+
+	if o.DroppedMessages {
+		roundTripper = InstrumentOutboundDroppedMessages(om.DroppedMessages, roundTripper)
+	}
+
+	return roundTripper
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, sr xhttp.ShouldRetryFunc, sl func(time.Duration)) (*WebPAClient, error) {
+func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, or OutboundMetricOptions, sr xhttp.ShouldRetryFunc, sl func(time.Duration)) (*WebPAClient, error) {
 	clientConfig, err := viperToHTTPClientConfig(v)
 	if err != nil {
 		return nil, err
@@ -30,7 +30,7 @@ func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, sr xhttp.Shou
 			Counter:     om.Retries,
 		}
 
-		transactor, err := clientConfig.NewTransactor()
+		transactor, err := clientConfig.NewTransactor(om, or)
 		if err != nil {
 			return nil, err
 		}
@@ -43,6 +43,8 @@ func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, sr xhttp.Shou
 		if err != nil {
 			return nil, err
 		}
+
+		//DecorateWithClientMetrics
 
 		return NewWebPAClient(om, client.Do), nil
 	default:
