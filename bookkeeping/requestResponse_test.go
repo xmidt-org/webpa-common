@@ -101,8 +101,19 @@ func testReturnHeadersWithPrefix(t *testing.T, request *http.Request, headerPref
 	require.NotNil(rf)
 	kv := rf(request)
 
+	expectedkvMap := make(map[int]interface{})
+	for i, v := range expectedKV {
+		expectedkvMap[i] = v
+	}
+
+	kvMap := make(map[int]interface{})
+	for i, v := range kv {
+		kvMap[i] = v
+	}
+
+	// for i, v := range expectedKV {
 	if ok := reflect.DeepEqual(expectedKV, kv); !ok {
-		t.Errorf("Expecting: %v\n but got: %v\n", spew.Sdump(expectedKV), spew.Sdump(kv))
+		t.Errorf("Expecting: %v\n but got: %v\n", spew.Sdump(expectedkvMap), spew.Sdump(kvMap))
 	}
 }
 
