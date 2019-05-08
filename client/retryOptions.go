@@ -36,13 +36,3 @@ func (c *RetryOptionsConfig) interval() time.Duration {
 func (c *RetryOptionsConfig) IsEmpty() bool {
 	return !reflect.DeepEqual(c, RetryOptionsConfig{})
 }
-
-/*
-func (c *RetryOptionsConfig) IsEmpty() bool {
-	if c.Retries !=
-
-
-
-	return reflect.DeepEqual(c, RetryOptionsConfig{})
-}
-*/
