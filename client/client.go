@@ -6,11 +6,12 @@ import (
 )
 
 type HTTPClientConfig struct {
-	TransportConfig    *TransportConfig                           `json:"-"`
-	RetryOptionsConfig *RetryOptionsConfig                        `json:"-"`
-	TLSConfig          *tlsConfig                                 `json:"-"`
-	ClientConfig       *ClientConfig                              `json:"-"`
-	CheckRedirect      func(*http.Request, *[]http.Request) error `json:"-"`
+	TransportConfig      *TransportConfig                           `json:"-"`
+	RetryOptionsConfig   *RetryOptionsConfig                        `json:"-"`
+	TLSConfig            *tlsConfig                                 `json:"-"`
+	ClientConfig         *ClientConfig                              `json:"-"`
+	RedirectPolicyConfig *RedirectPolicyConfig                      `json:"-"`
+	CheckRedirect        func(*http.Request, *[]http.Request) error `json:"-"`
 }
 
 func (c *HTTPClientConfig) NewClient() (*http.Client, error) {
@@ -19,6 +20,11 @@ func (c *HTTPClientConfig) NewClient() (*http.Client, error) {
 	ok := c.ClientConfig.IsEmpty()
 	if !ok {
 		client.Timeout = c.ClientConfig.timeOut()
+	}
+
+	ok = c.RedirectPolicyConfig.IsEmpty()
+	if !ok {
+		client.CheckRedirect = c.RedirectPolicyConfig.checkRedirect()
 	}
 
 	ok = c.TransportConfig.IsEmpty()
@@ -61,6 +67,11 @@ func (c *HTTPClientConfig) NewTransactor(om OutboundMeasures, or OutboundMetricO
 	ok := c.ClientConfig.IsEmpty()
 	if !ok {
 		client.Timeout = c.ClientConfig.timeOut()
+	}
+
+	ok = c.RedirectPolicyConfig.IsEmpty()
+	if !ok {
+		client.CheckRedirect = c.RedirectPolicyConfig.checkRedirect()
 	}
 
 	ok = c.TransportConfig.IsEmpty()

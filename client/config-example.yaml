@@ -17,6 +17,9 @@ tlsConfig:
   insecureSkipVerify: true
   minVersion: 0x0300
   maxVersion: 0x0304
+redirectPolicyConfig:
+  maxRedirects: 4 
+  redirectExcludeHeaders: 
 retryOptionsConfig: 
   retries: 10
   interval: 12

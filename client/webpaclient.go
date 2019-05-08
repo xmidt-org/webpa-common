@@ -15,7 +15,10 @@ type WebPAClient struct {
 }
 
 func NewWebPAClient(om OutboundMeasures, t func(*http.Request) (*http.Response, error)) *WebPAClient {
+	var lock sync.RWMutex
+
 	return &WebPAClient{
+		m:        lock,
 		measures: om,
 		client:   t,
 	}
