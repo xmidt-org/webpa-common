@@ -29,17 +29,22 @@ func TestViperToClientConfig(t *testing.T) {
 
 	t.Log("2: Testing retryOptionsConfig")
 	if ok := clientConfig.RetryOptionsConfig.IsEmpty(); !ok {
-		t.Errorf("Failed to create RetryOptionsConfig: %v", spew.Sprint(clientConfig))
+		t.Errorf("Failed to create RetryOptionsConfig: %v", spew.Sprint(clientConfig.RetryOptionsConfig))
 	}
 
 	t.Log("3: Testing transportConfig")
 	if ok := clientConfig.TransportConfig.IsEmpty(); !ok {
-		t.Errorf("Failed to create TransportConfig: %v", spew.Sprint(clientConfig))
+		t.Errorf("Failed to create TransportConfig: %v", spew.Sprint(clientConfig.TransportConfig))
 	}
 
-	t.Log("4: Testing TLSConfig")
+	t.Log("4: Testing tlsConfig")
 	if ok := clientConfig.TLSConfig.IsEmpty(); !ok {
-		t.Errorf("Failed to create tlsConfig: %v", spew.Sprint(clientConfig))
+		t.Errorf("Failed to create tlsConfig: %v", spew.Sprint(clientConfig.TLSConfig))
+	}
+
+	t.Log("5: Testing redirectPolicyConfig")
+	if ok := clientConfig.RedirectPolicyConfig.IsEmpty(); !ok {
+		t.Errorf("Failed to create redirectPolicyConfig: %v", spew.Sprint(clientConfig.RedirectPolicyConfig))
 	}
 
 	spew.Dump(clientConfig)
