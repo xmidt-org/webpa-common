@@ -37,11 +37,17 @@ func TestNewClient(t *testing.T) {
 			TimeOut: 3,
 		}
 
+		retryPolicyConfig = &RedirectPolicyConfig{
+			MaxRedirects:           3,
+			RedirectExcludeHeaders: []string{"test1", "test2"},
+		}
+
 		config = &HTTPClientConfig{
-			TransportConfig:    transportConfig,
-			RetryOptionsConfig: retryConfig,
-			TLSConfig:          tlsConfig,
-			ClientConfig:       clientConfig,
+			TransportConfig:      transportConfig,
+			RetryOptionsConfig:   retryConfig,
+			TLSConfig:            tlsConfig,
+			ClientConfig:         clientConfig,
+			RedirectPolicyConfig: retryPolicyConfig,
 		}
 	)
 
@@ -88,9 +94,12 @@ func TestNewTransactor(t *testing.T) {
 			TLSConfig:          tlsConfig,
 			ClientConfig:       clientConfig,
 		}
+
+		om = OutboundMeasures{}
+		or = OutboundMetricOptions{}
 	)
 
-	_, err := config.NewTransactor()
+	_, err := config.NewTransactor(om, or)
 	if err != nil {
 		t.Errorf("Failed making transactor from: %v", spew.Sprint(config))
 	}
