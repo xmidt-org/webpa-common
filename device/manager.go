@@ -14,7 +14,7 @@ import (
 
 	"github.com/Comcast/webpa-common/convey/conveyhttp"
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"

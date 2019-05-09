@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"

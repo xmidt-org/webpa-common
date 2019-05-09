@@ -1,7 +1,7 @@
 package device
 
 import (
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/Comcast/wrp-go/wrp"
 )
 
 // EventType is the type of device-related event
