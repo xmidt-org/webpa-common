@@ -1,5 +1,5 @@
-hash: a449077175137fcbf36942bf84ca3cdd294e594da516810f030683af537cfe82
-updated: 2019-05-02T11:25:01.17043-07:00
+hash: 4d5e3d41486de857b378cad488dbb9f68c6ea974cc7fa9df3a05e103c35d2a9a
+updated: 2019-05-09T12:35:59.911709-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -44,7 +44,7 @@ imports:
 - name: github.com/cenk/backoff
   version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
 - name: github.com/Comcast/comcast-bascule
-  version: 1a099b540607253159086684f553221d2ea01d53
+  version: d07d9e49941c9a0998295574bf6b885148666742
   subpackages:
   - bascule
   - bascule/basculehttp

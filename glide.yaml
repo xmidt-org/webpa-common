@@ -66,4 +66,4 @@ import:
 - package: github.com/miekg/dns
   version: v1.0.12
 - package: github.com/Comcast/comcast-bascule
-  version: 1a099b540607253159086684f553221d2ea01d53
+  version: v0.2.5
