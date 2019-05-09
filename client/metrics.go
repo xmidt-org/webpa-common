@@ -118,7 +118,9 @@ func InstrumentOutboundDroppedMessages(counter *prometheus.CounterVec, next http
 	})
 }
 
-func DecorateRoundTriperWithMetrics(o OutboundMetricOptions, om OutboundMeasures, roundTripper http.RoundTripper) http.RoundTripper {
+func DecorateClientWithMetrics(o OutboundMetricOptions, om OutboundMeasures, c *http.Client) *http.Client {
+	roundTripper := http.RoundTripper(c.Transport)
+
 	if o.RequestDuration {
 		roundTripper = InstrumentOutboundDuration(om.RequestDuration, roundTripper)
 	}
@@ -135,5 +137,6 @@ func DecorateRoundTriperWithMetrics(o OutboundMetricOptions, om OutboundMeasures
 		roundTripper = InstrumentOutboundDroppedMessages(om.DroppedMessages, roundTripper)
 	}
 
-	return roundTripper
+	c.Transport = roundTripper
+	return c
 }

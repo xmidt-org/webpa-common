@@ -8,7 +8,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-func TestViperToClientConfig(t *testing.T) {
+// Tests if configurations are correctly built with viper in two cases:
+// 1. With a filled configuraiton
+// 2. With no configuration at all
+func TestViperConfiguration(t *testing.T) {
+	t.Run("TestWithConfiguration", testViperToClientConfig)
+	t.Run("TestWithNoConfiguration", testViperToClientConfigDefaults)
+}
+
+func testViperToClientConfig(t *testing.T) {
 	var (
 		v    = viper.New()
 		s, _ = os.Getwd()
@@ -46,6 +54,25 @@ func TestViperToClientConfig(t *testing.T) {
 	if ok := clientConfig.RedirectPolicyConfig.IsEmpty(); !ok {
 		t.Errorf("Failed to create redirectPolicyConfig: %v", spew.Sprint(clientConfig.RedirectPolicyConfig))
 	}
+}
 
-	spew.Dump(clientConfig)
+func testViperToClientConfigDefaults(t *testing.T) {
+	var (
+		v    = viper.New()
+		s, _ = os.Getwd()
+	)
+
+	v.SetConfigName("config-example-defaults")
+	v.AddConfigPath(s)
+
+	if err := v.ReadInConfig(); err != nil {
+		t.Errorf(err.Error())
+	}
+
+	t.Log("1: Testing clientConfig")
+	clientConfig, err := viperToHTTPClientConfig(v)
+	if err != nil {
+		t.Errorf("Failed to create config from from defaults: %v", spew.Sprint(clientConfig))
+	}
+
 }

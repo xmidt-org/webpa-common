@@ -1,106 +1,109 @@
 package client
 
 import (
+	"net/http"
+	"os"
+	"reflect"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/spf13/viper"
 )
 
-func TestNewClient(t *testing.T) {
+// TestInitializationDefualts test two cases when building up webPAClient
+// 1. Sufficient fields are filled with a configuration
+// 2. Sufficient fields (defaults) are filled with out a configuration
+func TestInitializationDefaults(t *testing.T) {
+	t.Run("testNewClientWithConfiguration", testNewClientWithConfiguration)
+	t.Run("testNewClientWithOutConfiguration", testNewClientWithOutConfiguration)
+}
+
+func testNewClientWithConfiguration(t *testing.T) {
 	var (
-		transportConfig = &TransportConfig{
-			TLSHandshakeTimeout:    30,
-			DisableKeepAlives:      true,
-			DisableCompression:     true,
-			MaxIdleConns:           4,
-			MaxIdleConnsPerHost:    4,
-			MaxConnsPerHost:        4,
-			IdleConnTimeOut:        30,
-			ResponseHeaderTimeOut:  4,
-			ExpectContinueTimeOut:  4,
-			MaxResponseHeaderBytes: 2,
-		}
+		v    = viper.New()
+		s, _ = os.Getwd()
+	)
 
-		retryConfig = &RetryOptionsConfig{
-			Retries:  10,
-			Interval: 10,
-		}
+	v.SetConfigName("config-example")
+	v.AddConfigPath(s)
+	_ = v.ReadInConfig()
 
-		tlsConfig = &tlsConfig{
-			ServerName:         "webpaNode",
-			InsecureSkipVerify: true,
-			MinVersion:         12,
-			MaxVersion:         13,
-		}
-
-		clientConfig = &ClientConfig{
-			TimeOut: 3,
-		}
-
-		retryPolicyConfig = &RedirectPolicyConfig{
-			MaxRedirects:           3,
-			RedirectExcludeHeaders: []string{"test1", "test2"},
-		}
-
-		config = &HTTPClientConfig{
-			TransportConfig:      transportConfig,
-			RetryOptionsConfig:   retryConfig,
-			TLSConfig:            tlsConfig,
-			ClientConfig:         clientConfig,
-			RedirectPolicyConfig: retryPolicyConfig,
+	var (
+		expectedClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: nil,
+				/*
+					TLSClientConfig: &tls.Config{
+						serverName:
+						insecureSkipVerify:
+						minVersion
+						maxVersion:
+					},
+				*/
+				TLSHandshakeTimeout:    0,
+				DisableKeepAlives:      false,
+				MaxIdleConns:           0,
+				MaxIdleConnsPerHost:    0,
+				MaxConnsPerHost:        0,
+				IdleConnTimeout:        0,
+				ResponseHeaderTimeout:  0,
+				ExpectContinueTimeout:  0,
+				MaxResponseHeaderBytes: 0,
+			},
+			CheckRedirect: nil,
+			Timeout:       0,
 		}
 	)
 
-	_, err := config.NewClient()
-	if err != nil {
-		t.Errorf("Error creating client from:  %v", spew.Sprint(config))
+	clientConfig, _ := viperToHTTPClientConfig(v)
+	actualClient := clientConfig.NewClient()
+
+	if ok := reflect.DeepEqual(actualClient, expectedClient); !ok {
+		t.Fatalf("\n\nActual: %v\n, Expected: %v\n", spew.Sdump(actualClient), spew.Sdump(expectedClient))
 	}
 }
 
-func TestNewTransactor(t *testing.T) {
+func testNewClientWithOutConfiguration(t *testing.T) {
 	var (
-		transportConfig = &TransportConfig{
-			TLSHandshakeTimeout:    30,
-			DisableKeepAlives:      true,
-			DisableCompression:     true,
-			MaxIdleConns:           4,
-			MaxIdleConnsPerHost:    4,
-			MaxConnsPerHost:        4,
-			IdleConnTimeOut:        30,
-			ResponseHeaderTimeOut:  4,
-			ExpectContinueTimeOut:  4,
-			MaxResponseHeaderBytes: 2,
-		}
-
-		retryConfig = &RetryOptionsConfig{
-			Retries:  10,
-			Interval: 10,
-		}
-
-		tlsConfig = &tlsConfig{
-			ServerName:         "webpaNode",
-			InsecureSkipVerify: true,
-			MinVersion:         12,
-			MaxVersion:         13,
-		}
-
-		clientConfig = &ClientConfig{
-			TimeOut: 3,
-		}
-
-		config = &HTTPClientConfig{
-			TransportConfig:    transportConfig,
-			RetryOptionsConfig: retryConfig,
-			TLSConfig:          tlsConfig,
-			ClientConfig:       clientConfig,
-		}
-
-		om = OutboundMeasures{}
-		or = OutboundMetricOptions{}
+		v    = viper.New()
+		s, _ = os.Getwd()
 	)
 
-	_, err := config.NewTransactor(om, or)
-	if err != nil {
-		t.Errorf("Failed making transactor from: %v", spew.Sprint(config))
+	v.SetConfigName("config-example-defaults")
+	v.AddConfigPath(s)
+	_ = v.ReadInConfig()
+
+	var (
+		expectedClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: nil,
+				/*
+					TLSClientConfig: &tls.Config{
+						serverName:
+						insecureSkipVerify:
+						minVersion
+						maxVersion:
+					},
+				*/
+				TLSHandshakeTimeout:    0,
+				DisableKeepAlives:      false,
+				MaxIdleConns:           0,
+				MaxIdleConnsPerHost:    0,
+				MaxConnsPerHost:        0,
+				IdleConnTimeout:        0,
+				ResponseHeaderTimeout:  0,
+				ExpectContinueTimeout:  0,
+				MaxResponseHeaderBytes: 0,
+			},
+			CheckRedirect: nil,
+			Timeout:       0,
+		}
+	)
+
+	clientConfig, _ := viperToHTTPClientConfig(v)
+	actualClient := clientConfig.NewClient()
+
+	if ok := reflect.DeepEqual(actualClient, expectedClient); !ok {
+		t.Fatalf("\n\nActual: %v\n, Expected: %v\n", spew.Sdump(actualClient), spew.Sdump(expectedClient))
 	}
 }

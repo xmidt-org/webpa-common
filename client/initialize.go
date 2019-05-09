@@ -17,6 +17,7 @@ func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, or OutboundMe
 	}
 
 	om := NewOutboundMeasures(r)
+	client := DecorateClientWithMetrics(or, om, clientConfig.NewClient())
 
 	ok := clientConfig.RetryOptionsConfig.IsEmpty()
 	switch ok {
@@ -30,22 +31,8 @@ func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, or OutboundMe
 			Counter:     om.Retries,
 		}
 
-		transactor, err := clientConfig.NewTransactor(om, or)
-		if err != nil {
-			return nil, err
-		}
-
-		transactor = xhttp.RetryTransactor(retryOptions, transactor)
-
-		return NewWebPAClient(om, transactor), nil
+		return NewWebPAClient(om, xhttp.RetryTransactor(retryOptions, client.Do)), nil
 	case false:
-		client, err := clientConfig.NewClient()
-		if err != nil {
-			return nil, err
-		}
-
-		//DecorateWithClientMetrics
-
 		return NewWebPAClient(om, client.Do), nil
 	default:
 		return nil, errors.New("Failed to initialize webPAClient")
