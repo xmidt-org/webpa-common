@@ -2,6 +2,7 @@ package client
 
 import (
 	"crypto/tls"
+	"net"
 	"net/http"
 	"reflect"
 )
@@ -12,6 +13,7 @@ type HTTPClientConfig struct {
 	TLSConfig            *tlsConfig                                 `json:"-"`
 	ClientConfig         *ClientConfig                              `json:"-"`
 	RedirectPolicyConfig *RedirectPolicyConfig                      `json:"-"`
+	DialerConfig         *DialerConfig                              `json:"-"`
 	CheckRedirect        func(*http.Request, *[]http.Request) error `json:"-"`
 }
 
@@ -64,6 +66,17 @@ func createHTTPClient(c *HTTPClientConfig) *http.Client {
 			}
 
 			transport.TLSClientConfig = tls
+		}
+
+		ok = c.DialerConfig.IsEmpty()
+		if !ok {
+			dialer := (&net.Dialer{
+				Timeout:       c.DialerConfig.timeOut(),
+				FallbackDelay: c.DialerConfig.fallbackDelay(),
+				KeepAlive:     c.DialerConfig.keepAlive(),
+			}).Dial
+
+			transport.Dial = dialer
 		}
 
 		client.Transport = http.RoundTripper(transport)

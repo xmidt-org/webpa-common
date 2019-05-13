@@ -17,6 +17,10 @@ tlsConfig:
   insecureSkipVerify: true
   minVersion: 0x0300
   maxVersion: 0x0304
+dialerConfig: 
+  timeOut: 5 
+  fallbackDelay: 5 
+  keepAlive: 5
 redirectPolicyConfig:
   maxRedirects: 5
   redirectExcludeHeaders: ["test1", "test2", "test3"]

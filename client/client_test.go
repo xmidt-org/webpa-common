@@ -2,18 +2,14 @@ package client
 
 import (
 	"crypto/tls"
+	"net"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/Comcast/webpa-common/xhttp"
-	"github.com/davecgh/go-spew/spew"
 	DE "github.com/go-test/deep"
 	"github.com/spf13/viper"
-)
-
-var (
-	configState = spew.ConfigState{DisablePointerMethods: true, DisablePointerAddresses: true, DisableCapacities: true}
 )
 
 // TestNewClient tests the two cases when building a http.Client from a ClientConfig struct
@@ -48,6 +44,11 @@ func testNewClientWithConfiguration(t *testing.T) {
 					MinVersion:         0x0300,
 					MaxVersion:         0x0304,
 				},
+				Dial: (&net.Dialer{
+					Timeout:       5,
+					FallbackDelay: 5,
+					KeepAlive:     5,
+				}).Dial,
 				TLSHandshakeTimeout:    5,
 				DisableKeepAlives:      true,
 				DisableCompression:     true,
