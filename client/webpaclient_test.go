@@ -27,7 +27,7 @@ func TestRetryTransact(t *testing.T) {
 func testWithRetryTransactorOptions(t *testing.T) {
 	var (
 		transactor = http.DefaultClient.Do
-		om         = new(OutboundMeasures)
+		om         = new(ClientMeasures)
 		client     = NewWebPAClient(*om, transactor)
 		handler    = &Handler{name: "test"}
 		server     = httptest.NewServer(handler)
@@ -43,7 +43,7 @@ func testWithRetryTransactorOptions(t *testing.T) {
 func testWithNoRetryTransactorOptions(t *testing.T) {
 	var (
 		transactor = http.DefaultClient.Do
-		om         = new(OutboundMeasures)
+		om         = new(ClientMeasures)
 		client     = NewWebPAClient(*om, transactor)
 		handler    = &Handler{name: "test"}
 		server     = httptest.NewServer(handler)
@@ -58,7 +58,7 @@ func testWithNoRetryTransactorOptions(t *testing.T) {
 func TestTransact(t *testing.T) {
 	var (
 		transactor = http.DefaultClient.Do
-		om         = new(OutboundMeasures)
+		om         = new(ClientMeasures)
 		client     = NewWebPAClient(*om, transactor)
 		handler    = &Handler{name: "test"}
 		server     = httptest.NewServer(handler)
@@ -77,7 +77,7 @@ func TestChangingTheTransactor(t *testing.T) {
 func testChangeTransactor(t *testing.T) {
 	var (
 		transactor = http.DefaultClient.Do
-		om         = new(OutboundMeasures)
+		om         = new(ClientMeasures)
 		client     = NewWebPAClient(*om, transactor)
 		handler    = &Handler{name: "test"}
 		server     = httptest.NewServer(handler)
