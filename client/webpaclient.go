@@ -10,11 +10,11 @@ import (
 
 type WebPAClient struct {
 	m        sync.RWMutex
-	measures OutboundMeasures
+	measures ClientMeasures
 	client   func(*http.Request) (*http.Response, error)
 }
 
-func NewWebPAClient(om OutboundMeasures, t func(*http.Request) (*http.Response, error)) *WebPAClient {
+func NewWebPAClient(om ClientMeasures, t func(*http.Request) (*http.Response, error)) *WebPAClient {
 	var lock sync.RWMutex
 
 	return &WebPAClient{

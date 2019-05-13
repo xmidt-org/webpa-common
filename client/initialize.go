@@ -10,13 +10,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, or OutboundMetricOptions, sr xhttp.ShouldRetryFunc, sl func(time.Duration)) (*WebPAClient, error) {
+func Initialize(v *viper.Viper, r xmetrics.Registry, l log.Logger, or ClientMetricOptions, sr xhttp.ShouldRetryFunc, sl func(time.Duration)) (*WebPAClient, error) {
 	clientConfig, err := viperToHTTPClientConfig(v)
 	if err != nil {
 		return nil, err
 	}
 
-	om := NewOutboundMeasures(r)
+	om := NewClientMeasures(r)
 	client := DecorateClientWithMetrics(or, om, clientConfig.NewClient())
 
 	ok := clientConfig.RetryOptionsConfig.IsEmpty()

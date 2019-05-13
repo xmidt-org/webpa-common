@@ -51,7 +51,7 @@ func Metrics() []xmetrics.Metric {
 	}
 }
 
-type OutboundMetricOptions struct {
+type ClientMetricOptions struct {
 	RequestDuration bool
 	DroppedMessages bool
 	RequestCounter  bool
@@ -59,7 +59,7 @@ type OutboundMetricOptions struct {
 	InFlight        bool
 }
 
-type OutboundMeasures struct {
+type ClientMeasures struct {
 	InFlight        prometheus.Gauge
 	RequestDuration prometheus.Observer
 	RequestCounter  *prometheus.CounterVec
@@ -67,8 +67,8 @@ type OutboundMeasures struct {
 	Retries         metrics.Counter
 }
 
-func NewOutboundMeasures(r xmetrics.Registry) OutboundMeasures {
-	return OutboundMeasures{
+func NewClientMeasures(r xmetrics.Registry) ClientMeasures {
+	return ClientMeasures{
 		InFlight:        r.NewGaugeVec(OutboundInFlightGauge).WithLabelValues(),
 		RequestDuration: r.NewHistogramVec(OutboundRequestDuration).WithLabelValues(),
 		RequestCounter:  r.NewCounterVec(OutboundRequestCounter),
@@ -118,7 +118,7 @@ func InstrumentOutboundDroppedMessages(counter *prometheus.CounterVec, next http
 	})
 }
 
-func DecorateClientWithMetrics(o OutboundMetricOptions, om OutboundMeasures, c *http.Client) *http.Client {
+func DecorateClientWithMetrics(o ClientMetricOptions, om ClientMeasures, c *http.Client) *http.Client {
 	roundTripper := http.RoundTripper(c.Transport)
 
 	if o.RequestDuration {
