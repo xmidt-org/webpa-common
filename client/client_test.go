@@ -1,19 +1,25 @@
 package client
 
 import (
+	"crypto/tls"
 	"net/http"
 	"os"
-	"reflect"
 	"testing"
 
+	"github.com/Comcast/webpa-common/xhttp"
 	"github.com/davecgh/go-spew/spew"
+	DE "github.com/go-test/deep"
 	"github.com/spf13/viper"
 )
 
-// TestInitializationDefualts test two cases when building up webPAClient
+var (
+	configState = spew.ConfigState{DisablePointerMethods: true, DisablePointerAddresses: true, DisableCapacities: true}
+)
+
+// TestNewClient tests the two cases when building a http.Client from a ClientConfig struct
 // 1. Sufficient fields are filled with a configuration
 // 2. Sufficient fields (defaults) are filled with out a configuration
-func TestInitializationDefaults(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	t.Run("testNewClientWithConfiguration", testNewClientWithConfiguration)
 	t.Run("testNewClientWithOutConfiguration", testNewClientWithOutConfiguration)
 }
@@ -29,37 +35,40 @@ func testNewClientWithConfiguration(t *testing.T) {
 	_ = v.ReadInConfig()
 
 	var (
+		checkRedirect = xhttp.CheckRedirect(xhttp.RedirectPolicy{
+			MaxRedirects:   5,
+			ExcludeHeaders: []string{"test1", "test2", "test3"},
+		})
+
 		expectedClient = &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: nil,
-				/*
-					TLSClientConfig: &tls.Config{
-						serverName:
-						insecureSkipVerify:
-						minVersion
-						maxVersion:
-					},
-				*/
-				TLSHandshakeTimeout:    0,
-				DisableKeepAlives:      false,
-				MaxIdleConns:           0,
-				MaxIdleConnsPerHost:    0,
-				MaxConnsPerHost:        0,
-				IdleConnTimeout:        0,
-				ResponseHeaderTimeout:  0,
-				ExpectContinueTimeout:  0,
-				MaxResponseHeaderBytes: 0,
+				TLSClientConfig: &tls.Config{
+					ServerName:         "wes",
+					InsecureSkipVerify: true,
+					MinVersion:         0x0300,
+					MaxVersion:         0x0304,
+				},
+				TLSHandshakeTimeout:    5,
+				DisableKeepAlives:      true,
+				DisableCompression:     true,
+				MaxIdleConns:           5,
+				MaxIdleConnsPerHost:    5,
+				MaxConnsPerHost:        5,
+				IdleConnTimeout:        5,
+				ResponseHeaderTimeout:  5,
+				ExpectContinueTimeout:  5,
+				MaxResponseHeaderBytes: 5,
 			},
-			CheckRedirect: nil,
-			Timeout:       0,
+			Timeout:       5,
+			CheckRedirect: checkRedirect,
 		}
 	)
 
 	clientConfig, _ := viperToHTTPClientConfig(v)
 	actualClient := clientConfig.NewClient()
 
-	if ok := reflect.DeepEqual(actualClient, expectedClient); !ok {
-		t.Fatalf("\n\nActual: %v\n, Expected: %v\n", spew.Sdump(actualClient), spew.Sdump(expectedClient))
+	if diff := DE.Equal(actualClient, expectedClient); diff != nil {
+		t.Error(diff)
 	}
 }
 
@@ -76,15 +85,12 @@ func testNewClientWithOutConfiguration(t *testing.T) {
 	var (
 		expectedClient = &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: nil,
-				/*
-					TLSClientConfig: &tls.Config{
-						serverName:
-						insecureSkipVerify:
-						minVersion
-						maxVersion:
-					},
-				*/
+				TLSClientConfig: &tls.Config{
+					ServerName:         "",
+					InsecureSkipVerify: false,
+					MinVersion:         0,
+					MaxVersion:         0,
+				},
 				TLSHandshakeTimeout:    0,
 				DisableKeepAlives:      false,
 				MaxIdleConns:           0,
@@ -103,7 +109,7 @@ func testNewClientWithOutConfiguration(t *testing.T) {
 	clientConfig, _ := viperToHTTPClientConfig(v)
 	actualClient := clientConfig.NewClient()
 
-	if ok := reflect.DeepEqual(actualClient, expectedClient); !ok {
-		t.Fatalf("\n\nActual: %v\n, Expected: %v\n", spew.Sdump(actualClient), spew.Sdump(expectedClient))
+	if diff := DE.Equal(actualClient, expectedClient); diff != nil {
+		t.Error(diff)
 	}
 }

@@ -24,6 +24,14 @@ type TransportConfig struct {
 	MaxResponseHeaderBytes int64                                                   `json: "maxResponseHeaderBytes,omitempty"`
 }
 
+func (c *TransportConfig) maxConnsPerHost() int {
+	if c != nil && c.MaxConnsPerHost > 0 {
+		return c.MaxConnsPerHost
+	}
+
+	return 0
+}
+
 func (c *TransportConfig) tlsHandShakeTimeout() time.Duration {
 	if c != nil && c.TLSHandshakeTimeout > 0 {
 		return c.TLSHandshakeTimeout
@@ -89,7 +97,7 @@ func (c *TransportConfig) expectContinueTimeOut() time.Duration {
 }
 
 func (c *TransportConfig) maxResponseHeaderBytes() int64 {
-	if c != nil && c.MaxResponseHeaderBytes == 0 {
+	if c != nil && c.MaxResponseHeaderBytes != 0 {
 		return c.MaxResponseHeaderBytes
 	}
 
@@ -97,5 +105,5 @@ func (c *TransportConfig) maxResponseHeaderBytes() int64 {
 }
 
 func (c *TransportConfig) IsEmpty() bool {
-	return !reflect.DeepEqual(c, TransportConfig{})
+	return reflect.DeepEqual(c, (TransportConfig{}))
 }

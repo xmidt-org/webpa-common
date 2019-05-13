@@ -42,5 +42,5 @@ func (c *tlsConfig) maxVersion() uint16 {
 }
 
 func (c *tlsConfig) IsEmpty() bool {
-	return !reflect.DeepEqual(c, tlsConfig{})
+	return reflect.DeepEqual(c, (tlsConfig{}))
 }

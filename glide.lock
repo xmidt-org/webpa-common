@@ -1,5 +1,8 @@
 hash: 4d5e3d41486de857b378cad488dbb9f68c6ea974cc7fa9df3a05e103c35d2a9a
 updated: 2019-05-09T12:35:59.911709-07:00
+hash: 84b449a3e91a0a407971a51280c26c3424575ac3027d6fd27dca9da7aeff3d93
+updated: 2019-05-13T08:37:20.616392-06:00
+>>>>>>> client: restructure to test if client is built correctly from yaml file
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -136,6 +139,7 @@ imports:
   subpackages:
   - client/v2
   - models
+  - pkg/deep
   - pkg/escape
 - name: github.com/jmespath/go-jmespath
   version: c2b33e8439af944379acbdd9c3a5fe0bc44bd8a5
@@ -259,4 +263,6 @@ imports:
   version: a96e63847dc3c67d17befa69c303767e2f84e54f
 - name: gopkg.in/yaml.v2
   version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
-testImports: []
+testImports:
+- name: github.com/go-test/deep
+  version: 042da051cf3189d80f667339b822c7effac29cd6

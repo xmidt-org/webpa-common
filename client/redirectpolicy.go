@@ -39,5 +39,5 @@ func (c *RedirectPolicyConfig) redirectExcludeHeaders() []string {
 }
 
 func (c *RedirectPolicyConfig) IsEmpty() bool {
-	return !reflect.DeepEqual(c, RedirectPolicyConfig{})
+	return reflect.DeepEqual(c, (RedirectPolicyConfig{}))
 }

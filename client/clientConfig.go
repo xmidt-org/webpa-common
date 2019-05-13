@@ -18,5 +18,5 @@ func (c *ClientConfig) timeOut() time.Duration {
 }
 
 func (c *ClientConfig) IsEmpty() bool {
-	return !reflect.DeepEqual(c, ClientConfig{})
+	return reflect.DeepEqual(c, (ClientConfig{}))
 }

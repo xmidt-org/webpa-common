@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/tls"
 	"net/http"
+	"reflect"
 )
 
 type HTTPClientConfig struct {
@@ -46,6 +47,7 @@ func createHTTPClient(c *HTTPClientConfig) *http.Client {
 			DisableCompression:     c.TransportConfig.disableCompression(),
 			MaxIdleConns:           c.TransportConfig.maxIdleConns(),
 			MaxIdleConnsPerHost:    c.TransportConfig.maxIdleConnsPerHost(),
+			MaxConnsPerHost:        c.TransportConfig.maxConnsPerHost(),
 			IdleConnTimeout:        c.TransportConfig.idleConnTimeOut(),
 			ResponseHeaderTimeout:  c.TransportConfig.responseHeaderTimeOut(),
 			ExpectContinueTimeout:  c.TransportConfig.expectContinueTimeOut(),
@@ -63,7 +65,13 @@ func createHTTPClient(c *HTTPClientConfig) *http.Client {
 
 			transport.TLSClientConfig = tls
 		}
+
+		client.Transport = http.RoundTripper(transport)
 	}
 
 	return client
+}
+
+func (c *HTTPClientConfig) IsEmpty() bool {
+	return reflect.DeepEqual(c, (ClientConfig{}))
 }
