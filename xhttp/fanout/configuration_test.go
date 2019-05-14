@@ -14,12 +14,7 @@ func testConfigurationDefault(t *testing.T, cfg *Configuration) {
 	assert.Empty(cfg.endpoints())
 	assert.Equal("", cfg.authorization())
 	assert.Equal(DefaultFanoutTimeout, cfg.fanoutTimeout())
-	assert.Equal(DefaultClientTimeout, cfg.clientTimeout())
-	assert.NotNil(cfg.transport())
 	assert.Equal(DefaultConcurrency, cfg.concurrency())
-	assert.Empty(cfg.redirectExcludeHeaders())
-	assert.Zero(cfg.maxRedirects())
-	assert.NotNil(cfg.checkRedirect())
 }
 
 func testConfigurationCustom(t *testing.T) {
@@ -27,25 +22,17 @@ func testConfigurationCustom(t *testing.T) {
 		assert = assert.New(t)
 
 		cfg = Configuration{
-			Endpoints:              []string{"localhost:1234"},
-			Authorization:          "deadbeef",
-			FanoutTimeout:          13 * time.Hour,
-			ClientTimeout:          981 * time.Millisecond,
-			Concurrency:            63482,
-			RedirectExcludeHeaders: []string{"X-Test-1", "X-Test-2"},
-			MaxRedirects:           17,
+			Endpoints:     []string{"localhost:1234"},
+			Authorization: "deadbeef",
+			FanoutTimeout: 13 * time.Hour,
+			Concurrency:   63482,
 		}
 	)
 
 	assert.Equal([]string{"localhost:1234"}, cfg.endpoints())
 	assert.Equal("deadbeef", cfg.authorization())
 	assert.Equal(13*time.Hour, cfg.fanoutTimeout())
-	assert.Equal(981*time.Millisecond, cfg.clientTimeout())
-	assert.NotNil(cfg.transport())
 	assert.Equal(63482, cfg.concurrency())
-	assert.Equal([]string{"X-Test-1", "X-Test-2"}, cfg.redirectExcludeHeaders())
-	assert.Equal(17, cfg.maxRedirects())
-	assert.NotNil(cfg.checkRedirect())
 }
 
 func TestConfiguration(t *testing.T) {
@@ -58,11 +45,6 @@ func TestConfiguration(t *testing.T) {
 	})
 
 	t.Run("Custom", testConfigurationCustom)
-}
-
-func TestNewTransactor(t *testing.T) {
-	assert := assert.New(t)
-	assert.NotNil(NewTransactor(Configuration{}))
 }
 
 func TestNewChain(t *testing.T) {

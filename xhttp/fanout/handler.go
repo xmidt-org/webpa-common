@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/Comcast/webpa-common/client"
 	"github.com/Comcast/webpa-common/logging"
 	"github.com/Comcast/webpa-common/tracing"
 	"github.com/Comcast/webpa-common/tracing/tracinghttp"
@@ -48,14 +49,28 @@ func WithErrorEncoder(encoder gokithttp.ErrorEncoder) Option {
 	}
 }
 
+func WithWebPAClient(c *client.WebPAClient) Option {
+	return func(h *Handler) {
+		if c != nil {
+			h.client = c
+		} else {
+			h.client = nil
+		}
+	}
+}
+
 // WithTransactor configures a custom HTTP client transaction function.  If transactor is nil,
 // http.DefaultClient.Do is used as the transactor.
 func WithTransactor(transactor func(*http.Request) (*http.Response, error)) Option {
 	return func(h *Handler) {
+		if h.client == nil {
+			h.client = &client.WebPAClient{}
+		}
+
 		if transactor != nil {
-			h.transactor = transactor
+			h.client.ChangeTransactor(transactor)
 		} else {
-			h.transactor = http.DefaultClient.Do
+			h.client.ChangeTransactor(http.DefaultClient.Do)
 		}
 	}
 }
@@ -126,12 +141,10 @@ func WithClientFailure(failure ...gokithttp.ClientResponseFunc) Option {
 	}
 }
 
-// WithConfiguration uses a set of (typically injected) fanout configuration options to configure a Handler.
+// WithAuthorizationConfiguration uses a set of (typically injected) fanout configuration options to configure a handlers authorization transactor.
 // Use of this option will not override the configured Endpoints instance.
-func WithConfiguration(c Configuration) Option {
+func WithAuthorizationConfiguration(c Configuration) Option {
 	return func(h *Handler) {
-		WithTransactor(NewTransactor(c))(h)
-
 		authorization := c.authorization()
 		if len(authorization) > 0 {
 			WithClientBefore(gokithttp.SetRequestHeader("Authorization", authorization))(h)
@@ -147,7 +160,7 @@ type Handler struct {
 	after           []FanoutResponseFunc
 	failure         []FanoutResponseFunc
 	shouldTerminate ShouldTerminateFunc
-	transactor      func(*http.Request) (*http.Response, error)
+	client          *client.WebPAClient
 }
 
 // New creates a fanout Handler.  The Endpoints strategy is required, and this constructor function will
@@ -164,7 +177,6 @@ func New(e Endpoints, options ...Option) *Handler {
 		endpoints:       e,
 		errorEncoder:    gokithttp.DefaultErrorEncoder,
 		shouldTerminate: DefaultShouldTerminate,
-		transactor:      http.DefaultClient.Do,
 	}
 
 	for _, o := range options {
@@ -227,7 +239,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		}
 	)
 
-	result.Response, result.Err = h.transactor(request)
+	result.Response, result.Err = h.client.Transact(request)
 	switch {
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
