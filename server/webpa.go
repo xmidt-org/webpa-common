@@ -117,10 +117,11 @@ func ListenAndServe(logger log.Logger, e executor, finalizer func()) {
 type Basic struct {
 	Name               string
 	Address            string
-	CertificateFile   []string
-	KeyFile           []string
+	CertificateFile    []string
+	KeyFile            []string
 	ClientCACertFile   string
 	LogConnectionState bool
+	PeerVerifyFunc     PeerVerifyCallback // Callback func to add peer client cert CN, SAN validation
 
 	MaxConnections    int
 	DisableKeepAlives bool
@@ -129,6 +130,13 @@ type Basic struct {
 	ReadHeaderTimeout time.Duration
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
+}
+
+type PeerVerifyCallback func([][]byte, [][]*x509.Certificate) error
+
+func DefaultPeerVerifyCallback(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	// Default callback performs no validation
+	return nil
 }
 
 func (b *Basic) maxConnections() int {
@@ -180,6 +188,10 @@ func (b *Basic) writeTimeout() time.Duration {
 	return DefaultWriteTimeout
 }
 
+func (b *Basic) SetPeerVerifyCallback(vp PeerVerifyCallback) {
+	b.PeerVerifyFunc = vp
+}
+
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
 func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder, config *tls.Config) (net.Listener, error) {
 	return xlistener.New(xlistener.Options{
@@ -195,7 +207,7 @@ func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, 
 func vaildCertSlices(certificateFiles, keyFiles []string) bool {
 	valid := true
 	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
-		for i := 0; i < len(certificateFiles); i ++ {
+		for i := 0; i < len(certificateFiles); i++ {
 			if !(len(certificateFiles[i]) > 0 && len(certificateFiles[i]) > 0) {
 				valid = false
 			}
@@ -212,7 +224,7 @@ func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate
 	}
 
 	certs = make([]tls.Certificate, len(certificateFiles))
-	for i := 0; i < len(certificateFiles); i ++ {
+	for i := 0; i < len(certificateFiles); i++ {
 		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
 		if err != nil {
 			logging.Error(logging.DefaultLogger()).Log(logging.MessageKey(), "Failed to LoadX509KeyPair", "cert", certificateFiles[i], "key", keyFiles[i], logging.ErrorKey(), err)
@@ -298,8 +310,8 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 type Metric struct {
 	Name               string
 	Address            string
-	CertificateFile   []string
-	KeyFile           []string
+	CertificateFile    []string
+	KeyFile            []string
 	LogConnectionState bool
 	HandlerOptions     promhttp.HandlerOpts
 	MetricsOptions     xmetrics.Options
@@ -348,8 +360,8 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 type Health struct {
 	Name               string
 	Address            string
-	CertificateFile   []string
-	KeyFile           []string
+	CertificateFile    []string
+	KeyFile            []string
 	LogConnectionState bool
 	LogInterval        time.Duration
 	Options            []string
