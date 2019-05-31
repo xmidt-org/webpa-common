@@ -24,6 +24,10 @@ type temporaryError interface {
 // should be retried.
 type ShouldRetryFunc func(error) bool
 
+// ShouldRetryStatusFunc is a predicate for determining if the status coded returned from an HTTP transaction
+// should be retried.
+type ShouldRetryStatusFunc func(int) bool
+
 // DefaultShouldRetry is the default retry predicate.  It returns true if and only if err exposes a Temporary() bool
 // method and that method returns true.  That means, for example, that for a net.DNSError with the temporary flag set to true
 // this predicate also returns true.
@@ -32,6 +36,12 @@ func DefaultShouldRetry(err error) bool {
 		return temp.Temporary()
 	}
 
+	return false
+}
+
+// DefaultShouldRetryStatus is the default retry predicate. It returns false on all status codes
+// aka. it will never retry
+func DefaultShouldRetryStatus(status int) bool {
 	return false
 }
 
@@ -51,6 +61,9 @@ type RetryOptions struct {
 
 	// ShouldRetry is the retry predicate.  Defaults to DefaultShouldRetry if unset.
 	ShouldRetry ShouldRetryFunc
+
+	// ShouldRetryStatus is the retry predicate.  Defaults to DefaultShouldRetry if unset.
+	ShouldRetryStatus ShouldRetryStatusFunc
 
 	// Counter is the counter for total retries.  If unset, no metrics are collected on retries.
 	Counter metrics.Counter
@@ -78,6 +91,10 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		o.ShouldRetry = DefaultShouldRetry
 	}
 
+	if o.ShouldRetryStatus == nil {
+		o.ShouldRetryStatus = DefaultShouldRetryStatus
+	}
+
 	if o.Interval < 1 {
 		o.Interval = DefaultRetryInterval
 	}
@@ -90,20 +107,27 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		if err := EnsureRewindable(request); err != nil {
 			return nil, err
 		}
+		var statusCode int
 
 		// initial attempt:
 		response, err := next(request)
+		if response != nil {
+			statusCode = response.StatusCode
+		}
 
-		for r := 0; err != nil && r < o.Retries && o.ShouldRetry(err); r++ {
+		for r := 0; r < o.Retries && ((err != nil && o.ShouldRetry(err)) || o.ShouldRetryStatus(statusCode)); r++ {
 			o.Counter.Add(1.0)
 			o.Sleep(o.Interval)
-			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), logging.ErrorKey(), err, "retry", r+1)
+			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), logging.ErrorKey(), err, "retry", r+1, "statusCode", statusCode)
 
 			if err := Rewind(request); err != nil {
 				return nil, err
 			}
 
 			response, err = next(request)
+			if response != nil {
+				statusCode = response.StatusCode
+			}
 		}
 
 		if err != nil {

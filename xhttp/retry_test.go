@@ -72,6 +72,36 @@ func testRetryTransactorNoRetries(t *testing.T) {
 	assert.True(transactorCalled)
 }
 
+func testRetryTransactorStatus(t *testing.T) {
+	var (
+		assert  = assert.New(t)
+		require = require.New(t)
+
+		transactorCount = 0
+		statusCheck     = 0
+		transactor      = func(*http.Request) (*http.Response, error) {
+			response := http.Response{
+				StatusCode: 429 + transactorCount,
+			}
+			transactorCount++
+			return &response, nil
+		}
+
+		retry = RetryTransactor(RetryOptions{
+			Retries: 5,
+			ShouldRetryStatus: func(status int) bool {
+				statusCheck++
+				return status == 429
+			},
+		}, transactor)
+	)
+
+	require.NotNil(retry)
+	retry(httptest.NewRequest("GET", "/", nil))
+	assert.Equal(2, transactorCount)
+	assert.Equal(2, statusCheck)
+}
+
 func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configuredInterval time.Duration, retryCount int) {
 	var (
 		assert          = assert.New(t)
@@ -227,4 +257,5 @@ func TestRetryTransactor(t *testing.T) {
 
 	t.Run("NotRewindable", testRetryTransactorNotRewindable)
 	t.Run("RewindError", testRetryTransactorRewindError)
+	t.Run("StatusRetry", testRetryTransactorStatus)
 }
