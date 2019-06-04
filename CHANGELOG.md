@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Added ability to check status code for retying http request
+- Added ability to check status code for retrying http request
+- added ability to update http.Request for `xhttp` retry
+- added MaxRetry and AlternativeURLS for update webhook config
 
 ## [v1.0.1]
 - Fix for https://github.com/Comcast/webpa-common/issues/364
