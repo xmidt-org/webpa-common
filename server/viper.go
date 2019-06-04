@@ -79,6 +79,8 @@ const (
 // or memprofile data is needed.
 func ConfigureFlagSet(applicationName string, f *pflag.FlagSet) {
 	f.StringP(FileFlagName, FileFlagShorthand, applicationName, "base name of the configuration file")
+	f.StringP(CPUProfileFlagName, CPUProfileShorthand, "cpuprofile", "base name of the cpuprofile file")
+	f.StringP(MemProfileFlagName, MemProfileShorthand, "memprofile", "base name of the memprofile file")
 }
 
 // create CPUProfileFiles creates a cpu profile of the server, its triggered by the optional flag cpuprofile
