@@ -87,6 +87,10 @@ func ConfigureFlagSet(applicationName string, f *pflag.FlagSet) {
 //
 // the CPU profile is created on the server's start
 func CreateCPUProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
+	if fp == nil {
+		return
+	}
+
 	flag := fp.Lookup("cpuprofile")
 	if flag == nil {
 		return
@@ -110,6 +114,10 @@ func CreateCPUProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
 // the memory profile is created on the server's exit.
 // this function should be used within the application.
 func CreateMemoryProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
+	if fp == nil {
+		return
+	}
+
 	flag := fp.Lookup("memprofile")
 	if flag == nil {
 		return
@@ -280,6 +288,7 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
-	// CreateCPUProfileFile(v, f, logger)
+	CreateCPUProfileFile(v, f, logger)
+
 	return
 }
