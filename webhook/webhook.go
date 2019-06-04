@@ -34,6 +34,12 @@ type W struct {
 		// The secret to use for the SHA1 HMAC.
 		// Optional, set to "" to disable behavior.
 		Secret string `json:"secret,omitempty"`
+
+		// The max number of times to retry for webhook
+		MaxRetryCount int `json:"max_retry_count,omitempty"`
+
+		// alt_urls is a list of explicit URLs that should be round robin on faliure
+		AlternativeURLs []string `json:"alt_urls,omitempty"`
 	} `json:"config"`
 
 	// The URL to notify when we cut off a client due to overflow.

@@ -67,6 +67,9 @@ type RetryOptions struct {
 
 	// Counter is the counter for total retries.  If unset, no metrics are collected on retries.
 	Counter metrics.Counter
+
+	// UpdateRequest provides the ability to update the request before it is sent. default is noop
+	UpdateRequest func(*http.Request)
 }
 
 // RetryTransactor returns an HTTP transactor function, of the same signature as http.Client.Do, that
@@ -93,6 +96,11 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 
 	if o.ShouldRetryStatus == nil {
 		o.ShouldRetryStatus = DefaultShouldRetryStatus
+	}
+
+	if o.UpdateRequest == nil {
+		//noop
+		o.UpdateRequest = func(*http.Request) {}
 	}
 
 	if o.Interval < 1 {
@@ -124,6 +132,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 				return nil, err
 			}
 
+			o.UpdateRequest(request)
 			response, err = next(request)
 			if response != nil {
 				statusCode = response.StatusCode

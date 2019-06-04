@@ -109,9 +109,15 @@ func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configure
 		expectedRequest = httptest.NewRequest("GET", "/", nil)
 		expectedError   = &net.DNSError{IsTemporary: true}
 		counter         = generic.NewCounter("test")
+		urls            = map[string]int{}
 
 		transactorCount = 0
 		transactor      = func(actualRequest *http.Request) (*http.Response, error) {
+			if _, ok := urls[actualRequest.URL.Path]; ok {
+				urls[actualRequest.URL.Path]++
+			} else {
+				urls[actualRequest.URL.Path] = 1
+			}
 			transactorCount++
 			assert.True(expectedRequest == actualRequest)
 			return nil, expectedError
@@ -128,6 +134,11 @@ func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configure
 					slept++
 					assert.Equal(expectedInterval, actualInterval)
 				},
+				UpdateRequest: func(request *http.Request) {
+					if _, ok := urls[request.URL.Path]; ok {
+						request.URL.Path += "a"
+					}
+				},
 			},
 			transactor,
 		)
@@ -140,6 +151,9 @@ func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configure
 	assert.Equal(1+retryCount, transactorCount)
 	assert.Equal(float64(retryCount), counter.Value())
 	assert.Equal(retryCount, slept)
+	for _, v := range urls {
+		assert.Equal(1, v)
+	}
 }
 
 func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
