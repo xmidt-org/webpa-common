@@ -124,6 +124,8 @@ type Basic struct {
 	MinVersion         uint16
 	MaxVersion         uint16
 
+	PeerVerifyFunc     PeerVerifyCallback // Callback func to add peer client cert CN, SAN validation
+
 	MaxConnections    int
 	DisableKeepAlives bool
 	MaxHeaderBytes    int
@@ -149,6 +151,13 @@ func (b *Basic) maxVersion() uint16 {
 
 	// accept all versions
 	return 0
+}
+  
+type PeerVerifyCallback func([][]byte, [][]*x509.Certificate) error
+
+func DefaultPeerVerifyCallback(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	// Default callback performs no validation
+	return nil
 }
 
 func (b *Basic) maxConnections() int {
@@ -198,6 +207,10 @@ func (b *Basic) writeTimeout() time.Duration {
 	}
 
 	return DefaultWriteTimeout
+}
+
+func (b *Basic) SetPeerVerifyCallback(vp PeerVerifyCallback) {
+	b.PeerVerifyFunc = vp
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.

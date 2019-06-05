@@ -2,13 +2,16 @@ package bookkeeping
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testHeaders(t *testing.T, originalHeader http.Header, headersToCopy []string, expectedKeyValues []interface{}) {
@@ -91,15 +94,31 @@ func TestBookkeepingHeaders(t *testing.T) {
 
 func testReturnHeadersWithPrefix(t *testing.T, request *http.Request, headerPrefixToCopy []string, expectedKV []interface{}) {
 	var (
-		assert  = assert.New(t)
 		require = require.New(t)
-
-		rf = RequestHeadersWithPrefix(headerPrefixToCopy...)
+		rf      = RequestHeadersWithPrefix(headerPrefixToCopy...)
 	)
 
 	require.NotNil(rf)
 	kv := rf(request)
-	assert.Equal(expectedKV, kv)
+
+	f := func(i []interface{}, c chan<- map[string]interface{}) {
+		m := make(map[string]interface{})
+		for _, v := range i {
+			m["test"] = v
+		}
+
+		c <- m
+	}
+
+	c1, c2 := make(chan map[string]interface{}), make(chan map[string]interface{})
+	go f(kv, c1)
+	go f(expectedKV, c2)
+
+	kvMap, expectedkvMap := <-c1, <-c2
+
+	if ok := reflect.DeepEqual(expectedKV, kv); !ok {
+		t.Errorf("\nExpecting: %v\n but got: %v\n", spew.Sdump(expectedkvMap), spew.Sdump(kvMap))
+	}
 }
 
 func TestReturnHeadersWithPrefix(t *testing.T) {
