@@ -204,7 +204,7 @@ func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, 
 	})
 }
 
-func vaildCertSlices(certificateFiles, keyFiles []string) bool {
+func validCertSlices(certificateFiles, keyFiles []string) bool {
 	valid := true
 	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
 		for i := 0; i < len(certificateFiles); i++ {
@@ -219,8 +219,8 @@ func vaildCertSlices(certificateFiles, keyFiles []string) bool {
 }
 
 func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, err error) {
-	if !vaildCertSlices(certificateFiles, keyFiles) {
-		return []tls.Certificate{}, errors.New("certFiles and keyFiles are not vaild")
+	if !validCertSlices(certificateFiles, keyFiles) {
+		return []tls.Certificate{}, errors.New("certFiles and keyFiles are not valid")
 	}
 
 	certs = make([]tls.Certificate, len(certificateFiles))
