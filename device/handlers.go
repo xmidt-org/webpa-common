@@ -201,6 +201,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 	// they do not expect responses.
 }
 
+// ConnectHandler is used to initiate a concurrent connection between a Talaria and a device by upgrading a http connection to a websocket
 type ConnectHandler struct {
 	Logger         log.Logger
 	Connector      Connector
