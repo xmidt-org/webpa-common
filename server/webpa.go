@@ -121,6 +121,9 @@ type Basic struct {
 	KeyFile            []string
 	ClientCACertFile   string
 	LogConnectionState bool
+	MinVersion         uint16
+	MaxVersion         uint16
+
 	PeerVerifyFunc     PeerVerifyCallback // Callback func to add peer client cert CN, SAN validation
 
 	MaxConnections    int
@@ -132,6 +135,24 @@ type Basic struct {
 	WriteTimeout      time.Duration
 }
 
+func (b *Basic) minVersion() uint16 {
+	if b != nil && b.MinVersion != 0 {
+		return b.MinVersion
+	}
+
+	// accept all versions
+	return 0
+}
+
+func (b *Basic) maxVersion() uint16 {
+	if b != nil && b.MaxVersion != 0 {
+		return b.MaxVersion
+	}
+
+	// accept all versions
+	return 0
+}
+  
 type PeerVerifyCallback func([][]byte, [][]*x509.Certificate) error
 
 func DefaultPeerVerifyCallback(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
@@ -270,6 +291,8 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 			tlsConfig = &tls.Config{
 				ClientCAs:  caCertPool,
 				ClientAuth: tls.RequireAndVerifyClientCert,
+				MaxVersion: b.maxVersion(),
+				MinVersion: b.minVersion(),
 			}
 			certs, err := generateCerts(b.CertificateFile, b.KeyFile)
 			if err != nil {
