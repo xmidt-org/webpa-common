@@ -1,6 +1,6 @@
 package monitor
 
-import "github.com/Comcast/webpa-common/capacitor"
+import "github.com/xmidt-org/webpa-common/capacitor"
 
 // DelayedListener is a decorator for Listener that uses a capacitor to implement a grace period
 // between service discovery events.

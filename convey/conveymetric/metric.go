@@ -1,7 +1,7 @@
 package conveymetric
 
 import (
-	"github.com/Comcast/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/go-kit/kit/metrics"
 )
 

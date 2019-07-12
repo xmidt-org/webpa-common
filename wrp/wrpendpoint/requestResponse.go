@@ -4,9 +4,9 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/tracing"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/tracing"
+	"github.com/xmidt-org/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 )
 

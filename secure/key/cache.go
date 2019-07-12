@@ -1,7 +1,7 @@
 package key
 
 import (
-	"github.com/Comcast/webpa-common/concurrent"
+	"github.com/xmidt-org/webpa-common/concurrent"
 	"sync"
 	"sync/atomic"
 	"time"

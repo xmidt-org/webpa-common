@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

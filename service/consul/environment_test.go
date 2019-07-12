@@ -3,12 +3,12 @@ package consul
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 func testNewEnvironmentEmpty(t *testing.T) {

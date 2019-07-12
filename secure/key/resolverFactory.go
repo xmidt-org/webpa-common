@@ -2,9 +2,9 @@ package key
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/concurrent"
-	"github.com/Comcast/webpa-common/resource"
-	"github.com/Comcast/webpa-common/types"
+	"github.com/xmidt-org/webpa-common/concurrent"
+	"github.com/xmidt-org/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/types"
 	"time"
 )
 

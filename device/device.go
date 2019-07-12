@@ -7,11 +7,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Comcast/webpa-common/convey"
-	"github.com/Comcast/webpa-common/convey/conveymetric"
-	"github.com/Comcast/webpa-common/secure"
+	"github.com/xmidt-org/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/convey/conveymetric"
+	"github.com/xmidt-org/webpa-common/secure"
 
-	"github.com/Comcast/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 )
 

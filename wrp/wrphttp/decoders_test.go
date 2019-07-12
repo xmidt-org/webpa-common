@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/Comcast/webpa-common/xhttp/xhttptest"
+	"github.com/xmidt-org/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/xhttp/xhttptest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

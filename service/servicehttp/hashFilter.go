@@ -3,10 +3,10 @@ package servicehttp
 import (
 	"net/http"
 
-	"github.com/Comcast/webpa-common/device"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/xhttp/xfilter"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/xhttp/xfilter"
 	"github.com/go-kit/kit/log/level"
 )
 

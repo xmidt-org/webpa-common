@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/Comcast/webpa-common.svg?branch=master)](https://travis-ci.org/Comcast/webpa-common) 
 [![codecov.io](http://codecov.io/github/Comcast/webpa-common/coverage.svg?branch=master)](http://codecov.io/github/Comcast/webpa-common?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/Comcast/webpa-common)](https://goreportcard.com/report/github.com/Comcast/webpa-common)
+[![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/webpa-common)](https://goreportcard.com/report/github.com/xmidt-org/webpa-common)
 
 ## Environment Setup Instructions
 
@@ -18,11 +18,11 @@ export GOPATH=$newWorkSpace
 ```
 **2)** Create necessary path
 ```
-mkdir -p $GOPATH/github.com/Comcast
+mkdir -p $GOPATH/github.com/xmidt-org
 ```
 **3)** Clone repo
  ```
- cd $GOPATH/github.com/Comcast
+ cd $GOPATH/github.com/xmidt-org
  git clone git@github.com:Comcast/webpa-common.git
  ```
 **4)** Get Dependencies

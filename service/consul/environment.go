@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 var (

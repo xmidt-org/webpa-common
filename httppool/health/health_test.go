@@ -2,8 +2,8 @@ package health
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/health"
-	"github.com/Comcast/webpa-common/httppool"
+	"github.com/xmidt-org/webpa-common/health"
+	"github.com/xmidt-org/webpa-common/httppool"
 	"github.com/stretchr/testify/mock"
 	"net/http"
 	"testing"

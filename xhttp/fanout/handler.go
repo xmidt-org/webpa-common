@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/tracing"
-	"github.com/Comcast/webpa-common/tracing/tracinghttp"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/tracing"
+	"github.com/xmidt-org/webpa-common/tracing/tracinghttp"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	gokithttp "github.com/go-kit/kit/transport/http"

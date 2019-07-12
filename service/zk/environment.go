@@ -1,8 +1,8 @@
 package zk
 
 import (
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"

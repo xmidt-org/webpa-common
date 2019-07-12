@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -3,9 +3,9 @@ package consul
 import (
 	"context"
 	"errors"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service/monitor"
-	"github.com/Comcast/webpa-common/xresolver"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service/monitor"
+	"github.com/xmidt-org/webpa-common/xresolver"
 	"github.com/go-kit/kit/log"
 	"regexp"
 )

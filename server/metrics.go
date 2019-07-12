@@ -1,6 +1,6 @@
 package server
 
-import "github.com/Comcast/webpa-common/xmetrics"
+import "github.com/xmidt-org/webpa-common/xmetrics"
 
 const (
 	APIRequestsTotal         = "api_requests_total"

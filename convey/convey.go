@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Comcast/webpa-common/wrp/wrpmeta"
+	"github.com/xmidt-org/webpa-common/wrp/wrpmeta"
 	"github.com/ugorji/go/codec"
 )
 

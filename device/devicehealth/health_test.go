@@ -3,8 +3,8 @@ package devicehealth
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/device"
-	"github.com/Comcast/webpa-common/health"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

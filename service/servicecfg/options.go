@@ -1,9 +1,9 @@
 package servicecfg
 
 import (
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/service/consul"
-	"github.com/Comcast/webpa-common/service/zk"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/service/consul"
+	"github.com/xmidt-org/webpa-common/service/zk"
 )
 
 // Options contains the superset of all necessary options for initializing service discovery.

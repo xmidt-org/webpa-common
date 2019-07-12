@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/clock/clocktest"
+	"github.com/xmidt-org/webpa-common/clock/clocktest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

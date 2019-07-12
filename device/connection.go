@@ -4,7 +4,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/gorilla/websocket"
 )
 

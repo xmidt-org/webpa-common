@@ -3,7 +3,7 @@ package device
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -3,11 +3,11 @@ package servicecfg
 import (
 	"errors"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/service/consul"
-	"github.com/Comcast/webpa-common/service/zk"
-	"github.com/Comcast/webpa-common/xviper"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/service/consul"
+	"github.com/xmidt-org/webpa-common/service/zk"
+	"github.com/xmidt-org/webpa-common/xviper"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"

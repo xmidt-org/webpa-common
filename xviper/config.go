@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-//go:generate mockgen -destination mocks2_test.go -package xviper github.com/Comcast/webpa-common/xviper Configer
+//go:generate mockgen -destination mocks2_test.go -package xviper github.com/xmidt-org/webpa-common/xviper Configer
 
 // Configer is the subset of Viper behavior dealing with configuration paths and locations
 type Configer interface {

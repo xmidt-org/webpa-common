@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	AWS "github.com/Comcast/webpa-common/webhook/aws"
-	"github.com/Comcast/webpa-common/xhttp"
-	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/spf13/viper"
+	AWS "github.com/xmidt-org/webpa-common/webhook/aws"
+	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (
@@ -74,7 +74,7 @@ func NewFactory(v *viper.Viper) (f *Factory, err error) {
 
 func (f *Factory) SetList(ul UpdatableList) {
 	f.m.list = ul
-	f.m.metrics.ListSize.Set( float64(f.m.list.Len()) )
+	f.m.metrics.ListSize.Set(float64(f.m.list.Len()))
 }
 
 func (f *Factory) Prune(items []W) (list []W) {
@@ -125,8 +125,8 @@ type monitor struct {
 	changes          chan []W
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
-	externalUpdate   func([]W)
-	metrics          WebhookMetrics
+	externalUpdate func([]W)
+	metrics        WebhookMetrics
 }
 
 func (m *monitor) listen() {
@@ -172,6 +172,6 @@ func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request)
 		return
 	}
 	m.sendNewHooks([]W{*w})
-	
-	m.metrics.ListSize.Set( float64(m.list.Len()) )
+
+	m.metrics.ListSize.Set(float64(m.list.Len()))
 }

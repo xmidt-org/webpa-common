@@ -1,9 +1,9 @@
 package conveymetric
 
 import (
-	"github.com/Comcast/webpa-common/convey"
-	"github.com/Comcast/webpa-common/xmetrics"
-	"github.com/Comcast/webpa-common/xmetrics/xmetricstest"
+	"github.com/xmidt-org/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

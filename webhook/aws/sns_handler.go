@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func TestDispatchWithBreaker(t *testing.T) {

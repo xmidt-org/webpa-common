@@ -6,7 +6,7 @@ import (
 	"net/textproto"
 	"strings"
 
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/gorilla/mux"
 )
 

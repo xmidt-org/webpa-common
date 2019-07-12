@@ -2,14 +2,14 @@ package server
 
 import (
 	"errors"
-	//	"github.com/Comcast/webpa-common/health"
+	//	"github.com/xmidt-org/webpa-common/health"
 	"crypto/tls"
 	"net/http"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

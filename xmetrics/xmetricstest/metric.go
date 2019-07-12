@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/generic"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 // counter is a testing metric which is the root of a label tree of counters.

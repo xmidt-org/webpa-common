@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/Comcast/webpa-common/xhttp/gate"
+	"github.com/xmidt-org/webpa-common/xhttp/gate"
 	"github.com/billhathaway/consistentHash"
 )
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
 )

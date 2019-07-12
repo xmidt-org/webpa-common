@@ -1,8 +1,8 @@
 package rehasher
 
 import (
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics/generic"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"

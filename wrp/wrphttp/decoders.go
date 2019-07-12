@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/wrp"
 )
 
 // Entity represents a decoded WRP message.

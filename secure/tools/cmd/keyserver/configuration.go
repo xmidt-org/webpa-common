@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/resource"
 	"io/ioutil"
 	"strings"
 )

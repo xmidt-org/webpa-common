@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	gokitzk "github.com/go-kit/kit/sd/zk"
 	"github.com/samuel/go-zookeeper/zk"

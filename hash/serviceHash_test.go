@@ -2,7 +2,7 @@ package hash
 
 import (
 	"errors"
-	"github.com/Comcast/webpa-common/concurrent"
+	"github.com/xmidt-org/webpa-common/concurrent"
 	"github.com/stretchr/testify/assert"
 	"sync"
 	"testing"

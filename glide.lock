@@ -1,5 +1,5 @@
-hash: 4d5e3d41486de857b378cad488dbb9f68c6ea974cc7fa9df3a05e103c35d2a9a
-updated: 2019-05-09T12:35:59.911709-07:00
+hash: 24fe1d48bb1612a57f04ab9aecaa5428d1c77cdea4735f119c1b19eb84472032
+updated: 2019-07-12T14:33:38.912109-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -43,20 +43,16 @@ imports:
   - linux
 - name: github.com/cenk/backoff
   version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
-- name: github.com/Comcast/comcast-bascule
-  version: d07d9e49941c9a0998295574bf6b885148666742
-  subpackages:
-  - bascule
-  - bascule/basculehttp
-  - bascule/key
 - name: github.com/davecgh/go-spew
-  version: 346938d642f2ec3594ed81d874461961cd0faa76
+  version: ecdeabc65495df2dec95d7c4a4c3e021903035e5
   subpackages:
   - spew
+- name: github.com/dgrijalva/jwt-go
+  version: 5e25c22bd5d6de03265bbe5462dcd162f85046f6
 - name: github.com/facebookgo/clock
   version: 600d898af40aa09a7a93ecb9265d87b0504b6f03
 - name: github.com/fsnotify/fsnotify
-  version: ccc981bf80385c528a65fbfdd49bf2d8da22aa23
+  version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/go-ini/ini
   version: bda519ae5f4cbc60d391ff8610711627a08b86ae
 - name: github.com/go-kit/kit
@@ -92,7 +88,7 @@ imports:
   subpackages:
   - proto
 - name: github.com/goph/emperror
-  version: ae59d9fdc3f0c4814bc5fac2d4a68441dcff5a17
+  version: 60a8d9faa17b32c20283adbdf8a8fd5fd55d5249
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/mux
@@ -116,7 +112,7 @@ imports:
   subpackages:
   - simplelru
 - name: github.com/hashicorp/hcl
-  version: 65a6292f0157eff210d03ed1bf6c59b190b8b906
+  version: 23c074d0eceb2b8a5bfdbb271ab780cde70f05a8
   subpackages:
   - hcl/ast
   - hcl/parser
@@ -146,7 +142,7 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/magiconair/properties
-  version: c2353362d570a7bfa228149c62842019201cfb71
+  version: 49d762b9817ba1c2e9d0c69183c2b4a8b8f1d934
 - name: github.com/matttproud/golang_protobuf_extensions
   version: c12348ce28de40eed0136aa2b644d0ee0650e56c
   subpackages:
@@ -156,9 +152,9 @@ imports:
 - name: github.com/mitchellh/go-homedir
   version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
 - name: github.com/mitchellh/mapstructure
-  version: fa473d140ef3c6adf42d6b391fe76707f1f243c8
+  version: 06020f85339e21b2478f756a78e295255ffa4d6a
 - name: github.com/pelletier/go-toml
-  version: 78b76feda6f35b2c5c1d283513f6419e59086729
+  version: 4e9e0ee19b60b13eb79915933f44d8ed5f268bdd
 - name: github.com/pkg/errors
   version: 2233dee583dcf88f3c8b22cb7a33f05a499800d8
 - name: github.com/pmezard/go-difflib
@@ -202,13 +198,13 @@ imports:
 - name: github.com/spaolacci/murmur3
   version: 0d12bf811670bf6a1a63828dfbd003eded177fce
 - name: github.com/spf13/afero
-  version: d40851caa0d747393da1ffb28f7f9d8b4eeffebd
+  version: 5660eeed305fe5f69c8fc6cf899132a459a97064
   subpackages:
   - mem
 - name: github.com/spf13/cast
-  version: 8965335b8c7107321228e3e3702cab9832751bac
+  version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
 - name: github.com/spf13/jwalterweatherman
-  version: 4a4406e478ca629068e7768fc33f3f044173c0a6
+  version: 12bd96e66386c1960ab0f74ced1362f66f552f7b
 - name: github.com/spf13/pflag
   version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
 - name: github.com/spf13/viper
@@ -232,13 +228,18 @@ imports:
   - codec
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
+- name: github.com/xmidt-org/bascule
+  version: 53536f67c4352b77c772a0515f55813baf4da746
+  subpackages:
+  - basculehttp
+  - key
 - name: golang.org/x/crypto
-  version: e3636079e1a4c1f337f212cc5cd2aca108f6c900
+  version: bd6f299fb381e4c3393d1c4b1f0b94f5e77650c8
   subpackages:
   - ed25519
   - ed25519/internal/edwards25519
 - name: golang.org/x/net
-  version: f73e4c9ed3b7ebdd5f699a16a880c2b1994e50dd
+  version: c73622c77280266305273cb545f54516ced95b93
   subpackages:
   - bpf
   - context
@@ -247,16 +248,16 @@ imports:
   - ipv4
   - ipv6
 - name: golang.org/x/sys
-  version: 90868a75fefd03942536221d7c0e2f84ec62a668
+  version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
   - unix
 - name: golang.org/x/text
-  version: 905a57155faa8230500121607930ebb9dd8e139c
+  version: 7d4e23b25beca3bc3b804ab134f0b12b4ca909d1
   subpackages:
   - transform
   - unicode/norm
 - name: gopkg.in/natefinch/lumberjack.v2
   version: a96e63847dc3c67d17befa69c303767e2f84e54f
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: eb3733d160e74a9c7e442f435eb3bea458e1d19f
 testImports: []

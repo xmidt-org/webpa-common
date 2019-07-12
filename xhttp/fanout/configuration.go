@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Comcast/webpa-common/xhttp"
-	"github.com/Comcast/webpa-common/xhttp/xcontext"
-	"github.com/Comcast/webpa-common/xhttp/xtimeout"
+	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xhttp/xcontext"
+	"github.com/xmidt-org/webpa-common/xhttp/xtimeout"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/justinas/alice"
 )

@@ -3,7 +3,7 @@ package key
 import (
 	"fmt"
 
-	"github.com/Comcast/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/resource"
 )
 
 // Resolver loads and parses keys associated with key identifiers.
