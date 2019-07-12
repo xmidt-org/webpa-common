@@ -1,7 +1,7 @@
 # webpa-common
 
-[![Build Status](https://travis-ci.org/Comcast/webpa-common.svg?branch=master)](https://travis-ci.org/Comcast/webpa-common) 
-[![codecov.io](http://codecov.io/github/Comcast/webpa-common/coverage.svg?branch=master)](http://codecov.io/github/Comcast/webpa-common?branch=master)
+[![Build Status](https://travis-ci.org/xmidt-org/webpa-common.svg?branch=master)](https://travis-ci.org/xmidt-org/webpa-common) 
+[![codecov.io](http://codecov.io/github/xmidt-org/webpa-common/coverage.svg?branch=master)](http://codecov.io/github/xmidt-org/webpa-common?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/webpa-common)](https://goreportcard.com/report/github.com/xmidt-org/webpa-common)
 
 ## Environment Setup Instructions
