@@ -67,3 +67,8 @@ import:
   version: v1.0.12
 - package: github.com/xmidt-org/bascule
   version: v0.3.0
+- package: golang.org/x/crypto
+  version: e3636079e1a4c1f337f212cc5cd2aca108f6c900
+  subpackages:
+  - ed25519
+  - ed25519/internal/edwards25519

@@ -1,5 +1,5 @@
-hash: 24fe1d48bb1612a57f04ab9aecaa5428d1c77cdea4735f119c1b19eb84472032
-updated: 2019-07-12T14:55:35.023708-07:00
+hash: e572eaea1f4d4611e47bb51430a552dce7f74236df06805e925e02e22f8797d1
+updated: 2019-07-15T09:10:19.243273-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -234,7 +234,7 @@ imports:
   - basculehttp
   - key
 - name: golang.org/x/crypto
-  version: bd6f299fb381e4c3393d1c4b1f0b94f5e77650c8
+  version: e3636079e1a4c1f337f212cc5cd2aca108f6c900
   subpackages:
   - ed25519
   - ed25519/internal/edwards25519
