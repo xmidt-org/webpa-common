@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/go-kit/kit/log/level"
 )
 
 // Lever is an http.Handler which controls the state of a gate.

@@ -6,10 +6,10 @@ import (
 	"net"
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/metrics/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func testNewDefault(t *testing.T) {
@@ -118,7 +118,7 @@ func testNewTLSCustom(t *testing.T) {
 		Address:        ":8080",
 		MaxConnections: 10,
 		Config: &tls.Config{
-			InsecureSkipVerify:true,
+			InsecureSkipVerify: true,
 		},
 	})
 

@@ -88,10 +88,10 @@ func SetUpTestNotifier() (Notifier, *MockSVC, *MockValidator, *mux.Router) {
 	mv := &MockValidator{}
 
 	ss := &SNSServer{
-		Config:       *awsCfg,
-		SVC:          m,
-		SNSValidator: mv,
-		channelSize: 50,
+		Config:               *awsCfg,
+		SVC:                  m,
+		SNSValidator:         mv,
+		channelSize:          50,
 		channelClientTimeout: 30 * time.Second,
 	}
 

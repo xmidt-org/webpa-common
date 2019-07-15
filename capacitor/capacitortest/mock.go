@@ -1,8 +1,8 @@
 package capacitortest
 
 import (
-	"github.com/xmidt-org/webpa-common/capacitor"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/capacitor"
 )
 
 type Mock struct {

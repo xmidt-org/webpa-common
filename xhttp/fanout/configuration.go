@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
+	gokithttp "github.com/go-kit/kit/transport/http"
+	"github.com/justinas/alice"
 	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/xmidt-org/webpa-common/xhttp/xcontext"
 	"github.com/xmidt-org/webpa-common/xhttp/xtimeout"
-	gokithttp "github.com/go-kit/kit/transport/http"
-	"github.com/justinas/alice"
 )
 
 const (

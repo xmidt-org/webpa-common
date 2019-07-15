@@ -1,8 +1,8 @@
 package aws
 
 import (
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (
@@ -84,7 +84,6 @@ func ApplyMetricsData(registry xmetrics.Registry) (m AWSMetrics) {
 			m.SNSSubscribed.Add(0.0)
 		}
 	}
-	
+
 	return
 }
-

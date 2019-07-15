@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/metrics/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func testShouldRetry(t *testing.T, shouldRetry ShouldRetryFunc, candidate error, expected bool) {

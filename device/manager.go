@@ -12,12 +12,12 @@ import (
 	"github.com/xmidt-org/webpa-common/secure"
 	"github.com/xmidt-org/webpa-common/secure/handler"
 
-	"github.com/xmidt-org/webpa-common/convey/conveyhttp"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/wrp"
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
+	"github.com/xmidt-org/webpa-common/convey/conveyhttp"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/wrp-go/wrp"
 )
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"

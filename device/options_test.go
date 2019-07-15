@@ -4,10 +4,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func TestOptionsDefault(t *testing.T) {

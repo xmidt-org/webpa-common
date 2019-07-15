@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/provider"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 // Provider is a testing implementation of go-kit's provider.Provider.  Additionally, it provides

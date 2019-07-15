@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/xmidt-org/webpa-common/device"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/device"
 )
 
 type mockDrainer struct {

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 // setupHealth supplies a Health object with useful test configuration

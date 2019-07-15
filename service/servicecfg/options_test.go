@@ -3,8 +3,8 @@ package servicecfg
 import (
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/service"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 func testOptionsDefault(t *testing.T, o *Options) {

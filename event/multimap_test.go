@@ -194,7 +194,7 @@ func testNestedToMultiMapViper(s string, t *testing.T) {
 
 	assert.Equal(
 		MultiMap{
-			"foo": []string{"http://localhost/foo/bar"},
+			"foo":                                []string{"http://localhost/foo/bar"},
 			"xfi" + s + "event" + s + "type":     []string{"https://somewhere.comcast.net/bleh"},
 			"another" + s + "event" + s + "type": []string{"http://1.1.1.1", "https://someplace.google.com"},
 		},

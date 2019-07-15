@@ -1,27 +1,28 @@
 {
-	"primary": {
-		"address": "localhost:10010",
-		"certificateFile": "file.cert",
-		"keyFile": "file.key",
-		"clientCACertFile": "cacert.pem",
-		"logConnectionState": true,
-        "minVersion": "0x0301",
-        "maxVersion": "0x0304"
-	},
-
-	"alternate": {
-		"address": ":10011"
-	},
-
-	"health": {
-		"address": ":9001",
-		"logInterval": "45s",
-		"options": ["TotalRequests", "TotalResponses", "SomeOtherStat"]
-	},
-
-	"log": {
-		"file": "test.log",
-		"level": "INFO"
-	}
+  "primary": {
+    "address": "localhost:10010",
+    "certificateFile": "file.cert",
+    "keyFile": "file.key",
+    "clientCACertFile": "cacert.pem",
+    "logConnectionState": true,
+    "minVersion": "0x0301",
+    "maxVersion": "0x0304"
+  },
+  "alternate": {
+    "address": ":10011"
+  },
+  "health": {
+    "address": ":9001",
+    "logInterval": "45s",
+    "options": [
+      "TotalRequests",
+      "TotalResponses",
+      "SomeOtherStat"
+    ]
+  },
+  "log": {
+    "file": "test.log",
+    "level": "INFO"
+  }
 }
 

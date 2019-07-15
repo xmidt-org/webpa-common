@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func TestNewOptions(t *testing.T) {

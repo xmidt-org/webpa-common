@@ -5,8 +5,8 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 // NewErrorLog creates a new logging.Logger appropriate for http.Server.ErrorLog

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 // StatsListener receives Stats on regular intervals.

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/secure"
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/secure"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 const (

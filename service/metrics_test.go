@@ -3,9 +3,9 @@ package service
 import (
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 func TestMetrics(t *testing.T) {

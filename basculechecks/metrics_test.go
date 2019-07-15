@@ -3,8 +3,8 @@ package basculechecks
 import (
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 func newTestJWTValidationMeasure() *JWTValidationMeasures {

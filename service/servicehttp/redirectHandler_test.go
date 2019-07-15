@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/service"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 func testRedirectHandlerKeyFuncError(t *testing.T) {

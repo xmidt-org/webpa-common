@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/xmidt-org/webpa-common/wrp"
 	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/wrp-go/wrp"
 )
 
 // Request represents a single device Request, carrying routing information and message contents.

@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/rubyist/circuitbreaker"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func breakerEventString(e circuit.BreakerEvent) string {
