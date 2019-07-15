@@ -5,7 +5,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 )
 

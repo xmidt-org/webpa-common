@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/convey"
 )
 
 // DefaultHeaderName is the HTTP header assumed to contain Convey data when no header is supplied

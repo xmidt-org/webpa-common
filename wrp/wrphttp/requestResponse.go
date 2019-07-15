@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/wrp"
 )
 
 // DetermineFormat examines zero or more headers to determine which WRP format is to be used, either

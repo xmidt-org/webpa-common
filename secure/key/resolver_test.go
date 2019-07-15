@@ -3,7 +3,7 @@ package key
 import (
 	"errors"
 	"fmt"
-	"github.com/Comcast/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/resource"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"testing"

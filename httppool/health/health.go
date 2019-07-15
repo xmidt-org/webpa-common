@@ -1,8 +1,8 @@
 package health
 
 import (
-	"github.com/Comcast/webpa-common/health"
-	"github.com/Comcast/webpa-common/httppool"
+	"github.com/xmidt-org/webpa-common/health"
+	"github.com/xmidt-org/webpa-common/httppool"
 )
 
 const (

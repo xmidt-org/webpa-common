@@ -1,8 +1,8 @@
 package devicehealth
 
 import (
-	"github.com/Comcast/webpa-common/device"
-	"github.com/Comcast/webpa-common/health"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/health"
 )
 
 const (

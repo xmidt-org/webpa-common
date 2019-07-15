@@ -5,11 +5,11 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/Comcast/webpa-common/device"
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/service/monitor"
-	"github.com/Comcast/webpa-common/service/servicehttp"
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/service/monitor"
+	"github.com/xmidt-org/webpa-common/service/servicehttp"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 // ServiceEndpoints is an Endpoints implementation that is driven by service discovery.

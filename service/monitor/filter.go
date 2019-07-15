@@ -3,7 +3,7 @@ package monitor
 import (
 	"sort"
 
-	"github.com/Comcast/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 // Filter represents a preprocessing strategy for discovered service instances

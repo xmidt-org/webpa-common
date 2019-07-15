@@ -3,10 +3,10 @@ package xmetricstest
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/xmetrics"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 func testNewProviderDefault(t *testing.T) {

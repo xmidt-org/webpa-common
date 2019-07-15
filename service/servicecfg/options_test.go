@@ -3,7 +3,7 @@ package servicecfg
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/service"
 	"github.com/stretchr/testify/assert"
 )
 

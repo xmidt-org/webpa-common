@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/xhttp"
 	gokithttp "github.com/go-kit/kit/transport/http"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 // SetErrorEncoder is a ContextFunc strategy that injects a go-kit ErrorEncoder into the HTTP request context.

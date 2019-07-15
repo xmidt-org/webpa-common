@@ -1,7 +1,7 @@
 package capacitortest
 
 import (
-	"github.com/Comcast/webpa-common/capacitor"
+	"github.com/xmidt-org/webpa-common/capacitor"
 	"github.com/stretchr/testify/mock"
 )
 

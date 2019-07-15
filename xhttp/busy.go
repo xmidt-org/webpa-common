@@ -3,8 +3,8 @@ package xhttp
 import (
 	"net/http"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/semaphore"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/semaphore"
 	"github.com/go-kit/kit/log/level"
 )
 

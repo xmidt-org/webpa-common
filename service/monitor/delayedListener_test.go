@@ -3,7 +3,7 @@ package monitor
 import (
 	"testing"
 
-	"github.com/Comcast/webpa-common/capacitor/capacitortest"
+	"github.com/xmidt-org/webpa-common/capacitor/capacitortest"
 	"github.com/stretchr/testify/mock"
 )
 

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Comcast/webpa-common/tracing"
+	"github.com/xmidt-org/webpa-common/tracing"
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 

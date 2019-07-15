@@ -3,7 +3,7 @@ package clocktest
 import (
 	"time"
 
-	"github.com/Comcast/webpa-common/clock"
+	"github.com/xmidt-org/webpa-common/clock"
 	"github.com/stretchr/testify/mock"
 )
 

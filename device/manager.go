@@ -7,15 +7,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Comcast/webpa-common/convey"
-	"github.com/Comcast/webpa-common/convey/conveymetric"
-	"github.com/Comcast/webpa-common/secure"
-	"github.com/Comcast/webpa-common/secure/handler"
+	"github.com/xmidt-org/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/convey/conveymetric"
+	"github.com/xmidt-org/webpa-common/secure"
+	"github.com/xmidt-org/webpa-common/secure/handler"
 
-	"github.com/Comcast/webpa-common/convey/conveyhttp"
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/wrp"
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/convey/conveyhttp"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
 )

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"

@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/Comcast/webpa-common/device"
-	"github.com/Comcast/webpa-common/service"
-	"github.com/Comcast/webpa-common/service/monitor"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/service/monitor"
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

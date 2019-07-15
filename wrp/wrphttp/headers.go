@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/wrp"
 )
 
 const (

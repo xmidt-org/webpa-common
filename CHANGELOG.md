@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.2.0]
+- Added minVersion and maxVersion to `server` package.
+- Added cpuprofile and memprofile flags.
+- Updated import paths.
+
 
 ## [v1.1.0]
 - Added ability to check status code for retrying http request
@@ -22,7 +27,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/Comcast/webpa-common/compare/v1.1.0...HEAD
-[v1.1.0]: https://github.com/Comcast/webpa-common/compare/v1.0.1...v1.1.0
-[v1.0.1]: https://github.com/Comcast/webpa-common/compare/v1.0.0...v1.0.1
-[v1.0.0]: https://github.com/Comcast/webpa-common/compare/v0.9.0-alpha...v1.0.0
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.2.0...HEAD
+[v1.2.0]: https://github.com/xmidt-org/webpa-common/compare/v1.1.0...v1.2.0
+[v1.1.0]: https://github.com/xmidt-org/webpa-common/compare/v1.0.1...v1.1.0
+[v1.0.1]: https://github.com/xmidt-org/webpa-common/compare/v1.0.0...v1.0.1
+[v1.0.0]: https://github.com/xmidt-org/webpa-common/compare/v0.9.0-alpha...v1.0.0

@@ -132,7 +132,7 @@ func (msg *Message) SetIncludeSpans(value bool) *Message {
 
 // SimpleRequestResponse represents a WRP message of type SimpleRequestResponseMessageType.
 //
-// https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-request-response-definition
+// https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol#simple-request-response-definition
 type SimpleRequestResponse struct {
 	// Type is exposed principally for encoding.  This field *must* be set to SimpleRequestResponseMessageType,
 	// and is automatically set by the BeforeEncode method.
@@ -211,7 +211,7 @@ func (msg *SimpleRequestResponse) Response(newSource string, requestDeliveryResp
 // failure responses are not sent for messages of this type.  Response is merely supplied in order to satisfy
 // the Routable interface.
 //
-// https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#simple-event-definition
+// https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol#simple-event-definition
 type SimpleEvent struct {
 	// Type is exposed principally for encoding.  This field *must* be set to SimpleEventMessageType,
 	// and is automatically set by the BeforeEncode method.
@@ -263,7 +263,7 @@ func (msg *SimpleEvent) Response(newSource string, requestDeliveryResponse int64
 // CRUD represents a WRP message of one of the CRUD message types.  This type does not implement BeforeEncode,
 // and so does not automatically set the Type field.  Client code must set the Type code appropriately.
 //
-// https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#crud-message-definition
+// https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol#crud-message-definition
 type CRUD struct {
 	Type                    MessageType       `wrp:"msg_type"`
 	Source                  string            `wrp:"source"`
@@ -330,7 +330,7 @@ func (msg *CRUD) Response(newSource string, requestDeliveryResponse int64) Routa
 
 // ServiceRegistration represents a WRP message of type ServiceRegistrationMessageType.
 //
-// https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#on-device-service-registration-message-definition
+// https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol#on-device-service-registration-message-definition
 type ServiceRegistration struct {
 	// Type is exposed principally for encoding.  This field *must* be set to ServiceRegistrationMessageType,
 	// and is automatically set by the BeforeEncode method.
@@ -346,7 +346,7 @@ func (msg *ServiceRegistration) BeforeEncode() error {
 
 // ServiceAlive represents a WRP message of type ServiceAliveMessageType.
 //
-// https://github.com/Comcast/wrp-c/wiki/Web-Routing-Protocol#on-device-service-alive-message-definition
+// https://github.com/xmidt-org/wrp-c/wiki/Web-Routing-Protocol#on-device-service-alive-message-definition
 type ServiceAlive struct {
 	// Type is exposed principally for encoding.  This field *must* be set to ServiceAliveMessageType,
 	// and is automatically set by the BeforeEncode method.

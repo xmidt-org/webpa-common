@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/Comcast/webpa-common/tracing"
-	"github.com/Comcast/webpa-common/wrp"
+	"github.com/xmidt-org/webpa-common/tracing"
+	"github.com/xmidt-org/webpa-common/wrp"
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

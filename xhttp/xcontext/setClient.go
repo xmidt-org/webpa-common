@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	gokithttp "github.com/go-kit/kit/transport/http"
 )
 

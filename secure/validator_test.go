@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/xmidt-org/webpa-common/secure/key"
 	"github.com/SermoDigital/jose"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"

@@ -1,7 +1,7 @@
 package bookkeeping
 
 import (
-	"github.com/Comcast/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xhttp"
 	"io/ioutil"
 	"net/http"
 	"net/textproto"

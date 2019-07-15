@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Comcast/webpa-common/logging"
-	"github.com/Comcast/webpa-common/xhttp"
-	"github.com/Comcast/webpa-common/xhttp/converter"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xhttp/converter"
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/schema"
 )

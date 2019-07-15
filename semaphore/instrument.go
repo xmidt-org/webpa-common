@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Comcast/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics/discard"
 )
 

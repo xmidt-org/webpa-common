@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Comcast/comcast-bascule/bascule"
+	"github.com/xmidt-org/bascule"
 )
 
 var (

@@ -2,8 +2,8 @@ package secure
 
 import (
 	"fmt"
-	"github.com/Comcast/webpa-common/resource"
-	"github.com/Comcast/webpa-common/secure/key"
+	"github.com/xmidt-org/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/secure/key"
 	"github.com/SermoDigital/jose/crypto"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"

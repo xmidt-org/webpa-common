@@ -3,9 +3,9 @@ package basculechecks
 import (
 	"time"
 
-	"github.com/Comcast/comcast-bascule/bascule"
-	"github.com/Comcast/comcast-bascule/bascule/basculehttp"
 	"github.com/SermoDigital/jose/jwt"
+	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/bascule/basculehttp"
 )
 
 type MetricListener struct {

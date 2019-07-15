@@ -3,7 +3,7 @@ package device
 import (
 	"net/http"
 
-	"github.com/Comcast/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/stretchr/testify/mock"
 )
 
