@@ -70,6 +70,4 @@ import:
       - ed25519/internal/edwards25519
   - package: github.com/xmidt-org/wrp-go
     version: v1.1.0
-    subpackages:
-      - wrp
 
