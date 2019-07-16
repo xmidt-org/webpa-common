@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.3.0]
+- removed `wrp` package
+
 ## [v1.2.0]
 - Added minVersion and maxVersion to `server` package.
 - Added cpuprofile and memprofile flags.
