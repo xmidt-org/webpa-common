@@ -1,5 +1,5 @@
-hash: d0fa53f90fd44e38cbc12e157c933e82a69b3e36cb2c2eda39c173f0a5bc2cff
-updated: 2019-07-15T16:44:02.635742-07:00
+hash: cd69a1bc21512a2c7841593cedaf2a685613161a55250253776c2aa1e88d9a84
+updated: 2019-07-16T08:52:45.667887-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -234,7 +234,7 @@ imports:
   - basculehttp
   - key
 - name: github.com/xmidt-org/wrp-go
-  version: 22be67aba7103730d9638e9436ed00a8388fc0a0
+  version: b896a9791bb82ab206c3d941f06ff1881f80ca2e
   subpackages:
   - wrp
   - wrp/wrpmeta
