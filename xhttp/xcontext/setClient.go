@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/xmidt-org/webpa-common/xhttp"
 	gokithttp "github.com/go-kit/kit/transport/http"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 // SetClient is a ContextFunc strategy that injects a supplied HTTP client into the HTTP context.

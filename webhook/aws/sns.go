@@ -11,12 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/mux"
 	"github.com/miekg/dns"
 	"github.com/spf13/viper"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"

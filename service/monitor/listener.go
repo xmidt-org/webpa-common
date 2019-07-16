@@ -4,12 +4,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/go-kit/kit/sd"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 // Event carries the same information as go-kit's sd.Event, but with the extra Key that identifies

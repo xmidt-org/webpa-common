@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/secure/key"
 	"github.com/SermoDigital/jose"
 	"github.com/SermoDigital/jose/jws"
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/secure/key"
 )
 
 func ExampleSimpleJWSValidator(t *testing.T) {

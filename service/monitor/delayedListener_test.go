@@ -3,8 +3,8 @@ package monitor
 import (
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/capacitor/capacitortest"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/capacitor/capacitortest"
 )
 
 func TestDelayedListener(t *testing.T) {

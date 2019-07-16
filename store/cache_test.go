@@ -2,8 +2,8 @@ package store
 
 import (
 	"errors"
-	"github.com/xmidt-org/webpa-common/concurrent"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/concurrent"
 	"sync"
 	"sync/atomic"
 	"testing"

@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (

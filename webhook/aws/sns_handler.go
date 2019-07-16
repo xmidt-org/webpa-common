@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/gorilla/mux"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 const (

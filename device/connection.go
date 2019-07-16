@@ -4,8 +4,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/gorilla/websocket"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 // Reader represents the read behavior of a device connection

@@ -1,8 +1,8 @@
 package devicehealth
 
 import (
-	"github.com/xmidt-org/webpa-common/health"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/health"
 )
 
 type mockDispatcher struct {

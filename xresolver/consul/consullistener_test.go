@@ -2,9 +2,9 @@ package consul
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/webpa-common/service/monitor"
 	"github.com/xmidt-org/webpa-common/xresolver"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net"
 	"net/http"

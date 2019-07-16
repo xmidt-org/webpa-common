@@ -55,7 +55,7 @@ func testSNSMessage(scURL string) (*SNSMessage, *SNSMessage) {
 
 func testCreateCerficate() (privkey *rsa.PrivateKey, pemkey []byte, err error) {
 	template := &x509.Certificate{
-		IsCA: true,
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 		SubjectKeyId:          []byte{11, 22, 33},
 		SerialNumber:          big.NewInt(1111),

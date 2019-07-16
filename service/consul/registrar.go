@@ -5,12 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/hashicorp/consul/api"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 // passFormat returns a closure that produces the output for a passing TTL, given the current system time

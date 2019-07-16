@@ -7,8 +7,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func testLeverServeHTTPBadForm(t *testing.T) {

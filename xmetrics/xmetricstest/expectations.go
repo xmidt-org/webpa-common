@@ -1,8 +1,8 @@
 package xmetricstest
 
 import (
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/metrics"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 // testingT is the expected behavior for a testing object.  *testing.T implements this interface.

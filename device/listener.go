@@ -1,7 +1,7 @@
 package device
 
 import (
-	"github.com/xmidt-org/webpa-common/wrp"
+	"github.com/xmidt-org/wrp-go/wrp"
 )
 
 // EventType is the type of device-related event

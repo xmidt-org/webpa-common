@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 func testSetClientDefault(t *testing.T) {

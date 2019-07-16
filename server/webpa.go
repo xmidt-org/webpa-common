@@ -13,18 +13,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/concurrent"
-	"github.com/xmidt-org/webpa-common/health"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/webpa-common/xlistener"
-	"github.com/xmidt-org/webpa-common/xmetrics"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/xmidt-org/webpa-common/concurrent"
+	"github.com/xmidt-org/webpa-common/health"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/xlistener"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (
@@ -124,7 +124,7 @@ type Basic struct {
 	MinVersion         uint16
 	MaxVersion         uint16
 
-	PeerVerifyFunc     PeerVerifyCallback // Callback func to add peer client cert CN, SAN validation
+	PeerVerifyFunc PeerVerifyCallback // Callback func to add peer client cert CN, SAN validation
 
 	MaxConnections    int
 	DisableKeepAlives bool
@@ -152,7 +152,7 @@ func (b *Basic) maxVersion() uint16 {
 	// accept all versions
 	return 0
 }
-  
+
 type PeerVerifyCallback func([][]byte, [][]*x509.Certificate) error
 
 func DefaultPeerVerifyCallback(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {

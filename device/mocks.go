@@ -3,8 +3,8 @@ package device
 import (
 	"net/http"
 
-	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/convey"
 )
 
 type MockConnector struct {

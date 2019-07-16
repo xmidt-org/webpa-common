@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/xmidt-org/webpa-common/wrp/wrpmeta"
 	"github.com/ugorji/go/codec"
+	"github.com/xmidt-org/wrp-go/wrp/wrpmeta"
 )
 
 var (

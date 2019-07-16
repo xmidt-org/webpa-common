@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func TestDefaultTickerFactory(t *testing.T) {

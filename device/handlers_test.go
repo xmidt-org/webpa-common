@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/wrp"
 	"github.com/gorilla/mux"
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/wrp-go/wrp"
 )
 
 func testTimeout(o *Options, t *testing.T) {

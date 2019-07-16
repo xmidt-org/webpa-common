@@ -3,10 +3,10 @@ package devicehealth
 import (
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/device"
-	"github.com/xmidt-org/webpa-common/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/health"
 )
 
 func testListenerOnDeviceEventConnect(t *testing.T) {

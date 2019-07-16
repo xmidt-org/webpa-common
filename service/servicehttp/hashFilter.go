@@ -3,11 +3,11 @@ package servicehttp
 import (
 	"net/http"
 
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/service"
 	"github.com/xmidt-org/webpa-common/xhttp/xfilter"
-	"github.com/go-kit/kit/log/level"
 )
 
 // NewHashFilter constructs an xfilter that enforces device hashing to an instance that represents this server process.

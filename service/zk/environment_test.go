@@ -4,14 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/service"
 	"github.com/go-kit/kit/log"
 	gokitzk "github.com/go-kit/kit/sd/zk"
 	"github.com/samuel/go-zookeeper/zk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/service"
 )
 
 func testNewEnvironmentEmpty(t *testing.T) {

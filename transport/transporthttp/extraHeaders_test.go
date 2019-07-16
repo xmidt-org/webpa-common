@@ -42,7 +42,7 @@ func TestExtraHeaders(t *testing.T) {
 			request = httptest.NewRequest("GET", "/", nil)
 		)
 
-		for name,_ := range record.expected {
+		for name, _ := range record.expected {
 			request.Header[name] = []string{"SHOULD BE OVERWRITTEN"}
 		}
 

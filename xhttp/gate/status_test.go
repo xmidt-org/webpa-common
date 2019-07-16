@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 func testStatusServeHTTP(t *testing.T, state bool) {
