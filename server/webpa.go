@@ -281,8 +281,12 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
 					logging.ErrorKey(), err)
 			} else {
-				tlsConfig = &tls.Config{}
-				tlsConfig.Certificates = certs
+				tlsConfig = &tls.Config{
+					MaxVersion:   b.maxVersion(),
+					MinVersion:   b.minVersion(),
+					Certificates: certs,
+				}
+
 				tlsConfig.BuildNameToCertificate()
 			}
 		} else {
