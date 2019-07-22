@@ -123,16 +123,14 @@ type Basic struct {
 	LogConnectionState bool
 	MinVersion         uint16
 	MaxVersion         uint16
-
-	PeerVerifyFunc PeerVerifyCallback // Callback func to add peer client cert CN, SAN validation
-
-	MaxConnections    int
-	DisableKeepAlives bool
-	MaxHeaderBytes    int
-	IdleTimeout       time.Duration
-	ReadHeaderTimeout time.Duration
-	ReadTimeout       time.Duration
-	WriteTimeout      time.Duration
+	PeerVerifyFunc     func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error
+	MaxConnections     int
+	DisableKeepAlives  bool
+	MaxHeaderBytes     int
+	IdleTimeout        time.Duration
+	ReadHeaderTimeout  time.Duration
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
 }
 
 func (b *Basic) minVersion() uint16 {
@@ -324,6 +322,10 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 
 	if b.DisableKeepAlives {
 		server.SetKeepAlivesEnabled(false)
+	}
+
+	if b.PeerVerifyFunc != nil {
+		server.TLSConfig.VerifyPeerCertificate = b.PeerVerifyFunc
 	}
 
 	return server
