@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.3.1]
+- Downgraded bascule version
+
 ## [v1.3.0]
 - removed `wrp` package
 
@@ -30,7 +33,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.3.1...HEAD
+[v1.3.1]: https://github.com/xmidt-org/webpa-common/compare/v1.3.0...v1.3.1
+[v1.3.0]: https://github.com/xmidt-org/webpa-common/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/xmidt-org/webpa-common/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/xmidt-org/webpa-common/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/xmidt-org/webpa-common/compare/v1.0.0...v1.0.1
