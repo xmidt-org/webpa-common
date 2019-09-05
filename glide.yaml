@@ -62,7 +62,7 @@ import:
   - package: github.com/miekg/dns
     version: v1.0.12
   - package: github.com/xmidt-org/bascule/bascule
-    version: v0.2.6
+    version: v0.2.7
   - package: golang.org/x/crypto
     version: e3636079e1a4c1f337f212cc5cd2aca108f6c900
     subpackages:

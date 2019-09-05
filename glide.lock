@@ -1,5 +1,5 @@
-hash: e553e13bdd2f25b1fd5a9418db7308b70d6f235e2b67fae9f44b41299a5fc614
-updated: 2019-09-04T15:52:21.999274-07:00
+hash: 690c73d3cea67cfe9118c49330af2309793e953c09306035531783a4348f7420
+updated: 2019-09-05T14:05:25.401321-07:00
 imports:
 - name: github.com/armon/go-metrics
   version: f0300d1749da6fa982027e449ec0c7a145510c3c
@@ -43,11 +43,6 @@ imports:
   - linux
 - name: github.com/cenk/backoff
   version: 2ea60e5f094469f9e65adb9cd103795b73ae743e
-- name: github.com/Comcast/webpa-common
-  version: 723a128f40c78e45ca079dd113ebb2cf798b7aef
-  subpackages:
-  - resource
-  - types
 - name: github.com/davecgh/go-spew
   version: ecdeabc65495df2dec95d7c4a4c3e021903035e5
   subpackages:
@@ -226,13 +221,13 @@ imports:
   subpackages:
   - msgp
 - name: github.com/ugorji/go
-  version: e5e69e061d4f7ee3a69b793cf9c1b41afe21918e
+  version: 2adff0894ba3bc2eeb9f9aea45fefd49802e1a13
   subpackages:
   - codec
 - name: github.com/VividCortex/gohistogram
   version: 51564d9861991fb0ad0f531c99ef602d0f9866e6
 - name: github.com/xmidt-org/bascule
-  version: 2c76431149fa639d90079096cd56132d5673090d
+  version: 7a16c115a8736fad63850aa53c6f6cfb1b90700a
   subpackages:
   - bascule
   - bascule/basculehttp
