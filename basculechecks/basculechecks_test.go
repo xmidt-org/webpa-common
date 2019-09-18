@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/bascule/bascule"
+	"github.com/xmidt-org/bascule"
 )
 
 func TestValidCapabilityCheck(t *testing.T) {

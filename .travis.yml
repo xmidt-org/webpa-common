@@ -1,16 +1,15 @@
 language: go
 go:
-  - 1.11.3
+  - 1.13.x
+  - tip
 
-before_install:
-  - sudo pip install --user codecov
-  - mkdir -p $GOPATH/bin
-  - curl https://glide.sh/get | sh
-  - curl -s https://codecov.io/bash > codecov.sh
-  - chmod 755 ./codecov.sh
+matrix:
+  allow_failures:
+    - go: tip
+  fast_finish: true
 
 install:
-  - glide install --strip-vendor
+  - GO111MODULE=on go mod vendor
 
 script:
   - $TRAVIS_BUILD_DIR/test.sh ./codecov.sh

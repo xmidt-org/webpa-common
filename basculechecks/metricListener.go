@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/SermoDigital/jose/jwt"
-	"github.com/xmidt-org/bascule/bascule"
-	"github.com/xmidt-org/bascule/bascule/basculehttp"
+	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/bascule/basculehttp"
 )
 
 type MetricListener struct {

@@ -40,7 +40,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tinylib/msgp v0.0.0-20161221055906-38a6f61a768d // indirect
 	github.com/ugorji/go/codec v1.1.7
-	github.com/xmidt-org/bascule v0.2.7
+	github.com/xmidt-org/bascule v0.5.0
 	github.com/xmidt-org/wrp-go v1.3.3-0.20190918210219-b97e12828400
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0-20170531160350-a96e63847dc3
 )
