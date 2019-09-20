@@ -3,16 +3,17 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/sns"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/sns"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestSNSReadyAndPublishSuccess(t *testing.T) {
@@ -151,12 +152,12 @@ func TestSNSReadyUnsubscribeOldSubscriptions(t *testing.T) {
 
 	// mocking SNS ListSubscriptionsByTopic response to list
 	sub1 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1503357402"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns/1503357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test1"),
 	}
 	sub2 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test2"),
 	}

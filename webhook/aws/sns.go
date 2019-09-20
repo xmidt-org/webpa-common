@@ -154,7 +154,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider s
 		// Test selfurl http://host:port/path
 		ss.SelfUrl = &url.URL{
 			Scheme: "http",
-			Host:   "host:port",
+			Host:   "host:10000",
 			Path:   urlPath,
 		}
 	}
