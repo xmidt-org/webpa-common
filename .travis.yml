@@ -17,4 +17,4 @@ install:
   - GO111MODULE=on go mod vendor
 
 script:
-  - $TRAVIS_BUILD_DIR/test.sh ./codecov.sh
+  - go test ./... -race -cover
