@@ -2,6 +2,7 @@ package logging
 
 import (
 	"io"
+	"sync"
 
 	"github.com/go-kit/kit/log"
 )
@@ -13,10 +14,13 @@ type testSink interface {
 
 // testWriter implements io.Writer and delegates to a testSink
 type testWriter struct {
+	mux sync.Mutex
 	testSink
 }
 
-func (t testWriter) Write(data []byte) (int, error) {
+func (t *testWriter) Write(data []byte) (int, error) {
+	t.mux.Lock()
+	defer t.mux.Unlock()
 	t.testSink.Log(string(data))
 	return len(data), nil
 }
@@ -24,7 +28,7 @@ func (t testWriter) Write(data []byte) (int, error) {
 // NewTestWriter returns an io.Writer which delegates to a testing log.
 // The returned io.Writer does not need to be synchronized.
 func NewTestWriter(t testSink) io.Writer {
-	return testWriter{t}
+	return &testWriter{testSink: t}
 }
 
 // NewTestLogger produces a go-kit Logger which delegates to the supplied testing log.
