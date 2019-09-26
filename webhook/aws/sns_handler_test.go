@@ -404,27 +404,27 @@ func TestListSubscriptionsByMatchingEndpointSuccess(t *testing.T) {
 	ss, m, _, _ := SetUpTestSNSServer(t)
 
 	sub1 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1503357402"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns/1503357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test1"),
 	}
 	sub2 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1444357402"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns/1444357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test2"),
 	}
 	sub3 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1412357402"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns/1412357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test3"),
 	}
 	sub4 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns/1563357402"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns/1563357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test4"),
 	}
 	sub5 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/api/v2/aws/sns"),
+		Endpoint:        aws.String("http://host:10000/api/v2/aws/sns"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test5"),
 	}
@@ -469,27 +469,27 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 	ss.Initialize(nil, nil, "", nil, logger, registry, testNow)
 
 	sub1 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/sns/1503357402"),
+		Endpoint:        aws.String("http://host:10000/sns/1503357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test1"),
 	}
 	sub2 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/sns/1444357402"),
+		Endpoint:        aws.String("http://host:10000/sns/1444357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test2"),
 	}
 	sub3 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/sns/1412357402"),
+		Endpoint:        aws.String("http://host:10000/sns/1412357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test3"),
 	}
 	sub4 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/sns/1563357402"),
+		Endpoint:        aws.String("http://host:10000/sns/1563357402"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test4"),
 	}
 	sub5 := &sns.Subscription{
-		Endpoint:        aws.String("http://host:port/sns/"),
+		Endpoint:        aws.String("http://host:10000/sns/"),
 		TopicArn:        aws.String("arn:aws:sns:us-east-1:1234:test-topic"),
 		SubscriptionArn: aws.String("test5"),
 	}

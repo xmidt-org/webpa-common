@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-kit/kit/log"
+
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 
@@ -79,7 +81,7 @@ func closeTestDevices(assert *assert.Assertions, devices map[ID]Connection) {
 func testManagerConnectMissingDeviceContext(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
+		Logger: log.NewNopLogger(),
 	}
 
 	manager := NewManager(options)
@@ -96,7 +98,7 @@ func testManagerConnectUpgradeError(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		options = &Options{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: log.NewNopLogger(),
 			Listeners: []Listener{
 				func(e *Event) {
 					assert.Fail("The listener should not have been called")
@@ -122,7 +124,7 @@ func testManagerConnectVisit(t *testing.T) {
 		connections = make(chan Interface, len(testDeviceIDs))
 
 		options = &Options{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: log.NewNopLogger(),
 			Listeners: []Listener{
 				func(event *Event) {
 					if event.Type == Connect {
@@ -301,7 +303,7 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 		contents    = make(chan []byte, 1)
 
 		options = &Options{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: log.NewNopLogger(),
 			Listeners: []Listener{
 				func(event *Event) {
 					if event.Type == Connect {
