@@ -13,8 +13,13 @@ branches:
   only:
     - master
 
+before_install:
+  - curl -s https://codecov.io/bash > codecov.sh	
+  - chmod 755 ./codecov.sh
+
 install:
   - GO111MODULE=on go mod vendor
 
 script:
-  - go test ./... -race -cover
+  - go test ./... -race -coverprofile=coverage.txt 
+  - ./codecov.sh
