@@ -2,10 +2,10 @@ package key
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/xmidt-org/webpa-common/concurrent"
 	"github.com/xmidt-org/webpa-common/resource"
-	"github.com/xmidt-org/webpa-common/types"
-	"time"
 )
 
 const (
@@ -39,7 +39,7 @@ type ResolverFactory struct {
 
 	// UpdateInterval specifies how often keys should be refreshed.
 	// If negative or zero, keys are never refreshed and are cached forever.
-	UpdateInterval types.Duration `json:"updateInterval"`
+	UpdateInterval time.Duration `json:"updateInterval"`
 
 	// Parser is a custom key parser.  If omitted, DefaultParser is used.
 	Parser Parser `json:"-"`
