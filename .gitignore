@@ -5,3 +5,4 @@ vendor
 pkg
 src
 coverage*
+.idea
