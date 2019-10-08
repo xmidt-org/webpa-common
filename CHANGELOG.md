@@ -6,10 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [v1.3.3]
+## [v1.4.0]
 - Moved from glide to go modules
 - Updated bascule version to v0.5.0
 - Updated wrp-go to v1.3.3
+- Updated README to match go modules
+- No longer accept retries in webhook.W
 
 ## [v1.3.2]
 - Bump Bascule to v0.2.7
@@ -41,8 +43,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.3.3...HEAD
-[v1.3.3]: https://github.com/xmidt-org/webpa-common/compare/v1.3.2...v1.3.3
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.4.0...HEAD
+[v1.4.0]: https://github.com/xmidt-org/webpa-common/compare/v1.3.2...v1.4.0
 [v1.3.2]: https://github.com/xmidt-org/webpa-common/compare/v1.3.1...v1.3.2
 [v1.3.1]: https://github.com/xmidt-org/webpa-common/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/xmidt-org/webpa-common/compare/v1.2.0...v1.3.0
