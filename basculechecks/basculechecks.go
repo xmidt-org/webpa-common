@@ -3,7 +3,6 @@ package basculechecks
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -18,14 +17,8 @@ var (
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
 )
 
-type CapabilityConfig struct {
-	FirstPiece      string
-	SecondPiece     string
-	ThirdPiece      string
-	AcceptAllMethod string
-}
-
-func CreateValidCapabilityCheck(config CapabilityConfig) func(context.Context, []interface{}) error {
+func CreateValidCapabilityCheck(prefix string, acceptAllMethod string) func(context.Context, []interface{}) error {
+	matchPrefix := regexp.MustCompile("^" + prefix + "(.+):(.+?)$")
 	return func(ctx context.Context, vals []interface{}) error {
 		if len(vals) == 0 {
 			return ErrNoVals
@@ -42,25 +35,22 @@ func CreateValidCapabilityCheck(config CapabilityConfig) func(context.Context, [
 			if !ok {
 				return ErrNonstringVal
 			}
-			if len(str) == 0 {
-				return ErrEmptyString
-			}
-			pieces := strings.Split(str, ":")
-			if len(pieces) != 5 {
-				return fmt.Errorf("malformed string: [%v]", str)
-			}
-			method := pieces[4]
-			if method != config.AcceptAllMethod && method != strings.ToLower(reqVal.Method) {
+			matches := matchPrefix.FindStringSubmatch(str)
+			if matches == nil || len(matches) < 3 {
 				continue
 			}
-			if pieces[0] != config.FirstPiece || pieces[1] != config.SecondPiece || pieces[2] != config.ThirdPiece {
+
+			method := matches[2]
+			if method != acceptAllMethod && method != strings.ToLower(reqVal.Method) {
 				continue
 			}
-			matched, err := regexp.MatchString(pieces[3], reqVal.URL)
-			if err != nil {
+
+			re := regexp.MustCompile(matches[1])
+			matchIdxs := re.FindStringIndex(reqVal.URL)
+			if matchIdxs == nil {
 				continue
 			}
-			if matched {
+			if matchIdxs[0] == 0 {
 				return nil
 			}
 		}
