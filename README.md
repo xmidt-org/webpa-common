@@ -11,7 +11,8 @@
 ## Table of Contents
 
 - [Code of Conduct](#code-of-conduct)
-- [Environment Setup Instructions](#environment-setup-instructions)
+- [Environment Requirements](#environment-requirements)
+- [Testing The Library](#testing-the-library)
 - [Contributing](#contributing)
 
 ## Code of Conduct
@@ -19,36 +20,15 @@
 This project and everyone participating in it are governed by the [XMiDT Code Of Conduct](https://xmidt.io/code_of_conduct/). 
 By participating, you agree to this Code.
 
-## Environment Setup Instructions
+## Environment Requirements
 
-**Assumptions:**
-  - Go with version >= 1.10 https://golang.org/dl/
-  - Latest version of Glide https://github.com/Masterminds/glide
+  - Go with version >= 1.12 https://golang.org/dl/
 
+## Testing the Library
 
-**1)** Set up a new workspace (Optional, skip to step 2 if you want to edit webpa-common in your existing workspace)
-```
-newWorkSpace=~/xmidt   #this can be any path you want
-export GOPATH=$newWorkSpace
-```
-**2)** Create necessary path
-```
-mkdir -p $GOPATH/github.com/xmidt-org
-```
-**3)** Clone repo
- ```
- cd $GOPATH/github.com/xmidt-org
- git clone git@github.com:Comcast/webpa-common.git
- ```
-**4)** Get Dependencies
- ```
- cd webpa-common
- glide install --strip-vendor
- ```
- 
-**5)** Try running the tests!
+To run the tests, `git clone` the repository, then from within the repo directory run:
   ```
-  ./test.sh
+  go test ./... -race -coverprofile=coverage.txt
   ```
 
 ## Contributing
