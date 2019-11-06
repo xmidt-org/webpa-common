@@ -8,10 +8,17 @@ import (
 	"github.com/xmidt-org/bascule"
 )
 
+func TestValidCapabilityCheckFail(t *testing.T) {
+	check, err := CreateValidCapabilityCheck(`\K`, "")
+	assert.NotNil(t, err)
+	assert.Nil(t, check)
+}
+
 func TestValidCapabilityCheck(t *testing.T) {
 	acceptAll := "all"
 	prefix := "a:b:c:"
-	check := CreateValidCapabilityCheck(prefix, acceptAll)
+	check, err := CreateValidCapabilityCheck(prefix, acceptAll)
+	assert.Nil(t, err)
 	goodAuth := bascule.Authentication{
 		Authorization: "jwt",
 		Token:         bascule.NewToken("Bearer", "jwt", bascule.Attributes{}),

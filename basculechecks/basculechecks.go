@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/goph/emperror"
 	"github.com/xmidt-org/bascule"
 )
 
@@ -16,8 +17,11 @@ var (
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
 )
 
-func CreateValidCapabilityCheck(prefix string, acceptAllMethod string) func(context.Context, []interface{}) error {
-	matchPrefix := regexp.MustCompile("^" + prefix + "(.+):(.+?)$")
+func CreateValidCapabilityCheck(prefix string, acceptAllMethod string) (func(context.Context, []interface{}) error, error) {
+	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
+	if err != nil {
+		return nil, emperror.WrapWith(err, "failed to compile prefix given", "prefix", prefix)
+	}
 	return func(ctx context.Context, vals []interface{}) error {
 		if len(vals) == 0 {
 			return ErrNoVals
@@ -54,5 +58,5 @@ func CreateValidCapabilityCheck(prefix string, acceptAllMethod string) func(cont
 			}
 		}
 		return ErrNoValidCapabilityFound
-	}
+	}, nil
 }
