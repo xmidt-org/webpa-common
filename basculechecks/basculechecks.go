@@ -13,7 +13,6 @@ var (
 	ErrNoVals                 = errors.New("expected at least one value")
 	ErrNoAuth                 = errors.New("couldn't get request info: authorization not found")
 	ErrNonstringVal           = errors.New("expected value to be a string")
-	ErrEmptyString            = errors.New("expected string to be nonempty")
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
 )
 
