@@ -15,7 +15,7 @@ require (
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
 	github.com/go-ini/ini v1.36.1-0.20180420150025-bda519ae5f4c // indirect
 	github.com/go-kit/kit v0.8.0
-	github.com/goph/emperror v0.17.3-0.20190703203600-60a8d9faa17b // indirect
+	github.com/goph/emperror v0.17.3-0.20190703203600-60a8d9faa17b
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.1
 	github.com/gorilla/schema v1.0.3-0.20180614150749-e0e4b92809ac

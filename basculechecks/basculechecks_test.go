@@ -2,26 +2,28 @@ package basculechecks
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/bascule"
 )
 
+func TestValidCapabilityCheckFail(t *testing.T) {
+	check, err := CreateValidCapabilityCheck(`\K`, "")
+	assert.NotNil(t, err)
+	assert.Nil(t, check)
+}
+
 func TestValidCapabilityCheck(t *testing.T) {
-	config := CapabilityConfig{
-		FirstPiece:      "a",
-		SecondPiece:     "b",
-		ThirdPiece:      "c",
-		AcceptAllMethod: "all",
-	}
-	check := CreateValidCapabilityCheck(config)
+	acceptAll := "all"
+	prefix := "a:b:c:"
+	check, err := CreateValidCapabilityCheck(prefix, acceptAll)
+	assert.Nil(t, err)
 	goodAuth := bascule.Authentication{
 		Authorization: "jwt",
 		Token:         bascule.NewToken("Bearer", "jwt", bascule.Attributes{}),
 		Request: bascule.Request{
-			URL:    "/something/test",
+			URL:    "/test",
 			Method: "GET",
 		},
 	}
@@ -29,7 +31,9 @@ func TestValidCapabilityCheck(t *testing.T) {
 	goodVals := []interface{}{
 		"d:e:f:/aaaa:post",
 		"a:b:d:/aaaa:all",
-		`a:b:c:test\b:get`,
+		`a:b:c:/test\b:post`,
+		`a:b:c:z:all`,
+		`a:b:c:/test\b:get`,
 	}
 	tests := []struct {
 		description string
@@ -57,18 +61,6 @@ func TestValidCapabilityCheck(t *testing.T) {
 			ctx:         goodContext,
 			vals:        []interface{}{3},
 			expectedErr: ErrNonstringVal,
-		},
-		{
-			description: "Empty String Error",
-			ctx:         goodContext,
-			vals:        []interface{}{""},
-			expectedErr: ErrEmptyString,
-		},
-		{
-			description: "Malformed String Error",
-			ctx:         goodContext,
-			vals:        []interface{}{"::"},
-			expectedErr: errors.New("malformed string"),
 		},
 		{
 			description: "No Valid Capability Error",
