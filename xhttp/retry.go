@@ -126,7 +126,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		for r := 0; r < o.Retries && ((err != nil && o.ShouldRetry(err)) || o.ShouldRetryStatus(statusCode)); r++ {
 			o.Counter.Add(1.0)
 			o.Sleep(o.Interval)
-			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), logging.ErrorKey(), err, "retry", r+1, "statusCode", statusCode)
+			o.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), logging.ErrorKey(), err, "retry", r+1, "statusCode", statusCode)
 
 			if err := Rewind(request); err != nil {
 				return nil, err
@@ -140,7 +140,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		}
 
 		if err != nil {
-			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), logging.ErrorKey(), err, "retries", o.Retries)
+			o.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), logging.ErrorKey(), err, "retries", o.Retries)
 		}
 
 		return response, err
