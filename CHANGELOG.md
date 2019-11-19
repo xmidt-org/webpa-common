@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.5.0]
+- reduced logging for xhttp retry #441
+- modified capabilities check to be more restrictive #440
+
 ## [v1.4.0]
 - Moved from glide to go modules
 - Updated bascule version to v0.5.0
@@ -43,7 +47,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.5.0...HEAD
+[v1.5.0]: https://github.com/xmidt-org/webpa-common/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/xmidt-org/webpa-common/compare/v1.3.2...v1.4.0
 [v1.3.2]: https://github.com/xmidt-org/webpa-common/compare/v1.3.1...v1.3.2
 [v1.3.1]: https://github.com/xmidt-org/webpa-common/compare/v1.3.0...v1.3.1
@@ -52,3 +57,4 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [v1.1.0]: https://github.com/xmidt-org/webpa-common/compare/v1.0.1...v1.1.0
 [v1.0.1]: https://github.com/xmidt-org/webpa-common/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/xmidt-org/webpa-common/compare/v0.9.0-alpha...v1.0.0
+
