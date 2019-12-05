@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.5.1]
+- Added automated releases using travis [#444](https://github.com/xmidt-org/webpa-common/pull/444)
+- Bumped bascule version to v0.7.0 and updated basculechecks to match [#444](https://github.com/xmidt-org/webpa-common/pull/444)
+
 ## [v1.5.0]
 - reduced logging for xhttp retry #441
 - modified capabilities check to be more restrictive #440
@@ -48,6 +52,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
    moving forward.
 
 [Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.5.0...HEAD
+[v1.5.1]: https://github.com/xmidt-org/webpa-common/compare/v1.5.0...v1.5.1
 [v1.5.0]: https://github.com/xmidt-org/webpa-common/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/xmidt-org/webpa-common/compare/v1.3.2...v1.4.0
 [v1.3.2]: https://github.com/xmidt-org/webpa-common/compare/v1.3.1...v1.3.2
