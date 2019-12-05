@@ -4,14 +4,13 @@ go:
   - 1.13.x
   - tip
 
-matrix:
-  allow_failures:
-    - go: tip
-  fast_finish: true
+os:
+  - linux
 
 branches:
   only:
     - master
+    - /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
 before_install:
   - curl -s https://codecov.io/bash > codecov.sh	
@@ -23,3 +22,30 @@ install:
 script:
   - go test ./... -race -coverprofile=coverage.txt 
   - ./codecov.sh
+
+jobs:
+  include:
+    - stage: tag
+      name: "Tag For Release"
+      if: branch = master && type = push
+      before_script:
+        - echo -e "machine github.com\n  login $GH_TOKEN" > ~/.netrc
+      script:
+        - export OLD_VERSION=$(git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
+        - git config --global user.name "kristinaspring"
+        - git config --global user.email "kmspring57@gmail.com"
+        - export TAG=$(cat CHANGELOG.md | perl -0777 -ne 'print "$1" if /.*## \[Unreleased\]\s+## \[(v\d+.\d+.\d+)\].*/s')
+        - export TODAY=`date +'%m/%d/%Y'`
+        - export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$ENV{TODAY}\n\n$1\n" if /.*## \[$ENV{TAG}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
+        - if [[ "$TAG" != "" && "$TAG" != "$OLD_VERSION" ]]; then git tag -a "$TAG" -m "$NOTES"; git push origin --tags; echo $?; fi
+    - stage: release
+      name: "Make a Release"
+      if: branch != master
+      script: skip
+      deploy:
+        on:
+          all_branches: true
+          tags: true
+        provider: releases
+        api_key: "$GH_TOKEN"
+        skip_cleanup: true

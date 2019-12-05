@@ -49,7 +49,7 @@ func CreateValidCapabilityCheck(prefix string, acceptAllMethod string) (func(con
 			}
 
 			re := regexp.MustCompile(matches[1])
-			matchIdxs := re.FindStringIndex(reqVal.URL)
+			matchIdxs := re.FindStringIndex(reqVal.URL.EscapedPath())
 			if matchIdxs == nil {
 				continue
 			}

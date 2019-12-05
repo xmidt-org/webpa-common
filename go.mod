@@ -45,7 +45,7 @@ require (
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.3.0
 	github.com/ugorji/go/codec v1.1.7
-	github.com/xmidt-org/bascule v0.5.0
+	github.com/xmidt-org/bascule v0.7.0
 	github.com/xmidt-org/wrp-go v1.3.3
 	gopkg.in/ini.v1 v1.46.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0-20170531160350-a96e63847dc3

@@ -2,6 +2,7 @@ package basculechecks
 
 import (
 	"context"
+	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,11 +20,13 @@ func TestValidCapabilityCheck(t *testing.T) {
 	prefix := "a:b:c:"
 	check, err := CreateValidCapabilityCheck(prefix, acceptAll)
 	assert.Nil(t, err)
+	u, err := url.Parse("/test")
+	assert.Nil(t, err)
 	goodAuth := bascule.Authentication{
 		Authorization: "jwt",
 		Token:         bascule.NewToken("Bearer", "jwt", bascule.Attributes{}),
 		Request: bascule.Request{
-			URL:    "/test",
+			URL:    u,
 			Method: "GET",
 		},
 	}
