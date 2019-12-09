@@ -32,8 +32,8 @@ jobs:
         - echo -e "machine github.com\n  login $GH_TOKEN" > ~/.netrc
       script:
         - export OLD_VERSION=$(git describe --tags `git rev-list --tags --max-count=1` | tail -1 | sed 's/v\(.*\)/\1/')
-        - git config --global user.name "kristinaspring"
-        - git config --global user.email "kmspring57@gmail.com"
+        - git config --global user.name "xmidt-bot"
+        - git config --global user.email "$BOT_EMAIL"
         - export TAG=$(cat CHANGELOG.md | perl -0777 -ne 'print "$1" if /.*## \[Unreleased\]\s+## \[(v\d+.\d+.\d+)\].*/s')
         - export TODAY=`date +'%m/%d/%Y'`
         - export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$ENV{TODAY}\n\n$1\n" if /.*## \[$ENV{TAG}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
