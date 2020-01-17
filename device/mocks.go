@@ -99,20 +99,10 @@ func (m *MockDevice) ConveyCompliance() convey.Compliance {
 	return first
 }
 
-func (m *MockDevice) PartnerIDs() []string {
+func (m *MockDevice) Metadata() Metadata {
 	arguments := m.Called()
-	first, _ := arguments.Get(0).([]string)
+	first, _ := arguments.Get(0).(Metadata)
 	return first
-}
-
-func (m *MockDevice) SatClientID() string {
-	arguments := m.Called()
-	first, _ := arguments.Get(0).(string)
-	return first
-}
-
-func (m *MockDevice) Trust() string {
-	return m.Called().String(0)
 }
 
 func (m *MockDevice) CloseReason() CloseReason {

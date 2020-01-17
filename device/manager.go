@@ -9,8 +9,6 @@ import (
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/convey/conveymetric"
-	"github.com/xmidt-org/webpa-common/secure"
-	"github.com/xmidt-org/webpa-common/secure/handler"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
@@ -138,7 +136,8 @@ type manager struct {
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	m.debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
-	id, ok := GetID(request.Context())
+	ctx := request.Context()
+	id, ok := GetID(ctx)
 	if !ok {
 		xhttp.WriteError(
 			response,
@@ -149,39 +148,30 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	var (
-		partnerIDs                   []string
-		satClientID                  string
-		trust                        = secure.Untrusted
-		secureContext, securePresent = handler.FromContext(request.Context())
-	)
+	deviceMetadata, ok := GetDeviceMetadata(ctx)
 
-	if securePresent {
-		partnerIDs = secureContext.PartnerIDs
-		satClientID = secureContext.SatClientID
-		trust = secureContext.Trust
+	if !ok {
+		deviceMetadata = NewDeviceMetadata()
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
 	d := newDevice(deviceOptions{
-		ID:          id,
-		C:           cvy,
-		Compliance:  convey.GetCompliance(cvyErr),
-		QueueSize:   m.deviceMessageQueueSize,
-		PartnerIDs:  partnerIDs,
-		SatClientID: satClientID,
-		Trust:       trust,
-		Logger:      m.logger,
+		ID:         id,
+		C:          cvy,
+		Compliance: convey.GetCompliance(cvyErr),
+		QueueSize:  m.deviceMessageQueueSize,
+		Metadata:   deviceMetadata,
+		Logger:     m.logger,
 	})
+
+	if !ok {
+		d.errorLog.Log(logging.MessageKey(), "missing security information")
+	}
 
 	if cvyErr == nil {
 		d.infoLog.Log("convey", cvy)
 	} else {
 		d.errorLog.Log(logging.MessageKey(), "bad or missing convey data", logging.ErrorKey(), cvyErr)
-	}
-
-	if !securePresent {
-		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)

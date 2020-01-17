@@ -9,7 +9,6 @@ import (
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/convey/conveymetric"
-	"github.com/xmidt-org/webpa-common/secure"
 
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -90,14 +89,8 @@ type Interface interface {
 	// sent during device connection
 	ConveyCompliance() convey.Compliance
 
-	// PartnerIDs returns the array of partner ids established when the device connected
-	PartnerIDs() []string
-
-	// SatClientID returns the SAT JWT token passed when the device connected
-	SatClientID() string
-
-	// Trust returns the trust level of this device
-	Trust() string
+	// Metadata returns an object which defines the interface to interact with a device's metadata
+	Metadata() Metadata
 
 	// CloseReason returns the metadata explaining why a device was closed.  If this device
 	// is not closed, this method's return is undefined.
@@ -125,10 +118,7 @@ type device struct {
 	compliance    convey.Compliance
 	conveyClosure conveymetric.Closure
 
-	partnerIDs  []string
-	satClientID string
-
-	trust string
+	metadata Metadata
 
 	closeReason atomic.Value
 }
@@ -137,12 +127,10 @@ type deviceOptions struct {
 	ID          ID
 	C           convey.Interface
 	Compliance  convey.Compliance
-	PartnerIDs  []string
-	SatClientID string
-	Trust       string
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
+	Metadata    Metadata
 }
 
 // newDevice is an internal factory function for devices
@@ -159,13 +147,6 @@ func newDevice(o deviceOptions) *device {
 		o.QueueSize = DefaultDeviceMessageQueueSize
 	}
 
-	if len(o.Trust) == 0 {
-		o.Trust = secure.Untrusted
-	}
-
-	var partnerIDs []string
-	partnerIDs = append(partnerIDs, o.PartnerIDs...)
-
 	return &device{
 		id:           o.ID,
 		errorLog:     logging.Error(o.Logger, "id", o.ID),
@@ -178,9 +159,7 @@ func newDevice(o deviceOptions) *device {
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, o.QueueSize),
 		transactions: NewTransactions(),
-		partnerIDs:   partnerIDs,
-		satClientID:  o.SatClientID,
-		trust:        o.Trust,
+		metadata:     o.Metadata,
 	}
 }
 
@@ -329,16 +308,8 @@ func (d *device) ConveyCompliance() convey.Compliance {
 	return d.compliance
 }
 
-func (d *device) PartnerIDs() []string {
-	return d.partnerIDs
-}
-
-func (d *device) SatClientID() string {
-	return d.satClientID
-}
-
-func (d *device) Trust() string {
-	return d.trust
+func (d *device) Metadata() Metadata {
+	return d.metadata
 }
 
 func (d *device) CloseReason() CloseReason {
