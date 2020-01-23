@@ -1,4 +1,4 @@
-package basculechecks
+package basculemetrics
 
 import (
 	"time"
@@ -11,7 +11,7 @@ import (
 type MetricListener struct {
 	expLeeway time.Duration
 	nbfLeeway time.Duration
-	measures  *JWTValidationMeasures
+	measures  *AuthValidationMeasures
 }
 
 func (m *MetricListener) OnAuthenticated(auth bascule.Authentication) {
@@ -24,6 +24,8 @@ func (m *MetricListener) OnAuthenticated(auth bascule.Authentication) {
 	if auth.Token == nil {
 		return
 	}
+
+	m.measures.ValidationOutcome.With(OutcomeLabel, "Accepted").Add(1)
 
 	c, ok := auth.Token.Attributes().Get("claims")
 	if !ok {
@@ -53,7 +55,7 @@ func (m *MetricListener) OnErrorResponse(e basculehttp.ErrorResponseReason, _ er
 	if m.measures == nil {
 		return
 	}
-	m.measures.ValidationReason.With(ReasonLabel, e.String()).Add(1)
+	m.measures.ValidationOutcome.With(OutcomeLabel, e.String()).Add(1)
 }
 
 type Option func(m *MetricListener)
@@ -70,7 +72,7 @@ func WithNbfLeeway(n time.Duration) Option {
 	}
 }
 
-func NewMetricListener(m *JWTValidationMeasures, options ...Option) *MetricListener {
+func NewMetricListener(m *AuthValidationMeasures, options ...Option) *MetricListener {
 	listener := MetricListener{
 		measures: m,
 	}

@@ -3,14 +3,13 @@ package basculechecks
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/goph/emperror"
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/webpa-common/logging"
 )
 
 var (
@@ -18,98 +17,113 @@ var (
 	ErrNoAuth                 = errors.New("couldn't get request info: authorization not found")
 	ErrNonstringVal           = errors.New("expected value to be a string")
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
-	ErrNoCapabilitiesAtKey    = errors.New("no capabilities found at key given")
-	ErrCapabilitiesNotAList   = errors.New("capabilities aren't able to be converted to a list")
 )
 
 const (
-	DefaultKey = "capabilities"
+	CapabilityKey = "capabilities"
+	PartnerKey    = "allowedResources.allowedPartners"
+	DefaultRegex  = `(mac|uuid|dns|serial):([^/]+)`
 )
 
 type capabilityCheck struct {
 	prefixToMatch   *regexp.Regexp
+	endpointToMatch *regexp.Regexp
 	acceptAllMethod string
-}
-
-type capabilityLogger struct {
-	check  *capabilityCheck
-	logger log.Logger
+	measures        *AuthCapabilityCheckMeasures
 }
 
 var defaultLogger = log.NewNopLogger()
 
-func (c *capabilityCheck) EnforceCapabilities(ctx context.Context, vals []interface{}) error {
-	if len(vals) == 0 {
-		return ErrNoVals
-	}
-
+func (c *capabilityCheck) Check(ctx context.Context, _ bascule.Token) error {
+	// getting full auth
 	auth, ok := bascule.FromContext(ctx)
 	if !ok {
+		c.measures.CapabilityCheckOutcome.With(OutcomeLabel, RejectedOutcome, ReasonLabel, TokenMissing, ClientIDLabel, "", PartnerIDLabel, "", EndpointLabel, "").Add(1)
 		return ErrNoAuth
 	}
-	reqVal := auth.Request
 
-	return c.CheckCapabilities(vals, reqVal)
-}
-
-func (c *capabilityLogger) OnAuthenticated(token bascule.Authentication) {
-	if token.Authorization != "jwt" {
-		c.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), emperror.Wrap(errors.New("Authorization used isn't jwt"), "Cannot check endpoint against capabilities"))
-		return
-	}
-	val, ok := token.Token.Attributes()[DefaultKey]
-	if !ok {
-		c.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to get capabilities from token", logging.ErrorKey(), ErrNoCapabilitiesAtKey)
-		return
-	}
-	capabilities, ok := val.([]interface{})
-	if !ok {
-		c.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to get list of capabilities", logging.ErrorKey(), ErrCapabilitiesNotAList)
-		return
-	}
-	err := c.check.CheckCapabilities(capabilities, token.Request)
+	client, partnerID, endpoint, reason, err := c.prepMetrics(auth)
+	counter := c.measures.CapabilityCheckOutcome.With(ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint)
 	if err != nil {
-		log.With(c.logger, emperror.Context(err)...).
-			Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "capability check failed", logging.ErrorKey(), err, "client id", token.Token.Principal)
+		counter.With(OutcomeLabel, RejectedOutcome, ReasonLabel, reason).Add(1)
+		return err
 	}
+
+	vals, reason, err := getCapabilities(auth.Token.Attributes())
+	if err != nil {
+		counter.With(OutcomeLabel, RejectedOutcome, ReasonLabel, reason).Add(1)
+		return err
+	}
+
+	err = c.checkCapabilities(vals, auth.Request)
+	if err != nil {
+		counter.With(OutcomeLabel, RejectedOutcome, ReasonLabel, NoCapabilitiesMatch).Add(1)
+		return err
+	}
+
+	counter.With(OutcomeLabel, AcceptedOutcome, ReasonLabel, "").Add(1)
+	return nil
 }
 
-func NewCapabilityChecker(prefix string, acceptAllMethod string) (*capabilityCheck, error) {
+// TODO: change logging to metrics
+// add metrics to all functions that check
+func (c *capabilityCheck) OnAuthenticated(token bascule.Authentication) {
+	if token.Token.Type() != "jwt" {
+		// if the authorization isn't jwt, we can't run our check.  This case shouldn't count as accepted
+		return
+	}
+
+	client, partnerID, endpoint, reason, err := c.prepMetrics(token)
+	counter := c.measures.CapabilityCheckOutcome.With(ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint, OutcomeLabel, AcceptedOutcome)
+	if err != nil {
+		counter.With(ReasonLabel, reason).Add(1)
+		return
+	}
+
+	vals, reason, err := getCapabilities(token.Token.Attributes())
+	if err != nil {
+		counter.With(ReasonLabel, reason).Add(1)
+		return
+	}
+
+	err = c.checkCapabilities(vals, token.Request)
+	if err != nil {
+		counter.With(ReasonLabel, NoCapabilitiesMatch).Add(1)
+		return
+	}
+
+	counter.With(ReasonLabel, "").Add(1)
+	return
+
+}
+
+func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string) (*capabilityCheck, error) {
+	if m == nil {
+		return nil, errors.New("nil capability check measures")
+	}
 	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
 	if err != nil {
 		return nil, emperror.WrapWith(err, "failed to compile prefix given", "prefix", prefix)
 	}
+	matchEndpoint, err := regexp.Compile(DefaultRegex)
+	if err != nil {
+		return nil, emperror.WrapWith(err, "failed to compile endpoint regex given", "endpoint", DefaultRegex)
+	}
+
 	c := capabilityCheck{
 		prefixToMatch:   matchPrefix,
+		endpointToMatch: matchEndpoint,
 		acceptAllMethod: acceptAllMethod,
+		measures:        m,
 	}
 	return &c, nil
 }
 
-func NewCapabilityLogger(logger log.Logger, prefix string, acceptAllMethod string) (*capabilityLogger, error) {
-	checker, err := NewCapabilityChecker(prefix, acceptAllMethod)
-	if err != nil {
-		return nil, emperror.Wrap(err, "failed to create capability checker")
-	}
-	c := capabilityLogger{
-		check:  checker,
-		logger: defaultLogger,
-	}
-	if logger != nil {
-		c.logger = logger
-	}
-	return &c, nil
-}
-
-func (c *capabilityCheck) CheckCapabilities(capabilities []interface{}, requestInfo bascule.Request) error {
+func (c *capabilityCheck) checkCapabilities(capabilities []string, requestInfo bascule.Request) error {
 	urlToMatch := requestInfo.URL.EscapedPath()
 	methodToMatch := requestInfo.Method
 	for _, val := range capabilities {
-		str, ok := val.(string)
-		if !ok {
-			return ErrNonstringVal
-		}
-		matches := c.prefixToMatch.FindStringSubmatch(str)
+		matches := c.prefixToMatch.FindStringSubmatch(val)
 		if matches == nil || len(matches) < 3 {
 			continue
 		}
@@ -129,5 +143,57 @@ func (c *capabilityCheck) CheckCapabilities(capabilities []interface{}, requestI
 		}
 	}
 	return emperror.With(ErrNoValidCapabilityFound, "capabilitiesFound", capabilities, "urlToMatch", urlToMatch, "methodToMatch", methodToMatch)
+
+}
+
+func (c *capabilityCheck) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
+	// getting metric information
+	client := auth.Token.Principal()
+	partnerIDs, ok := auth.Token.Attributes().GetStringSlice(PartnerKey)
+	if !ok {
+		return client, "", "", UndeterminedPartnerID, fmt.Errorf("couldn't get partner IDs from attributes using key %v", PartnerKey)
+	}
+	partnerID := determinePartnerMetric(partnerIDs)
+	escapedURL := auth.Request.URL.EscapedPath()
+	i := c.endpointToMatch.FindStringIndex(escapedURL)
+	endpoint := escapedURL
+	if i != nil {
+		endpoint = escapedURL[:i[0]] + "..." + escapedURL[i[1]:]
+	}
+	return client, partnerID, endpoint, "", nil
+
+}
+
+func determinePartnerMetric(partners []string) string {
+	if len(partners) < 1 {
+		return "none"
+	}
+	if len(partners) == 1 {
+		if partners[0] == "*" {
+			return "wildcard"
+		}
+		return partners[0]
+	}
+	for _, partner := range partners {
+		if partner == "*" {
+			return "wildcard"
+		}
+	}
+	return "many"
+
+}
+
+func getCapabilities(attributes bascule.Attributes) ([]string, string, error) {
+
+	vals, ok := attributes.GetStringSlice(CapabilityKey)
+	if !ok {
+		return []string{}, UndeterminedCapabilities, fmt.Errorf("couldn't get capabilities using key %v", CapabilityKey)
+	}
+
+	if len(vals) == 0 {
+		return []string{}, EmptyCapabilitiesList, ErrNoVals
+	}
+
+	return vals, "", nil
 
 }

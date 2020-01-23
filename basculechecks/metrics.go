@@ -2,58 +2,55 @@ package basculechecks
 
 import (
 	"github.com/go-kit/kit/metrics"
-	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 //Names for our metrics
 const (
-	JWTValidationReasonCounter = "jwt_validation_reason"
-	NBFHistogram               = "jwt_from_nbf_seconds"
-	EXPHistogram               = "jwt_from_exp_seconds"
+	AuthCapabilityCheckOutcome = "auth_capability_check"
 )
 
 // labels
 const (
-	ReasonLabel = "reason"
+	OutcomeLabel   = "outcome"
+	ReasonLabel    = "reason"
+	ClientIDLabel  = "clientid"
+	EndpointLabel  = "endpoint"
+	PartnerIDLabel = "partnerid"
+)
+
+// outcomes
+const (
+	RejectedOutcome = "rejected"
+	AcceptedOutcome = "accepted"
+	// reasons
+	TokenMissing             = "auth_missing"
+	UndeterminedPartnerID    = "undetermined_partner_ID"
+	UndeterminedCapabilities = "undetermined_capabilities"
+	EmptyCapabilitiesList    = "empty_capabilities_list"
+	NoCapabilitiesMatch      = "no_capabilities_match"
 )
 
 //Metrics returns the Metrics relevant to this package
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		xmetrics.Metric{
-			Name:       JWTValidationReasonCounter,
+			Name:       AuthCapabilityCheckOutcome,
 			Type:       xmetrics.CounterType,
-			Help:       "Counter for validation resolutions per reason",
-			LabelNames: []string{ReasonLabel},
-		},
-		xmetrics.Metric{
-			Name:    NBFHistogram,
-			Type:    xmetrics.HistogramType,
-			Help:    "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
-			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
-		},
-		xmetrics.Metric{
-			Name:    EXPHistogram,
-			Type:    xmetrics.HistogramType,
-			Help:    "Difference (in seconds) between time of JWT validation and exp (including leeway)",
-			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
+			Help:       "Counter for success and failure reason results through bascule",
+			LabelNames: []string{OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel},
 		},
 	}
 }
 
-//JWTValidationMeasures describes the defined metrics that will be used by clients
-type JWTValidationMeasures struct {
-	NBFHistogram     *gokitprometheus.Histogram
-	ExpHistogram     *gokitprometheus.Histogram
-	ValidationReason metrics.Counter
+//AuthCapabilityCheckMeasures describes the defined metrics that will be used by clients
+type AuthCapabilityCheckMeasures struct {
+	CapabilityCheckOutcome metrics.Counter
 }
 
-//NewJWTValidationMeasures realizes desired metrics
-func NewJWTValidationMeasures(r xmetrics.Registry) *JWTValidationMeasures {
-	return &JWTValidationMeasures{
-		NBFHistogram:     gokitprometheus.NewHistogram(r.NewHistogramVec(NBFHistogram)),
-		ExpHistogram:     gokitprometheus.NewHistogram(r.NewHistogramVec(EXPHistogram)),
-		ValidationReason: r.NewCounter(JWTValidationReasonCounter),
+//NewAuthCapabilityCheckMeasures realizes desired metrics
+func NewAuthCapabilityCheckMeasures(r xmetrics.Registry) *AuthCapabilityCheckMeasures {
+	return &AuthCapabilityCheckMeasures{
+		CapabilityCheckOutcome: r.NewCounter(AuthCapabilityCheckOutcome),
 	}
 }
