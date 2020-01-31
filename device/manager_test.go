@@ -433,7 +433,6 @@ func TestUpdateMetadata(t *testing.T) {
 		Contents: originalContents,
 	}
 
-
 	event := updateEventMetadata(originalEvent)
 
 	assert.Equal(originalEvent.Device, event.Device)

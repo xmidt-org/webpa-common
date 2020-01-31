@@ -509,7 +509,7 @@ func updateEventMetadata(event Event) Event {
 	msg.Metadata["session-id"] = event.Device.SessionID()
 
 	// encode event
-	err = wrp.NewEncoderBytes(&contents, event.Format).Encode(msg)
+	err = wrp.NewEncoderBytes(&contents, event.Format).Encode(&msg)
 	if err != nil {
 		return event
 	}
