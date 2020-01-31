@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/segmentio/ksuid"
+	"github.com/xmidt-org/webpa-common/device/sessionid"
 	"sync/atomic"
 	"time"
 
@@ -185,7 +185,7 @@ func newDevice(o deviceOptions) *device {
 		transactions: NewTransactions(),
 		partnerIDs:   partnerIDs,
 		satClientID:  o.SatClientID,
-		sessionID:    ksuid.New().String(),
+		sessionID:    sessionid.GenerateID(),
 		trust:        o.Trust,
 	}
 }

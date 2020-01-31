@@ -120,3 +120,4 @@ func TestDeviceSessionID(t *testing.T) {
 	assert.Equal(sessionOne.ID(), sessionTwo.ID())
 	assert.NotEqual(sessionOne.SessionID(), sessionTwo.SessionID())
 }
+
