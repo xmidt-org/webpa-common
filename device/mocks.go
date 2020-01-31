@@ -111,6 +111,12 @@ func (m *MockDevice) SatClientID() string {
 	return first
 }
 
+func (m *MockDevice) SessionID() string {
+	arguments := m.Called()
+	first, _ := arguments.Get(0).(string)
+	return first
+}
+
 func (m *MockDevice) Trust() string {
 	return m.Called().String(0)
 }
