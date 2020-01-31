@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -340,7 +341,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 				event.Type = TransactionComplete
 			}
 		}
-
+		event = updateEventMetadata(event)
 		m.dispatch(&event)
 	}
 }
@@ -489,4 +490,29 @@ func (m *manager) Route(request *Request) (*Response, error) {
 	} else {
 		return nil, ErrorDeviceNotFound
 	}
+}
+
+func updateEventMetadata(event Event) Event {
+	var (
+		contents []byte
+		msg      wrp.Message
+	)
+
+	// decode event
+	err := wrp.NewDecoderBytes(event.Contents, event.Format).Decode(&msg)
+	if err != nil {
+		return event
+	}
+
+	// update metadata
+	msg.Metadata["partner-ids"] = strings.Join(event.Device.PartnerIDs(), ",")
+	msg.Metadata["session-id"] = event.Device.SessionID()
+
+	// encode event
+	err = wrp.NewEncoderBytes(&contents, event.Format).Encode(msg)
+	if err != nil {
+		return event
+	}
+	event.Contents = contents
+	return event
 }
