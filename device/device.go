@@ -2,6 +2,8 @@ package device
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
@@ -96,6 +98,9 @@ type Interface interface {
 	// SatClientID returns the SAT JWT token passed when the device connected
 	SatClientID() string
 
+	// SessionID returns the session id associated with the devices connection
+	SessionID() string
+
 	// Trust returns the trust level of this device
 	Trust() string
 
@@ -127,6 +132,7 @@ type device struct {
 
 	partnerIDs  []string
 	satClientID string
+	sessionID   string
 
 	trust string
 
@@ -166,6 +172,10 @@ func newDevice(o deviceOptions) *device {
 	var partnerIDs []string
 	partnerIDs = append(partnerIDs, o.PartnerIDs...)
 
+	var id [16]byte
+	rand.Read(id[:])
+	sessionID := base64.RawURLEncoding.EncodeToString(id[:])
+
 	return &device{
 		id:           o.ID,
 		errorLog:     logging.Error(o.Logger, "id", o.ID),
@@ -180,6 +190,7 @@ func newDevice(o deviceOptions) *device {
 		transactions: NewTransactions(),
 		partnerIDs:   partnerIDs,
 		satClientID:  o.SatClientID,
+		sessionID:    sessionID,
 		trust:        o.Trust,
 	}
 }
@@ -335,6 +346,10 @@ func (d *device) PartnerIDs() []string {
 
 func (d *device) SatClientID() string {
 	return d.satClientID
+}
+
+func (d *device) SessionID() string {
+	return d.sessionID
 }
 
 func (d *device) Trust() string {

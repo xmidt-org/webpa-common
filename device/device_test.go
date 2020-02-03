@@ -57,6 +57,7 @@ func TestDevice(t *testing.T) {
 		)
 
 		require.NotNil(device)
+		assert.NotEmpty(device.sessionID)
 		device.statistics = NewStatistics(func() time.Time { return expectedConnectedAt.Add(expectedUpTime) }, expectedConnectedAt)
 
 		assert.Equal(string(record.expectedID), device.String())
@@ -104,3 +105,19 @@ func TestDevice(t *testing.T) {
 		assert.Error(err)
 	}
 }
+
+func TestDeviceSessionID(t *testing.T) {
+	assert := assert.New(t)
+
+	connectOptions := deviceOptions{
+		ID:          "1",
+		QueueSize:   10,
+		ConnectedAt: time.Now(),
+		Logger:      logging.NewTestLogger(nil, t),
+	}
+	sessionOne := newDevice(connectOptions)
+	sessionTwo := newDevice(connectOptions)
+	assert.Equal(sessionOne.ID(), sessionTwo.ID())
+	assert.NotEqual(sessionOne.SessionID(), sessionTwo.SessionID())
+}
+
