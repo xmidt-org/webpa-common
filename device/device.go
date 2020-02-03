@@ -2,9 +2,10 @@ package device
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/xmidt-org/webpa-common/device/sessionid"
 	"sync/atomic"
 	"time"
 
@@ -171,6 +172,10 @@ func newDevice(o deviceOptions) *device {
 	var partnerIDs []string
 	partnerIDs = append(partnerIDs, o.PartnerIDs...)
 
+	var id [16]byte
+	rand.Read(id[:])
+	sessionID := base64.RawURLEncoding.EncodeToString(id[:])
+
 	return &device{
 		id:           o.ID,
 		errorLog:     logging.Error(o.Logger, "id", o.ID),
@@ -185,7 +190,7 @@ func newDevice(o deviceOptions) *device {
 		transactions: NewTransactions(),
 		partnerIDs:   partnerIDs,
 		satClientID:  o.SatClientID,
-		sessionID:    sessionid.GenerateID(),
+		sessionID:    sessionID,
 		trust:        o.Trust,
 	}
 }
