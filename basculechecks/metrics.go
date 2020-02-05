@@ -2,6 +2,7 @@ package basculechecks
 
 import (
 	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
@@ -49,8 +50,8 @@ type AuthCapabilityCheckMeasures struct {
 }
 
 //NewAuthCapabilityCheckMeasures realizes desired metrics
-func NewAuthCapabilityCheckMeasures(r xmetrics.Registry) *AuthCapabilityCheckMeasures {
+func NewAuthCapabilityCheckMeasures(p provider.Provider) *AuthCapabilityCheckMeasures {
 	return &AuthCapabilityCheckMeasures{
-		CapabilityCheckOutcome: r.NewCounter(AuthCapabilityCheckOutcome),
+		CapabilityCheckOutcome: p.NewCounter(AuthCapabilityCheckOutcome),
 	}
 }

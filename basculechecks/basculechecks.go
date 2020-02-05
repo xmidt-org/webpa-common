@@ -17,6 +17,7 @@ var (
 	ErrNoAuth                 = errors.New("couldn't get request info: authorization not found")
 	ErrNonstringVal           = errors.New("expected value to be a string")
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
+	ErrNilAttributes          = fmt.Errorf("nil attributes interface")
 )
 
 const (
@@ -34,67 +35,59 @@ type capabilityCheck struct {
 
 var defaultLogger = log.NewNopLogger()
 
-func (c *capabilityCheck) Check(ctx context.Context, _ bascule.Token) error {
-	// getting full auth
-	auth, ok := bascule.FromContext(ctx)
-	if !ok {
-		c.measures.CapabilityCheckOutcome.With(OutcomeLabel, RejectedOutcome, ReasonLabel, TokenMissing, ClientIDLabel, "", PartnerIDLabel, "", EndpointLabel, "").Add(1)
-		return ErrNoAuth
+func (c *capabilityCheck) CreateBasculeCheck(errorOut bool) bascule.ValidatorFunc {
+	return func(ctx context.Context, _ bascule.Token) error {
+		// if we're not supposed to error out, the outcome should be accepted on failure
+		failureOutcome := AcceptedOutcome
+		if errorOut {
+			// if we actually error out, the outcome is the request being rejected
+			failureOutcome = RejectedOutcome
+		}
+
+		auth, ok := bascule.FromContext(ctx)
+		if !ok {
+			c.measures.CapabilityCheckOutcome.With(OutcomeLabel, failureOutcome, ReasonLabel, TokenMissing, ClientIDLabel, "", PartnerIDLabel, "", EndpointLabel, "").Add(1)
+			if errorOut {
+				return ErrNoAuth
+			}
+			return nil
+		}
+
+		client, partnerID, endpoint, reason, err := c.prepMetrics(auth)
+		labels := []string{ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint}
+		if err != nil {
+			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
+			c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+			if errorOut {
+				return err
+			}
+			return nil
+		}
+
+		vals, reason, err := getCapabilities(auth.Token.Attributes())
+		if err != nil {
+			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
+			c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+			if errorOut {
+				return err
+			}
+			return nil
+		}
+
+		err = c.checkCapabilities(vals, auth.Request)
+		if err != nil {
+			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, NoCapabilitiesMatch)
+			c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+			if errorOut {
+				return err
+			}
+			return nil
+		}
+
+		labels = append(labels, OutcomeLabel, AcceptedOutcome, ReasonLabel, "")
+		c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+		return nil
 	}
-
-	client, partnerID, endpoint, reason, err := c.prepMetrics(auth)
-	counter := c.measures.CapabilityCheckOutcome.With(ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint)
-	if err != nil {
-		counter.With(OutcomeLabel, RejectedOutcome, ReasonLabel, reason).Add(1)
-		return err
-	}
-
-	vals, reason, err := getCapabilities(auth.Token.Attributes())
-	if err != nil {
-		counter.With(OutcomeLabel, RejectedOutcome, ReasonLabel, reason).Add(1)
-		return err
-	}
-
-	err = c.checkCapabilities(vals, auth.Request)
-	if err != nil {
-		counter.With(OutcomeLabel, RejectedOutcome, ReasonLabel, NoCapabilitiesMatch).Add(1)
-		return err
-	}
-
-	counter.With(OutcomeLabel, AcceptedOutcome, ReasonLabel, "").Add(1)
-	return nil
-}
-
-// TODO: change logging to metrics
-// add metrics to all functions that check
-func (c *capabilityCheck) OnAuthenticated(token bascule.Authentication) {
-	if token.Token.Type() != "jwt" {
-		// if the authorization isn't jwt, we can't run our check.  This case shouldn't count as accepted
-		return
-	}
-
-	client, partnerID, endpoint, reason, err := c.prepMetrics(token)
-	counter := c.measures.CapabilityCheckOutcome.With(ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint, OutcomeLabel, AcceptedOutcome)
-	if err != nil {
-		counter.With(ReasonLabel, reason).Add(1)
-		return
-	}
-
-	vals, reason, err := getCapabilities(token.Token.Attributes())
-	if err != nil {
-		counter.With(ReasonLabel, reason).Add(1)
-		return
-	}
-
-	err = c.checkCapabilities(vals, token.Request)
-	if err != nil {
-		counter.With(ReasonLabel, NoCapabilitiesMatch).Add(1)
-		return
-	}
-
-	counter.With(ReasonLabel, "").Add(1)
-	return
-
 }
 
 func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string) (*capabilityCheck, error) {
@@ -184,6 +177,9 @@ func determinePartnerMetric(partners []string) string {
 }
 
 func getCapabilities(attributes bascule.Attributes) ([]string, string, error) {
+	if attributes == nil {
+		return []string{}, UndeterminedCapabilities, ErrNilAttributes
+	}
 
 	vals, ok := attributes.GetStringSlice(CapabilityKey)
 	if !ok {
