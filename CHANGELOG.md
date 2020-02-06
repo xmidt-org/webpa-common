@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.6.2]
+- Updated capabilityChecker to include metrics and configure whether or not to return errors [#449](https://github.com/xmidt-org/webpa-common/pull/449)
+
 ## [v1.6.1]
 - Fixed panic from assignment to entry in nil map [#453](https://github.com/xmidt-org/webpa-common/pull/453)
 
@@ -58,7 +61,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.6.2...HEAD
+[v1.6.2]: https://github.com/xmidt-org/webpa-common/compare/v1.6.1...v1.6.2
+[v1.6.1]: https://github.com/xmidt-org/webpa-common/compare/v1.6.0...v1.6.1
 [v1.6.0]: https://github.com/xmidt-org/webpa-common/compare/v1.5.1...v1.6.0
 [v1.5.1]: https://github.com/xmidt-org/webpa-common/compare/v1.5.0...v1.5.1
 [v1.5.0]: https://github.com/xmidt-org/webpa-common/compare/v1.4.0...v1.5.0
