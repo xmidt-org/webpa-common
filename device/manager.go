@@ -321,6 +321,22 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			m.measures.RequestResponse.Add(1.0)
 		}
 
+		// update message metadata fields
+		if message.Metadata == nil {
+			message.Metadata = map[string]string{}
+		}
+		message.Metadata["partner-ids"] = strings.Join(event.Device.PartnerIDs(), ",")
+		message.Metadata["session-id"] = event.Device.SessionID()
+
+		// reencode the data bytes
+		// encode event
+		err = wrp.NewEncoderBytes(&data, event.Format).Encode(message)
+		if err != nil {
+			d.errorLog.Log(logging.MessageKey(), "unable to encode WRP message", logging.ErrorKey(), err)
+			continue
+		}
+		event.Contents = data
+
 		// update any waiting transaction
 		if message.IsTransactionPart() {
 			err := d.transactions.Complete(
@@ -341,7 +357,6 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 				event.Type = TransactionComplete
 			}
 		}
-		event = updateEventMetadata(event)
 		m.dispatch(&event)
 	}
 }
@@ -490,32 +505,4 @@ func (m *manager) Route(request *Request) (*Response, error) {
 	} else {
 		return nil, ErrorDeviceNotFound
 	}
-}
-
-func updateEventMetadata(event Event) Event {
-	var (
-		contents []byte
-		msg      wrp.Message
-	)
-
-	// decode event
-	err := wrp.NewDecoderBytes(event.Contents, event.Format).Decode(&msg)
-	if err != nil {
-		return event
-	}
-
-	// update metadata
-	if msg.Metadata == nil {
-		msg.Metadata = map[string]string{}
-	}
-	msg.Metadata["partner-ids"] = strings.Join(event.Device.PartnerIDs(), ",")
-	msg.Metadata["session-id"] = event.Device.SessionID()
-
-	// encode event
-	err = wrp.NewEncoderBytes(&contents, event.Format).Encode(&msg)
-	if err != nil {
-		return event
-	}
-	event.Contents = contents
-	return event
 }
