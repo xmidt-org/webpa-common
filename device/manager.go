@@ -505,6 +505,9 @@ func updateEventMetadata(event Event) Event {
 	}
 
 	// update metadata
+	if msg.Metadata == nil {
+		msg.Metadata = map[string]string{}
+	}
 	msg.Metadata["partner-ids"] = strings.Join(event.Device.PartnerIDs(), ",")
 	msg.Metadata["session-id"] = event.Device.SessionID()
 

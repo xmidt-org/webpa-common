@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.6.1]
+- Fixed panic from assignment to entry in nil map [#453](https://github.com/xmidt-org/webpa-common/pull/453)
+
 ## [v1.6.0]
 - Added session-id to device information [#451](https://github.com/xmidt-org/webpa-common/pull/451)
 - Added device metadata to outbound events [#451](https://github.com/xmidt-org/webpa-common/pull/451)
