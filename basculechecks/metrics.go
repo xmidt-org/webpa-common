@@ -38,7 +38,7 @@ func Metrics() []xmetrics.Metric {
 		xmetrics.Metric{
 			Name:       AuthCapabilityCheckOutcome,
 			Type:       xmetrics.CounterType,
-			Help:       "Counter for success and failure reason results through bascule",
+			Help:       "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
 			LabelNames: []string{OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel},
 		},
 	}
