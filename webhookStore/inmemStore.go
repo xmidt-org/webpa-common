@@ -87,7 +87,7 @@ func (inMem *InMem) Update(hooks []webhook.W) {
 func (inMem *InMem) Push(w webhook.W) error {
 	// update the store if there is no backend.
 	// if it is set. On List() will update the inmem data set
-	if inMem.options.backend == nil {
+	updateStructure := func() {
 		inMem.lock.Lock()
 		inMem.hooks[w.ID()] = envelope{
 			creation: time.Now(),
@@ -99,7 +99,16 @@ func (inMem *InMem) Push(w webhook.W) error {
 			hooks, _ := inMem.GetWebhook()
 			inMem.options.listener.Update(hooks)
 		}
+	}
+
+	if inMem.options.backend == nil {
+		updateStructure()
 		return nil
+	}
+	// if backend is not a listener or inMem is not a listener of the backend.
+	// update the internal structure
+	if listener, ok := inMem.options.backend.(Listener); !ok || listener != inMem {
+		updateStructure()
 	}
 	return inMem.options.backend.Push(w)
 }
@@ -109,10 +118,7 @@ func (inMem *InMem) CleanUp() {
 	inMem.lock.Lock()
 	for key, value := range inMem.hooks {
 		if value.creation.Add(inMem.config.TTL).After(time.Now()) {
-			delete(inMem.hooks, key)
-			if inMem.options.backend != nil {
-				inMem.options.backend.Remove(key)
-			}
+			go inMem.Remove(key)
 		}
 	}
 	inMem.lock.Unlock()
@@ -129,10 +135,10 @@ const (
 )
 
 func validateConfig(config InMemConfig) InMemConfig {
-	if config.TTL == 0 {
+	if config.TTL.Nanoseconds() == 0 {
 		config.TTL = defaultTTL
 	}
-	if config.CheckInterval == 0 {
+	if config.CheckInterval.Nanoseconds() == int64(0) {
 		config.CheckInterval = defaultCheckInterval
 	}
 	return config
@@ -154,7 +160,7 @@ func CreateInMemStore(config InMemConfig, options ...Option) *InMem {
 		o(inMem.options)
 	}
 
-	ticker := time.NewTicker(config.CheckInterval)
+	ticker := time.NewTicker(inMem.config.CheckInterval)
 	go func() {
 		for {
 			select {
