@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 	"github.com/xmidt-org/webpa-common/convey/conveyhttp"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/wrp-go/wrp"
+	"github.com/xmidt-org/wrp-go/v2"
 )
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
@@ -321,14 +320,10 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			m.measures.RequestResponse.Add(1.0)
 		}
 
-		// update message metadata fields
-		if message.Metadata == nil {
-			message.Metadata = map[string]string{}
-		}
-		message.Metadata["partner-ids"] = strings.Join(event.Device.PartnerIDs(), ",")
-		message.Metadata["session-id"] = event.Device.SessionID()
+		message.PartnerIDs = event.Device.PartnerIDs()
+		message.SessionID = event.Device.SessionID()
 
-		// reencode the data bytes
+		// re-encode the data bytes
 		// encode event
 		err = wrp.NewEncoderBytes(&data, event.Format).Encode(message)
 		if err != nil {
