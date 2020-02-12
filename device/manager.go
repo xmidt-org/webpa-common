@@ -18,7 +18,7 @@ import (
 	"github.com/xmidt-org/webpa-common/convey/conveyhttp"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/wrp-go/wrp"
+	"github.com/xmidt-org/wrp-go"
 )
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"

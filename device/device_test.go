@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/wrp"
+	"github.com/xmidt-org/wrp-go"
 )
 
 func TestDevice(t *testing.T) {
@@ -120,4 +120,3 @@ func TestDeviceSessionID(t *testing.T) {
 	assert.Equal(sessionOne.ID(), sessionTwo.ID())
 	assert.NotEqual(sessionOne.SessionID(), sessionTwo.SessionID())
 }
-
