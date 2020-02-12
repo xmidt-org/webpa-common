@@ -28,7 +28,7 @@ type Client struct {
 	plan         *watch.Plan
 }
 
-// CreateInMemStore will create an inmemory storage that will handle ttl of webhooks.
+// CreateInMemStore will create an inmemory storage that wiwhe arll handle ttl of webhooks.
 // listner and back and optional and can be nil
 func CreateConsulStore(config ConsulConfig, options ...Option) *Client {
 	clientStore := &Client{

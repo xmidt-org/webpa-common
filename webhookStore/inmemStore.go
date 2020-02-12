@@ -150,10 +150,11 @@ func CreateInMemStore(config InMemConfig, options ...Option) *InMem {
 	inMem := &InMem{
 		hooks:  map[string]envelope{},
 		config: validateConfig(config),
-		options: &storeConfig{
-			logger: logging.DefaultLogger(),
-		},
-		stop: make(chan struct{}),
+		stop:   make(chan struct{}),
+	}
+	inMem.options = &storeConfig{
+		logger: logging.DefaultLogger(),
+		self:   inMem,
 	}
 
 	for _, o := range options {

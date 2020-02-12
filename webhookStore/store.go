@@ -41,6 +41,7 @@ type storeConfig struct {
 	logger   log.Logger
 	backend  Pusher
 	listener Listener
+	self     interface{}
 }
 
 // Option is the function used to configure a store.
@@ -69,6 +70,19 @@ func WithListener(listener Listener) Option {
 	return func(r *storeConfig) {
 		if listener != nil {
 			r.listener = listener
+		}
+	}
+}
+
+// WithListener sets the webhookStore storage and sets that storage's listener to its creator
+func WithStorageListener(builder func(options ...Option) Pusher, options ...Option) Option {
+	return func(r *storeConfig) {
+		// set storage Listener to creator
+		if listener, ok := r.self.(Listener); ok {
+			storageListner := builder(append(options, WithListener(listener))...)
+			if storageListner != nil {
+				r.backend = storageListner
+			}
 		}
 	}
 }

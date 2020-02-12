@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/webhook"
 	"testing"
 	"time"
@@ -157,16 +158,25 @@ func TestInMemWithListener(t *testing.T) {
 }
 
 type hookStorage struct {
-	hooks map[string]webhook.W
+	hooks   map[string]webhook.W
+	options *storeConfig
 }
 
 func (h *hookStorage) Push(w webhook.W) error {
 	h.hooks[w.ID()] = w
+	if h.options.listener != nil {
+		hooks, _ := h.GetWebhook()
+		h.options.listener.Update(hooks)
+	}
 	return nil
 }
 
 func (h *hookStorage) Remove(id string) error {
 	delete(h.hooks, id)
+	if h.options.listener != nil {
+		hooks, _ := h.GetWebhook()
+		h.options.listener.Update(hooks)
+	}
 	return nil
 }
 
@@ -185,14 +195,22 @@ func TestInMemWithBackend(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	storage := &hookStorage{
-		hooks: map[string]webhook.W{},
-	}
-
 	client := CreateInMemStore(InMemConfig{
 		TTL:           time.Second,
 		CheckInterval: time.Millisecond * 10,
-	}, WithStorage(storage))
+	}, WithStorageListener(func(options ...Option) Pusher {
+		storage := &hookStorage{
+			hooks: map[string]webhook.W{},
+		}
+		storage.options = &storeConfig{
+			logger: logging.NewTestLogger(nil, t),
+			self:   storage,
+		}
+		for _, o := range options {
+			o(storage.options)
+		}
+		return storage
+	}))
 	require.NotNil(client)
 
 	// test push
