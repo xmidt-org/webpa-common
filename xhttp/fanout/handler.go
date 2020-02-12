@@ -262,7 +262,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		result.StatusCode = http.StatusServiceUnavailable
 		result.Err = errBadTransactor
 		result.Body = []byte(errBadTransactor.Error())
-		result.ContentType = "test/plain"
+		result.ContentType = "text/plain"
 	}
 
 	result.Span = finisher(result.Err)
