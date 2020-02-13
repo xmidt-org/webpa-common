@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.6.3]
+- added session-id to request response message [#454](https://github.com/xmidt-org/webpa-common/pull/454)
+- added wrp-go v2.0.0 to device package [#454](https://github.com/xmidt-org/webpa-common/pull/454)
+
 ## [v1.6.2]
 - Updated capabilityChecker to include metrics and configure whether or not to return errors [#449](https://github.com/xmidt-org/webpa-common/pull/449)
 
@@ -61,7 +65,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.6.3...HEAD
+[v1.6.3]: https://github.com/xmidt-org/webpa-common/compare/v1.6.2...v1.6.3
 [v1.6.2]: https://github.com/xmidt-org/webpa-common/compare/v1.6.1...v1.6.2
 [v1.6.1]: https://github.com/xmidt-org/webpa-common/compare/v1.6.0...v1.6.1
 [v1.6.0]: https://github.com/xmidt-org/webpa-common/compare/v1.5.1...v1.6.0

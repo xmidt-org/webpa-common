@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -20,7 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/wrp-go/wrp"
+	"github.com/xmidt-org/wrp-go/v2"
 )
 
 var (
@@ -395,105 +394,4 @@ func TestGaugeCardinality(t *testing.T) {
 	assert.Panics(func() {
 		m.(*manager).measures.Models.With("neat", "bad").Add(-1)
 	})
-}
-
-func TestUpdateMetadata(t *testing.T) {
-	assert := assert.New(t)
-	require := require.New(t)
-	msg := wrp.Message{
-		Type:            wrp.SimpleEventMessageType,
-		Source:          "external.com",
-		Destination:     "mac:FFEEAADD44443333",
-		TransactionUUID: "DEADBEEF",
-		Headers:         []string{"Header1", "Header2"},
-		Metadata:        map[string]string{"name": "value"},
-		Spans:           [][]string{{"1", "2"}, {"3"}},
-		Payload:         []byte{1, 2, 3, 4, 0xff, 0xce},
-		PartnerIDs:      []string{"foo"},
-	}
-	originalContents := []byte{}
-	err := wrp.NewEncoderBytes(&originalContents, wrp.Msgpack).Encode(&msg)
-	require.NoError(err)
-	device := newDevice(deviceOptions{
-		ID:          "mac:FFEEAADD44443333",
-		C:           nil,
-		Compliance:  0,
-		PartnerIDs:  nil,
-		SatClientID: "",
-		Trust:       "",
-		QueueSize:   0,
-		ConnectedAt: time.Time{},
-		Logger:      nil,
-	})
-	originalEvent := Event{
-		Type:     MessageReceived,
-		Device:   device,
-		Message:  &msg,
-		Format:   wrp.Msgpack,
-		Contents: originalContents,
-	}
-
-	event := updateEventMetadata(originalEvent)
-
-	assert.Equal(originalEvent.Device, event.Device)
-	assert.Equal(originalEvent.Message, event.Message)
-	assert.NotEqual(originalEvent.Contents, event.Contents)
-	assert.Equal(originalEvent.Format, event.Format)
-
-	expectedMetaData := map[string]string{"name": "value", "session-id": device.SessionID(), "partner-ids": strings.Join(device.PartnerIDs(), ",")}
-
-	newMessage := new(wrp.Message)
-	err = wrp.NewDecoderBytes(event.Contents, event.Format).Decode(newMessage)
-	require.NoError(err)
-	assert.Equal(expectedMetaData, newMessage.Metadata)
-}
-
-func TestUpdateMetadataWithNil(t *testing.T) {
-	assert := assert.New(t)
-	require := require.New(t)
-	msg := wrp.Message{
-		Type:            wrp.SimpleEventMessageType,
-		Source:          "external.com",
-		Destination:     "mac:FFEEAADD44443333",
-		TransactionUUID: "DEADBEEF",
-		Headers:         []string{"Header1", "Header2"},
-		Spans:           [][]string{{"1", "2"}, {"3"}},
-		Payload:         []byte{1, 2, 3, 4, 0xff, 0xce},
-		PartnerIDs:      []string{"foo"},
-	}
-	originalContents := []byte{}
-	err := wrp.NewEncoderBytes(&originalContents, wrp.Msgpack).Encode(&msg)
-	require.NoError(err)
-	device := newDevice(deviceOptions{
-		ID:          "mac:FFEEAADD44443333",
-		C:           nil,
-		Compliance:  0,
-		PartnerIDs:  nil,
-		SatClientID: "",
-		Trust:       "",
-		QueueSize:   0,
-		ConnectedAt: time.Time{},
-		Logger:      nil,
-	})
-	originalEvent := Event{
-		Type:     MessageReceived,
-		Device:   device,
-		Message:  &msg,
-		Format:   wrp.Msgpack,
-		Contents: originalContents,
-	}
-
-	event := updateEventMetadata(originalEvent)
-
-	assert.Equal(originalEvent.Device, event.Device)
-	assert.Equal(originalEvent.Message, event.Message)
-	assert.NotEqual(originalEvent.Contents, event.Contents)
-	assert.Equal(originalEvent.Format, event.Format)
-
-	expectedMetaData := map[string]string{"session-id": device.SessionID(), "partner-ids": strings.Join(device.PartnerIDs(), ",")}
-
-	newMessage := new(wrp.Message)
-	err = wrp.NewDecoderBytes(event.Contents, event.Format).Decode(newMessage)
-	require.NoError(err)
-	assert.Equal(expectedMetaData, newMessage.Metadata)
 }
