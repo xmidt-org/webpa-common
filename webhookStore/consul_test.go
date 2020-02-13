@@ -4,6 +4,7 @@ import (
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/logging"
 	"testing"
 )
 
@@ -27,28 +28,45 @@ func TestConsulInterfaces(t *testing.T) {
 	assert.True(ok, "not a webhook Reader")
 }
 
+func TestInMemWithConsul(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	logger := logging.NewTestLogger(nil, t)
+	client, err := api.NewClient(&api.Config{})
+	require.NoError(err)
+	webhookStore := CreateInMemStore(InMemConfig{}, WithLogger(logger), WithStorageListener(func(options ...Option) Pusher {
+		return CreateConsulStore(ConsulConfig{
+			Client:       client,
+			WriteOptions: api.WriteOptions{},
+			Prefix:       "testing",
+		}, options...)
+	}, WithLogger(logger)))
+	assert.NotNil(webhookStore)
+}
+
 // func TestConsulIntegration(t *testing.T) {
 // 	assert := assert.New(t)
 // 	require := require.New(t)
+//
+// 	logger := logging.NewTestLogger(nil, t)
 // 	client, err := api.NewClient(&api.Config{})
 // 	require.NoError(err)
-// 	dataChan := make(chan struct{}, 1)
 //
-// 	var listner ListnerFunc
+// 	var listener ListenerFunc
 // 	var resultingHooks []webhook.W
-// 	listner = func(hooks []webhook.W) {
+// 	listener = func(hooks []webhook.W) {
 // 		resultingHooks = hooks
-// 		dataChan <- struct{}{}
 // 	}
 //
-// 	consulStore := CreateConsulStore(ConsulConfig{
-// 		Client:       client,
-// 		WriteOptions: api.WriteOptions{},
-// 		Prefix:       "testing",
-// 	}, WithListener(listner), WithLogger(logging.NewTestLogger(nil, t)))
-// 	require.NotNil(consulStore)
-// 	<-dataChan
-//
+// 	webhookStore := CreateInMemStore(InMemConfig{}, WithLogger(logger), WithListener(listener), WithStorageListener(func(options ...Option) Pusher {
+// 		return CreateConsulStore(ConsulConfig{
+// 			Client:       client,
+// 			WriteOptions: api.WriteOptions{},
+// 			Prefix:       "testing",
+// 		}, options...)
+// 	}, WithLogger(logger)))
+// 	require.NotNil(webhookStore)
 //
 // 	expectedWebhook := webhook.W{
 // 		Config: struct {
@@ -59,9 +77,9 @@ func TestConsulInterfaces(t *testing.T) {
 // 		}{URL: "http://localhost/events?neat", ContentType: "json", Secret: "idontknow"},
 // 		Events: []string{".*"},
 // 	}
-// 	err = consulStore.Push(expectedWebhook)
+// 	err = webhookStore.Push(expectedWebhook)
 // 	assert.NoError(err)
-// 	<-dataChan
+// 	time.Sleep(time.Second)
 // 	assert.Equal([]webhook.W{expectedWebhook}, resultingHooks)
 // 	expectedWebhook = webhook.W{
 // 		Config: struct {
@@ -73,15 +91,15 @@ func TestConsulInterfaces(t *testing.T) {
 // 		Events: []string{".*", "device-status"},
 // 	}
 //
-// 	err = consulStore.Push(expectedWebhook)
+// 	err = webhookStore.Push(expectedWebhook)
 // 	assert.NoError(err)
-// 	<-dataChan
+// 	time.Sleep(time.Second)
 // 	assert.Equal([]webhook.W{expectedWebhook}, resultingHooks)
 //
-// 	err = consulStore.Remove("http://localhost/events?neat")
+// 	err = webhookStore.Remove("http://localhost/events?neat")
 // 	assert.NoError(err)
 //
-// 	tempHooks, err := consulStore.GetWebhook()
+// 	tempHooks, err := webhookStore.GetWebhook()
 // 	assert.NoError(err)
 // 	assert.Empty(tempHooks)
 // }

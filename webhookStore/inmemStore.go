@@ -87,30 +87,23 @@ func (inMem *InMem) Update(hooks []webhook.W) {
 func (inMem *InMem) Push(w webhook.W) error {
 	// update the store if there is no backend.
 	// if it is set. On List() will update the inmem data set
-	updateStructure := func() {
-		inMem.lock.Lock()
-		inMem.hooks[w.ID()] = envelope{
-			creation: time.Now(),
-			hook:     w,
-		}
-		inMem.lock.Unlock()
-		// update listener
-		if inMem.options.listener != nil {
-			hooks, _ := inMem.GetWebhook()
-			inMem.options.listener.Update(hooks)
-		}
+
+	inMem.lock.Lock()
+	inMem.hooks[w.ID()] = envelope{
+		creation: time.Now(),
+		hook:     w,
+	}
+	inMem.lock.Unlock()
+	// update listener
+	if inMem.options.listener != nil {
+		hooks, _ := inMem.GetWebhook()
+		inMem.options.listener.Update(hooks)
 	}
 
-	if inMem.options.backend == nil {
-		updateStructure()
-		return nil
+	if inMem.options.backend != nil {
+		return inMem.options.backend.Push(w)
 	}
-	// if backend is not a listener or inMem is not a listener of the backend.
-	// update the internal structure
-	if listener, ok := inMem.options.backend.(Listener); !ok || listener != inMem {
-		updateStructure()
-	}
-	return inMem.options.backend.Push(w)
+	return nil
 }
 
 // CleanUp will free remove old webhooks.

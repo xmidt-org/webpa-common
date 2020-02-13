@@ -26,9 +26,9 @@ type Listener interface {
 	Update(hooks []webhook.W)
 }
 
-type ListnerFunc func(hooks []webhook.W)
+type ListenerFunc func(hooks []webhook.W)
 
-func (listner ListnerFunc) Update(hooks []webhook.W) {
+func (listner ListenerFunc) Update(hooks []webhook.W) {
 	listner(hooks)
 }
 

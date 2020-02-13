@@ -95,7 +95,7 @@ func TestInMemWithNoOptions(t *testing.T) {
 
 type hookListener struct {
 	hooks  []webhook.W
-	listen ListnerFunc
+	listen ListenerFunc
 }
 
 func (listner *hookListener) Update(hooks []webhook.W) {
