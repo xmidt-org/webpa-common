@@ -115,7 +115,7 @@ func (inMem *InMem) Push(w webhook.W) error {
 func (inMem *InMem) CleanUp() {
 	inMem.lock.Lock()
 	for key, value := range inMem.hooks {
-		if value.creation.Add(inMem.config.TTL).After(time.Now()) {
+		if time.Now().After(value.creation.Add(inMem.config.TTL)) {
 			go inMem.Remove(key)
 		}
 	}
