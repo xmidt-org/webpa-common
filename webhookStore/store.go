@@ -77,16 +77,3 @@ func WithListener(listener Listener) Option {
 		}
 	}
 }
-
-// // WithListener sets the webhookStore storage and sets that storage's listener to its creator
-// func WithStorageListener(builder func(options ...Option) Pusher, options ...Option) Option {
-// 	return func(r *storeConfig) {
-// 		// set storage Listener to creator
-// 		if listener, ok := r.self.(Listener); ok {
-// 			storageListner := builder(append(options, WithListener(listener))...)
-// 			if storageListner != nil {
-// 				r.backend = storageListner
-// 			}
-// 		}
-// 	}
-// }
