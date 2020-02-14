@@ -125,3 +125,8 @@ func (c *Client) Remove(id string) error {
 func (c *Client) Stop(context context.Context) {
 	c.plan.Stop()
 }
+
+func (c *Client) SetListener(listener Listener) error {
+	c.options.listener = listener
+	return nil
+}

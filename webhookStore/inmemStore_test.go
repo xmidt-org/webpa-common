@@ -179,6 +179,11 @@ type hookStorage struct {
 	lock    sync.Mutex
 }
 
+func (h *hookStorage) SetListener(listener Listener) error {
+	h.options.listener = listener
+	return nil
+}
+
 func (h *hookStorage) Push(w webhook.W) error {
 	h.lock.Lock()
 	h.hooks[w.ID()] = w
@@ -219,22 +224,21 @@ func TestInMemWithBackend(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
+	logger := logging.NewTestLogger(nil, t)
+
+	storage := &hookStorage{
+		hooks: map[string]webhook.W{},
+		options: &storeConfig{
+			logger: logger,
+		},
+	}
+
 	client := CreateInMemStore(InMemConfig{
 		TTL:           time.Second,
 		CheckInterval: time.Millisecond * 10,
-	}, WithStorageListener(func(options ...Option) Pusher {
-		storage := &hookStorage{
-			hooks: map[string]webhook.W{},
-		}
-		storage.options = &storeConfig{
-			logger: logging.NewTestLogger(nil, t),
-			self:   storage,
-		}
-		for _, o := range options {
-			o(storage.options)
-		}
-		return storage
-	}))
+	}, WithStorage(storage))
+	storage.SetListener(client)
+
 	require.NotNil(client)
 
 	// test push

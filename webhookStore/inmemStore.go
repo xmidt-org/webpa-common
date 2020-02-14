@@ -26,6 +26,11 @@ type InMem struct {
 	stop    chan struct{}
 }
 
+func (inMem *InMem) SetListener(listener Listener) error {
+	inMem.options.listener = listener
+	return nil
+}
+
 func (inMem *InMem) Remove(id string) error {
 	// update the store if there is no backend.
 	// if it is set. On List() will update the inmem data set
@@ -147,7 +152,6 @@ func CreateInMemStore(config InMemConfig, options ...Option) *InMem {
 	}
 	inMem.options = &storeConfig{
 		logger: logging.DefaultLogger(),
-		self:   inMem,
 	}
 
 	for _, o := range options {

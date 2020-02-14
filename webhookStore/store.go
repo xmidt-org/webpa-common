@@ -33,15 +33,19 @@ func (listner ListenerFunc) Update(hooks []webhook.W) {
 }
 
 type Reader interface {
-	// GetWebhook will return all the current webhooks or an error
+	// GetWebhook will return all the current webhooks or an error.
 	GetWebhook() ([]webhook.W, error)
+}
+
+type ConfigureListener interface {
+	// SetListener will attempt to set the lister.
+	SetListener(listener Listener) error
 }
 
 type storeConfig struct {
 	logger   log.Logger
 	backend  Pusher
 	listener Listener
-	self     interface{}
 }
 
 // Option is the function used to configure a store.
@@ -74,15 +78,15 @@ func WithListener(listener Listener) Option {
 	}
 }
 
-// WithListener sets the webhookStore storage and sets that storage's listener to its creator
-func WithStorageListener(builder func(options ...Option) Pusher, options ...Option) Option {
-	return func(r *storeConfig) {
-		// set storage Listener to creator
-		if listener, ok := r.self.(Listener); ok {
-			storageListner := builder(append(options, WithListener(listener))...)
-			if storageListner != nil {
-				r.backend = storageListner
-			}
-		}
-	}
-}
+// // WithListener sets the webhookStore storage and sets that storage's listener to its creator
+// func WithStorageListener(builder func(options ...Option) Pusher, options ...Option) Option {
+// 	return func(r *storeConfig) {
+// 		// set storage Listener to creator
+// 		if listener, ok := r.self.(Listener); ok {
+// 			storageListner := builder(append(options, WithListener(listener))...)
+// 			if storageListner != nil {
+// 				r.backend = storageListner
+// 			}
+// 		}
+// 	}
+// }
