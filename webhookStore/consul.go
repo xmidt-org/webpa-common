@@ -14,18 +14,15 @@ import (
 )
 
 type ConsulConfig struct {
-	Client       *api.Client
-	WriteOptions api.WriteOptions
-	Prefix       string
+	Client *api.Client
+	Prefix string
 }
 
 type Client struct {
-	client       *api.Client
-	options      *storeConfig
-	writeOptions api.WriteOptions
-	readOptions  api.QueryOptions
-	keyPrefix    string
-	plan         *watch.Plan
+	client    *api.Client
+	options   *storeConfig
+	keyPrefix string
+	plan      *watch.Plan
 }
 
 // CreateInMemStore will create an inmemory storage that wiwhe arll handle ttl of webhooks.
@@ -92,7 +89,7 @@ func (c *Client) handlePlanCallback(idx uint64, raw interface{}) {
 
 func (c *Client) GetWebhook() ([]webhook.W, error) {
 	hooks := []webhook.W{}
-	kvPairs, _, err := c.client.KV().List(c.keyPrefix, &c.readOptions)
+	kvPairs, _, err := c.client.KV().List(c.keyPrefix, &api.QueryOptions{})
 	if err != nil {
 		return hooks, err
 	}
@@ -116,12 +113,12 @@ func (c *Client) Push(w webhook.W) error {
 	_, err = c.client.KV().Put(&api.KVPair{
 		Key:   c.keyPrefix + "/" + base64.RawURLEncoding.EncodeToString([]byte(w.ID())),
 		Value: data,
-	}, &c.writeOptions)
+	}, &api.WriteOptions{})
 	return err
 }
 
 func (c *Client) Remove(id string) error {
-	_, err := c.client.KV().Delete(c.keyPrefix+"/"+base64.RawURLEncoding.EncodeToString([]byte(id)), &c.writeOptions)
+	_, err := c.client.KV().Delete(c.keyPrefix+"/"+base64.RawURLEncoding.EncodeToString([]byte(id)), &api.WriteOptions{})
 	return err
 }
 
