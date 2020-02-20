@@ -27,7 +27,7 @@ const (
 
 type capabilityCheck struct {
 	prefixToMatch   *regexp.Regexp
-	endpoints       map[*regexp.Regexp]string
+	endpoints       []*regexp.Regexp
 	acceptAllMethod string
 	measures        *AuthCapabilityCheckMeasures
 }
@@ -89,7 +89,7 @@ func (c *capabilityCheck) CreateBasculeCheck(errorOut bool) bascule.ValidatorFun
 	}
 }
 
-func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints map[*regexp.Regexp]string) (*capabilityCheck, error) {
+func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints []*regexp.Regexp) (*capabilityCheck, error) {
 	if m == nil {
 		return nil, errors.New("nil capability check measures")
 	}
@@ -167,11 +167,11 @@ func determinePartnerMetric(partners []string) string {
 
 }
 
-func determineEndpointMetric(endpoints map[*regexp.Regexp]string, urlHit string) string {
-	for r, e := range endpoints {
+func determineEndpointMetric(endpoints []*regexp.Regexp, urlHit string) string {
+	for _, r := range endpoints {
 		idxs := r.FindStringIndex(urlHit)
 		if idxs[0] == 0 {
-			return e
+			return r.String()
 		}
 	}
 	return "not_recognized"
