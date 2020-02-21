@@ -170,6 +170,9 @@ func determinePartnerMetric(partners []string) string {
 func determineEndpointMetric(endpoints []*regexp.Regexp, urlHit string) string {
 	for _, r := range endpoints {
 		idxs := r.FindStringIndex(urlHit)
+		if idxs == nil {
+			continue
+		}
 		if idxs[0] == 0 {
 			return r.String()
 		}
