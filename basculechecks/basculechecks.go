@@ -23,12 +23,11 @@ var (
 const (
 	CapabilityKey = "capabilities"
 	PartnerKey    = "allowedResources.allowedPartners"
-	DefaultRegex  = `(mac|uuid|dns|serial):([^/]+)`
 )
 
 type capabilityCheck struct {
 	prefixToMatch   *regexp.Regexp
-	endpointToMatch *regexp.Regexp
+	endpoints       []*regexp.Regexp
 	acceptAllMethod string
 	measures        *AuthCapabilityCheckMeasures
 }
@@ -90,7 +89,7 @@ func (c *capabilityCheck) CreateBasculeCheck(errorOut bool) bascule.ValidatorFun
 	}
 }
 
-func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string) (*capabilityCheck, error) {
+func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints []*regexp.Regexp) (*capabilityCheck, error) {
 	if m == nil {
 		return nil, errors.New("nil capability check measures")
 	}
@@ -98,14 +97,10 @@ func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptA
 	if err != nil {
 		return nil, emperror.WrapWith(err, "failed to compile prefix given", "prefix", prefix)
 	}
-	matchEndpoint, err := regexp.Compile(DefaultRegex)
-	if err != nil {
-		return nil, emperror.WrapWith(err, "failed to compile endpoint regex given", "endpoint", DefaultRegex)
-	}
 
 	c := capabilityCheck{
 		prefixToMatch:   matchPrefix,
-		endpointToMatch: matchEndpoint,
+		endpoints:       endpoints,
 		acceptAllMethod: acceptAllMethod,
 		measures:        m,
 	}
@@ -148,11 +143,7 @@ func (c *capabilityCheck) prepMetrics(auth bascule.Authentication) (string, stri
 	}
 	partnerID := determinePartnerMetric(partnerIDs)
 	escapedURL := auth.Request.URL.EscapedPath()
-	i := c.endpointToMatch.FindStringIndex(escapedURL)
-	endpoint := escapedURL
-	if i != nil {
-		endpoint = escapedURL[:i[0]] + "..." + escapedURL[i[1]:]
-	}
+	endpoint := determineEndpointMetric(c.endpoints, escapedURL)
 	return client, partnerID, endpoint, "", nil
 
 }
@@ -174,6 +165,19 @@ func determinePartnerMetric(partners []string) string {
 	}
 	return "many"
 
+}
+
+func determineEndpointMetric(endpoints []*regexp.Regexp, urlHit string) string {
+	for _, r := range endpoints {
+		idxs := r.FindStringIndex(urlHit)
+		if idxs == nil {
+			continue
+		}
+		if idxs[0] == 0 {
+			return r.String()
+		}
+	}
+	return "not_recognized"
 }
 
 func getCapabilities(attributes bascule.Attributes) ([]string, string, error) {

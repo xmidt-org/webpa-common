@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,9 @@ func TestCreateBasculeCheck(t *testing.T) {
 		`test:/good/.*/testing\b:all`,
 	}
 	goodPartner := []string{"meh"}
+	goodEndpoint := `/good/.*/testing\b`
+	goodRegex, err := regexp.Compile(goodEndpoint)
+	assert.Nil(t, err)
 
 	tests := []struct {
 		description      string
@@ -43,7 +47,7 @@ func TestCreateBasculeCheck(t *testing.T) {
 			expectedReason:   "",
 			expectedClient:   goodPrincipal,
 			expectedPartner:  goodPartner[0],
-			expectedEndpoint: urlStr,
+			expectedEndpoint: goodEndpoint,
 		},
 		{
 			description:     "Token Missing From Context Error",
@@ -90,7 +94,7 @@ func TestCreateBasculeCheck(t *testing.T) {
 			expectedReason:   UndeterminedCapabilities,
 			expectedClient:   goodPrincipal,
 			expectedPartner:  goodPartner[0],
-			expectedEndpoint: urlStr,
+			expectedEndpoint: goodEndpoint,
 			expectedErr:      errors.New("couldn't get capabilities"),
 		},
 		{
@@ -101,7 +105,7 @@ func TestCreateBasculeCheck(t *testing.T) {
 			expectedReason:   UndeterminedCapabilities,
 			expectedClient:   goodPrincipal,
 			expectedPartner:  goodPartner[0],
-			expectedEndpoint: urlStr,
+			expectedEndpoint: goodEndpoint,
 		},
 		{
 			description:      "Capability Check Error",
@@ -112,7 +116,7 @@ func TestCreateBasculeCheck(t *testing.T) {
 			expectedReason:   NoCapabilitiesMatch,
 			expectedClient:   goodPrincipal,
 			expectedPartner:  goodPartner[0],
-			expectedEndpoint: urlStr,
+			expectedEndpoint: goodEndpoint,
 			expectedErr:      ErrNoValidCapabilityFound,
 		},
 		{
@@ -123,7 +127,7 @@ func TestCreateBasculeCheck(t *testing.T) {
 			expectedReason:   NoCapabilitiesMatch,
 			expectedClient:   goodPrincipal,
 			expectedPartner:  goodPartner[0],
-			expectedEndpoint: urlStr,
+			expectedEndpoint: goodEndpoint,
 		},
 	}
 
@@ -133,7 +137,7 @@ func TestCreateBasculeCheck(t *testing.T) {
 			p := xmetricstest.NewProvider(nil, Metrics)
 			m := NewAuthCapabilityCheckMeasures(p)
 
-			c, err := NewCapabilityChecker(m, "test:", "all")
+			c, err := NewCapabilityChecker(m, "test:", "all", []*regexp.Regexp{goodRegex})
 			assert.Nil(err)
 
 			attrMap := map[string]interface{}{PartnerKey: tc.partnerIDs, CapabilityKey: tc.capabilities}
@@ -205,7 +209,7 @@ func TestNewCapabilityChecker(t *testing.T) {
 				p := xmetricstest.NewProvider(nil, Metrics)
 				m = NewAuthCapabilityCheckMeasures(p)
 			}
-			check, err := NewCapabilityChecker(m, tc.prefix, "all")
+			check, err := NewCapabilityChecker(m, tc.prefix, "all", nil)
 			if err == nil || tc.expectedErr == nil {
 				assert.Equal(tc.expectedErr, err)
 				assert.NotNil(check)
@@ -258,7 +262,7 @@ func TestCheckCapabilities(t *testing.T) {
 	}
 	p := xmetricstest.NewProvider(nil, Metrics)
 	m := NewAuthCapabilityCheckMeasures(p)
-	c, err := NewCapabilityChecker(m, "a:b:c:", "allIn")
+	c, err := NewCapabilityChecker(m, "a:b:c:", "allIn", nil)
 	assert.Nil(t, err)
 
 	for _, tc := range tests {
@@ -277,9 +281,14 @@ func TestCheckCapabilities(t *testing.T) {
 func TestPrepMetrics(t *testing.T) {
 	goodURL := "/asnkfn/aefkijeoij/aiogj"
 	matchingURL := "/fnvvdsjkfji/mac:12345544322345334/geigosj"
-	abridgedURL := "/fnvvdsjkfji/.../geigosj"
 	client := "special"
 	prepErr := errors.New("couldn't get partner IDs from attributes")
+	goodEndpoint := `/fnvvdsjkfji/.*/geigosj\b`
+	goodRegex, err := regexp.Compile(goodEndpoint)
+	assert.Nil(t, err)
+	unusedEndpoint := `/a/b\b`
+	unusedRegex, err := regexp.Compile(unusedEndpoint)
+	assert.Nil(t, err)
 	tests := []struct {
 		description      string
 		noPartnerID      bool
@@ -295,7 +304,7 @@ func TestPrepMetrics(t *testing.T) {
 			partnerIDs:       []string{"partner"},
 			url:              goodURL,
 			expectedPartner:  "partner",
-			expectedEndpoint: goodURL,
+			expectedEndpoint: "not_recognized",
 			expectedReason:   "",
 			expectedErr:      nil,
 		},
@@ -304,7 +313,7 @@ func TestPrepMetrics(t *testing.T) {
 			partnerIDs:       []string{"partner"},
 			url:              matchingURL,
 			expectedPartner:  "partner",
-			expectedEndpoint: abridgedURL,
+			expectedEndpoint: goodEndpoint,
 			expectedReason:   "",
 			expectedErr:      nil,
 		},
@@ -339,7 +348,7 @@ func TestPrepMetrics(t *testing.T) {
 
 	p := xmetricstest.NewProvider(nil, Metrics)
 	m := NewAuthCapabilityCheckMeasures(p)
-	c, err := NewCapabilityChecker(m, "prefix:", "all")
+	c, err := NewCapabilityChecker(m, "prefix:", "all", []*regexp.Regexp{unusedRegex, goodRegex})
 	assert.Nil(t, err)
 
 	for _, tc := range tests {
