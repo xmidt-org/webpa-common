@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/ugorji/go/codec"
-	"github.com/xmidt-org/wrp-go/wrp/wrpmeta"
+	"github.com/xmidt-org/wrp-go/v3/wrpmeta"
 )
 
 var (

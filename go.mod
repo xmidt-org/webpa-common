@@ -42,7 +42,6 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/ugorji/go/codec v1.1.7
 	github.com/xmidt-org/bascule v0.8.0
-	github.com/xmidt-org/wrp-go v1.3.3
-	github.com/xmidt-org/wrp-go/v2 v2.0.0
+	github.com/xmidt-org/wrp-go/v3 v3.0.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )

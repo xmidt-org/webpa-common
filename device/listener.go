@@ -1,7 +1,7 @@
 package device
 
 import (
-	"github.com/xmidt-org/wrp-go/v2"
+	"github.com/xmidt-org/wrp-go/v3"
 )
 
 // EventType is the type of device-related event
