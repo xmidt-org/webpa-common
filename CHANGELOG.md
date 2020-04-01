@@ -5,7 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- upgrade wrp-go version to 3.0.1
+
+## [v1.8.0]
+- upgrade wrp-go version to v3.0.1 for subpackages convey and device [#460](https://github.com/xmidt-org/webpa-common/pull/460)
 
 ## [v1.7.0]
 - typo fix fallback content-type value [#457](https://github.com/xmidt-org/webpa-common/pull/457)
@@ -70,7 +72,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.8.0...HEAD
+[v1.8.0]: https://github.com/xmidt-org/webpa-common/compare/v1.7.0...v1.8.0
 [v1.7.0]: https://github.com/xmidt-org/webpa-common/compare/v1.6.3...v1.7.0
 [v1.6.3]: https://github.com/xmidt-org/webpa-common/compare/v1.6.2...v1.6.3
 [v1.6.2]: https://github.com/xmidt-org/webpa-common/compare/v1.6.1...v1.6.2
