@@ -22,7 +22,8 @@ install:
 script:
   # ignoring packages with obscure intermittent failures 
   # needs fixing
-  - go test -v -race -coverprofile=coverage.txt `go list ./...  | grep -v ".*/semaphore" | grep -v ".*/bookkeeping"`
+  #- go test -v -race -coverprofile=coverage.txt `go list ./...  | grep -v ".*/semaphore" | grep -v ".*/bookkeeping"`
+  - go test -v -race -coverprofile=coverage.txt `go list ./...`
   - ./codecov.sh
 
 jobs:
