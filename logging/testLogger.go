@@ -21,8 +21,10 @@ type testWriter struct {
 func (t *testWriter) Write(data []byte) (int, error) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
-	t.testSink.Log(string(data))
-	return len(data), nil
+	cpy := make([]byte, len(data))
+	copy(cpy, data)
+	t.testSink.Log(string(cpy))
+	return len(cpy), nil
 }
 
 // NewTestWriter returns an io.Writer which delegates to a testing log.
