@@ -6,3 +6,6 @@ pkg
 src
 coverage*
 .idea
+
+server/memprofile
+server/cpuprofile
