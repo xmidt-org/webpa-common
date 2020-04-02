@@ -57,7 +57,7 @@ func testWithLoggerDefault(t *testing.T) {
 func testWithLoggerCustom(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.DefaultLogger()
+		logger = logging.NewTestLogger(nil, t)
 		d      = new(drainer)
 	)
 
@@ -223,7 +223,7 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.DefaultLogger()
+		logger   = logging.NewTestLogger(nil, t)
 
 		manager = generateManager(assert, uint64(deviceCount))
 
@@ -342,7 +342,7 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.DefaultLogger()
+		logger   = logging.NewTestLogger(nil, t)
 
 		manager = generateManager(assert, uint64(deviceCount))
 
@@ -437,7 +437,7 @@ func testDrainerVisitCancel(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.DefaultLogger()
+		logger   = logging.NewTestLogger(nil, t)
 
 		manager = generateManager(assert, 100)
 
@@ -473,7 +473,7 @@ func testDrainerDisconnectCancel(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.DefaultLogger()
+		logger   = logging.NewTestLogger(nil, t)
 
 		manager = generateManager(assert, 100)
 
@@ -519,7 +519,7 @@ func testDrainerDrainCancel(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.DefaultLogger()
+		logger   = logging.NewTestLogger(nil, t)
 
 		manager = generateManager(assert, 100)
 
