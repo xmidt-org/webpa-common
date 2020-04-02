@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.13.x
+  - 1.14.x
   - tip
 
 os:
@@ -17,13 +17,16 @@ before_install:
   - chmod 755 ./codecov.sh
 
 install:
-  - GO111MODULE=on go mod vendor
+  - go mod vendor
 
 script:
-  - go test ./... -race -coverprofile=coverage.txt 
+  - go test ./... -v -race -coverprofile=coverage.txt 
   - ./codecov.sh
 
 jobs:
+  fast_finish: true
+  allow_failures:
+    - go: tip
   include:
     - stage: tag
       name: "Tag For Release"
