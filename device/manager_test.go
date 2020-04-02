@@ -380,6 +380,7 @@ func TestGaugeCardinality(t *testing.T) {
 		assert = assert.New(t)
 		r, err = xmetrics.NewRegistry(nil, Metrics)
 		m      = NewManager(&Options{
+			Logger:          logging.NewTestLogger(nil, t),
 			MetricsProvider: r,
 		})
 	)
