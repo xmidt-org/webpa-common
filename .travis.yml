@@ -20,10 +20,11 @@ install:
   - go mod vendor
 
 script:
-  # ignoring packages with obscure intermittent failures 
-  # needs fixing
-  #- go test -v -race -coverprofile=coverage.txt `go list ./...  | grep -v ".*/semaphore" | grep -v ".*/bookkeeping"`
-  - go test -v -race -coverprofile=coverage.txt `go list ./...`
+  # See work at https://github.com/xmidt-org/webpa-common/pull/461, 
+  # If you see odd intermitent data races / failures, ignore the following packages
+  # go test -v -race -coverprofile=coverage.txt `go list ./...  | grep -v ".*/semaphore" | grep -v ".*/bookkeeping"`
+
+  - go test -v -race -coverprofile=coverage.txt ./...
   - ./codecov.sh
 
 jobs:
