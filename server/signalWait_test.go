@@ -13,7 +13,7 @@ import (
 func testSignalWaitBasic(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 		signals = make(chan os.Signal)
 
 		started  = new(sync.WaitGroup)
@@ -49,7 +49,7 @@ func testSignalWaitBasic(t *testing.T) {
 func testSignalWaitForever(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 		signals = make(chan os.Signal)
 
 		started  = new(sync.WaitGroup)

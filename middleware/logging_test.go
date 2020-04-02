@@ -13,7 +13,7 @@ func testLoggingWithLoggable(t *testing.T) {
 	var (
 		require          = require.New(t)
 		assert           = assert.New(t)
-		expectedLogger   = logging.NewTestLogger(nil, t)
+		expectedLogger   = logging.DefaultLogger()
 		loggable         = new(mockLoggable)
 		expectedResponse = "expected response"
 

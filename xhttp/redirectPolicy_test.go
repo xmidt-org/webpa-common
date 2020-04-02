@@ -28,7 +28,7 @@ func testRedirectPolicyCustom(t *testing.T) {
 	var (
 		assert         = assert.New(t)
 		require        = require.New(t)
-		expectedLogger = logging.NewTestLogger(nil, t)
+		expectedLogger = logging.DefaultLogger()
 
 		p = RedirectPolicy{
 			Logger:         expectedLogger,
@@ -74,7 +74,7 @@ func testCheckRedirectCopyHeaders(t *testing.T) {
 		assert = assert.New(t)
 
 		checkRedirect = CheckRedirect(RedirectPolicy{
-			Logger:         logging.NewTestLogger(nil, t),
+			Logger:         logging.DefaultLogger(),
 			ExcludeHeaders: []string{"content-type", "X-Supar-Sekrit"},
 		})
 

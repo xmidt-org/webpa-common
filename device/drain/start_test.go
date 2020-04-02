@@ -72,7 +72,7 @@ func testStartServeHTTPValid(t *testing.T) {
 				done  <-chan struct{} = make(chan struct{})
 				start                 = Start{d}
 
-				ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+				ctx      = logging.WithLogger(context.Background(), logging.DefaultLogger())
 				response = httptest.NewRecorder()
 				request  = httptest.NewRequest("POST", record.uri, nil).WithContext(ctx)
 			)
@@ -98,7 +98,7 @@ func testStartServeHTTPParseFormError(t *testing.T) {
 		d     = new(mockDrainer)
 		start = Start{d}
 
-		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx      = logging.WithLogger(context.Background(), logging.DefaultLogger())
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?%TT*&&", nil).WithContext(ctx)
 	)
@@ -115,7 +115,7 @@ func testStartServeHTTPInvalidQuery(t *testing.T) {
 		d     = new(mockDrainer)
 		start = Start{d}
 
-		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx      = logging.WithLogger(context.Background(), logging.DefaultLogger())
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?count=asdf", nil).WithContext(ctx)
 	)
@@ -134,7 +134,7 @@ func testStartServeHTTPStartError(t *testing.T) {
 		start         = Start{d}
 		expectedError = errors.New("expected")
 
-		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx      = logging.WithLogger(context.Background(), logging.DefaultLogger())
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?count=100", nil).WithContext(ctx)
 	)

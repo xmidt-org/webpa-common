@@ -18,7 +18,7 @@ import (
 func setupHealth(t *testing.T) *Health {
 	return New(
 		time.Duration(69)*time.Second,
-		logging.NewTestLogger(nil, t),
+		logging.DefaultLogger(),
 	)
 }
 

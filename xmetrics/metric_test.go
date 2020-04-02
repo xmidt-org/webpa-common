@@ -93,7 +93,7 @@ func TestMerger(t *testing.T) {
 		var (
 			assert = assert.New(t)
 			merger = NewMerger().
-				Logger(logging.NewTestLogger(nil, t)).
+				Logger(logging.DefaultLogger()).
 				AddMetrics(false, []Metric{{Name: "counter", Type: "counter"}}).
 				AddModules(true, func() []Metric { return []Metric{{Name: "counter", Type: "counter"}} })
 		)

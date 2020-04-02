@@ -148,7 +148,7 @@ func testSetLoggerBaseOnly(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		base    = logging.NewTestLogger(nil, t)
+		base    = logging.DefaultLogger()
 		request = httptest.NewRequest("GET", "/", nil)
 		ctx     = SetLogger(base)(context.Background(), request)
 	)

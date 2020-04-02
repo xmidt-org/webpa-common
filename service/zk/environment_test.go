@@ -105,7 +105,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = logging.DefaultLogger()
 		clientFactory = prepareMockClientFactory()
 		client        = new(mockClient)
 		zkEvents      = make(chan zk.Event, 5)

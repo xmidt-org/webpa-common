@@ -33,7 +33,7 @@ func TestNewServerLogger(t *testing.T) {
 	})
 
 	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
+		testNewServerLogger(t, log.With(logging.DefaultLogger(), ServerKey(), "test"))
 	})
 }
 
@@ -56,7 +56,7 @@ func TestNewServerConnStateLogger(t *testing.T) {
 	})
 
 	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerConnStateLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
+		testNewServerConnStateLogger(t, log.With(logging.DefaultLogger(), ServerKey(), "test"))
 	})
 }
 
@@ -70,7 +70,7 @@ const (
 func startOptions(t *testing.T) []StartOptions {
 	var o []StartOptions
 
-	for _, logger := range []log.Logger{nil, logging.NewTestLogger(nil, t)} {
+	for _, logger := range []log.Logger{nil, logging.DefaultLogger()} {
 		for _, disableKeepAlives := range []bool{false, true} {
 			o = append(o, StartOptions{
 				Logger:            logger,
@@ -180,7 +180,7 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 			httpServer := new(mockHTTPServer)
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
-			httpServer.On("ListenAndServe", ).Return(expectedError).Once()
+			httpServer.On("ListenAndServe").Return(expectedError).Once()
 			o.CertificateFile = []string{expectedCertificateFile}
 			o.KeyFile = []string{expectedKeyFile}
 
@@ -240,7 +240,7 @@ func TestNewStarter(t *testing.T) {
 func TestServerOptions(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = logging.DefaultLogger()
 		listener = new(mockListener)
 
 		o = ServerOptions{
@@ -265,7 +265,7 @@ func TestNewServer(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		require  = require.New(t)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = logging.DefaultLogger()
 		listener = new(mockListener)
 
 		o = ServerOptions{

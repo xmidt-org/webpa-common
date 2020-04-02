@@ -14,7 +14,7 @@ func TestDispatchWithBreaker(t *testing.T) {
 	var (
 		wg = new(sync.WaitGroup)
 
-		logger    = logging.NewTestLogger(nil, t)
+		logger    = logging.DefaultLogger()
 		timeout   = time.Second * 10
 		threshold = int64(3)
 		client    = &http.Client{

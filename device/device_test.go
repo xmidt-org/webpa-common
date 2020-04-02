@@ -52,7 +52,7 @@ func TestDevice(t *testing.T) {
 				ID:          record.expectedID,
 				QueueSize:   record.expectedQueueSize,
 				ConnectedAt: expectedConnectedAt,
-				Logger:      logging.NewTestLogger(nil, t),
+				Logger:      logging.DefaultLogger(),
 			})
 		)
 
@@ -113,7 +113,7 @@ func TestDeviceSessionID(t *testing.T) {
 		ID:          "1",
 		QueueSize:   10,
 		ConnectedAt: time.Now(),
-		Logger:      logging.NewTestLogger(nil, t),
+		Logger:      logging.DefaultLogger(),
 	}
 	sessionOne := newDevice(connectOptions)
 	sessionTwo := newDevice(connectOptions)

@@ -90,7 +90,7 @@ func (consumer *mockConsumer) AssertExpectations(t *testing.T) {
 func newPooledDispatcher(t *testing.T, queueSize int) (*pooledDispatcher, *mockTransactionHandler, *workerContext) {
 	var (
 		handler       = &mockTransactionHandler{}
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = logging.DefaultLogger()
 		workerContext = &workerContext{
 			id:            999,
 			errorLog:      logging.Error(logger, "contextID", 999, "name", "test"),

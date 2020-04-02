@@ -14,7 +14,7 @@ import (
 func testLeverServeHTTPBadForm(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		ctx    = logging.WithLogger(context.Background(), logger)
 
 		response = httptest.NewRecorder()
@@ -34,7 +34,7 @@ func testLeverServeHTTPBadForm(t *testing.T) {
 func testLeverServeHTTPNoParameter(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		ctx    = logging.WithLogger(context.Background(), logger)
 
 		response = httptest.NewRecorder()
@@ -50,7 +50,7 @@ func testLeverServeHTTPNoParameter(t *testing.T) {
 func testLeverServeHTTPBadParameter(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		ctx    = logging.WithLogger(context.Background(), logger)
 
 		response = httptest.NewRecorder()
@@ -66,7 +66,7 @@ func testLeverServeHTTPBadParameter(t *testing.T) {
 func testLeverServeHTTPRaise(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		ctx    = logging.WithLogger(context.Background(), logger)
 
 		gate  = New(true)
@@ -121,7 +121,7 @@ func testLeverServeHTTPRaise(t *testing.T) {
 func testLeverServeHTTPLower(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		ctx    = logging.WithLogger(context.Background(), logger)
 
 		gate  = New(false)

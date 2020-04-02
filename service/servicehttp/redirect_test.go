@@ -24,7 +24,7 @@ func testRedirectNoRequestURI(t *testing.T, expectedRedirectCode, actualRedirect
 	require.NotNil(encoder)
 
 	err := encoder(
-		logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+		logging.WithLogger(context.Background(), logging.DefaultLogger()),
 		httpResponse,
 		"http://somewhere.com:8080",
 	)
@@ -47,7 +47,7 @@ func testRedirectWithRequestURI(t *testing.T, expectedRedirectCode, actualRedire
 
 	err := encoder(
 		context.WithValue(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			logging.WithLogger(context.Background(), logging.DefaultLogger()),
 			gokithttp.ContextKeyRequestURI,
 			"/api/v2/device",
 		),

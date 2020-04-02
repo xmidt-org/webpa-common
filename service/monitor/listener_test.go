@@ -222,7 +222,7 @@ func TestNewAccessorListener(t *testing.T) {
 func testNewRegistrarListenerNilRegistrar(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 	)
 
 	assert.Panics(func() {
@@ -341,7 +341,7 @@ func TestNewRegistrarListener(t *testing.T) {
 		})
 
 		t.Run("WithLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitiallyDeregistered(t, logging.NewTestLogger(nil, t))
+			testNewRegistrarListenerInitiallyDeregistered(t, logging.DefaultLogger())
 		})
 	})
 
@@ -351,7 +351,7 @@ func TestNewRegistrarListener(t *testing.T) {
 		})
 
 		t.Run("WithLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitiallyRegistered(t, logging.NewTestLogger(nil, t))
+			testNewRegistrarListenerInitiallyRegistered(t, logging.DefaultLogger())
 		})
 	})
 }

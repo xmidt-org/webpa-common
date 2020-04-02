@@ -46,7 +46,7 @@ func testNewEnvironmentFixed(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		v      = viper.New()
 
 		configuration = strings.NewReader(`
@@ -77,7 +77,7 @@ func testNewEnvironmentZookeeper(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		v      = viper.New()
 
 		expectedEnvironment = service.NewEnvironment()
@@ -131,7 +131,7 @@ func testNewEnvironmentConsul(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		v      = viper.New()
 
 		expectedEnvironment = service.NewEnvironment()

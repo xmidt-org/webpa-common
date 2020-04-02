@@ -63,7 +63,7 @@ func testNewCustom(t *testing.T) {
 	}
 
 	l, err := New(Options{
-		Logger:         logging.NewTestLogger(nil, t),
+		Logger:         logging.DefaultLogger(),
 		Rejected:       expectedRejected,
 		Active:         expectedActive,
 		Network:        "tcp4",
@@ -111,7 +111,7 @@ func testNewTLSCustom(t *testing.T) {
 	}
 
 	l, err := New(Options{
-		Logger:         logging.NewTestLogger(nil, t),
+		Logger:         logging.DefaultLogger(),
 		Rejected:       expectedRejected,
 		Active:         expectedActive,
 		Network:        "tcp4",
@@ -183,7 +183,7 @@ func testListenerAcceptError(t *testing.T, maxConnections int) {
 	expectedNext.On("Accept").Return(nil, expectedError).Once()
 
 	l, err := New(Options{
-		Logger:         logging.NewTestLogger(nil, t),
+		Logger:         logging.DefaultLogger(),
 		MaxConnections: maxConnections,
 		Rejected:       expectedRejected,
 		Active:         expectedActive,
@@ -231,7 +231,7 @@ func testListenerAcceptUnlimitedConnections(t *testing.T) {
 	expectedConn2.On("Close").Return(expectedConnCloseError).Once()
 
 	l, err := New(Options{
-		Logger:   logging.NewTestLogger(nil, t),
+		Logger:   logging.DefaultLogger(),
 		Rejected: expectedRejected,
 		Active:   expectedActive,
 		Next:     expectedNext,
@@ -311,7 +311,7 @@ func testListenerAcceptMaxConnections(t *testing.T) {
 	expectedConn2.On("Close").Return(expectedConnCloseError).Once()
 
 	l, err := New(Options{
-		Logger:         logging.NewTestLogger(nil, t),
+		Logger:         logging.DefaultLogger(),
 		MaxConnections: 1,
 		Rejected:       expectedRejected,
 		Active:         expectedActive,

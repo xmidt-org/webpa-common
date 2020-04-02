@@ -15,7 +15,7 @@ import (
 func testStatusServeHTTP(t *testing.T, state bool) {
 	var (
 		assert            = assert.New(t)
-		logger            = logging.NewTestLogger(nil, t)
+		logger            = logging.DefaultLogger()
 		ctx               = logging.WithLogger(context.Background(), logger)
 		expectedTimestamp = time.Now()
 		expectedStatus    = fmt.Sprintf(`{"open": %t, "timestamp": "%s"}`, state, expectedTimestamp.UTC().Format(time.RFC3339))

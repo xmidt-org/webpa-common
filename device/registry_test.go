@@ -15,7 +15,7 @@ func testRegistryAdd(t *testing.T) {
 		var (
 			assert  = assert.New(t)
 			require = require.New(t)
-			logger  = logging.NewTestLogger(nil, t)
+			logger  = logging.DefaultLogger()
 
 			p = xmetricstest.NewProvider(nil, Metrics)
 			r = newRegistry(registryOptions{
@@ -72,7 +72,7 @@ func testRegistryAdd(t *testing.T) {
 		var (
 			assert  = assert.New(t)
 			require = require.New(t)
-			logger  = logging.NewTestLogger(nil, t)
+			logger  = logging.DefaultLogger()
 
 			p = xmetricstest.NewProvider(nil, Metrics)
 			r = newRegistry(registryOptions{
@@ -136,7 +136,7 @@ func testRegistryRemoveAndGet(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 
 		p = xmetricstest.NewProvider(nil, Metrics)
 		r = newRegistry(registryOptions{
@@ -213,7 +213,7 @@ func testRegistryRemoveIf(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 
 		p = xmetricstest.NewProvider(nil, Metrics)
 		r = newRegistry(registryOptions{
@@ -270,7 +270,7 @@ func testRegistryRemoveAll(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 
 		devices = []*device{
 			newDevice(deviceOptions{ID: ID("1"), Logger: logger}),
@@ -306,7 +306,7 @@ func testRegistryVisit(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 
 		p = xmetricstest.NewProvider(nil, Metrics)
 		r = newRegistry(registryOptions{

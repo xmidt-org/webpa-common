@@ -56,7 +56,7 @@ func TestClientNonDefaults(t *testing.T) {
 
 	expectedName := "expected"
 	expectedHandler := &http.Client{}
-	expectedLogger := logging.NewTestLogger(nil, t)
+	expectedLogger := logging.DefaultLogger()
 
 	// none of these clients should use default values
 	var testData = []Client{
@@ -89,7 +89,7 @@ func TestClientNonDefaults(t *testing.T) {
 
 func TestClientDispatcherUsingSend(t *testing.T) {
 	assert := assert.New(t)
-	logger := logging.NewTestLogger(nil, t)
+	logger := logging.DefaultLogger()
 
 	var testData = []Client{
 		{
@@ -210,7 +210,7 @@ func TestOffer(t *testing.T) {
 		Handler:   mockTransactionHandler,
 		Workers:   1,
 		QueueSize: 1,
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 	}).Start()
 
 	// first, hold up the dispatcher with a long running request we control
@@ -386,7 +386,7 @@ func TestSendUsingListener(t *testing.T) {
 		Name:      "TestSendUsingListener",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -424,7 +424,7 @@ func TestSendUsingListenerWhenTaskError(t *testing.T) {
 		Name:      "TestSendUsingListenerWhenTaskError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -462,7 +462,7 @@ func TestSendUsingListenerWhenTransactionError(t *testing.T) {
 		Name:      "TestSendUsingListenerWhenTransactionError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -501,7 +501,7 @@ func TestOfferUsingListener(t *testing.T) {
 		Name:      "TestOfferUsingListener",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -540,7 +540,7 @@ func TestOfferUsingListenerWhenTaskError(t *testing.T) {
 		Name:      "TestOfferUsingListenerWhenTaskError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()
@@ -579,7 +579,7 @@ func TestOfferUsingListenerWhenTransactionError(t *testing.T) {
 		Name:      "TestOfferUsingListenerWhenTransactionError",
 		Handler:   mockTransactionHandler,
 		Listeners: []Listener{mockListener},
-		Logger:    logging.NewTestLogger(nil, t),
+		Logger:    logging.DefaultLogger(),
 		QueueSize: 1,
 		Workers:   1,
 	}).Start()

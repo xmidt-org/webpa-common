@@ -25,7 +25,7 @@ func testOptionsDefault(o *Options, t *testing.T) {
 func testOptionsCustom(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 		o      = Options{
 			Logger:                  logger,
 			Namespace:               "custom namespace",

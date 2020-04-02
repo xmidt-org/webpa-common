@@ -30,7 +30,7 @@ func testAuthorizationHandlerNoDecoration(t *testing.T) {
 		})
 
 		handler = AuthorizationHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: logging.DefaultLogger(),
 		}
 
 		decorated = handler.Decorate(next)
@@ -53,7 +53,7 @@ func testAuthorizationHandlerNoAuthorization(t *testing.T, expectedStatusCode, c
 
 		validator = new(secure.MockValidator)
 		handler   = AuthorizationHandler{
-			Logger:              logging.NewTestLogger(nil, t),
+			Logger:              logging.DefaultLogger(),
 			ForbiddenStatusCode: configuredStatusCode,
 			Validator:           validator,
 		}
@@ -82,7 +82,7 @@ func testAuthorizationHandlerMalformedAuthorization(t *testing.T, expectedStatus
 
 		validator = new(secure.MockValidator)
 		handler   = AuthorizationHandler{
-			Logger:              logging.NewTestLogger(nil, t),
+			Logger:              logging.DefaultLogger(),
 			HeaderName:          configuredHeader,
 			ForbiddenStatusCode: configuredStatusCode,
 			Validator:           validator,
@@ -119,7 +119,7 @@ func testAuthorizationHandlerValid(t *testing.T, expectedHeader, configuredHeade
 
 		validator = new(secure.MockValidator)
 		handler   = AuthorizationHandler{
-			Logger:     logging.NewTestLogger(nil, t),
+			Logger:     logging.DefaultLogger(),
 			HeaderName: configuredHeader,
 			Validator:  validator,
 		}
@@ -151,7 +151,7 @@ func testAuthorizationHandlerInvalid(t *testing.T, expectedStatusCode, configure
 
 		validator = new(secure.MockValidator)
 		handler   = AuthorizationHandler{
-			Logger:              logging.NewTestLogger(nil, t),
+			Logger:              logging.DefaultLogger(),
 			HeaderName:          configuredHeader,
 			ForbiddenStatusCode: configuredStatusCode,
 			Validator:           validator,

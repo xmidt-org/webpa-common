@@ -19,7 +19,7 @@ func testGetBody(t *testing.T, expected []byte) {
 		require = require.New(t)
 
 		ctx     = context.WithValue(context.Background(), "foo", "bar")
-		getBody = GetBody(logging.NewTestLogger(nil, t))
+		getBody = GetBody(logging.DefaultLogger())
 		request = httptest.NewRequest("GET", "/", bytes.NewReader(expected))
 	)
 
@@ -48,14 +48,14 @@ func testGetBody(t *testing.T, expected []byte) {
 func testGetBodyNilRequest(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		GetBody(logging.NewTestLogger(nil, t))(context.Background(), nil)
+		GetBody(logging.DefaultLogger())(context.Background(), nil)
 	})
 }
 
 func testGetBodyNilRequestBody(t *testing.T) {
 	assert := assert.New(t)
 	assert.NotPanics(func() {
-		GetBody(logging.NewTestLogger(nil, t))(context.Background(), new(http.Request))
+		GetBody(logging.DefaultLogger())(context.Background(), new(http.Request))
 	})
 }
 

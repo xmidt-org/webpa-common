@@ -68,7 +68,7 @@ func testNewNilMetricsProvider(t *testing.T) {
 		connector = new(device.MockConnector)
 		r         = New(
 			connector,
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(logging.DefaultLogger()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(nil),
 		)
@@ -100,7 +100,7 @@ func testRehasherServiceDiscoveryError(t *testing.T) {
 		connector             = new(device.MockConnector)
 		r                     = New(
 			connector,
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(logging.DefaultLogger()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -137,7 +137,7 @@ func testRehasherServiceDiscoveryStopped(t *testing.T) {
 		connector = new(device.MockConnector)
 		r         = New(
 			connector,
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(logging.DefaultLogger()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -174,7 +174,7 @@ func testRehasherInitialEvent(t *testing.T) {
 		connector = new(device.MockConnector)
 		r         = New(
 			connector,
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(logging.DefaultLogger()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -207,7 +207,7 @@ func testRehasherNoInstances(t *testing.T) {
 		connector = new(device.MockConnector)
 		r         = New(
 			connector,
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(logging.DefaultLogger()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -286,7 +286,7 @@ func testRehasherRehash(t *testing.T) {
 		connector = new(device.MockConnector)
 		r         = New(
 			connector,
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(logging.DefaultLogger()),
 			WithIsRegistered(isRegistered),
 			WithAccessorFactory(accessorFactory),
 			WithMetricsProvider(provider),

@@ -99,7 +99,7 @@ func SetUpTestSNSServerWithChannelSize(t *testing.T, channelSize int64) (*SNSSer
 	}
 
 	r := mux.NewRouter()
-	logger := logging.NewTestLogger(nil, t)
+	logger := logging.DefaultLogger()
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
 	ss.Initialize(r, nil, "", nil, logger, registry, testNow)
 
@@ -464,7 +464,7 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 		channelClientTimeout: 30 * time.Second,
 	}
 
-	logger := logging.NewTestLogger(nil, t)
+	logger := logging.DefaultLogger()
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
 	ss.Initialize(nil, nil, "", nil, logger, registry, testNow)
 

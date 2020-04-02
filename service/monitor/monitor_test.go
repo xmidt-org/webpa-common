@@ -33,7 +33,7 @@ func testNewStop(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 
 		instancer         = new(service.MockInstancer)
 		listener          = new(mockListener)
@@ -150,7 +150,7 @@ func testNewWithEnvironment(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = logging.DefaultLogger()
 
 		instancer         = new(service.MockInstancer)
 		listener          = new(mockListener)

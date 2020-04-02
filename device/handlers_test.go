@@ -221,7 +221,7 @@ func TestUseID(t *testing.T) {
 func testMessageHandlerLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 
 		handler = MessageHandler{}
 	)
@@ -329,7 +329,7 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: logging.DefaultLogger(),
 			Router: router,
 		}
 
@@ -395,7 +395,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		router  = new(mockRouter)
 		device  = new(MockDevice)
 		handler = MessageHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: logging.DefaultLogger(),
 			Router: router,
 		}
 
@@ -534,7 +534,7 @@ func TestMessageHandler(t *testing.T) {
 func testConnectHandlerLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = logging.DefaultLogger()
 
 		handler = ConnectHandler{}
 	)
@@ -591,7 +591,7 @@ func testListHandlerRefresh(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		handler = ListHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: logging.DefaultLogger(),
 		}
 	)
 
@@ -608,7 +608,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 47913 * time.Minute
 		registry            = new(MockRegistry)
-		logger              = logging.NewTestLogger(nil, t)
+		logger              = logging.DefaultLogger()
 
 		now = func() time.Time {
 			return expectedConnectedAt.Add(expectedUpTime)
@@ -618,7 +618,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		secondDevice = newDevice(deviceOptions{ID: ID("second"), QueueSize: 1, ConnectedAt: expectedConnectedAt, Logger: logger})
 
 		handler = ListHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 		}
 	)
@@ -721,7 +721,7 @@ func testStatHandlerNoPathVariables(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 		}
 
@@ -740,7 +740,7 @@ func testStatHandlerNoDeviceName(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -762,7 +762,7 @@ func testStatHandlerInvalidDeviceName(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -784,7 +784,7 @@ func testStatHandlerMissingDevice(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -809,7 +809,7 @@ func testStatHandlerMarshalJSONFailed(t *testing.T) {
 		device   = new(MockDevice)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -836,7 +836,7 @@ func testStatHandlerSuccess(t *testing.T) {
 		device   = new(MockDevice)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   logging.DefaultLogger(),
 			Registry: registry,
 			Variable: "deviceID",
 		}

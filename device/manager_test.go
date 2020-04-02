@@ -173,7 +173,7 @@ func testManagerDisconnect(t *testing.T) {
 	disconnections := make(chan Interface, len(testDeviceIDs))
 
 	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
+		Logger: logging.DefaultLogger(),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {
@@ -216,7 +216,7 @@ func testManagerDisconnectIf(t *testing.T) {
 	disconnections := make(chan Interface, len(testDeviceIDs))
 
 	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
+		Logger: logging.DefaultLogger(),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {

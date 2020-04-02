@@ -27,7 +27,7 @@ func testHandlerBodyError(t *testing.T) {
 
 		expectedError = &xhttp.Error{Code: 599, Text: "body read error"}
 		body          = new(xhttptest.MockBody)
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = logging.DefaultLogger()
 		ctx           = logging.WithLogger(context.Background(), logger)
 		original      = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response      = httptest.NewRecorder()
@@ -50,7 +50,7 @@ func testHandlerNoEndpoints(t *testing.T) {
 		require = require.New(t)
 
 		body     = new(xhttptest.MockBody)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = logging.DefaultLogger()
 		ctx      = logging.WithLogger(context.Background(), logger)
 		original = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response = httptest.NewRecorder()
@@ -78,7 +78,7 @@ func testHandlerEndpointsError(t *testing.T) {
 		body          = new(xhttptest.MockBody)
 		endpoints     = new(mockEndpoints)
 
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = logging.DefaultLogger()
 		ctx      = logging.WithLogger(context.Background(), logger)
 		original = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response = httptest.NewRecorder()
@@ -103,7 +103,7 @@ func testHandlerBadTransactor(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = logging.DefaultLogger()
 		ctx      = logging.WithLogger(context.Background(), logger)
 		original = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
 		response = httptest.NewRecorder()
@@ -138,7 +138,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = logging.DefaultLogger()
 		ctx      = logging.WithLogger(context.Background(), logger)
 		original = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
 		response = httptest.NewRecorder()
@@ -219,7 +219,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger              = logging.NewTestLogger(nil, t)
+		logger              = logging.DefaultLogger()
 		ctx                 = logging.WithLogger(context.Background(), logger)
 		expectedRequestBody = "posted body"
 		original            = httptest.NewRequest("POST", "/api/v2/something", strings.NewReader(expectedRequestBody)).WithContext(ctx)
@@ -302,7 +302,7 @@ func testHandlerTimeout(t *testing.T, endpointCount int) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger      = logging.NewTestLogger(nil, t)
+		logger      = logging.DefaultLogger()
 		ctx, cancel = context.WithCancel(logging.WithLogger(context.Background(), logger))
 		original    = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
 		response    = httptest.NewRecorder()
