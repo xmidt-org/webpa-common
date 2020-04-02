@@ -22,7 +22,7 @@ install:
 script:
   # ignoring packages with obscure intermittent failures 
   # needs fixing
-  - go test -v -race `go list ./...  | grep -v ".*/semaphore" | grep -v ".*/device/drain"`
+  - go test -v -race `go list ./...  | grep -v ".*/semaphore"`
   - ./codecov.sh
 
 jobs:
