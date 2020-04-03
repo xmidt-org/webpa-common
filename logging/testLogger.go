@@ -16,26 +16,29 @@ type testSink interface {
 	Log(...interface{})
 }
 
-// testWriter implements io.Writer and delegates to a testSink
+// testWriter implements io.Writer
 type testWriter struct {
 	mux sync.Mutex
-	testSink
 }
 
 func (t *testWriter) Write(data []byte) (int, error) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
-	fmt.Fprint(os.Stdout, data)
+	fmt.Fprint(os.Stdout, string(data))
 	return len(data), nil
 }
 
-// NewTestWriter returns an io.Writer which delegates to a testing log.
+// NewTestWriter returns an io.Writer which writes to stdout
+// only when testing in verbose mode.
 // The returned io.Writer does not need to be synchronized.
-func NewTestWriter(t testSink) io.Writer {
+// Note: Although originally intended to delegate data to testSink,
+// intermittent data races have forced us to stick to writing directly
+// to stdout and do the verbose check outselves.
+func NewTestWriter(_ testSink) io.Writer {
 	if !testing.Verbose() {
 		return ioutil.Discard
 	}
-	return &testWriter{testSink: t}
+	return new(testWriter)
 }
 
 // NewTestLogger produces a go-kit Logger which delegates to the supplied testing log.
