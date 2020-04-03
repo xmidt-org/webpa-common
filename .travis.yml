@@ -51,4 +51,3 @@ jobs:
           tags: true
         provider: releases
         api_key: "$GH_TOKEN"
-        skip_cleanup: true
