@@ -1,8 +1,12 @@
 package logging
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
+	"os"
 	"sync"
+	"testing"
 
 	"github.com/go-kit/kit/log"
 )
@@ -21,13 +25,16 @@ type testWriter struct {
 func (t *testWriter) Write(data []byte) (int, error) {
 	t.mux.Lock()
 	defer t.mux.Unlock()
-	t.testSink.Log(string(data))
+	fmt.Fprint(os.Stdout, data)
 	return len(data), nil
 }
 
 // NewTestWriter returns an io.Writer which delegates to a testing log.
 // The returned io.Writer does not need to be synchronized.
 func NewTestWriter(t testSink) io.Writer {
+	if !testing.Verbose() {
+		return ioutil.Discard
+	}
 	return &testWriter{testSink: t}
 }
 
