@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/go-kit/kit/log"
@@ -17,13 +16,9 @@ type testSink interface {
 }
 
 // testWriter implements io.Writer
-type testWriter struct {
-	mux sync.Mutex
-}
+type testWriter struct{}
 
 func (t *testWriter) Write(data []byte) (int, error) {
-	t.mux.Lock()
-	defer t.mux.Unlock()
 	fmt.Fprint(os.Stdout, string(data))
 	return len(data), nil
 }
@@ -35,10 +30,11 @@ func (t *testWriter) Write(data []byte) (int, error) {
 // intermittent data races have forced us to stick to writing directly
 // to stdout and do the verbose check outselves.
 func NewTestWriter(_ testSink) io.Writer {
-	if !testing.Verbose() {
-		return ioutil.Discard
+	var w io.Writer = ioutil.Discard
+	if testing.Verbose() {
+		w = new(testWriter)
 	}
-	return new(testWriter)
+	return log.NewSyncWriter(w)
 }
 
 // NewTestLogger produces a go-kit Logger which delegates to the supplied testing log.
