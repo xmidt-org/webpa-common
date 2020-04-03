@@ -19,7 +19,7 @@ type testSink interface {
 // to stdout and do the verbose check outselves.
 func NewTestLogger(o *Options, _ testSink) log.Logger {
 	if !testing.Verbose() {
-		return log.NewSyncLogger(log.NewNopLogger())
+		return log.NewNopLogger()
 	}
 
 	if o == nil {
