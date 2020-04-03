@@ -4,24 +4,8 @@ import (
 	"testing"
 
 	"github.com/go-kit/kit/log/level"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
-
-func TestNewTestWriter(t *testing.T) {
-	const expected = "expected\n"
-
-	var (
-		assert   = assert.New(t)
-		testSink = new(mockTestSink)
-
-		testWriter = NewTestWriter(testSink)
-	)
-
-	count, err := testWriter.Write([]byte(expected))
-	assert.Equal(len(expected), count)
-	assert.NoError(err)
-}
 
 func testTestLogger(t *testing.T, o *Options) {
 	var testSink = new(mockTestSink)
