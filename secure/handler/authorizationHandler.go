@@ -94,7 +94,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
-			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, "token", headerValue, logging.ErrorKey(), err)
+			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, logging.ErrorKey(), err)
 			xhttp.WriteErrorf(response, forbiddenStatusCode, "Invalid authorization header [%s]: %s", headerName, err.Error())
 
 			if a.measures != nil {
@@ -129,7 +129,6 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			"validator-response", valid,
 			"validator-error", err,
 			"sat-client-id", contextValues.SatClientID,
-			"token", headerValue,
 			"method", request.Method,
 			"url", request.URL,
 			"user-agent", request.Header.Get("User-Agent"),
