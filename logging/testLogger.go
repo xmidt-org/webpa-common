@@ -1,8 +1,8 @@
 package logging
 
 import (
-	"io"
-	"sync"
+	"os"
+	"testing"
 
 	"github.com/go-kit/kit/log"
 )
@@ -12,27 +12,16 @@ type testSink interface {
 	Log(...interface{})
 }
 
-// testWriter implements io.Writer and delegates to a testSink
-type testWriter struct {
-	mux sync.Mutex
-	testSink
-}
+// NewTestLogger produces a go-kit Logger which logs to stdout only if
+// the verbose testing mode.
+// Note: Although originally intended to delegate data to testSink,
+// intermittent data races have forced us to stick to writing directly
+// to stdout and do the verbose check outselves.
+func NewTestLogger(o *Options, _ testSink) log.Logger {
+	if !testing.Verbose() {
+		return log.NewNopLogger()
+	}
 
-func (t *testWriter) Write(data []byte) (int, error) {
-	t.mux.Lock()
-	defer t.mux.Unlock()
-	t.testSink.Log(string(data))
-	return len(data), nil
-}
-
-// NewTestWriter returns an io.Writer which delegates to a testing log.
-// The returned io.Writer does not need to be synchronized.
-func NewTestWriter(t testSink) io.Writer {
-	return &testWriter{testSink: t}
-}
-
-// NewTestLogger produces a go-kit Logger which delegates to the supplied testing log.
-func NewTestLogger(o *Options, t testSink) log.Logger {
 	if o == nil {
 		// we want to see all log output in tests by default
 		o = &Options{Level: "DEBUG"}
@@ -40,7 +29,7 @@ func NewTestLogger(o *Options, t testSink) log.Logger {
 
 	return NewFilter(
 		log.With(
-			o.loggerFactory()(NewTestWriter(t)),
+			o.loggerFactory()(log.NewSyncWriter(os.Stdout)),
 			TimestampKey(), log.DefaultTimestampUTC,
 		),
 		o,

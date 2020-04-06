@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Increase reliability of travis unit tests by refactoring racy testLogger [#462](https://github.com/xmidt-org/webpa-common/pull/462)
 
 ## [v1.8.0]
 - upgrade wrp-go version to v3.0.1 for subpackages convey and device [#460](https://github.com/xmidt-org/webpa-common/pull/460)
