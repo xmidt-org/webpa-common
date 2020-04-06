@@ -1,6 +1,6 @@
 # webpa-common
 
-[![Build Status](https://travis-ci.org/xmidt-org/webpa-common.svg?branch=master)](https://travis-ci.org/xmidt-org/webpa-common) 
+[![Build Status](https://travis-ci.com/xmidt-org/webpa-common.svg?branch=master)](https://travis-ci.com/xmidt-org/webpa-common) 
 [![codecov.io](http://codecov.io/github/xmidt-org/webpa-common/coverage.svg?branch=master)](http://codecov.io/github/xmidt-org/webpa-common?branch=master)
 [![Code Climate](https://codeclimate.com/github/xmidt-org/webpa-common/badges/gpa.svg)](https://codeclimate.com/github/xmidt-org/webpa-common)
 [![Issue Count](https://codeclimate.com/github/xmidt-org/webpa-common/badges/issue_count.svg)](https://codeclimate.com/github/xmidt-org/webpa-common)
