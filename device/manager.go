@@ -148,9 +148,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	deviceMetadata, ok := GetDeviceMetadata(ctx)
+	deviceMetadata, providedDeviceMetadata := GetDeviceMetadata(ctx)
 
-	if !ok {
+	if !providedDeviceMetadata {
 		deviceMetadata = NewDeviceMetadata()
 	}
 
@@ -164,7 +164,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Logger:     m.logger,
 	})
 
-	if !ok {
+	if !providedDeviceMetadata {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 
@@ -267,6 +267,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 	var (
 		readError error
 		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
+		encoder   = wrp.NewEncoder(nil, wrp.Msgpack)
 	)
 
 	// all the read pump has to do is ensure the device and the connection are closed
@@ -300,7 +301,6 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 		decoder.ResetBytes(data)
 		err := decoder.Decode(message)
-		decoder.ResetBytes(nil)
 		if err != nil {
 			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
 			continue
@@ -310,17 +310,23 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			m.measures.RequestResponse.Add(1.0)
 		}
 
-		message.PartnerIDs = event.Device.PartnerIDs()
-		message.SessionID = event.Device.SessionID()
+		metadata := event.Device.Metadata()
 
-		// re-encode the data bytes
-		// encode event
-		err = wrp.NewEncoderBytes(&data, event.Format).Encode(message)
+		//TODO: SessionID clearly is dictated by the XMiDT cluster.
+		// What about PartnerIDs? Let's say yes for now.
+		message.PartnerIDs = metadata.JWTClaims().PartnerIDs()
+
+		if message.Type == wrp.SimpleEventMessageType {
+			message.SessionID = metadata.SessionID()
+		}
+
+		encoder.ResetBytes(&event.Contents)
+		err = encoder.Encode(message)
+
 		if err != nil {
 			d.errorLog.Log(logging.MessageKey(), "unable to encode WRP message", logging.ErrorKey(), err)
 			continue
 		}
-		event.Contents = data
 
 		// update any waiting transaction
 		if message.IsTransactionPart() {
@@ -330,7 +336,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 					Device:   d,
 					Message:  message,
 					Format:   wrp.Msgpack,
-					Contents: data,
+					Contents: event.Contents,
 				},
 			)
 

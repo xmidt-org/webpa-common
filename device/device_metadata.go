@@ -2,20 +2,29 @@ package device
 
 import (
 	"encoding/json"
+
 	"github.com/segmentio/ksuid"
 )
 
+//Reserved metadata keys
 const (
-	// JWTClaimsKey is a reserved metadata key
 	JWTClaimsKey = "jwt-claims"
+	SessionIDKey = "session-id"
+)
 
-	// Top level JWT Claim keys
+//Top level JWTClaim keys
+const (
 	PartnerIDClaimKey = "partner-id"
 	TrustClaimKey     = "trust"
-
-	// Top level Session ID
-	SessionKey = "session-id"
 )
+
+var reservedMetadataKeys = map[string]bool{
+	JWTClaimsKey: true, SessionIDKey: true,
+}
+
+func init() {
+	ksuid.SetRand(ksuid.FastRander)
+}
 
 // Metadata contains information such as security credentials
 // related to a device
@@ -33,6 +42,10 @@ func (m Metadata) SetJWTClaims(jwtClaims JWTClaims) {
 	m[JWTClaimsKey] = jwtClaims
 }
 
+func (m Metadata) SessionID() string {
+	return m[SessionIDKey].(string)
+}
+
 // Load allows retrieving values from a device's metadata
 func (m Metadata) Load(key string) interface{} {
 	return m[key]
@@ -40,10 +53,9 @@ func (m Metadata) Load(key string) interface{} {
 
 // Store allows writing values into the device's metadata given
 // a key.
-// Note: 'jwt-claims' is a reserved key so store calls will fail
-// if that key is used.
+// Note: operations will fail for reserved keys.
 func (m Metadata) Store(key string, value interface{}) bool {
-	if key == JWTClaimsKey || key == SessionKey {
+	if reservedMetadataKeys[key] {
 		return false
 	}
 	m[key] = value
@@ -54,7 +66,7 @@ func (m Metadata) Store(key string, value interface{}) bool {
 func NewDeviceMetadata() Metadata {
 	m := make(Metadata)
 	m.SetJWTClaims(NewJWTClaims(make(map[string]interface{})))
-	m[SessionKey] = ksuid.New()
+	m[SessionIDKey] = ksuid.New().String()
 	return m
 }
 
