@@ -8,6 +8,7 @@ require (
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/aws/aws-sdk-go v1.8.12
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
+	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b
 	github.com/c9s/goprocinfo v0.0.0-20151025191153-19cb9f127a9c
 	github.com/cenk/backoff v2.0.0+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1
@@ -44,4 +45,5 @@ require (
 	github.com/xmidt-org/bascule v0.8.0
 	github.com/xmidt-org/wrp-go v1.3.3
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+
 )

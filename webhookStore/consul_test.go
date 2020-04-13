@@ -58,7 +58,7 @@ func TestInMemWithConsul(t *testing.T) {
 // 	}
 //
 // 	consulStore := CreateConsulStore(ConsulConfig{
-// 		Client: client,
+// 		ConsulClient: client,
 // 		Prefix: "testing",
 // 	}, WithLogger(logger))
 // 	webhookStore := CreateInMemStore(InMemConfig{}, WithLogger(logger), WithStorage(consulStore), WithListener(listener))

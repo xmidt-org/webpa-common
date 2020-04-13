@@ -18,7 +18,7 @@ type ConsulConfig struct {
 	Prefix string
 }
 
-type Client struct {
+type ConsulClient struct {
 	client    *api.Client
 	options   *storeConfig
 	keyPrefix string
@@ -27,8 +27,8 @@ type Client struct {
 
 // CreateInMemStore will create an inmemory storage that wiwhe arll handle ttl of webhooks.
 // listner and back and optional and can be nil
-func CreateConsulStore(config ConsulConfig, options ...Option) *Client {
-	clientStore := &Client{
+func CreateConsulStore(config ConsulConfig, options ...Option) *ConsulClient {
+	clientStore := &ConsulClient{
 		client: config.Client,
 		options: &storeConfig{
 			logger: logging.DefaultLogger(),
@@ -69,7 +69,7 @@ func CreateConsulStore(config ConsulConfig, options ...Option) *Client {
 	return clientStore
 }
 
-func (c *Client) handlePlanCallback(idx uint64, raw interface{}) {
+func (c *ConsulClient) handlePlanCallback(idx uint64, raw interface{}) {
 	if raw == nil {
 		return // ignore
 	}
@@ -87,7 +87,7 @@ func (c *Client) handlePlanCallback(idx uint64, raw interface{}) {
 	}
 }
 
-func (c *Client) GetWebhook() ([]webhook.W, error) {
+func (c *ConsulClient) GetWebhook() ([]webhook.W, error) {
 	hooks := []webhook.W{}
 	kvPairs, _, err := c.client.KV().List(c.keyPrefix, &api.QueryOptions{})
 	if err != nil {
@@ -105,7 +105,7 @@ func (c *Client) GetWebhook() ([]webhook.W, error) {
 	return hooks, nil
 }
 
-func (c *Client) Push(w webhook.W) error {
+func (c *ConsulClient) Push(w webhook.W) error {
 	data, err := json.Marshal(&w)
 	if err != nil {
 		return err
@@ -117,16 +117,16 @@ func (c *Client) Push(w webhook.W) error {
 	return err
 }
 
-func (c *Client) Remove(id string) error {
+func (c *ConsulClient) Remove(id string) error {
 	_, err := c.client.KV().Delete(c.keyPrefix+"/"+base64.RawURLEncoding.EncodeToString([]byte(id)), &api.WriteOptions{})
 	return err
 }
 
-func (c *Client) Stop(context context.Context) {
+func (c *ConsulClient) Stop(context context.Context) {
 	c.plan.Stop()
 }
 
-func (c *Client) SetListener(listener Listener) error {
+func (c *ConsulClient) SetListener(listener Listener) error {
 	c.options.listener = listener
 	return nil
 }
