@@ -101,7 +101,7 @@ func determineTokenAcquirer(config YggdrasilConfig) (acquire.Acquirer, error) {
 
 func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
 	hooks := []webhook.W{}
-	request, err := http.NewRequest("GET", fmt.Sprint("%s/store/%s", c.config.Address, c.config.Prefix), nil)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/store/%s", c.config.Address, c.config.Prefix), nil)
 	if err != nil {
 		return []webhook.W{}, err
 	}
@@ -150,7 +150,7 @@ func (c *YggdrasilClient) Push(w webhook.W) error {
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequest("POST", fmt.Sprint("%s/store/%s/%s", c.config.Address, c.config.Prefix, id), bytes.NewReader(data))
+	request, err := http.NewRequest("POST", fmt.Sprintf("%s/store/%s/%s", c.config.Address, c.config.Prefix, id), bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (c *YggdrasilClient) Push(w webhook.W) error {
 }
 
 func (c *YggdrasilClient) Remove(id string) error {
-	request, err := http.NewRequest("DELETE", fmt.Sprint("%s/store/%s/%s", c.config.Address, c.config.Prefix, id), nil)
+	request, err := http.NewRequest("DELETE", fmt.Sprintf("%s/store/%s/%s", c.config.Address, c.config.Prefix, id), nil)
 	if err != nil {
 		return err
 	}
