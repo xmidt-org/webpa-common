@@ -113,6 +113,9 @@ func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
 	if err != nil {
 		return []webhook.W{}, err
 	}
+	if response.StatusCode == 404 {
+		return []webhook.W{}, nil
+	}
 	if response.StatusCode != 200 {
 		return []webhook.W{}, errors.New("failed to get webhooks, non 200 statuscode")
 	}
