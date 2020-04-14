@@ -20,7 +20,11 @@ type YggdrasilConfig struct {
 	Prefix       string
 	PullInterval time.Duration
 	Address      string
-	Auth         acquire.Acquirer
+	Auth         Auth
+}
+type Auth struct {
+	JWT   acquire.RemoteBearerTokenAcquirerOptions
+	Basic string
 }
 
 type YggdrasilClient struct {
@@ -28,10 +32,15 @@ type YggdrasilClient struct {
 	options *storeConfig
 	config  YggdrasilConfig
 	ticker  *time.Ticker
+	auth    acquire.Acquirer
 }
 
 func CreateYggdrasilStore(config YggdrasilConfig, options ...Option) (*YggdrasilClient, error) {
 	err := validateYggdrasilConfig(&config)
+	if err != nil {
+		return nil, err
+	}
+	auth, err := determineTokenAcquirer(config)
 	if err != nil {
 		return nil, err
 	}
@@ -41,11 +50,12 @@ func CreateYggdrasilStore(config YggdrasilConfig, options ...Option) (*Yggdrasil
 			logger: logging.DefaultLogger(),
 		},
 		config: config,
+		ticker: time.NewTicker(config.PullInterval),
+		auth:   auth,
 	}
 	for _, o := range options {
 		o(clientStore.options)
 	}
-	clientStore.ticker = time.NewTicker(config.PullInterval)
 	go func() {
 		for range clientStore.ticker.C {
 			if clientStore.options.listener != nil {
@@ -68,9 +78,6 @@ func validateYggdrasilConfig(config *YggdrasilConfig) error {
 	if config.Address == "" {
 		return errors.New("yggdrasil address can't be empty")
 	}
-	if config.Auth == nil {
-		return errors.New("yggdrasil auth can't nil")
-	}
 	if config.PullInterval == 0 {
 		config.PullInterval = time.Second
 	}
@@ -79,6 +86,18 @@ func validateYggdrasilConfig(config *YggdrasilConfig) error {
 	}
 	return nil
 }
+func determineTokenAcquirer(config YggdrasilConfig) (acquire.Acquirer, error) {
+	defaultAcquirer := &acquire.DefaultAcquirer{}
+	if config.Auth.JWT.AuthURL != "" && config.Auth.JWT.Buffer != 0 && config.Auth.JWT.Timeout != 0 {
+		return acquire.NewRemoteBearerTokenAcquirer(config.Auth.JWT)
+	}
+
+	if config.Auth.Basic != "" {
+		return acquire.NewFixedAuthAcquirer(config.Auth.Basic)
+	}
+
+	return defaultAcquirer, nil
+}
 
 func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
 	hooks := []webhook.W{}
@@ -86,7 +105,7 @@ func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
 	if err != nil {
 		return []webhook.W{}, err
 	}
-	err = acquire.AddAuth(request, c.config.Auth)
+	err = acquire.AddAuth(request, c.auth)
 	if err != nil {
 		return []webhook.W{}, err
 	}
@@ -135,7 +154,7 @@ func (c *YggdrasilClient) Push(w webhook.W) error {
 	if err != nil {
 		return err
 	}
-	err = acquire.AddAuth(request, c.config.Auth)
+	err = acquire.AddAuth(request, c.auth)
 	if err != nil {
 		return err
 	}
@@ -154,7 +173,7 @@ func (c *YggdrasilClient) Remove(id string) error {
 	if err != nil {
 		return err
 	}
-	err = acquire.AddAuth(request, c.config.Auth)
+	err = acquire.AddAuth(request, c.auth)
 	if err != nil {
 		return err
 	}
