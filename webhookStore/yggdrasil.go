@@ -116,11 +116,11 @@ func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
 	if response.StatusCode != 200 {
 		return []webhook.W{}, errors.New("failed to get webhooks, non 200 statuscode")
 	}
-	data, err := ioutil.ReadAll(request.Body)
+	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return []webhook.W{}, err
 	}
-	request.Body.Close()
+	response.Body.Close()
 
 	body := map[string]map[string]interface{}{}
 	err = json.Unmarshal(data, &body)
