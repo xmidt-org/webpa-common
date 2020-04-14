@@ -30,7 +30,11 @@ type YggdrasilClient struct {
 	ticker  *time.Ticker
 }
 
-func CreateYggdrasilStore(config YggdrasilConfig, options ...Option) *YggdrasilClient {
+func CreateYggdrasilStore(config YggdrasilConfig, options ...Option) (*YggdrasilClient, error) {
+	err := validateYggdrasilConfig(&config)
+	if err != nil {
+		return nil, err
+	}
 	clientStore := &YggdrasilClient{
 		client: config.Client,
 		options: &storeConfig{
@@ -54,7 +58,26 @@ func CreateYggdrasilStore(config YggdrasilConfig, options ...Option) *YggdrasilC
 			}
 		}
 	}()
-	return clientStore
+	return clientStore, nil
+}
+
+func validateYggdrasilConfig(config *YggdrasilConfig) error {
+	if config.Client == nil {
+		config.Client = http.DefaultClient
+	}
+	if config.Address == "" {
+		return errors.New("yggdrasil address can't be empty")
+	}
+	if config.Auth == nil {
+		return errors.New("yggdrasil auth can't nil")
+	}
+	if config.PullInterval == 0 {
+		config.PullInterval = time.Second
+	}
+	if config.Prefix == "" {
+		config.Prefix = "testing"
+	}
+	return nil
 }
 
 func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
@@ -63,12 +86,9 @@ func (c *YggdrasilClient) GetWebhook() ([]webhook.W, error) {
 	if err != nil {
 		return []webhook.W{}, err
 	}
-	auth, err := c.config.Auth.Acquire()
+	err = acquire.AddAuth(request, c.config.Auth)
 	if err != nil {
 		return []webhook.W{}, err
-	}
-	if auth != "" {
-		request.Header.Add("Authorization", auth)
 	}
 	response, err := c.client.Do(request)
 	if err != nil {
@@ -115,12 +135,9 @@ func (c *YggdrasilClient) Push(w webhook.W) error {
 	if err != nil {
 		return err
 	}
-	auth, err := c.config.Auth.Acquire()
+	err = acquire.AddAuth(request, c.config.Auth)
 	if err != nil {
 		return err
-	}
-	if auth != "" {
-		request.Header.Add("Authorization", auth)
 	}
 	response, err := c.client.Do(request)
 	if err != nil {
@@ -137,12 +154,9 @@ func (c *YggdrasilClient) Remove(id string) error {
 	if err != nil {
 		return err
 	}
-	auth, err := c.config.Auth.Acquire()
+	err = acquire.AddAuth(request, c.config.Auth)
 	if err != nil {
 		return err
-	}
-	if auth != "" {
-		request.Header.Add("Authorization", auth)
 	}
 	response, err := c.client.Do(request)
 	if err != nil {
