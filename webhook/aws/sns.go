@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/miekg/dns"
 	"github.com/spf13/viper"
@@ -168,8 +169,8 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider s
 		logger = logging.DefaultLogger()
 	}
 
-	ss.errorLog = logging.Error(logger)
-	ss.debugLog = logging.Debug(logger)
+	ss.errorLog = log.WithPrefix(logger, level.Key(), level.ErrorValue())
+	ss.debugLog = log.WithPrefix(logger, level.Key(), level.DebugValue())
 
 	ss.metrics = ApplyMetricsData(registry)
 	ss.snsNotificationReceivedChan = ss.SNSNotificationReceivedInit()

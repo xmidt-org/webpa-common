@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.8.1]
+- change webhooks package to not use `logging` functions [#469](https://github.com/xmidt-org/webpa-common/pull/469)
+
 ## [v1.8.0]
 - upgrade wrp-go version to v3.0.1 for subpackages convey and device [#460](https://github.com/xmidt-org/webpa-common/pull/460)
 - Increase reliability of travis unit tests by refactoring racy testLogger [#462](https://github.com/xmidt-org/webpa-common/pull/462)
