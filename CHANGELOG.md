@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [v1.8.0]
 - upgrade wrp-go version to v3.0.1 for subpackages convey and device [#460](https://github.com/xmidt-org/webpa-common/pull/460)
+- Remove token logging from secure package [463](https://github.com/xmidt-org/webpa-common/pull/463)
 - Increase reliability of travis unit tests by refactoring racy testLogger [#462](https://github.com/xmidt-org/webpa-common/pull/462)
 
 ## [v1.7.0]
