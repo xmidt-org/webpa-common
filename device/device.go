@@ -89,7 +89,7 @@ type Interface interface {
 	// sent during device connection
 	ConveyCompliance() convey.Compliance
 
-	// Metadata returns an object which defines the interface to interact with a device's metadata
+	// Metadata returns an object which defines the interface to interact with a device's metadata.
 	Metadata() Metadata
 
 	// CloseReason returns the metadata explaining why a device was closed.  If this device
