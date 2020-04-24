@@ -148,10 +148,10 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	deviceMetadata, providedDeviceMetadata := GetDeviceMetadata(ctx)
+	metadata, providedDeviceMetadata := GetDeviceMetadata(ctx)
 
 	if !providedDeviceMetadata {
-		deviceMetadata = NewDeviceMetadata()
+		metadata = NewDeviceMetadata()
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
@@ -160,7 +160,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		C:          cvy,
 		Compliance: convey.GetCompliance(cvyErr),
 		QueueSize:  m.deviceMessageQueueSize,
-		Metadata:   deviceMetadata,
+		Metadata:   metadata,
 		Logger:     m.logger,
 	})
 
@@ -310,14 +310,11 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			m.measures.RequestResponse.Add(1.0)
 		}
 
-		metadata := event.Device.Metadata()
-
-		//TODO: SessionID clearly is dictated by the XMiDT cluster.
-		// What about PartnerIDs? Let's say yes for now.
-		message.PartnerIDs = metadata.JWTClaims().PartnerIDs()
+		deviceMetadata := event.Device.Metadata()
+		message.PartnerIDs = []string{deviceMetadata.JWTClaims().PartnerID()}
 
 		if message.Type == wrp.SimpleEventMessageType {
-			message.SessionID = metadata.SessionID()
+			message.SessionID = deviceMetadata.SessionID()
 		}
 
 		encoder.ResetBytes(&event.Contents)
