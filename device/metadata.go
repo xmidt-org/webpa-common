@@ -96,17 +96,10 @@ func NewDeviceMetadataWithClaims(claims map[string]interface{}) Metadata {
 	return m
 }
 
-// JWTClaims defines the intended interactions with the claims
-// in a device's metadata. The main current use case includes
-// having this object represent the claims presented by devices
-// during registration to the XMiDT cluster.
+// JWTClaims defines the interface of a device's security claims.
+// One current use case is providing security credentials the device
+// presented at registration time.
 type JWTClaims map[string]interface{}
-
-// ToMap returns the casted map representation of the claims.
-// Note: Return value is not a copy so caution is advised.
-func (c JWTClaims) ToMap() map[string]interface{} {
-	return c
-}
 
 // Trust returns the device's trust level claim
 // By Default, a device is untrusted (trust = 0).
@@ -117,8 +110,8 @@ func (c JWTClaims) Trust() int {
 	return 0
 }
 
-// PartnerID returns the partner ID string of the device associated with the metadata
-// Zero value is returned if no partner ID was found.
+// PartnerID returns the partner ID claim.
+// If no claim is found, the zero value is returned.
 func (c JWTClaims) PartnerID() string {
 	if partnerID, ok := c[PartnerIDClaimKey].(string); ok {
 		return partnerID
@@ -126,13 +119,13 @@ func (c JWTClaims) PartnerID() string {
 	return "" // no partner by default
 }
 
-// SetTrust sets the trust level for the device associated with the
-// metadata.
+// SetTrust modifies the trust level of the device which owns these
+// claims.
 func (c JWTClaims) SetTrust(trust int) {
 	c[TrustClaimKey] = trust
 }
 
-// MarshalJSON allows easy JSON representation of the JWTClaims underlying map
+// MarshalJSON allows easy JSON representation of the JWTClaims underlying claims map.
 func (c JWTClaims) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c)
 }
