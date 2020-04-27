@@ -66,7 +66,7 @@ func testDeviceMetadataUpdate(bare bool) func(*testing.T) {
 		require.NotNil(m)
 		jwtClaims := m.JWTClaims()
 		require.NotNil(jwtClaims)
-		assert.Equal(claims, jwtClaims.ToMap())
+		assert.Equal(claims, map[string]interface{}(jwtClaims))
 		assert.Equal("comcast", jwtClaims.PartnerID())
 		assert.Equal(88, jwtClaims.Trust())
 
