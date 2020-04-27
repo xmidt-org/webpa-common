@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v1.9.0]
 - Create simple component to work with a device's metadata [#447](https://github.com/xmidt-org/webpa-common/pull/447)
 
 ## [v1.8.1]
@@ -78,7 +80,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.9.0...HEAD
+[v1.9.0]: https://github.com/xmidt-org/webpa-common/compare/v1.8.1...v1.9.0
+[v1.8.1]: https://github.com/xmidt-org/webpa-common/compare/v1.8.0...v1.8.1
 [v1.8.0]: https://github.com/xmidt-org/webpa-common/compare/v1.7.0...v1.8.0
 [v1.7.0]: https://github.com/xmidt-org/webpa-common/compare/v1.6.3...v1.7.0
 [v1.6.3]: https://github.com/xmidt-org/webpa-common/compare/v1.6.2...v1.6.3
