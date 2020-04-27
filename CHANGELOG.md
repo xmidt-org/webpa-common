@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Create simple component to work with a device's metadata [#447](https://github.com/xmidt-org/webpa-common/pull/447)
 
 ## [v1.8.0]
 - upgrade wrp-go version to v3.0.1 for subpackages convey and device [#460](https://github.com/xmidt-org/webpa-common/pull/460)
