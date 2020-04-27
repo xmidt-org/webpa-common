@@ -2,8 +2,6 @@ package device
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"sync/atomic"
@@ -11,7 +9,6 @@ import (
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/convey/conveymetric"
-	"github.com/xmidt-org/webpa-common/secure"
 
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -92,17 +89,9 @@ type Interface interface {
 	// sent during device connection
 	ConveyCompliance() convey.Compliance
 
-	// PartnerIDs returns the array of partner ids established when the device connected
-	PartnerIDs() []string
-
-	// SatClientID returns the SAT JWT token passed when the device connected
-	SatClientID() string
-
-	// SessionID returns the session id associated with the devices connection
-	SessionID() string
-
-	// Trust returns the trust level of this device
-	Trust() string
+	// Metadata returns a key value store object for information that's useful to guide interactions
+	// with a device such as security credentials.
+	Metadata() Metadata
 
 	// CloseReason returns the metadata explaining why a device was closed.  If this device
 	// is not closed, this method's return is undefined.
@@ -130,11 +119,7 @@ type device struct {
 	compliance    convey.Compliance
 	conveyClosure conveymetric.Closure
 
-	partnerIDs  []string
-	satClientID string
-	sessionID   string
-
-	trust string
+	metadata Metadata
 
 	closeReason atomic.Value
 }
@@ -143,12 +128,10 @@ type deviceOptions struct {
 	ID          ID
 	C           convey.Interface
 	Compliance  convey.Compliance
-	PartnerIDs  []string
-	SatClientID string
-	Trust       string
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
+	Metadata    Metadata
 }
 
 // newDevice is an internal factory function for devices
@@ -165,17 +148,6 @@ func newDevice(o deviceOptions) *device {
 		o.QueueSize = DefaultDeviceMessageQueueSize
 	}
 
-	if len(o.Trust) == 0 {
-		o.Trust = secure.Untrusted
-	}
-
-	var partnerIDs []string
-	partnerIDs = append(partnerIDs, o.PartnerIDs...)
-
-	var id [16]byte
-	rand.Read(id[:])
-	sessionID := base64.RawURLEncoding.EncodeToString(id[:])
-
 	return &device{
 		id:           o.ID,
 		errorLog:     logging.Error(o.Logger, "id", o.ID),
@@ -188,10 +160,7 @@ func newDevice(o deviceOptions) *device {
 		shutdown:     make(chan struct{}),
 		messages:     make(chan *envelope, o.QueueSize),
 		transactions: NewTransactions(),
-		partnerIDs:   partnerIDs,
-		satClientID:  o.SatClientID,
-		sessionID:    sessionID,
-		trust:        o.Trust,
+		metadata:     o.Metadata,
 	}
 }
 
@@ -340,20 +309,8 @@ func (d *device) ConveyCompliance() convey.Compliance {
 	return d.compliance
 }
 
-func (d *device) PartnerIDs() []string {
-	return d.partnerIDs
-}
-
-func (d *device) SatClientID() string {
-	return d.satClientID
-}
-
-func (d *device) SessionID() string {
-	return d.sessionID
-}
-
-func (d *device) Trust() string {
-	return d.trust
+func (d *device) Metadata() Metadata {
+	return d.metadata
 }
 
 func (d *device) CloseReason() CloseReason {

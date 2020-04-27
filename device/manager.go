@@ -9,8 +9,6 @@ import (
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/convey/conveymetric"
-	"github.com/xmidt-org/webpa-common/secure"
-	"github.com/xmidt-org/webpa-common/secure/handler"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
@@ -138,7 +136,8 @@ type manager struct {
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	m.debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
-	id, ok := GetID(request.Context())
+	ctx := request.Context()
+	id, ok := GetID(ctx)
 	if !ok {
 		xhttp.WriteError(
 			response,
@@ -149,39 +148,30 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	var (
-		partnerIDs                   []string
-		satClientID                  string
-		trust                        = secure.Untrusted
-		secureContext, securePresent = handler.FromContext(request.Context())
-	)
+	metadata, ok := GetDeviceMetadata(ctx)
 
-	if securePresent {
-		partnerIDs = secureContext.PartnerIDs
-		satClientID = secureContext.SatClientID
-		trust = secureContext.Trust
+	if !ok {
+		metadata = NewDeviceMetadata()
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
 	d := newDevice(deviceOptions{
-		ID:          id,
-		C:           cvy,
-		Compliance:  convey.GetCompliance(cvyErr),
-		QueueSize:   m.deviceMessageQueueSize,
-		PartnerIDs:  partnerIDs,
-		SatClientID: satClientID,
-		Trust:       trust,
-		Logger:      m.logger,
+		ID:         id,
+		C:          cvy,
+		Compliance: convey.GetCompliance(cvyErr),
+		QueueSize:  m.deviceMessageQueueSize,
+		Metadata:   metadata,
+		Logger:     m.logger,
 	})
+
+	if len(metadata.JWTClaims()) < 1 {
+		d.errorLog.Log(logging.MessageKey(), "missing security information")
+	}
 
 	if cvyErr == nil {
 		d.infoLog.Log("convey", cvy)
 	} else {
 		d.errorLog.Log(logging.MessageKey(), "bad or missing convey data", logging.ErrorKey(), cvyErr)
-	}
-
-	if !securePresent {
-		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
@@ -277,6 +267,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 	var (
 		readError error
 		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
+		encoder   = wrp.NewEncoder(nil, wrp.Msgpack)
 	)
 
 	// all the read pump has to do is ensure the device and the connection are closed
@@ -310,7 +301,6 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 		decoder.ResetBytes(data)
 		err := decoder.Decode(message)
-		decoder.ResetBytes(nil)
 		if err != nil {
 			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
 			continue
@@ -320,17 +310,20 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			m.measures.RequestResponse.Add(1.0)
 		}
 
-		message.PartnerIDs = event.Device.PartnerIDs()
-		message.SessionID = event.Device.SessionID()
+		deviceMetadata := event.Device.Metadata()
+		message.PartnerIDs = []string{deviceMetadata.JWTClaims().PartnerID()}
 
-		// re-encode the data bytes
-		// encode event
-		err = wrp.NewEncoderBytes(&data, event.Format).Encode(message)
+		if message.Type == wrp.SimpleEventMessageType {
+			message.SessionID = deviceMetadata.SessionID()
+		}
+
+		encoder.ResetBytes(&event.Contents)
+		err = encoder.Encode(message)
+
 		if err != nil {
 			d.errorLog.Log(logging.MessageKey(), "unable to encode WRP message", logging.ErrorKey(), err)
 			continue
 		}
-		event.Contents = data
 
 		// update any waiting transaction
 		if message.IsTransactionPart() {
@@ -340,7 +333,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 					Device:   d,
 					Message:  message,
 					Format:   wrp.Msgpack,
-					Contents: data,
+					Contents: event.Contents,
 				},
 			)
 

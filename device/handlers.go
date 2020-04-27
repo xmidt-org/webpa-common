@@ -100,7 +100,7 @@ func useID(f IDFromRequest) func(http.Handler) http.Handler {
 				return
 			}
 
-			ctx := WithID(id, request.Context())
+			ctx := WithID(request.Context(), id)
 			delegate.ServeHTTP(response, request.WithContext(ctx))
 		})
 	}
