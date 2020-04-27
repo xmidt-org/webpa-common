@@ -148,9 +148,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		return nil, ErrorMissingDeviceNameContext
 	}
 
-	metadata, providedDeviceMetadata := GetDeviceMetadata(ctx)
+	metadata, ok := GetDeviceMetadata(ctx)
 
-	if !providedDeviceMetadata {
+	if !ok {
 		metadata = NewDeviceMetadata()
 	}
 
@@ -164,7 +164,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Logger:     m.logger,
 	})
 
-	if !providedDeviceMetadata {
+	if len(metadata.JWTClaims) < 1 {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 
