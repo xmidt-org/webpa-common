@@ -164,7 +164,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Logger:     m.logger,
 	})
 
-	if len(metadata.JWTClaims) < 1 {
+	if len(metadata.JWTClaims()) < 1 {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 

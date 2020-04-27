@@ -89,8 +89,10 @@ func testDeviceMetadataInit(bare bool) func(t *testing.T) {
 
 		claims := m.JWTClaims()
 
-		require.NotNil(claims)
 		assert.NotEmpty(m.SessionID())
+
+		require.NotNil(claims)
+		assert.Empty(claims)
 		assert.Empty(claims.PartnerID())
 		assert.Zero(claims.Trust())
 
