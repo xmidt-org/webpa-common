@@ -4,13 +4,13 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/resource"
-	"github.com/xmidt-org/webpa-common/types"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/resource"
 )
 
 func ExampleSingleKeyConfiguration() {
@@ -134,7 +134,7 @@ func TestResolverFactoryNewUpdater(t *testing.T) {
 	keyCache.On("UpdateKeys").Return(0, nil).Run(runner)
 
 	resolverFactory := ResolverFactory{
-		UpdateInterval: types.Duration(100 * time.Millisecond),
+		UpdateInterval: time.Duration(100 * time.Millisecond),
 	}
 
 	if updater := resolverFactory.NewUpdater(keyCache); assert.NotNil(updater) {
