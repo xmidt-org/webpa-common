@@ -140,7 +140,13 @@ func (m *monitor) start() error {
 	}
 
 	for k, v := range m.instancers {
-		go m.dispatchEvents(k, logging.Enrich(m.logger, v), v)
+		var svc = k
+		if ci, ok := v.(service.ContextualInstancer); ok {
+			if svcName, ok := ci.Metadata()["service"].(string); ok {
+				svc = svcName
+			}
+		}
+		go m.dispatchEvents(k, svc, logging.Enrich(m.logger, v), v)
 	}
 
 	return nil
@@ -149,7 +155,7 @@ func (m *monitor) start() error {
 // dispatchEvents is a goroutine that consumes service discovery events from an sd.Instancer
 // and dispatches those events zero or more Listeners.  If configured, the filter is used to
 // preprocess the set of instances sent to the listener.
-func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
+func (m *monitor) dispatchEvents(key, service string, l log.Logger, i sd.Instancer) {
 	var (
 		eventCount              = 0
 		eventCounter log.Valuer = func() interface{} {
@@ -171,6 +177,7 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 			eventCount++
 			event := Event{
 				Key:        key,
+				Service:    service,
 				Instancer:  i,
 				EventCount: eventCount,
 			}
@@ -189,13 +196,13 @@ func (m *monitor) dispatchEvents(key string, l log.Logger, i sd.Instancer) {
 
 		case <-m.stopped:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was stopped")
-			m.listeners.MonitorEvent(Event{Key: key, Instancer: i, EventCount: eventCount, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 
 		case <-m.closed:
 			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor exiting due to external closure")
 			m.Stop() // ensure that the Stopped state is correct
-			m.listeners.MonitorEvent(Event{Key: key, Instancer: i, EventCount: eventCount, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 		}
 	}

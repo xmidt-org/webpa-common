@@ -128,11 +128,11 @@ type rehasher struct {
 	duration             metrics.Gauge
 }
 
-func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Accessor) {
+func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Accessor) {
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash starting")
 
 	start := r.now()
-	r.timestamp.With(service.ServiceLabel, key).Set(float64(start.UTC().Unix()))
+	r.timestamp.With(service.ServiceLabel, svc).Set(float64(start.UTC().Unix()))
 
 	var (
 		keepCount = 0
@@ -168,9 +168,9 @@ func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Access
 		duration = r.now().Sub(start)
 	)
 
-	r.keep.With(service.ServiceLabel, key).Set(float64(keepCount))
-	r.disconnect.With(service.ServiceLabel, key).Set(float64(disconnectCount))
-	r.duration.With(service.ServiceLabel, key).Set(float64(duration / time.Millisecond))
+	r.keep.With(service.ServiceLabel, svc).Set(float64(keepCount))
+	r.disconnect.With(service.ServiceLabel, svc).Set(float64(disconnectCount))
+	r.duration.With(service.ServiceLabel, svc).Set(float64(duration / time.Millisecond))
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "duration", duration)
 }
 
@@ -187,22 +187,22 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 	case e.Err != nil:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
 		r.connector.DisconnectAll(device.CloseReason{Err: e.Err, Text: ServiceDiscoveryError})
-		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
 
 	case e.Stopped:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
 		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryStopped})
-		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
 
 	case e.EventCount == 1:
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
 
 	case len(e.Instances) > 0:
-		r.rehash(e.Key, logger, r.accessorFactory(e.Instances))
+		r.rehash(e.Service, logger, r.accessorFactory(e.Instances))
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
 		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryNoInstances})
-		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
 	}
 }

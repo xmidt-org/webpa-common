@@ -4,12 +4,12 @@ import (
 	"github.com/go-kit/kit/sd"
 )
 
-type contextualInstancer struct {
+type ContextualInstancer struct {
 	sd.Instancer
 	m map[string]interface{}
 }
 
-func (ci contextualInstancer) Metadata() map[string]interface{} {
+func (ci ContextualInstancer) Metadata() map[string]interface{} {
 	return ci.m
 }
 
@@ -23,7 +23,7 @@ func NewContextualInstancer(i sd.Instancer, m map[string]interface{}) sd.Instanc
 		return i
 	}
 
-	return contextualInstancer{i, m}
+	return ContextualInstancer{i, m}
 }
 
 // Instancers is a collection of sd.Instancer objects, keyed by arbitrary strings.

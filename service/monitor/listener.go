@@ -13,10 +13,16 @@ import (
 )
 
 // Event carries the same information as go-kit's sd.Event, but with the extra Key that identifies
-// which service key or path was updated.
+// which filtered service or path was updated.
 type Event struct {
-	// Key is the in-process identifier for the sd.Instancer that produced this event
+	// Key is the in-process unique identifier for the sd.Instancer that produced this event.
+	// For consul, this value does not equal the name of the service (as it includes tags, datacenters, etc.).
+	// For that purpose, use the Service field.
 	Key string
+
+	// Service, unlike Key, specifically identifies the service of the sd.Instancer that produced this event.
+	// This value is used by listeners to update metric labels.
+	Service string
 
 	// Instancer is the go-kit sd.Instancer which sent this event.  This instance can be used to enrich
 	// logging via logging.Enrich.
@@ -70,14 +76,14 @@ func NewMetricsListener(p provider.Provider) Listener {
 		timestamp := float64(time.Now().Unix())
 
 		if e.Err != nil {
-			errorCount.With(service.ServiceLabel, e.Key).Add(1.0)
-			lastError.With(service.ServiceLabel, e.Key).Set(timestamp)
+			errorCount.With(service.ServiceLabel, e.Service).Add(1.0)
+			lastError.With(service.ServiceLabel, e.Service).Set(timestamp)
 		} else {
-			updateCount.With(service.ServiceLabel, e.Key).Add(1.0)
-			lastUpdate.With(service.ServiceLabel, e.Key).Set(timestamp)
+			updateCount.With(service.ServiceLabel, e.Service).Add(1.0)
+			lastUpdate.With(service.ServiceLabel, e.Service).Set(timestamp)
 		}
 
-		instanceCount.With(service.ServiceLabel, e.Key).Set(float64(len(e.Instances)))
+		instanceCount.With(service.ServiceLabel, e.Service).Set(float64(len(e.Instances)))
 	})
 }
 
