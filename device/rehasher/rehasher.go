@@ -95,10 +95,10 @@ func New(connector device.Connector, services []string, options ...Option) monit
 
 		r = &rehasher{
 			logger:          logging.DefaultLogger(),
-			services:        services,
 			accessorFactory: service.DefaultAccessorFactory,
 			connector:       connector,
 			now:             time.Now,
+			services:        make(map[string]bool),
 
 			keep:                 defaultProvider.NewGauge(RehashKeepDevice),
 			disconnect:           defaultProvider.NewGauge(RehashDisconnectDevice),
@@ -107,6 +107,10 @@ func New(connector device.Connector, services []string, options ...Option) monit
 			duration:             defaultProvider.NewGauge(RehashDurationMilliseconds),
 		}
 	)
+
+	for _, svc := range services {
+		r.services[svc] = true
+	}
 
 	for _, o := range options {
 		o(r)
@@ -123,7 +127,7 @@ func New(connector device.Connector, services []string, options ...Option) monit
 // and (2) rehashes devices in response to updated instances.
 type rehasher struct {
 	logger          log.Logger
-	services        []string
+	services        map[string]bool
 	accessorFactory service.AccessorFactory
 	isRegistered    func(string) bool
 	connector       device.Connector
@@ -183,15 +187,7 @@ func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Access
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
-	skip := true
-	for _, svc := range r.services {
-		if svc == e.Service {
-			skip = false
-			break
-		}
-	}
-
-	if skip {
+	if !r.services[e.Service] {
 		return
 	}
 
