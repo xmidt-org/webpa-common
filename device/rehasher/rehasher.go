@@ -73,15 +73,21 @@ func WithMetricsProvider(p provider.Provider) Option {
 	}
 }
 
-// New creates a monitor Listener which will rehash and disconnect devices in response to service discovery events.
-// This function panics if the connector is nil or if no IsRegistered strategy is configured.
+// New creates a monitor Listener which will rehash and disconnect devices in response to service discovery events
+// from a given set of services.
+// This function panics if the connector is nil, if no IsRegistered strategy is configured or if no services were
+// provided to filter events.
 //
 // If the returned listener encounters any service discovery error, all devices are disconnected.  Otherwise,
 // the IsRegistered strategy is used to determine which devices should still be connected to the Connector.  Devices
 // that hash to instances not registered in this environment are disconnected.
-func New(connector device.Connector, options ...Option) monitor.Listener {
+func New(connector device.Connector, services []string, options ...Option) monitor.Listener {
 	if connector == nil {
-		panic("A device Connector is required")
+		panic("A device Connector is required.")
+	}
+
+	if len(services) < 1 {
+		panic("Services are required to avoid unintended reshashes.")
 	}
 
 	var (
@@ -89,6 +95,7 @@ func New(connector device.Connector, options ...Option) monitor.Listener {
 
 		r = &rehasher{
 			logger:          logging.DefaultLogger(),
+			services:        services,
 			accessorFactory: service.DefaultAccessorFactory,
 			connector:       connector,
 			now:             time.Now,
@@ -116,6 +123,7 @@ func New(connector device.Connector, options ...Option) monitor.Listener {
 // and (2) rehashes devices in response to updated instances.
 type rehasher struct {
 	logger          log.Logger
+	services        []string
 	accessorFactory service.AccessorFactory
 	isRegistered    func(string) bool
 	connector       device.Connector
@@ -175,6 +183,18 @@ func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Access
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
+	skip := true
+	for _, svc := range r.services {
+		if svc == e.Service {
+			skip = false
+			break
+		}
+	}
+
+	if skip {
+		return
+	}
+
 	logger := logging.Enrich(
 		log.With(
 			r.logger,
