@@ -73,15 +73,21 @@ func WithMetricsProvider(p provider.Provider) Option {
 	}
 }
 
-// New creates a monitor Listener which will rehash and disconnect devices in response to service discovery events.
-// This function panics if the connector is nil or if no IsRegistered strategy is configured.
+// New creates a monitor Listener which will rehash and disconnect devices in response to service discovery events
+// from a given set of services.
+// This function panics if the connector is nil, if no IsRegistered strategy is configured or if no services were
+// provided to filter events.
 //
 // If the returned listener encounters any service discovery error, all devices are disconnected.  Otherwise,
 // the IsRegistered strategy is used to determine which devices should still be connected to the Connector.  Devices
 // that hash to instances not registered in this environment are disconnected.
-func New(connector device.Connector, options ...Option) monitor.Listener {
+func New(connector device.Connector, services []string, options ...Option) monitor.Listener {
 	if connector == nil {
-		panic("A device Connector is required")
+		panic("A device Connector is required.")
+	}
+
+	if len(services) < 1 {
+		panic("Services are required to avoid unintended reshashes.")
 	}
 
 	var (
@@ -92,6 +98,7 @@ func New(connector device.Connector, options ...Option) monitor.Listener {
 			accessorFactory: service.DefaultAccessorFactory,
 			connector:       connector,
 			now:             time.Now,
+			services:        make(map[string]bool),
 
 			keep:                 defaultProvider.NewGauge(RehashKeepDevice),
 			disconnect:           defaultProvider.NewGauge(RehashDisconnectDevice),
@@ -100,6 +107,10 @@ func New(connector device.Connector, options ...Option) monitor.Listener {
 			duration:             defaultProvider.NewGauge(RehashDurationMilliseconds),
 		}
 	)
+
+	for _, svc := range services {
+		r.services[svc] = true
+	}
 
 	for _, o := range options {
 		o(r)
@@ -116,6 +127,7 @@ func New(connector device.Connector, options ...Option) monitor.Listener {
 // and (2) rehashes devices in response to updated instances.
 type rehasher struct {
 	logger          log.Logger
+	services        map[string]bool
 	accessorFactory service.AccessorFactory
 	isRegistered    func(string) bool
 	connector       device.Connector
@@ -128,11 +140,11 @@ type rehasher struct {
 	duration             metrics.Gauge
 }
 
-func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Accessor) {
+func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Accessor) {
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash starting")
 
 	start := r.now()
-	r.timestamp.With(service.ServiceLabel, key).Set(float64(start.UTC().Unix()))
+	r.timestamp.With(service.ServiceLabel, svc).Set(float64(start.UTC().Unix()))
 
 	var (
 		keepCount = 0
@@ -168,13 +180,17 @@ func (r *rehasher) rehash(key string, logger log.Logger, accessor service.Access
 		duration = r.now().Sub(start)
 	)
 
-	r.keep.With(service.ServiceLabel, key).Set(float64(keepCount))
-	r.disconnect.With(service.ServiceLabel, key).Set(float64(disconnectCount))
-	r.duration.With(service.ServiceLabel, key).Set(float64(duration / time.Millisecond))
+	r.keep.With(service.ServiceLabel, svc).Set(float64(keepCount))
+	r.disconnect.With(service.ServiceLabel, svc).Set(float64(disconnectCount))
+	r.duration.With(service.ServiceLabel, svc).Set(float64(duration / time.Millisecond))
 	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "duration", duration)
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
+	if !r.services[e.Service] {
+		return
+	}
+
 	logger := logging.Enrich(
 		log.With(
 			r.logger,
@@ -187,22 +203,22 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 	case e.Err != nil:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
 		r.connector.DisconnectAll(device.CloseReason{Err: e.Err, Text: ServiceDiscoveryError})
-		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
 
 	case e.Stopped:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
 		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryStopped})
-		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
 
 	case e.EventCount == 1:
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
 
 	case len(e.Instances) > 0:
-		r.rehash(e.Key, logger, r.accessorFactory(e.Instances))
+		r.rehash(e.Service, logger, r.accessorFactory(e.Instances))
 
 	default:
 		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
 		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryNoInstances})
-		r.disconnectAllCounter.With(service.ServiceLabel, e.Key, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
+		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
 	}
 }

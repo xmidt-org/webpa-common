@@ -76,15 +76,15 @@ func testNewMetricsListenerUpdate(t *testing.T) {
 		now = float64(time.Now().Unix())
 
 		p = xmetricstest.NewProvider(nil, service.Metrics).
-			Expect(service.UpdateCount, service.ServiceLabel, "test")(xmetricstest.Value(1.0)).
-			Expect(service.LastUpdateTimestamp, service.ServiceLabel, "test")(xmetricstest.Minimum(now)).
-			Expect(service.ErrorCount, service.ServiceLabel, "test")(xmetricstest.Value(0.0)).
-			Expect(service.LastErrorTimestamp, service.ServiceLabel, "test")(xmetricstest.Value(0.0)).
-			Expect(service.InstanceCount, service.ServiceLabel, "test")(xmetricstest.Value(2.0))
+			Expect(service.UpdateCount, service.ServiceLabel, "talaria")(xmetricstest.Value(1.0)).
+			Expect(service.LastUpdateTimestamp, service.ServiceLabel, "talaria")(xmetricstest.Minimum(now)).
+			Expect(service.ErrorCount, service.ServiceLabel, "talaria")(xmetricstest.Value(0.0)).
+			Expect(service.LastErrorTimestamp, service.ServiceLabel, "talaria")(xmetricstest.Value(0.0)).
+			Expect(service.InstanceCount, service.ServiceLabel, "talaria")(xmetricstest.Value(2.0))
 		l = NewMetricsListener(p)
 	)
 
-	l.MonitorEvent(Event{Key: "test", Instances: []string{"instance1", "instance2"}})
+	l.MonitorEvent(Event{Key: "test", Service: "talaria", Instances: []string{"instance1", "instance2"}})
 	p.AssertExpectations(t)
 }
 
@@ -93,15 +93,15 @@ func testNewMetricsListenerError(t *testing.T) {
 		now = float64(time.Now().Unix())
 
 		p = xmetricstest.NewProvider(nil, service.Metrics).
-			Expect(service.UpdateCount, service.ServiceLabel, "test")(xmetricstest.Value(0.0)).
-			Expect(service.LastUpdateTimestamp, service.ServiceLabel, "test")(xmetricstest.Value(0.0)).
-			Expect(service.ErrorCount, service.ServiceLabel, "test")(xmetricstest.Value(1.0)).
-			Expect(service.LastErrorTimestamp, service.ServiceLabel, "test")(xmetricstest.Minimum(now)).
-			Expect(service.InstanceCount, service.ServiceLabel, "test")(xmetricstest.Value(0.0))
+			Expect(service.UpdateCount, service.ServiceLabel, "scytale")(xmetricstest.Value(0.0)).
+			Expect(service.LastUpdateTimestamp, service.ServiceLabel, "scytale")(xmetricstest.Value(0.0)).
+			Expect(service.ErrorCount, service.ServiceLabel, "scytale")(xmetricstest.Value(1.0)).
+			Expect(service.LastErrorTimestamp, service.ServiceLabel, "scytale")(xmetricstest.Minimum(now)).
+			Expect(service.InstanceCount, service.ServiceLabel, "scytale")(xmetricstest.Value(0.0))
 		l = NewMetricsListener(p)
 	)
 
-	l.MonitorEvent(Event{Key: "test", Err: errors.New("expected")})
+	l.MonitorEvent(Event{Key: "test", Service: "scytale", Err: errors.New("expected")})
 	p.AssertExpectations(t)
 }
 
