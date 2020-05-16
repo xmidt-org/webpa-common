@@ -107,6 +107,23 @@ func testDeviceMetadataInit(bare bool) func(t *testing.T) {
 	}
 }
 
+func BenchmarkMetadataJWTClaimsAccessParallel(b *testing.B) {
+	m := NewDeviceMetadataWithClaims(map[string]interface{}{
+		"k0": "v0",
+		"k1": "v1",
+	})
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			jwtClaims := m.JWTClaims()
+			for k, v := range jwtClaims {
+				jwtClaims[k+"prime"] = v
+			}
+		}
+	})
+
+}
+
 func TestDeepCopyMap(t *testing.T) {
 	testCases := []struct {
 		Name     string
