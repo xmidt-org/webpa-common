@@ -92,7 +92,7 @@ func NewDeviceMetadata() Metadata {
 // given claims.
 func NewDeviceMetadataWithClaims(claims map[string]interface{}) Metadata {
 	m := make(Metadata)
-	m.SetJWTClaims(JWTClaims(claims))
+	m.SetJWTClaims(deepCopyMap(claims))
 	m.initSessionID()
 	return m
 }
