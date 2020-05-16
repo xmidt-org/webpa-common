@@ -1,8 +1,9 @@
 package aws
 
 import (
-	"github.com/gorilla/mux"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 type ErrResp struct {
