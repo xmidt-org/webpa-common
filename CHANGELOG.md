@@ -5,7 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
+### Fixed 
+- Device metadata didn't return a read-only view of its map claims resulting in data races [483](https://github.com/xmidt-org/webpa-common/pull/483)
 
 ## [v1.10.0]
 ### Removed

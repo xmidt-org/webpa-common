@@ -38,6 +38,7 @@ require (
 	github.com/rubyist/circuitbreaker v2.2.0+incompatible
 	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec
 	github.com/segmentio/ksuid v1.0.2
+	github.com/spf13/cast v1.3.0
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.6.1
 	github.com/stretchr/testify v1.3.0

@@ -45,33 +45,38 @@ func testDeviceMetadataProtectedKeys(bare bool) func(t *testing.T) {
 func testDeviceMetadataUpdate(bare bool) func(*testing.T) {
 	return func(t *testing.T) {
 		var (
-			m       Metadata
-			assert  = assert.New(t)
-			require = require.New(t)
-			claims  = map[string]interface{}{
-				"claim0":          "v0",
-				"claim1":          1,
+			m              Metadata
+			assert         = assert.New(t)
+			require        = require.New(t)
+			providedClaims = map[string]interface{}{
 				TrustClaimKey:     88,
 				PartnerIDClaimKey: "comcast",
 			}
+
+			expectedInitialClaims = JWTClaims(map[string]interface{}{
+				TrustClaimKey:     88,
+				PartnerIDClaimKey: "comcast",
+			})
 		)
 
 		if bare {
 			m = make(Metadata)
-			m.SetJWTClaims(JWTClaims(claims))
+			m.SetJWTClaims(providedClaims)
 		} else {
-			m = NewDeviceMetadataWithClaims(claims)
+			m = NewDeviceMetadataWithClaims(providedClaims)
 		}
 
 		require.NotNil(m)
 		jwtClaims := m.JWTClaims()
 		require.NotNil(jwtClaims)
-		assert.Equal(claims, map[string]interface{}(jwtClaims))
-		assert.Equal("comcast", jwtClaims.PartnerID())
-		assert.Equal(88, jwtClaims.Trust())
+		assert.Equal(expectedInitialClaims, jwtClaims)
+		assert.Equal(providedClaims[PartnerIDClaimKey], jwtClaims.PartnerID())
+		assert.Equal(providedClaims[TrustClaimKey], jwtClaims.Trust())
 
 		jwtClaims.SetTrust(100)
 		assert.Equal(100, jwtClaims.Trust())
+		assert.NotEqual(providedClaims[TrustClaimKey], jwtClaims.Trust())
+		assert.NotEqual(jwtClaims, m.JWTClaims())
 	}
 }
 
@@ -87,10 +92,9 @@ func testDeviceMetadataInit(bare bool) func(t *testing.T) {
 			m = NewDeviceMetadata()
 		}
 
-		claims := m.JWTClaims()
-
 		assert.NotEmpty(m.SessionID())
 
+		claims := m.JWTClaims()
 		require.NotNil(claims)
 		assert.Empty(claims)
 		assert.Empty(claims.PartnerID())
@@ -100,5 +104,74 @@ func testDeviceMetadataInit(bare bool) func(t *testing.T) {
 		assert.True(m.Store("k", input))
 		output := m.Load("k")
 		assert.Equal(input, output)
+	}
+}
+
+func BenchmarkMetadataJWTClaimsAccessParallel(b *testing.B) {
+	m := NewDeviceMetadataWithClaims(map[string]interface{}{
+		"k0": "v0",
+		"k1": "v1",
+	})
+
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			jwtClaims := m.JWTClaims()
+			partnerID := jwtClaims.PartnerID()
+			trustLevel := jwtClaims.Trust()
+
+			jwtClaims["trust-prime"] = trustLevel
+			jwtClaims["partnerID-prime"] = partnerID
+		}
+	})
+
+}
+
+func TestDeepCopyMap(t *testing.T) {
+	testCases := []struct {
+		Name     string
+		Input    map[string]interface{}
+		Expected map[string]interface{}
+	}{
+		{
+			Name:     "Nil",
+			Expected: make(map[string]interface{}),
+		},
+		{
+			Name:     "Empty",
+			Input:    make(map[string]interface{}),
+			Expected: make(map[string]interface{}),
+		},
+		{
+			Name:     "Simple",
+			Input:    map[string]interface{}{"k0": 0, "k1": 1},
+			Expected: map[string]interface{}{"k0": 0, "k1": 1},
+		},
+		{
+			Name: "Complex",
+			Input: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"nestedKey": "nestedVal",
+				},
+				"nestedToCast": map[interface{}]interface{}{
+					3: "nestedVal3",
+				},
+			},
+			Expected: map[string]interface{}{
+				"nested": map[string]interface{}{
+					"nestedKey": "nestedVal",
+				},
+				"nestedToCast": map[string]interface{}{
+					"3": "nestedVal3",
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			assert := assert.New(t)
+			cpy := deepCopyMap(testCase.Input)
+			assert.Equal(cpy, testCase.Expected)
+		})
 	}
 }

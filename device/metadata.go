@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/segmentio/ksuid"
+	"github.com/spf13/cast"
 )
 
 //Reserved metadata keys
@@ -34,9 +35,9 @@ type Metadata map[string]interface{}
 // they are initialized appropiately.
 func (m Metadata) JWTClaims() JWTClaims { // returns the type and such type has getter/setter
 	if jwtClaims, ok := m[JWTClaimsKey].(JWTClaims); ok {
-		return jwtClaims
+		return deepCopyMap(jwtClaims)
 	}
-	return m.initJWTClaims()
+	return deepCopyMap(m.initJWTClaims())
 }
 
 // SetJWTClaims sets the JWT claims attached to a device.
@@ -91,7 +92,7 @@ func NewDeviceMetadata() Metadata {
 // given claims.
 func NewDeviceMetadataWithClaims(claims map[string]interface{}) Metadata {
 	m := make(Metadata)
-	m.SetJWTClaims(JWTClaims(claims))
+	m.SetJWTClaims(deepCopyMap(claims))
 	m.initSessionID()
 	return m
 }
@@ -128,4 +129,21 @@ func (c JWTClaims) SetTrust(trust int) {
 // MarshalJSON allows easy JSON representation of the JWTClaims underlying claims map.
 func (c JWTClaims) MarshalJSON() ([]byte, error) {
 	return json.Marshal(c)
+}
+
+func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+	deepCopy := make(map[string]interface{})
+	for key, val := range m {
+		switch val.(type) {
+		case map[interface{}]interface{}:
+			val = cast.ToStringMap(val)
+			deepCopy[key] = deepCopyMap(val.(map[string]interface{}))
+		case map[string]interface{}:
+			deepCopy[key] = deepCopyMap(val.(map[string]interface{}))
+		default:
+			deepCopy[key] = val
+		}
+
+	}
+	return deepCopy
 }
