@@ -1,7 +1,6 @@
 package device
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/segmentio/ksuid"
@@ -73,32 +72,31 @@ func (m Metadata) SetJWTClaims(claims map[string]interface{}) {
 // SessionID returns the UUID associated with a device's current connection
 // to the cluster.
 func (m Metadata) SessionID() string {
-	if sessionID, ok := m.data[SessionIDKey].(string); ok {
-		return sessionID
-	}
-
-	return m.initSessionID()
-}
-
-func (m Metadata) initSessionID() string {
-	sessionID := ksuid.New().String()
-	m[SessionIDKey] = sessionID
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	sessionID, _ := m.data[SessionIDKey].(string)
 	return sessionID
 }
 
-// Load allows retrieving values from a device's metadata
+// Load allows retrieving values from a device's metadata.
+// For protected reference values, a copy is returned.
 func (m Metadata) Load(key string) interface{} {
-	return m[key]
+	if key == JWTClaimsKey {
+		m.JWTClaims()
+	}
+	return m.data[key]
 }
 
 // Store allows writing values into the device's metadata given
 // a key. Boolean results indicates whether the operation was successful.
 // Note: operations will fail for reserved keys.
-func (m Metadata) Store(key string, value interface{}) bool {
+func (m *Metadata) Store(key string, value interface{}) bool {
 	if reservedMetadataKeys[key] {
 		return false
 	}
-	m[key] = value
+	m.mux.Lock()
+	defer m.mux.Unlock()
+	m.data[key] = value
 	return true
 }
 
@@ -114,38 +112,36 @@ func NewDeviceMetadataWithClaims(claims map[string]interface{}) Metadata {
 		data: make(map[string]interface{}),
 	}
 	m.SetJWTClaims(claims)
-	m.SetJWTClaims(deepCopyMap(claims))
-	m.initSessionID()
+	m.data[SessionIDKey] = ksuid.New().String()
 	return m
 }
 
-// Trust returns the device's trust level claim
+// Trust returns the device's trust level claim.
 // By Default, a device is untrusted (trust = 0).
-func (c JWTClaims) Trust() int {
-	if trust, ok := c[TrustClaimKey].(int); ok {
-		return trust
-	}
-	return 0
+func (m Metadata) Trust() int {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+	jwtClaims, _ := m.data[TrustClaimKey].(map[string]interface{})
+	return jwtClaims[TrustClaimKey].(int)
+}
+
+// SetTrust modifies the trust level of the device related to the metadata.
+func (m Metadata) SetTrust(trust int) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	jwtClaims, _ := m.data[TrustClaimKey].(map[string]interface{})
+	jwtClaims[TrustClaimKey] = trust
 }
 
 // PartnerID returns the partner ID claim.
-// If no claim is found, the zero value is returned.
-func (c JWTClaims) PartnerID() string {
-	if partnerID, ok := c[PartnerIDClaimKey].(string); ok {
-		return partnerID
-	}
-	return "" // no partner by default
-}
+// By Default, there is no partnerID (partnerID = "").
+func (m Metadata) PartnerID() string {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
 
-// SetTrust modifies the trust level of the device which owns these
-// claims.
-func (c JWTClaims) SetTrust(trust int) {
-	c[TrustClaimKey] = trust
-}
-
-// MarshalJSON allows easy JSON representation of the JWTClaims underlying claims map.
-func (c JWTClaims) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c)
+	jwtClaims, _ := m.data[TrustClaimKey].(map[string]interface{})
+	return jwtClaims[PartnerIDClaimKey].(string)
 }
 
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {
