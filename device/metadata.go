@@ -2,21 +2,28 @@ package device
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/segmentio/ksuid"
 	"github.com/spf13/cast"
 )
 
-//Reserved metadata keys
+// Reserved metadata keys.
 const (
 	JWTClaimsKey = "jwt-claims"
 	SessionIDKey = "session-id"
 )
 
-//Top level JWTClaim keys
+// Top level JWTClaim keys.
 const (
 	PartnerIDClaimKey = "partner-id"
 	TrustClaimKey     = "trust"
+)
+
+// Default values for well known claims.
+const (
+	DefaultPartnerID  = ""
+	DefaultTrustLevel = 0
 )
 
 var reservedMetadataKeys = map[string]bool{
@@ -29,26 +36,44 @@ func init() {
 
 // Metadata contains information such as security credentials
 // related to a device.
-type Metadata map[string]interface{}
-
-// JWTClaims returns the JWT claims attached to a device. If no claims exist,
-// they are initialized appropiately.
-func (m Metadata) JWTClaims() JWTClaims { // returns the type and such type has getter/setter
-	if jwtClaims, ok := m[JWTClaimsKey].(JWTClaims); ok {
-		return deepCopyMap(jwtClaims)
-	}
-	return deepCopyMap(m.initJWTClaims())
+type Metadata struct {
+	mux  sync.RWMutex
+	data map[string]interface{}
 }
 
-// SetJWTClaims sets the JWT claims attached to a device.
-func (m Metadata) SetJWTClaims(jwtClaims JWTClaims) {
-	m[JWTClaimsKey] = jwtClaims
+// JWTClaims returns a read-only view of the JWT claims attached to a device.
+func (m Metadata) JWTClaims() map[string]interface{} {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	jwtClaims, _ := m.data[JWTClaimsKey].(map[string]interface{})
+	return deepCopyMap(jwtClaims)
+}
+
+// SetJWTClaims sets the JWT claims attached to a device. If known
+// claims are not provided, default values are injected.
+func (m Metadata) SetJWTClaims(claims map[string]interface{}) {
+	claims = deepCopyMap(claims)
+	_, ok := claims[TrustClaimKey]
+	if !ok {
+		claims[TrustClaimKey] = 0
+	}
+
+	_, ok = claims[PartnerIDClaimKey]
+	if !ok {
+		claims[PartnerIDClaimKey] = ""
+
+	}
+
+	m.mux.Lock()
+	m.data[JWTClaimsKey] = claims
+	m.mux.Unlock()
 }
 
 // SessionID returns the UUID associated with a device's current connection
 // to the cluster.
 func (m Metadata) SessionID() string {
-	if sessionID, ok := m[SessionIDKey].(string); ok {
+	if sessionID, ok := m.data[SessionIDKey].(string); ok {
 		return sessionID
 	}
 
@@ -59,12 +84,6 @@ func (m Metadata) initSessionID() string {
 	sessionID := ksuid.New().String()
 	m[SessionIDKey] = sessionID
 	return sessionID
-}
-
-func (m Metadata) initJWTClaims() JWTClaims {
-	jwtClaims := JWTClaims(make(map[string]interface{}))
-	m.SetJWTClaims(jwtClaims)
-	return jwtClaims
 }
 
 // Load allows retrieving values from a device's metadata
@@ -91,16 +110,14 @@ func NewDeviceMetadata() Metadata {
 // NewDeviceMetadataWithClaims returns a metadata object ready for use with the
 // given claims.
 func NewDeviceMetadataWithClaims(claims map[string]interface{}) Metadata {
-	m := make(Metadata)
+	m := Metadata{
+		data: make(map[string]interface{}),
+	}
+	m.SetJWTClaims(claims)
 	m.SetJWTClaims(deepCopyMap(claims))
 	m.initSessionID()
 	return m
 }
-
-// JWTClaims defines the interface of a device's security claims.
-// One current use case is providing security credentials the device
-// presented at registration time.
-type JWTClaims map[string]interface{}
 
 // Trust returns the device's trust level claim
 // By Default, a device is untrusted (trust = 0).
