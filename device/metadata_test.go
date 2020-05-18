@@ -116,9 +116,11 @@ func BenchmarkMetadataJWTClaimsAccessParallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			jwtClaims := m.JWTClaims()
-			for k, v := range jwtClaims {
-				jwtClaims[k+"prime"] = v
-			}
+			partnerID := jwtClaims.PartnerID()
+			trustLevel := jwtClaims.Trust()
+
+			jwtClaims["trust-prime"] = trustLevel
+			jwtClaims["partnerID-prime"] = partnerID
 		}
 	})
 
