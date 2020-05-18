@@ -5,8 +5,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+
+## [v1.10.1]
 ### Fixed 
 - Device metadata didn't return a read-only view of its map claims resulting in data races [483](https://github.com/xmidt-org/webpa-common/pull/483)
+
 
 ## [v1.10.0]
 ### Removed
@@ -94,7 +98,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.1...HEAD
+[v1.10.1]: https://github.com/xmidt-org/webpa-common/compare/v1.10.0...v1.10.1
 [v1.10.0]: https://github.com/xmidt-org/webpa-common/compare/v1.9.0...v1.10.0
 [v1.9.0]: https://github.com/xmidt-org/webpa-common/compare/v1.8.1...v1.9.0
 [v1.8.1]: https://github.com/xmidt-org/webpa-common/compare/v1.8.0...v1.8.1
