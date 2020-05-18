@@ -87,7 +87,6 @@ func NewW(jsonString []byte, ip string) (w *W, err error) {
 func (w *W) sanitize(ip string) (err error) {
 
 	var ipAddressPattern = regexp.MustCompile(`^https://(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])`)
-	// var webhookvalid = regexp.MustCompile(`^https://`)
 
 	if "" == w.Config.URL {
 		err = errors.New("invalid Config URL")
@@ -103,10 +102,6 @@ func (w *W) sanitize(ip string) (err error) {
 		err = errors.New("invalid webhook")
 		return
 	}
-	// else if webhookvalid.MatchString(w.Config.URL) == false {
-	// 	err = errors.New("invalid webhook")
-	// 	return
-	// }
 
 	// TODO Validate content type ?  What about different types?
 
