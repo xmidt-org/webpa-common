@@ -90,7 +90,7 @@ func (m Metadata) Load(key string) interface{} {
 // Store allows writing values into the device's metadata given
 // a key. Boolean results indicates whether the operation was successful.
 // Note: operations will fail for reserved keys.
-func (m *Metadata) Store(key string, value interface{}) bool {
+func (m Metadata) Store(key string, value interface{}) bool {
 	if reservedMetadataKeys[key] {
 		return false
 	}
