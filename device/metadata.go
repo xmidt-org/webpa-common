@@ -82,7 +82,7 @@ func (m Metadata) SessionID() string {
 // For protected reference values, a copy is returned.
 func (m Metadata) Load(key string) interface{} {
 	if key == JWTClaimsKey {
-		m.JWTClaims()
+		return m.JWTClaims()
 	}
 	return m.data[key]
 }
