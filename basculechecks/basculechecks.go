@@ -7,9 +7,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/go-kit/kit/log/level"
+
 	"github.com/go-kit/kit/log"
 	"github.com/goph/emperror"
 	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/webpa-common/logging"
 )
 
 var (
@@ -105,6 +108,23 @@ func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptA
 		measures:        m,
 	}
 	return &c, nil
+}
+
+func NewCapabilityCheckerFromStrings(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints []string, logger log.Logger) (*capabilityCheck, error) {
+	var endpointRegexps []*regexp.Regexp
+	for _, e := range endpoints {
+		r, err := regexp.Compile(e)
+		if err != nil {
+			if logger != nil {
+				logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "failed to compile regular expression", "regex", e, logging.ErrorKey(), err.Error())
+			}
+			continue
+		}
+		endpointRegexps = append(endpointRegexps, r)
+	}
+
+	return NewCapabilityChecker(m, prefix, acceptAllMethod, endpointRegexps)
+
 }
 
 func (c *capabilityCheck) checkCapabilities(capabilities []string, requestInfo bascule.Request) error {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
@@ -216,6 +217,63 @@ func TestNewCapabilityChecker(t *testing.T) {
 			} else {
 				assert.Contains(err.Error(), tc.expectedErr.Error())
 				assert.Nil(check)
+			}
+		})
+	}
+}
+
+func TestNewCapabilityCheckerFromStrings(t *testing.T) {
+	goodEndpoint := `/something/.*/whatever\b`
+	endpoints := []string{
+		`\K`, // bad
+		goodEndpoint,
+	}
+	goodRegexpEndpoint, err := regexp.Compile(goodEndpoint)
+	assert.Nil(t, err)
+
+	tests := []struct {
+		description             string
+		prefix                  string
+		endpoints               []string
+		expectedRegexpEndpoints []*regexp.Regexp
+		expectingLog            bool
+		expectedErr             error
+	}{
+		{
+			description:             "Partial Success",
+			prefix:                  "testprefix:",
+			endpoints:               endpoints,
+			expectedRegexpEndpoints: []*regexp.Regexp{goodRegexpEndpoint},
+			expectingLog:            true,
+			expectedErr:             nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			var m *AuthCapabilityCheckMeasures
+			p := xmetricstest.NewProvider(nil, Metrics)
+			m = NewAuthCapabilityCheckMeasures(p)
+
+			testLogger := new(mockLogger)
+			if tc.expectingLog {
+				testLogger.On("Log", mock.Anything).Return(nil).Once()
+			}
+
+			cc, err := NewCapabilityCheckerFromStrings(m, tc.prefix, "all", tc.endpoints, testLogger)
+
+			testLogger.AssertExpectations(t)
+
+			if err == nil || tc.expectedErr == nil {
+				assert.Equal(tc.expectedErr, err)
+				if tc.expectedErr == nil {
+					assert.NotNil(cc)
+					assert.Equal(tc.expectedRegexpEndpoints, cc.endpoints)
+				}
+			} else {
+				assert.Contains(err.Error(), tc.expectedErr.Error())
+				assert.Nil(cc)
 			}
 		})
 	}
