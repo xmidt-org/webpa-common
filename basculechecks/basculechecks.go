@@ -118,8 +118,9 @@ func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptA
 }
 
 // NewCapabilityCheckerFromStrings creates the capability checker, and allows
-// consumers to provide a list of string endpoints, rather than regular
-// expressions.
+// consumers to provide a list of string endpoints to be compiled into regular
+// expressions.  Only expressions that compile successfully are included in the
+// checker.
 func NewCapabilityCheckerFromStrings(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints []string, logger log.Logger) (*capabilityCheck, error) {
 	var endpointRegexps []*regexp.Regexp
 	l := logger
