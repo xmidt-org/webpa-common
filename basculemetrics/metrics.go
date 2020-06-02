@@ -52,12 +52,12 @@ func ProvideMetrics() fx.Option {
 			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
 			ConstLabels: nil,
 		}, OutcomeLabel),
-		themisXmetrics.ProvideHistogramVec(prometheus.HistogramOpts{
+		themisXmetrics.ProvideHistogram(prometheus.HistogramOpts{
 			Name:    NBFHistogram,
 			Help:    "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
 		}),
-		themisXmetrics.ProvideHistogramVec(prometheus.HistogramOpts{
+		themisXmetrics.ProvideHistogram(prometheus.HistogramOpts{
 			Name:    EXPHistogram,
 			Help:    "Difference (in seconds) between time of JWT validation and exp (including leeway)",
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
