@@ -4,9 +4,10 @@ import (
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/xmidt-org/webpa-common/xmetrics"
+	"go.uber.org/fx"
 )
 
-//Names for our metrics
+// Names for our metrics
 const (
 	AuthValidationOutcome = "auth_validation"
 	NBFHistogram          = "auth_from_nbf_seconds"
@@ -18,7 +19,7 @@ const (
 	OutcomeLabel = "outcome"
 )
 
-//Metrics returns the Metrics relevant to this package
+// Metrics returns the Metrics relevant to this package
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		xmetrics.Metric{
@@ -42,14 +43,16 @@ func Metrics() []xmetrics.Metric {
 	}
 }
 
-//AuthValidationMeasures describes the defined metrics that will be used by clients
+// AuthValidationMeasures describes the defined metrics that will be used by clients
 type AuthValidationMeasures struct {
-	NBFHistogram      *gokitprometheus.Histogram
-	ExpHistogram      *gokitprometheus.Histogram
-	ValidationOutcome metrics.Counter
+	fx.In
+
+	NBFHistogram      metrics.Histogram `name:"auth_from_nbf_seconds"`
+	ExpHistogram      metrics.Histogram `name:"auth_from_exp_seconds"`
+	ValidationOutcome metrics.Counter   `name:"auth_validation"`
 }
 
-//NewAuthValidationMeasures realizes desired metrics
+// NewAuthValidationMeasures realizes desired metrics
 func NewAuthValidationMeasures(r xmetrics.Registry) *AuthValidationMeasures {
 	return &AuthValidationMeasures{
 		NBFHistogram:      gokitprometheus.NewHistogram(r.NewHistogramVec(NBFHistogram)),

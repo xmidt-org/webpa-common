@@ -4,9 +4,10 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/webpa-common/xmetrics"
+	"go.uber.org/fx"
 )
 
-//Names for our metrics
+// Names for our metrics
 const (
 	AuthCapabilityCheckOutcome = "auth_capability_check"
 )
@@ -32,7 +33,7 @@ const (
 	NoCapabilitiesMatch      = "no_capabilities_match"
 )
 
-//Metrics returns the Metrics relevant to this package
+// Metrics returns the Metrics relevant to this package
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		xmetrics.Metric{
@@ -44,12 +45,14 @@ func Metrics() []xmetrics.Metric {
 	}
 }
 
-//AuthCapabilityCheckMeasures describes the defined metrics that will be used by clients
+// AuthCapabilityCheckMeasures describes the defined metrics that will be used by clients
 type AuthCapabilityCheckMeasures struct {
-	CapabilityCheckOutcome metrics.Counter
+	fx.In
+
+	CapabilityCheckOutcome metrics.Counter `name:"auth_capability_check"`
 }
 
-//NewAuthCapabilityCheckMeasures realizes desired metrics
+// NewAuthCapabilityCheckMeasures realizes desired metrics
 func NewAuthCapabilityCheckMeasures(p provider.Provider) *AuthCapabilityCheckMeasures {
 	return &AuthCapabilityCheckMeasures{
 		CapabilityCheckOutcome: p.NewCounter(AuthCapabilityCheckOutcome),
