@@ -3,7 +3,10 @@ package basculechecks
 import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/provider"
+	"github.com/prometheus/client_golang/prometheus"
+	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics"
+
 	"go.uber.org/fx"
 )
 
@@ -43,6 +46,16 @@ func Metrics() []xmetrics.Metric {
 			LabelNames: []string{OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel},
 		},
 	}
+}
+
+func ProvideMetrics() fx.Option {
+	return fx.Provide(
+		themisXmetrics.ProvideCounter(prometheus.CounterOpts{
+			Name:        AuthCapabilityCheckOutcome,
+			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			ConstLabels: nil,
+		}, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel),
+	)
 }
 
 // AuthCapabilityCheckMeasures describes the defined metrics that will be used by clients

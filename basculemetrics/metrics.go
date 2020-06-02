@@ -3,6 +3,8 @@ package basculemetrics
 import (
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"go.uber.org/fx"
 )
@@ -41,6 +43,26 @@ func Metrics() []xmetrics.Metric {
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
 		},
 	}
+}
+
+func ProvideMetrics() fx.Option {
+	return fx.Provide(
+		themisXmetrics.ProvideCounter(prometheus.CounterOpts{
+			Name:        AuthValidationOutcome,
+			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			ConstLabels: nil,
+		}, OutcomeLabel),
+		themisXmetrics.ProvideHistogramVec(prometheus.HistogramOpts{
+			Name:    NBFHistogram,
+			Help:    "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
+			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
+		}),
+		themisXmetrics.ProvideHistogramVec(prometheus.HistogramOpts{
+			Name:    EXPHistogram,
+			Help:    "Difference (in seconds) between time of JWT validation and exp (including leeway)",
+			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
+		}),
+	)
 }
 
 // AuthValidationMeasures describes the defined metrics that will be used by clients
