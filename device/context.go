@@ -36,7 +36,7 @@ func WithDeviceMetadata(parent context.Context, metadata Metadata) context.Conte
 }
 
 // GetDeviceMetadata returns the device metadata from the context if any.
-func GetDeviceMetadata(ctx context.Context) (metadata Metadata, ok bool) {
-	metadata, ok = ctx.Value(metadataKey).(Metadata)
+func GetDeviceMetadata(ctx context.Context) (metadata *Metadata, ok bool) {
+	metadata, ok = ctx.Value(metadataKey).(*Metadata)
 	return
 }

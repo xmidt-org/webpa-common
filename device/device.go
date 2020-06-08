@@ -91,7 +91,7 @@ type Interface interface {
 
 	// Metadata returns a key value store object for information that's useful to guide interactions
 	// with a device such as security credentials.
-	Metadata() Metadata
+	Metadata() *Metadata
 
 	// CloseReason returns the metadata explaining why a device was closed.  If this device
 	// is not closed, this method's return is undefined.
@@ -119,7 +119,7 @@ type device struct {
 	compliance    convey.Compliance
 	conveyClosure conveymetric.Closure
 
-	metadata Metadata
+	metadata *Metadata
 
 	closeReason atomic.Value
 }
@@ -131,7 +131,7 @@ type deviceOptions struct {
 	QueueSize   int
 	ConnectedAt time.Time
 	Logger      log.Logger
-	Metadata    Metadata
+	Metadata    *Metadata
 }
 
 // newDevice is an internal factory function for devices
@@ -309,7 +309,7 @@ func (d *device) ConveyCompliance() convey.Compliance {
 	return d.compliance
 }
 
-func (d *device) Metadata() Metadata {
+func (d *device) Metadata() *Metadata {
 	return d.metadata
 }
 
