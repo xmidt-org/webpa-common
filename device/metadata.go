@@ -1,7 +1,6 @@
 package device
 
 import (
-	"sync"
 	"sync/atomic"
 
 	"github.com/segmentio/ksuid"
@@ -29,13 +28,11 @@ func init() {
 }
 
 // Metadata contains information such as security credentials
-// related to a device. Although operations are synchronized
-// for both read and write, read operations are optimized as it
-// is intended to store read-only values or those with infrequent
-// updates. Updates are performed on a copy-on-write basis.
+// related to a device. Read operations are optimized with a
+// copy-on-write strategy. Client code must further synchronize concurrent
+// writers to avoid stale data.
 type Metadata struct {
-	v   atomic.Value
-	mux sync.Mutex
+	v atomic.Value
 }
 
 func (m *Metadata) loadData() map[string]interface{} {
@@ -61,14 +58,11 @@ func (m *Metadata) Load(key string) interface{} {
 // Store allows writing values into the device's metadata given
 // a key. Boolean results indicates whether the operation was successful.
 // Note: operations will fail for reserved keys.
-//TODO: same as SetJWTClaims()
 func (m *Metadata) Store(key string, value interface{}) bool {
 	if reservedMetadataKeys[key] {
 		return false
 	}
-	m.mux.Lock()
 	m.copyAndStore(key, value)
-	m.mux.Unlock()
 	return true
 }
 
@@ -94,11 +88,24 @@ func NewDeviceMetadataWithClaims(claims map[string]interface{}) *Metadata {
 	return m
 }
 
-// Claims returns the claims attached to a device. If no claims exist,
-// they are initialized appropiately.
+// SetClaims updates the claims associated with the device that's
+// owner of the metadata.
+func (m *Metadata) SetClaims(claims map[string]interface{}) {
+	m.copyAndStore(JWTClaimsKey, claims)
+}
+
+// Claims returns the claims attached to a device. The returned map
+// should not be modified to avoid any race conditions. To update the claims,
+// take a look at the ClaimsCopy() function
 func (m *Metadata) Claims() map[string]interface{} {
 	claims, _ := m.loadData()[JWTClaimsKey].(map[string]interface{})
 	return claims
+}
+
+// ClaimsCopy returns a deep copy of the claims. Use this, along with the
+// SetClaims() method to update the claims.
+func (m *Metadata) ClaimsCopy() map[string]interface{} {
+	return deepCopyMap(m.Claims())
 }
 
 // TrustClaim returns the device's trust level claim.
@@ -109,17 +116,6 @@ func (m *Metadata) TrustClaim() int {
 		return trust
 	}
 	return 0
-}
-
-// SetTrustClaim sets the value of the trust in the map of claims associated with the
-// device which owns this metadata.
-func (m *Metadata) SetTrustClaim(trust int) {
-	m.mux.Lock()
-	defer m.mux.Unlock()
-
-	claims := deepCopyMap(m.Claims())
-	claims[TrustClaimKey] = trust
-	m.copyAndStore(JWTClaimsKey, claims)
 }
 
 // PartnerIDClaim returns the partner ID claim.
