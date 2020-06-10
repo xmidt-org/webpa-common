@@ -72,7 +72,9 @@ func NewDeviceMetadata() *Metadata {
 func NewDeviceMetadataWithClaims(claims map[string]interface{}) *Metadata {
 	m := new(Metadata)
 	data := make(map[string]interface{})
-	data[JWTClaimsKey] = deepCopyMap(claims)
+	claimsCopy := deepCopyMap(claims)
+	injectDefaultClaims(claimsCopy)
+	data[JWTClaimsKey] = claimsCopy
 	data[SessionIDKey] = ksuid.New().String()
 	m.storeData(data)
 	return m
@@ -133,6 +135,15 @@ func (m *Metadata) copyAndStore(key string, val interface{}) {
 	data := copyMap(m.loadData())
 	data[key] = val
 	m.storeData(data)
+}
+
+func injectDefaultClaims(claims map[string]interface{}) {
+	if _, ok := claims[PartnerIDClaimKey]; !ok {
+		claims[PartnerIDClaimKey] = ""
+	}
+	if _, ok := claims[TrustClaimKey]; !ok {
+		claims[TrustClaimKey] = 0
+	}
 }
 
 func copyMap(m map[string]interface{}) (copy map[string]interface{}) {

@@ -34,7 +34,10 @@ func TestDeviceMetadataInitNoClaims(t *testing.T) {
 	assert := assert.New(t)
 	m := NewDeviceMetadata()
 
-	assert.Empty(m.Claims())
+	assert.Equal(map[string]interface{}{
+		PartnerIDClaimKey: "",
+		TrustClaimKey:     0,
+	}, m.Claims())
 	assert.NotEmpty(m.SessionID())
 	assert.Empty(m.PartnerIDClaim())
 	assert.Zero(m.TrustClaim())
