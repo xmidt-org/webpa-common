@@ -34,7 +34,7 @@ func TestDeviceMetadataInitNoClaims(t *testing.T) {
 	assert := assert.New(t)
 	m := NewDeviceMetadata()
 
-	assert.Equal(claims, m.Claims())
+	assert.Empty(m.Claims())
 	assert.NotEmpty(m.SessionID())
 	assert.Empty(m.PartnerIDClaim())
 	assert.Zero(m.TrustClaim())
@@ -88,6 +88,7 @@ func TestDeviceMetadataUpdateCustomReferenceValue(t *testing.T) {
 	assert.Equal(newAccountInfo, latestAccountInfo)
 	assert.NotEqual(oldAccountInfo, latestAccountInfo)
 }
+
 func TestDeviceMetadataReservedKeys(t *testing.T) {
 	assert := assert.New(t)
 	m := NewDeviceMetadata()
@@ -122,7 +123,7 @@ func BenchmarkMetadataClaimsUsageParallel(b *testing.B) {
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			v := rand.Intn(100)
-			if v < 95 { // Perform only reads 95% of the time.
+			if v < 100 { // Perform only reads 95% of the time.
 				m.Claims()
 				m.TrustClaim()
 			} else {
@@ -134,6 +135,50 @@ func BenchmarkMetadataClaimsUsageParallel(b *testing.B) {
 			}
 		}
 	})
+}
+func TestCopyMapSimple(t *testing.T) {
+	testCases := []struct {
+		Name     string
+		Input    map[string]interface{}
+		Expected map[string]interface{}
+	}{
+		{
+			Name:     "Nil",
+			Expected: make(map[string]interface{}),
+		},
+		{
+			Name:     "Empty",
+			Input:    make(map[string]interface{}),
+			Expected: make(map[string]interface{}),
+		},
+		{
+			Name:     "Simple",
+			Input:    map[string]interface{}{"k0": 0, "k1": 1},
+			Expected: map[string]interface{}{"k0": 0, "k1": 1},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			assert := assert.New(t)
+			cpy := copyMap(testCase.Input)
+			assert.Equal(cpy, testCase.Expected)
+		})
+	}
+}
+
+func TestCopyMapFailsForReferenceValues(t *testing.T) {
+	assert := assert.New(t)
+	inputMap := map[string]interface{}{
+		"nestedMap": map[string]interface{}{
+			"deepCopy": true,
+		},
+	}
+	myShallowCopy := copyMap(inputMap)
+	assert.Equal(myShallowCopy, inputMap)
+
+	inputMap["nestedMap"].(map[string]interface{})["deepCopy"] = false
+	assert.False(myShallowCopy["nestedMap"].(map[string]interface{})["deepCopy"].(bool))
 }
 
 func TestDeepCopyMap(t *testing.T) {

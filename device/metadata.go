@@ -130,9 +130,17 @@ func (m *Metadata) storeData(data map[string]interface{}) {
 }
 
 func (m *Metadata) copyAndStore(key string, val interface{}) {
-	data := deepCopyMap(m.loadData())
+	data := copyMap(m.loadData())
 	data[key] = val
 	m.storeData(data)
+}
+
+func copyMap(m map[string]interface{}) (copy map[string]interface{}) {
+	copy = make(map[string]interface{})
+	for k, v := range m {
+		copy[k] = v
+	}
+	return
 }
 
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {
