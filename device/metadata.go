@@ -35,14 +35,6 @@ type Metadata struct {
 	v atomic.Value
 }
 
-func (m *Metadata) loadData() map[string]interface{} {
-	return m.v.Load().(map[string]interface{})
-}
-
-func (m *Metadata) storeData(data map[string]interface{}) {
-	m.v.Store(data)
-}
-
 // SessionID returns the UUID associated with a device's current connection
 // to the cluster.
 func (m *Metadata) SessionID() string {
@@ -50,26 +42,24 @@ func (m *Metadata) SessionID() string {
 	return sessionID
 }
 
-// Load allows retrieving values from a device's metadata
+// Load returns the value associated with the given key in the metadata map.
+// It is not recommended modifying values returned by reference.
 func (m *Metadata) Load(key string) interface{} {
 	return m.loadData()[key]
 }
 
-// Store allows writing values into the device's metadata given
-// a key. Boolean results indicates whether the operation was successful.
-// Note: operations will fail for reserved keys.
+// Store updates the key value mapping in the device metadata map.
+// A boolean result is given indicating whether the operation was successful.
+// Operations will fail for reserved keys.
+// To avoid updating keys with stale data/value, client code will need to
+// synchronize the entire transaction of reading, copying, modifying and
+// writing back the value.
 func (m *Metadata) Store(key string, value interface{}) bool {
 	if reservedMetadataKeys[key] {
 		return false
 	}
 	m.copyAndStore(key, value)
 	return true
-}
-
-func (m *Metadata) copyAndStore(key string, val interface{}) {
-	data := deepCopyMap(m.loadData())
-	data[key] = val
-	m.storeData(data)
 }
 
 // NewDeviceMetadata returns a metadata object ready for use.
@@ -90,6 +80,9 @@ func NewDeviceMetadataWithClaims(claims map[string]interface{}) *Metadata {
 
 // SetClaims updates the claims associated with the device that's
 // owner of the metadata.
+// To avoid updating the claims with stale data, client code will need to
+// synchronize the entire transaction of reading, copying, modifying and
+// writing back the value.
 func (m *Metadata) SetClaims(claims map[string]interface{}) {
 	m.copyAndStore(JWTClaimsKey, claims)
 }
@@ -126,6 +119,20 @@ func (m *Metadata) PartnerIDClaim() string {
 		return partnerID
 	}
 	return "" // no partner by default
+}
+
+func (m *Metadata) loadData() map[string]interface{} {
+	return m.v.Load().(map[string]interface{})
+}
+
+func (m *Metadata) storeData(data map[string]interface{}) {
+	m.v.Store(data)
+}
+
+func (m *Metadata) copyAndStore(key string, val interface{}) {
+	data := deepCopyMap(m.loadData())
+	data[key] = val
+	m.storeData(data)
 }
 
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {
