@@ -31,7 +31,7 @@ func WithIDRequest(id ID, original *http.Request) *http.Request {
 }
 
 // WithDeviceMetadata returns a new context with the given metadata as a value.
-func WithDeviceMetadata(parent context.Context, metadata Metadata) context.Context {
+func WithDeviceMetadata(parent context.Context, metadata *Metadata) context.Context {
 	return context.WithValue(parent, metadataKey, metadata)
 }
 
