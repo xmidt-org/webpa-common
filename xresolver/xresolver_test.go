@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +22,7 @@ func TestClient(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: NewResolver(DefaultDialer).DialContext,
+			DialContext: NewResolver(DefaultDialer, logging.NewTestLogger(nil, t)).DialContext,
 		},
 	}
 
@@ -62,7 +63,7 @@ func TestClientWithResolver(t *testing.T) {
 
 	fakeLookUp := new(mockLookUp)
 	fakeLookUp.On("LookupRoutes", mock.Anything, customhost).Return([]Route{route}, nil)
-	r := NewResolver(DefaultDialer, fakeLookUp)
+	r := NewResolver(DefaultDialer, logging.NewTestLogger(nil, t), fakeLookUp)
 
 	client := &http.Client{
 		Transport: &http.Transport{

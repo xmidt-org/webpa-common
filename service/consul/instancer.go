@@ -37,12 +37,13 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 	}
 
 	i := &instancer{
-		client:      o.Client,
-		logger:      log.With(o.Logger, "service", o.Service, "tags", fmt.Sprint(o.Tags), "passingOnly", o.PassingOnly, "datacenter", o.QueryOptions.Datacenter),
-		service:     o.Service,
-		passingOnly: o.PassingOnly,
-		stop:        make(chan struct{}),
-		registry:    make(map[chan<- sd.Event]bool),
+		client:       o.Client,
+		logger:       log.With(o.Logger, "service", o.Service, "tags", fmt.Sprint(o.Tags), "passingOnly", o.PassingOnly, "datacenter", o.QueryOptions.Datacenter),
+		service:      o.Service,
+		passingOnly:  o.PassingOnly,
+		queryOptions: o.QueryOptions,
+		stop:         make(chan struct{}),
+		registry:     make(map[chan<- sd.Event]bool),
 	}
 
 	if len(o.Tags) > 0 {
