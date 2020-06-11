@@ -41,9 +41,9 @@ type Metadata struct {
 
 // SessionID returns the UUID associated with a device's current connection
 // to the cluster if one has been set. The zero value is returned as default.
-func (m *Metadata) SessionID() string {
-	sessionID, _ := m.loadData()[SessionIDKey].(string)
-	return sessionID
+func (m *Metadata) SessionID() (sessionID string) {
+	sessionID, _ = m.loadData()[SessionIDKey].(string)
+	return
 }
 
 // SetSessionID sets the UUID associated the device's current connection to the cluster.
@@ -86,9 +86,9 @@ func (m *Metadata) SetClaims(claims map[string]interface{}) {
 // Claims returns the claims attached to a device. The returned map
 // should not be modified to avoid any race conditions. To update the claims,
 // take a look at the ClaimsCopy() function
-func (m *Metadata) Claims() map[string]interface{} {
-	claims, _ := m.loadData()[JWTClaimsKey].(map[string]interface{})
-	return claims
+func (m *Metadata) Claims() (claims map[string]interface{}) {
+	claims, _ = m.loadData()[JWTClaimsKey].(map[string]interface{})
+	return
 }
 
 // ClaimsCopy returns a deep copy of the claims. Use this, along with the
@@ -99,12 +99,9 @@ func (m *Metadata) ClaimsCopy() map[string]interface{} {
 
 // TrustClaim returns the device's trust level claim.
 // By Default, a device is untrusted (trust = 0).
-func (m *Metadata) TrustClaim() int {
-	claims := m.Claims()
-	if trust, ok := claims[TrustClaimKey].(int); ok {
-		return trust
-	}
-	return 0
+func (m *Metadata) TrustClaim() (trust int) {
+	trust, _ = m.Claims()[TrustClaimKey].(int)
+	return
 }
 
 // PartnerIDClaim returns the partner ID claim.
