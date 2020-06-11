@@ -30,15 +30,12 @@ var claims = map[string]interface{}{
 	"capabilities":    []string{"xmidt", "webpa"},
 }
 
-func TestDeviceMetadataInitNoClaims(t *testing.T) {
+func TestDeviceMetadataDefaultValues(t *testing.T) {
 	assert := assert.New(t)
-	m := NewDeviceMetadata()
+	m := new(Metadata)
 
-	assert.Equal(map[string]interface{}{
-		PartnerIDClaimKey: "",
-		TrustClaimKey:     0,
-	}, m.Claims())
-	assert.NotEmpty(m.SessionID())
+	assert.Empty(m.Claims())
+	assert.Empty(m.SessionID())
 	assert.Empty(m.PartnerIDClaim())
 	assert.Zero(m.TrustClaim())
 	assert.Nil(m.Load("not-exists"))
@@ -46,22 +43,32 @@ func TestDeviceMetadataInitNoClaims(t *testing.T) {
 
 func TestDeviceMetadataInitClaims(t *testing.T) {
 	assert := assert.New(t)
-	myClaims := deepCopyMap(claims)
-	m := NewDeviceMetadataWithClaims(myClaims)
+	inputClaims := deepCopyMap(claims)
+	m := new(Metadata)
+	m.SetClaims(inputClaims)
 
-	assert.Equal(myClaims, m.Claims())
-	assert.NotEmpty(m.SessionID())
+	assert.Equal(inputClaims, m.Claims())
 	assert.Equal("comcast", m.PartnerIDClaim())
 	assert.Equal(100, m.TrustClaim())
 
 	// test defensive copy
-	myClaims[TrustClaimKey] = 200
-	assert.NotEqual(myClaims, m.Claims())
+	inputClaims[TrustClaimKey] = 200
+	assert.NotEqual(inputClaims, m.Claims())
+}
+func TestDeviceMetadataSessionID(t *testing.T) {
+	assert := assert.New(t)
+	m := new(Metadata)
+
+	assert.Empty(m.SessionID())
+	m.SetSessionID("uuid:123abc")
+	m.SetSessionID("oopsiesCalledAgain")
+	assert.Equal("uuid:123abc", m.SessionID())
 }
 
 func TestDeviceMetadataReadUpdateClaims(t *testing.T) {
 	assert := assert.New(t)
-	m := NewDeviceMetadataWithClaims(claims)
+	m := new(Metadata)
+	m.SetClaims(claims)
 
 	assert.Equal(claims, m.Claims())
 	assert.Equal("comcast", m.PartnerIDClaim())
@@ -76,7 +83,7 @@ func TestDeviceMetadataReadUpdateClaims(t *testing.T) {
 func TestDeviceMetadataUpdateCustomReferenceValue(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
-	m := NewDeviceMetadata()
+	m := new(Metadata)
 	accountInfo := map[string]interface{}{
 		"user-id":   4500,
 		"user-name": "Talaria XMiDT",
@@ -94,7 +101,7 @@ func TestDeviceMetadataUpdateCustomReferenceValue(t *testing.T) {
 
 func TestDeviceMetadataReservedKeys(t *testing.T) {
 	assert := assert.New(t)
-	m := NewDeviceMetadata()
+	m := new(Metadata)
 	for reservedKey := range reservedMetadataKeys {
 		before := m.Load(reservedKey)
 		assert.False(m.Store(reservedKey, "poison"))
@@ -103,17 +110,10 @@ func TestDeviceMetadataReservedKeys(t *testing.T) {
 	}
 }
 
-func TestDeviceMetadataInitUserFailure(t *testing.T) {
-	assert := assert.New(t)
-	assert.Panics(func() {
-		m := new(Metadata) // user must use the provided NewDeviceMetadata.*() functions
-		m.SessionID()
-	})
-}
-
 func BenchmarkMetadataClaimsCopyParallel(b *testing.B) {
 	assert := assert.New(b)
-	m := NewDeviceMetadataWithClaims(claims)
+	m := new(Metadata)
+	m.SetClaims(claims)
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			assert.Equal(claims, m.ClaimsCopy())
@@ -122,11 +122,12 @@ func BenchmarkMetadataClaimsCopyParallel(b *testing.B) {
 }
 func BenchmarkMetadataClaimsUsageParallel(b *testing.B) {
 	var mux sync.Mutex
-	m := NewDeviceMetadataWithClaims(claims)
+	m := new(Metadata)
+	m.SetClaims(claims)
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			v := rand.Intn(100)
-			if v < 100 { // Perform only reads 95% of the time.
+			if v < 95 { // Perform only reads 95% of the time.
 				m.Claims()
 				m.TrustClaim()
 			} else {
@@ -138,50 +139,6 @@ func BenchmarkMetadataClaimsUsageParallel(b *testing.B) {
 			}
 		}
 	})
-}
-func TestCopyMapSimple(t *testing.T) {
-	testCases := []struct {
-		Name     string
-		Input    map[string]interface{}
-		Expected map[string]interface{}
-	}{
-		{
-			Name:     "Nil",
-			Expected: make(map[string]interface{}),
-		},
-		{
-			Name:     "Empty",
-			Input:    make(map[string]interface{}),
-			Expected: make(map[string]interface{}),
-		},
-		{
-			Name:     "Simple",
-			Input:    map[string]interface{}{"k0": 0, "k1": 1},
-			Expected: map[string]interface{}{"k0": 0, "k1": 1},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.Name, func(t *testing.T) {
-			assert := assert.New(t)
-			cpy := copyMap(testCase.Input)
-			assert.Equal(cpy, testCase.Expected)
-		})
-	}
-}
-
-func TestCopyMapFailsForReferenceValues(t *testing.T) {
-	assert := assert.New(t)
-	inputMap := map[string]interface{}{
-		"nestedMap": map[string]interface{}{
-			"deepCopy": true,
-		},
-	}
-	myShallowCopy := copyMap(inputMap)
-	assert.Equal(myShallowCopy, inputMap)
-
-	inputMap["nestedMap"].(map[string]interface{})["deepCopy"] = false
-	assert.False(myShallowCopy["nestedMap"].(map[string]interface{})["deepCopy"].(bool))
 }
 
 func TestDeepCopyMap(t *testing.T) {

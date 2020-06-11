@@ -1,6 +1,7 @@
 package device
 
 import (
+	"sync"
 	"sync/atomic"
 
 	"github.com/segmentio/ksuid"
@@ -31,15 +32,26 @@ func init() {
 // related to a device. Read operations are optimized with a
 // copy-on-write strategy. Client code must further synchronize concurrent
 // writers to avoid stale data.
+// Metadata uses an atomic.Value internally and thus it should not be copied
+// after creation.
 type Metadata struct {
-	v atomic.Value
+	v    atomic.Value
+	once sync.Once
 }
 
 // SessionID returns the UUID associated with a device's current connection
-// to the cluster.
+// to the cluster if one has been set. The zero value is returned as default.
 func (m *Metadata) SessionID() string {
 	sessionID, _ := m.loadData()[SessionIDKey].(string)
 	return sessionID
+}
+
+// SetSessionID sets the UUID associated the device's current connection to the cluster.
+// It uses sync.Once to ensure the sessionID is unchanged through the metadata's lifecycle.
+func (m *Metadata) SetSessionID(sessionID string) {
+	m.once.Do(func() {
+		m.copyAndStore(SessionIDKey, sessionID)
+	})
 }
 
 // Load returns the value associated with the given key in the metadata map.
@@ -62,31 +74,13 @@ func (m *Metadata) Store(key string, value interface{}) bool {
 	return true
 }
 
-// NewDeviceMetadata returns a metadata object ready for use.
-func NewDeviceMetadata() *Metadata {
-	return NewDeviceMetadataWithClaims(make(map[string]interface{}))
-}
-
-// NewDeviceMetadataWithClaims returns a metadata object ready for use with the
-// given claims.
-func NewDeviceMetadataWithClaims(claims map[string]interface{}) *Metadata {
-	m := new(Metadata)
-	data := make(map[string]interface{})
-	claimsCopy := deepCopyMap(claims)
-	injectDefaultClaims(claimsCopy)
-	data[JWTClaimsKey] = claimsCopy
-	data[SessionIDKey] = ksuid.New().String()
-	m.storeData(data)
-	return m
-}
-
 // SetClaims updates the claims associated with the device that's
 // owner of the metadata.
 // To avoid updating the claims with stale data, client code will need to
 // synchronize the entire transaction of reading, copying, modifying and
 // writing back the value.
 func (m *Metadata) SetClaims(claims map[string]interface{}) {
-	m.copyAndStore(JWTClaimsKey, claims)
+	m.copyAndStore(JWTClaimsKey, deepCopyMap(claims))
 }
 
 // Claims returns the claims attached to a device. The returned map
@@ -115,16 +109,14 @@ func (m *Metadata) TrustClaim() int {
 
 // PartnerIDClaim returns the partner ID claim.
 // If no claim is found, the zero value is returned.
-func (m *Metadata) PartnerIDClaim() string {
-	claims := m.Claims()
-	if partnerID, ok := claims[PartnerIDClaimKey].(string); ok {
-		return partnerID
-	}
-	return "" // no partner by default
+func (m *Metadata) PartnerIDClaim() (partnerID string) {
+	partnerID, _ = m.Claims()[PartnerIDClaimKey].(string)
+	return
 }
 
-func (m *Metadata) loadData() map[string]interface{} {
-	return m.v.Load().(map[string]interface{})
+func (m *Metadata) loadData() (data map[string]interface{}) {
+	data, _ = m.v.Load().(map[string]interface{})
+	return
 }
 
 func (m *Metadata) storeData(data map[string]interface{}) {
@@ -132,26 +124,9 @@ func (m *Metadata) storeData(data map[string]interface{}) {
 }
 
 func (m *Metadata) copyAndStore(key string, val interface{}) {
-	data := copyMap(m.loadData())
+	data := deepCopyMap(m.loadData())
 	data[key] = val
 	m.storeData(data)
-}
-
-func injectDefaultClaims(claims map[string]interface{}) {
-	if _, ok := claims[PartnerIDClaimKey]; !ok {
-		claims[PartnerIDClaimKey] = ""
-	}
-	if _, ok := claims[TrustClaimKey]; !ok {
-		claims[TrustClaimKey] = 0
-	}
-}
-
-func copyMap(m map[string]interface{}) (copy map[string]interface{}) {
-	copy = make(map[string]interface{})
-	for k, v := range m {
-		copy[k] = v
-	}
-	return
 }
 
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {

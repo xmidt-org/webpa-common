@@ -149,9 +149,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	}
 
 	metadata, ok := GetDeviceMetadata(ctx)
-
 	if !ok {
-		metadata = NewDeviceMetadata()
+		metadata = new(Metadata)
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
