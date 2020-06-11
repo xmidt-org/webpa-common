@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - fixed `ConsulWatch` in xresolver by storing and watching the correct part of the url [#490](https://github.com/xmidt-org/webpa-common/pull/490)
+- fixed consul service discovery to pass QueryOptions [#490](https://github.com/xmidt-org/webpa-common/pull/490)
 
 ## [v1.10.1]
 ### Fixed 
