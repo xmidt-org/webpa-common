@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/service/monitor"
 	"github.com/xmidt-org/webpa-common/xresolver"
+	"net/url"
 	"regexp"
 )
 
@@ -14,7 +16,7 @@ var find = regexp.MustCompile("(.*)" + regexp.QuoteMeta("[") + "(.*)" + regexp.Q
 
 type Options struct {
 	// Watch is what to url to match with the consul service
-	// exp. { "beta.google.com" : "caduceus" }
+	// exp. { "http://beta.google.com:8080/notify" : "caduceus" }
 	Watch map[string]string `json:"watch"`
 
 	Logger log.Logger `json:"-"`
@@ -22,8 +24,6 @@ type Options struct {
 
 type ConsulWatcher struct {
 	logger log.Logger
-
-	config Options
 
 	watch     map[string]string
 	balancers map[string]*xresolver.RoundRobin
@@ -35,10 +35,7 @@ func NewConsulWatcher(o Options) *ConsulWatcher {
 	}
 
 	watcher := &ConsulWatcher{
-		logger: logging.Debug(o.Logger),
-
-		config: o,
-
+		logger:    log.WithPrefix(o.Logger, "component", "consulWatcher"),
 		balancers: make(map[string]*xresolver.RoundRobin),
 		watch:     make(map[string]string),
 	}
@@ -53,7 +50,7 @@ func NewConsulWatcher(o Options) *ConsulWatcher {
 }
 
 func (watcher *ConsulWatcher) MonitorEvent(e monitor.Event) {
-	logging.Debug(watcher.logger, logging.MessageKey(), "received update route event", "event", e)
+	log.WithPrefix(watcher.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "received update route event", "event", e)
 
 	// update balancers
 	str := find.FindStringSubmatch(e.Key)
@@ -63,24 +60,31 @@ func (watcher *ConsulWatcher) MonitorEvent(e monitor.Event) {
 
 	service := str[1]
 	if rr, found := watcher.balancers[service]; found {
-		routes := make([]xresolver.Route, len(e.Instances))
-		for index, instance := range e.Instances {
+		routes := make([]xresolver.Route, 0)
+		for _, instance := range e.Instances {
 			// find records
 			route, err := xresolver.CreateRoute(instance)
 			if err != nil {
-				logging.Error(watcher.logger, logging.MessageKey(), "failed to create route", logging.MessageKey(), err, "instance", instance)
+				log.WithPrefix(watcher.logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to create route", logging.MessageKey(), err, "instance", instance)
 				continue
 			}
-			routes[index] = route
+			routes = append(routes, route)
 		}
 		rr.Update(routes)
-		logging.Info(watcher.logger, logging.MessageKey(), "updating routes", "service", service, "new-routes", routes)
+		log.WithPrefix(watcher.logger, level.Key(), level.InfoValue()).Log(logging.MessageKey(), "updating routes", "service", service, "new-routes", routes)
 	}
 }
 
-func (watcher *ConsulWatcher) WatchService(url string, service string) {
-	if _, found := watcher.watch[url]; !found {
-		watcher.watch[url] = service
+func (watcher *ConsulWatcher) WatchService(watchURL string, service string) {
+	parsedURL, err := url.Parse(watchURL)
+	if err != nil {
+		log.WithPrefix(watcher.logger, level.Key(), level.ErrorValue()).Log("failed to parse url", "url", watchURL, "service", service)
+		return
+	}
+	log.WithPrefix(watcher.logger, level.Key(), level.InfoValue()).Log(logging.MessageKey(), "Watching Service", "url", watchURL, "service", service, "host", parsedURL.Hostname())
+
+	if _, found := watcher.watch[parsedURL.Hostname()]; !found {
+		watcher.watch[parsedURL.Hostname()] = service
 		if _, found := watcher.balancers[service]; !found {
 			watcher.balancers[service] = xresolver.NewRoundRobinBalancer()
 		}
@@ -88,10 +92,11 @@ func (watcher *ConsulWatcher) WatchService(url string, service string) {
 }
 
 func (watcher *ConsulWatcher) LookupRoutes(ctx context.Context, host string) ([]xresolver.Route, error) {
-	if _, found := watcher.config.Watch[host]; !found {
+	if _, found := watcher.watch[host]; !found {
+		log.WithPrefix(watcher.logger, level.Key(), level.ErrorValue()).Log("watch not found ", "host", host)
 		return []xresolver.Route{}, errors.New(host + " is not part of the consul listener")
 	}
-	records, err := watcher.balancers[watcher.config.Watch[host]].Get()
-	logging.Debug(watcher.logger, logging.MessageKey(), "looking up routes", "routes", records, logging.ErrorKey(), err)
+	records, err := watcher.balancers[watcher.watch[host]].Get()
+	log.WithPrefix(watcher.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "looking up routes", "routes", records, logging.ErrorKey(), err)
 	return records, err
 }

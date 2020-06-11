@@ -3,6 +3,10 @@ package xresolver
 import (
 	"context"
 	"errors"
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/webpa-common/logging"
+
 	"net"
 	"strconv"
 	"sync"
@@ -16,12 +20,17 @@ type resolver struct {
 	resolvers map[Lookup]bool
 	lock      sync.RWMutex
 	dialer    net.Dialer
+	logger    log.Logger
 }
 
-func NewResolver(dialer net.Dialer, lookups ...Lookup) Resolver {
+func NewResolver(dialer net.Dialer, logger log.Logger, lookups ...Lookup) Resolver {
+	if logger == nil {
+		logger = logging.DefaultLogger()
+	}
 	r := &resolver{
 		resolvers: make(map[Lookup]bool),
 		dialer:    dialer,
+		logger:    log.WithPrefix(logger, "component", "xresolver"),
 	}
 
 	for _, lookup := range lookups {
@@ -70,7 +79,7 @@ func (resolve *resolver) getRoutes(ctx context.Context, host string) []Route {
 	return routes
 }
 
-func (resolve *resolver) DialContext(ctx context.Context, network, addr string) (con net.Conn, err error) {
+func (resolve *resolver) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, err
@@ -84,25 +93,27 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 	routes := resolve.getRoutes(ctx, host)
 
 	// generate Conn or err from records
-	con, err = resolve.createConnection(routes, network, port)
+	con, route, err := resolve.createConnection(routes, network, port)
 	if err == nil {
-		return
+		log.WithPrefix(resolve.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "successfully created connection using xresolver", "new-route", route.String(), "addr", addr)
+		return con, err
 	}
 
+	log.WithPrefix(resolve.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "failed to create connection with other routes using original address", "addr", addr)
 	// if no connection, create using the default dialer
 	return resolve.dialer.DialContext(ctx, network, addr)
 }
 
-func (resolve *resolver) createConnection(routes []Route, network, port string) (con net.Conn, err error) {
+func (resolve *resolver) createConnection(routes []Route, network, port string) (net.Conn, Route, error) {
 	for _, route := range routes {
 		portUsed := port
 		if route.Port != 0 {
 			portUsed = strconv.Itoa(route.Port)
 		}
-		con, err = resolve.dialer.Dial(network, net.JoinHostPort(route.Host, portUsed))
+		con, err := resolve.dialer.Dial(network, net.JoinHostPort(route.Host, portUsed))
 		if err == nil {
-			return
+			return con, route, err
 		}
 	}
-	return nil, errors.New("failed to create connection from routes")
+	return nil, Route{}, errors.New("failed to create connection from routes")
 }
