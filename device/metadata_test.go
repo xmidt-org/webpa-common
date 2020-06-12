@@ -121,20 +121,42 @@ func BenchmarkMetadataClaimsCopyParallel(b *testing.B) {
 	})
 }
 func BenchmarkMetadataClaimsUsageParallel(b *testing.B) {
+	b.Run("99PercentReads", benchmarkMetadataClaimsUsageParallel99PercentRead)
+	b.Run("80PercentReads", benchmarkMetadataClaimsUsageParallel80PercentRead)
+	b.Run("70PercentReads", benchmarkMetadataClaimsUsageParallel70PercentRead)
+}
+
+func benchmarkMetadataClaimsUsageParallel99PercentRead(b *testing.B) {
+	benchmarkMetadataClaimsUsageParallel(99, b)
+}
+
+func benchmarkMetadataClaimsUsageParallel80PercentRead(b *testing.B) {
+	benchmarkMetadataClaimsUsageParallel(80, b)
+}
+
+func benchmarkMetadataClaimsUsageParallel70PercentRead(b *testing.B) {
+	benchmarkMetadataClaimsUsageParallel(70, b)
+}
+
+func benchmarkMetadataClaimsUsageParallel(readPercentage int, b *testing.B) {
 	var mux sync.Mutex
+	assert := assert.New(b)
 	m := new(Metadata)
 	m.SetClaims(claims)
+
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			v := rand.Intn(100)
-			if v < 95 { // Perform only reads 95% of the time.
+			if v < readPercentage {
 				m.Claims()
 				m.TrustClaim()
 			} else {
 				mux.Lock()
 				myClaimsCopy := m.ClaimsCopy()
-				myClaimsCopy[TrustClaimKey] = myClaimsCopy[TrustClaimKey].(int) + 1
+				myTrustLevel := myClaimsCopy[TrustClaimKey].(int) + 1
+				myClaimsCopy[TrustClaimKey] = myTrustLevel
 				m.SetClaims(myClaimsCopy)
+				assert.Equal(myTrustLevel, m.TrustClaim())
 				mux.Unlock()
 			}
 		}
