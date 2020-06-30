@@ -1,129 +1,166 @@
 package device
 
 import (
-	"strconv"
+	"math/rand"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestDeviceMetadata(t *testing.T) {
-	for _, mode := range []bool{true, false} {
-		strMode := strconv.FormatBool(mode)
-		t.Run("Init/bare/"+strMode, testDeviceMetadataInit(mode))
-		t.Run("Update/bare/"+strMode, testDeviceMetadataUpdate(mode))
-		t.Run("ProtectedKeys/bare/"+strMode, testDeviceMetadataProtectedKeys(mode))
+// claims is a convenient base claims structurally repre to use in tests.
+// If you need to modify it, make a copy using deepCopyMap()
+var claims = map[string]interface{}{
+	"permissions": map[string]interface{}{
+		"read":  true,
+		"write": false,
+	},
+	PartnerIDClaimKey: "comcast",
+	TrustClaimKey:     100,
+	"id":              1234,
+	"aud":             "XMiDT",
+	"custom":          "rbl",
+	"exp":             1594248706,
+	"iat":             1591656706,
+	"iss":             "themis",
+	"jti":             "5LnpSTsPnuh4TA",
+	"nbf":             1591656691,
+	"sub":             "client:supplied",
+	"capabilities":    []string{"xmidt", "webpa"},
+}
+
+func TestDeviceMetadataDefaultValues(t *testing.T) {
+	assert := assert.New(t)
+	m := new(Metadata)
+
+	assert.Empty(m.Claims())
+	assert.Empty(m.SessionID())
+	assert.Empty(m.PartnerIDClaim())
+	assert.Zero(m.TrustClaim())
+	assert.Nil(m.Load("not-exists"))
+}
+
+func TestDeviceMetadataInitClaims(t *testing.T) {
+	assert := assert.New(t)
+	inputClaims := deepCopyMap(claims)
+	m := new(Metadata)
+	m.SetClaims(inputClaims)
+
+	assert.Equal(inputClaims, m.Claims())
+	assert.Equal("comcast", m.PartnerIDClaim())
+	assert.Equal(100, m.TrustClaim())
+
+	// test defensive copy
+	inputClaims[TrustClaimKey] = 200
+	assert.NotEqual(inputClaims, m.Claims())
+}
+func TestDeviceMetadataSessionID(t *testing.T) {
+	assert := assert.New(t)
+	m := new(Metadata)
+
+	assert.Empty(m.SessionID())
+	m.SetSessionID("uuid:123abc")
+	m.SetSessionID("oopsiesCalledAgain")
+	assert.Equal("uuid:123abc", m.SessionID())
+}
+
+func TestDeviceMetadataReadUpdateClaims(t *testing.T) {
+	assert := assert.New(t)
+	m := new(Metadata)
+	m.SetClaims(claims)
+
+	assert.Equal(claims, m.Claims())
+	assert.Equal("comcast", m.PartnerIDClaim())
+	assert.Equal(100, m.TrustClaim())
+
+	myClaimsCopy := m.ClaimsCopy()
+	myClaimsCopy[TrustClaimKey] = 200
+	m.SetClaims(myClaimsCopy)
+	assert.Equal(myClaimsCopy, m.Claims())
+}
+
+func TestDeviceMetadataUpdateCustomReferenceValue(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	m := new(Metadata)
+	accountInfo := map[string]interface{}{
+		"user-id":   4500,
+		"user-name": "Talaria XMiDT",
+	}
+	require.True(m.Store("account-info", accountInfo))
+
+	oldAccountInfo := m.Load("account-info").(map[string]interface{})
+	newAccountInfo := deepCopyMap(oldAccountInfo)
+	newAccountInfo["user-id"] = 4501
+	require.True(m.Store("account-info", newAccountInfo))
+	latestAccountInfo := m.Load("account-info").(map[string]interface{})
+	assert.Equal(newAccountInfo, latestAccountInfo)
+	assert.NotEqual(oldAccountInfo, latestAccountInfo)
+}
+
+func TestDeviceMetadataReservedKeys(t *testing.T) {
+	assert := assert.New(t)
+	m := new(Metadata)
+	for reservedKey := range reservedMetadataKeys {
+		before := m.Load(reservedKey)
+		assert.False(m.Store(reservedKey, "poison"))
+		after := m.Load(reservedKey)
+		assert.Equal(before, after)
 	}
 }
 
-func testDeviceMetadataProtectedKeys(bare bool) func(t *testing.T) {
-	return func(t *testing.T) {
-		var (
-			m      Metadata
-			assert = assert.New(t)
-			claims = map[string]interface{}{
-				"claim0":          "v0",
-				"claim1":          1,
-				TrustClaimKey:     88,
-				PartnerIDClaimKey: "comcast",
-			}
-		)
-
-		if bare {
-			m = make(Metadata)
-			m.SetJWTClaims(JWTClaims(claims))
-		} else {
-			m = NewDeviceMetadataWithClaims(claims)
+func BenchmarkMetadataClaimsCopyParallel(b *testing.B) {
+	assert := assert.New(b)
+	m := new(Metadata)
+	m.SetClaims(claims)
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			assert.Equal(claims, m.ClaimsCopy())
 		}
-		sid := m.SessionID()
-		assert.False(m.Store(SessionIDKey, "oops, protected key"))
-		assert.Equal(sid, m.SessionID())
-	}
-
-}
-func testDeviceMetadataUpdate(bare bool) func(*testing.T) {
-	return func(t *testing.T) {
-		var (
-			m              Metadata
-			assert         = assert.New(t)
-			require        = require.New(t)
-			providedClaims = map[string]interface{}{
-				TrustClaimKey:     88,
-				PartnerIDClaimKey: "comcast",
-			}
-
-			expectedInitialClaims = JWTClaims(map[string]interface{}{
-				TrustClaimKey:     88,
-				PartnerIDClaimKey: "comcast",
-			})
-		)
-
-		if bare {
-			m = make(Metadata)
-			m.SetJWTClaims(providedClaims)
-		} else {
-			m = NewDeviceMetadataWithClaims(providedClaims)
-		}
-
-		require.NotNil(m)
-		jwtClaims := m.JWTClaims()
-		require.NotNil(jwtClaims)
-		assert.Equal(expectedInitialClaims, jwtClaims)
-		assert.Equal(providedClaims[PartnerIDClaimKey], jwtClaims.PartnerID())
-		assert.Equal(providedClaims[TrustClaimKey], jwtClaims.Trust())
-
-		jwtClaims.SetTrust(100)
-		assert.Equal(100, jwtClaims.Trust())
-		assert.NotEqual(providedClaims[TrustClaimKey], jwtClaims.Trust())
-		assert.NotEqual(jwtClaims, m.JWTClaims())
-	}
-}
-
-func testDeviceMetadataInit(bare bool) func(t *testing.T) {
-	return func(t *testing.T) {
-		assert := assert.New(t)
-		require := require.New(t)
-		var m Metadata
-
-		if bare {
-			m = make(Metadata)
-		} else {
-			m = NewDeviceMetadata()
-		}
-
-		assert.NotEmpty(m.SessionID())
-
-		claims := m.JWTClaims()
-		require.NotNil(claims)
-		assert.Empty(claims)
-		assert.Empty(claims.PartnerID())
-		assert.Zero(claims.Trust())
-
-		input := "myValue"
-		assert.True(m.Store("k", input))
-		output := m.Load("k")
-		assert.Equal(input, output)
-	}
-}
-
-func BenchmarkMetadataJWTClaimsAccessParallel(b *testing.B) {
-	m := NewDeviceMetadataWithClaims(map[string]interface{}{
-		"k0": "v0",
-		"k1": "v1",
 	})
+}
+func BenchmarkMetadataClaimsUsageParallel(b *testing.B) {
+	b.Run("99PercentReads", benchmarkMetadataClaimsUsageParallel99PercentRead)
+	b.Run("80PercentReads", benchmarkMetadataClaimsUsageParallel80PercentRead)
+	b.Run("70PercentReads", benchmarkMetadataClaimsUsageParallel70PercentRead)
+}
+
+func benchmarkMetadataClaimsUsageParallel99PercentRead(b *testing.B) {
+	benchmarkMetadataClaimsUsageParallel(99, b)
+}
+
+func benchmarkMetadataClaimsUsageParallel80PercentRead(b *testing.B) {
+	benchmarkMetadataClaimsUsageParallel(80, b)
+}
+
+func benchmarkMetadataClaimsUsageParallel70PercentRead(b *testing.B) {
+	benchmarkMetadataClaimsUsageParallel(70, b)
+}
+
+func benchmarkMetadataClaimsUsageParallel(readPercentage int, b *testing.B) {
+	var mux sync.Mutex
+	assert := assert.New(b)
+	m := new(Metadata)
+	m.SetClaims(claims)
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			jwtClaims := m.JWTClaims()
-			partnerID := jwtClaims.PartnerID()
-			trustLevel := jwtClaims.Trust()
-
-			jwtClaims["trust-prime"] = trustLevel
-			jwtClaims["partnerID-prime"] = partnerID
+			v := rand.Intn(100)
+			if v < readPercentage {
+				m.Claims()
+				m.TrustClaim()
+			} else {
+				mux.Lock()
+				myClaimsCopy := m.ClaimsCopy()
+				myTrustLevel := myClaimsCopy[TrustClaimKey].(int) + 1
+				myClaimsCopy[TrustClaimKey] = myTrustLevel
+				m.SetClaims(myClaimsCopy)
+				assert.Equal(myTrustLevel, m.TrustClaim())
+				mux.Unlock()
+			}
 		}
 	})
-
 }
 
 func TestDeepCopyMap(t *testing.T) {

@@ -99,9 +99,9 @@ func (m *MockDevice) ConveyCompliance() convey.Compliance {
 	return first
 }
 
-func (m *MockDevice) Metadata() Metadata {
+func (m *MockDevice) Metadata() *Metadata {
 	arguments := m.Called()
-	first, _ := arguments.Get(0).(Metadata)
+	first, _ := arguments.Get(0).(*Metadata)
 	return first
 }
 

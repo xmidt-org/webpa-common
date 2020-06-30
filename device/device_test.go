@@ -53,7 +53,7 @@ func TestDevice(t *testing.T) {
 				QueueSize:   record.expectedQueueSize,
 				ConnectedAt: expectedConnectedAt,
 				Logger:      logging.NewTestLogger(nil, t),
-				Metadata:    NewDeviceMetadata(),
+				Metadata:    new(Metadata),
 			})
 		)
 

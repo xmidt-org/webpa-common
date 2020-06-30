@@ -149,9 +149,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	}
 
 	metadata, ok := GetDeviceMetadata(ctx)
-
 	if !ok {
-		metadata = NewDeviceMetadata()
+		metadata = new(Metadata)
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
@@ -164,7 +163,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Logger:     m.logger,
 	})
 
-	if len(metadata.JWTClaims()) < 1 {
+	if len(metadata.Claims()) < 1 {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")
 	}
 
@@ -311,7 +310,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		}
 
 		deviceMetadata := event.Device.Metadata()
-		message.PartnerIDs = []string{deviceMetadata.JWTClaims().PartnerID()}
+		message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
 
 		if message.Type == wrp.SimpleEventMessageType {
 			message.SessionID = deviceMetadata.SessionID()

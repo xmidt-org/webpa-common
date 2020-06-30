@@ -1,7 +1,8 @@
 package device
 
 import (
-	"encoding/json"
+	"sync"
+	"sync/atomic"
 
 	"github.com/segmentio/ksuid"
 	"github.com/spf13/cast"
@@ -28,107 +29,101 @@ func init() {
 }
 
 // Metadata contains information such as security credentials
-// related to a device.
-type Metadata map[string]interface{}
-
-// JWTClaims returns the JWT claims attached to a device. If no claims exist,
-// they are initialized appropiately.
-func (m Metadata) JWTClaims() JWTClaims { // returns the type and such type has getter/setter
-	if jwtClaims, ok := m[JWTClaimsKey].(JWTClaims); ok {
-		return deepCopyMap(jwtClaims)
-	}
-	return deepCopyMap(m.initJWTClaims())
-}
-
-// SetJWTClaims sets the JWT claims attached to a device.
-func (m Metadata) SetJWTClaims(jwtClaims JWTClaims) {
-	m[JWTClaimsKey] = jwtClaims
+// related to a device. Read operations are optimized with a
+// copy-on-write strategy. Client code must further synchronize concurrent
+// writers to avoid stale data.
+// Metadata uses an atomic.Value internally and thus it should not be copied
+// after creation.
+type Metadata struct {
+	v    atomic.Value
+	once sync.Once
 }
 
 // SessionID returns the UUID associated with a device's current connection
-// to the cluster.
-func (m Metadata) SessionID() string {
-	if sessionID, ok := m[SessionIDKey].(string); ok {
-		return sessionID
-	}
-
-	return m.initSessionID()
+// to the cluster if one has been set. The zero value is returned as default.
+func (m *Metadata) SessionID() (sessionID string) {
+	sessionID, _ = m.loadData()[SessionIDKey].(string)
+	return
 }
 
-func (m Metadata) initSessionID() string {
-	sessionID := ksuid.New().String()
-	m[SessionIDKey] = sessionID
-	return sessionID
+// SetSessionID sets the UUID associated the device's current connection to the cluster.
+// It uses sync.Once to ensure the sessionID is unchanged through the metadata's lifecycle.
+func (m *Metadata) SetSessionID(sessionID string) {
+	m.once.Do(func() {
+		m.copyAndStore(SessionIDKey, sessionID)
+	})
 }
 
-func (m Metadata) initJWTClaims() JWTClaims {
-	jwtClaims := JWTClaims(make(map[string]interface{}))
-	m.SetJWTClaims(jwtClaims)
-	return jwtClaims
+// Load returns the value associated with the given key in the metadata map.
+// It is not recommended modifying values returned by reference.
+func (m *Metadata) Load(key string) interface{} {
+	return m.loadData()[key]
 }
 
-// Load allows retrieving values from a device's metadata
-func (m Metadata) Load(key string) interface{} {
-	return m[key]
-}
-
-// Store allows writing values into the device's metadata given
-// a key. Boolean results indicates whether the operation was successful.
-// Note: operations will fail for reserved keys.
-func (m Metadata) Store(key string, value interface{}) bool {
+// Store updates the key value mapping in the device metadata map.
+// A boolean result is given indicating whether the operation was successful.
+// Operations will fail for reserved keys.
+// To avoid updating keys with stale data/value, client code will need to
+// synchronize the entire transaction of reading, copying, modifying and
+// writing back the value.
+func (m *Metadata) Store(key string, value interface{}) bool {
 	if reservedMetadataKeys[key] {
 		return false
 	}
-	m[key] = value
+	m.copyAndStore(key, value)
 	return true
 }
 
-// NewDeviceMetadata returns a metadata object ready for use.
-func NewDeviceMetadata() Metadata {
-	return NewDeviceMetadataWithClaims(make(map[string]interface{}))
+// SetClaims updates the claims associated with the device that's
+// owner of the metadata.
+// To avoid updating the claims with stale data, client code will need to
+// synchronize the entire transaction of reading, copying, modifying and
+// writing back the value.
+func (m *Metadata) SetClaims(claims map[string]interface{}) {
+	m.copyAndStore(JWTClaimsKey, deepCopyMap(claims))
 }
 
-// NewDeviceMetadataWithClaims returns a metadata object ready for use with the
-// given claims.
-func NewDeviceMetadataWithClaims(claims map[string]interface{}) Metadata {
-	m := make(Metadata)
-	m.SetJWTClaims(deepCopyMap(claims))
-	m.initSessionID()
-	return m
+// Claims returns the claims attached to a device. The returned map
+// should not be modified to avoid any race conditions. To update the claims,
+// take a look at the ClaimsCopy() function
+func (m *Metadata) Claims() (claims map[string]interface{}) {
+	claims, _ = m.loadData()[JWTClaimsKey].(map[string]interface{})
+	return
 }
 
-// JWTClaims defines the interface of a device's security claims.
-// One current use case is providing security credentials the device
-// presented at registration time.
-type JWTClaims map[string]interface{}
+// ClaimsCopy returns a deep copy of the claims. Use this, along with the
+// SetClaims() method to update the claims.
+func (m *Metadata) ClaimsCopy() map[string]interface{} {
+	return deepCopyMap(m.Claims())
+}
 
-// Trust returns the device's trust level claim
+// TrustClaim returns the device's trust level claim.
 // By Default, a device is untrusted (trust = 0).
-func (c JWTClaims) Trust() int {
-	if trust, ok := c[TrustClaimKey].(int); ok {
-		return trust
-	}
-	return 0
+func (m *Metadata) TrustClaim() (trust int) {
+	trust, _ = m.Claims()[TrustClaimKey].(int)
+	return
 }
 
-// PartnerID returns the partner ID claim.
+// PartnerIDClaim returns the partner ID claim.
 // If no claim is found, the zero value is returned.
-func (c JWTClaims) PartnerID() string {
-	if partnerID, ok := c[PartnerIDClaimKey].(string); ok {
-		return partnerID
-	}
-	return "" // no partner by default
+func (m *Metadata) PartnerIDClaim() (partnerID string) {
+	partnerID, _ = m.Claims()[PartnerIDClaimKey].(string)
+	return
 }
 
-// SetTrust modifies the trust level of the device which owns these
-// claims.
-func (c JWTClaims) SetTrust(trust int) {
-	c[TrustClaimKey] = trust
+func (m *Metadata) loadData() (data map[string]interface{}) {
+	data, _ = m.v.Load().(map[string]interface{})
+	return
 }
 
-// MarshalJSON allows easy JSON representation of the JWTClaims underlying claims map.
-func (c JWTClaims) MarshalJSON() ([]byte, error) {
-	return json.Marshal(c)
+func (m *Metadata) storeData(data map[string]interface{}) {
+	m.v.Store(data)
+}
+
+func (m *Metadata) copyAndStore(key string, val interface{}) {
+	data := deepCopyMap(m.loadData())
+	data[key] = val
+	m.storeData(data)
 }
 
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {

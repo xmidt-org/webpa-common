@@ -31,12 +31,12 @@ func WithIDRequest(id ID, original *http.Request) *http.Request {
 }
 
 // WithDeviceMetadata returns a new context with the given metadata as a value.
-func WithDeviceMetadata(parent context.Context, metadata Metadata) context.Context {
+func WithDeviceMetadata(parent context.Context, metadata *Metadata) context.Context {
 	return context.WithValue(parent, metadataKey, metadata)
 }
 
 // GetDeviceMetadata returns the device metadata from the context if any.
-func GetDeviceMetadata(ctx context.Context) (metadata Metadata, ok bool) {
-	metadata, ok = ctx.Value(metadataKey).(Metadata)
+func GetDeviceMetadata(ctx context.Context) (metadata *Metadata, ok bool) {
+	metadata, ok = ctx.Value(metadataKey).(*Metadata)
 	return
 }
