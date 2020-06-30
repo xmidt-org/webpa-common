@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v1.10.2]
 ### Fixed
 - Fixed `ConsulWatch` in xresolver by storing and watching the correct part of the url. [#490](https://github.com/xmidt-org/webpa-common/pull/490)
 - Fixed consul service discovery to pass QueryOptions. [#490](https://github.com/xmidt-org/webpa-common/pull/490)
@@ -104,7 +106,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.2...HEAD
+[v1.10.2]: https://github.com/xmidt-org/webpa-common/compare/v1.10.1...v1.10.2
 [v1.10.1]: https://github.com/xmidt-org/webpa-common/compare/v1.10.0...v1.10.1
 [v1.10.0]: https://github.com/xmidt-org/webpa-common/compare/v1.9.0...v1.10.0
 [v1.9.0]: https://github.com/xmidt-org/webpa-common/compare/v1.8.1...v1.9.0
