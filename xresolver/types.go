@@ -3,9 +3,12 @@ package xresolver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -40,17 +43,73 @@ type Route struct {
 	Port   int
 }
 
+// instancePattern is what NormalizeInstance expects to be matched.  This pattern is intentionally liberal, and allows
+// URIs that are disallowed under https://www.ietf.org/rfc/rfc2396.txt
+var instancePattern = regexp.MustCompile("^((?P<scheme>.+)://)?(?P<address>[^:]+)(:(?P<port>[0-9]+))?$")
+
+// NormalizeRoute canonicalizes a route string from a backend
+//
+// This function performs the following on the instance:
+//   (1) If instance is a blank string, e.g. contains only whitespace or is empty, an empty string is returned with an error
+//   (2) If the instance with whitespace trimmed off is not a valid instance, an error is returned with the trimmed instance string.
+//       This function is intentionally lenient on what is a valid instance string, e.g. "foobar.com", "foobar.com:8080", "asdf://foobar.com", etc
+//   (3) If there was no scheme prepended to the route, http will be used
+func NormalizeRoute(route string) (string, error) {
+	route = strings.TrimSpace(route)
+	if len(route) == 0 {
+		return route, errors.New("empty route is not allowed")
+	}
+
+	submatches := instancePattern.FindStringSubmatch(route)
+	if len(submatches) == 0 {
+		return route, fmt.Errorf("invalid route: %s", route)
+	}
+
+	var (
+		scheme  = submatches[2]
+		address = submatches[3]
+	)
+
+	if len(scheme) == 0 {
+		scheme = "http"
+	}
+
+	var port int
+	if portValue := submatches[5]; len(portValue) > 0 {
+		var err error
+		port, err = strconv.Atoi(submatches[5])
+		if err != nil {
+			// NOTE: Shouldn't ever hit this case, because the port is constrained by the regexp to be numeric
+			return route, err
+		}
+		return fmt.Sprintf("%s://%s:%d", scheme, address, port), nil
+
+	}
+	return fmt.Sprintf("%s://%s", scheme, address), nil
+}
+
 func CreateRoute(route string) (Route, error) {
+	route, err := NormalizeRoute(route)
+	if err != nil {
+		return Route{}, err
+	}
 	path, err := url.Parse(route)
 	if err != nil {
 		return Route{}, err
 	}
-	port, err := strconv.Atoi(path.Port())
-	return Route{
+
+	newRoute := Route{
 		Scheme: path.Scheme,
 		Host:   path.Hostname(),
-		Port:   port,
-	}, err
+	}
+	if path.Port() != "" {
+		port, err := strconv.Atoi(path.Port())
+		newRoute.Port = port
+		if err != nil {
+			return newRoute, err
+		}
+	}
+	return newRoute, nil
 }
 
 func (r Route) String() string {

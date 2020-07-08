@@ -287,3 +287,41 @@ func IPv4Address(ipInt int64) string {
 
 	return b0 + "." + b1 + "." + b2 + "." + b3
 }
+
+func TestRouteCreation(t *testing.T) {
+	var (
+		testData = []struct {
+			name         string
+			route        string
+			expected     Route
+			expectsError bool
+		}{
+			{"empty route", "", Route{Scheme: "", Host: "", Port: 0}, true},
+			{"whitespace characters", "     \t\n\r", Route{Scheme: "", Host: "", Port: 0}, true},
+			{"bad url", "blah:blah:blah", Route{Scheme: "", Host: "", Port: 0}, true},
+			{"bad url with whitespace", " blah:blah:blah ", Route{Scheme: "", Host: "", Port: 0}, true},
+			{"no scheme with port", "somehost.com:8080", Route{Scheme: "http", Host: "somehost.com", Port: 8080}, false},
+			{"no scheme with port with whitespace", " somehost.com:8080 ", Route{Scheme: "http", Host: "somehost.com", Port: 8080}, false},
+			{"no scheme no port", "somehost.com", Route{Scheme: "http", Host: "somehost.com", Port: 0}, false},
+			{"ftp with port", "ftp://somehost.com:6060", Route{Scheme: "ftp", Host: "somehost.com", Port: 6060}, false},
+			{"http", "http://foobar.com", Route{Scheme: "http", Host: "foobar.com", Port: 0}, false},
+			{"https", "https://foobar.com", Route{Scheme: "https", Host: "foobar.com", Port: 0}, false},
+		}
+	)
+
+	for _, record := range testData {
+		t.Run(record.name, func(t *testing.T) {
+			var (
+				assert      = assert.New(t)
+				actual, err = CreateRoute(record.route)
+			)
+
+			assert.Equal(record.expected, actual)
+			if record.expectsError {
+				assert.Error(err)
+			} else {
+				assert.NoError(err)
+			}
+		})
+	}
+}
