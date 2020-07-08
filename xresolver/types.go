@@ -45,12 +45,18 @@ func CreateRoute(route string) (Route, error) {
 	if err != nil {
 		return Route{}, err
 	}
-	port, err := strconv.Atoi(path.Port())
-	return Route{
+	newRoute := Route{
 		Scheme: path.Scheme,
 		Host:   path.Hostname(),
-		Port:   port,
-	}, err
+	}
+	if path.Port() != "" {
+		port, err := strconv.Atoi(path.Port())
+		newRoute.Port = port
+		if err != nil {
+			return newRoute, err
+		}
+	}
+	return newRoute, nil
 }
 
 func (r Route) String() string {
