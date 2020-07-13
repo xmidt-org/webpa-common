@@ -6,8 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Changed
-- Update word from blacklist to denylist [#495](https://github.com/xmidt-org/webpa-common/pull/495)
-- Update references to the main branch [#497](https://github.com/xmidt-org/webpa-common/pull/497)
+- Update word from blacklist to denylist. [#495](https://github.com/xmidt-org/webpa-common/pull/495)
+- Update references to the main branch. [#497](https://github.com/xmidt-org/webpa-common/pull/497)
 
 ## [v1.10.3]
 ### Fixed
