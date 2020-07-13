@@ -9,7 +9,7 @@ os:
 
 branches:
   only:
-    - master
+    - main
     - /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
 before_install:
@@ -34,7 +34,7 @@ jobs:
   include:
     - stage: tag
       name: "Tag For Release"
-      if: branch = master && type = push
+      if: branch = main && type = push
       before_script:
         - echo -e "machine github.com\n  login $GH_TOKEN" > ~/.netrc
       script:
@@ -47,7 +47,7 @@ jobs:
         - if [[ "$TAG" != "" && "$TAG" != "$OLD_VERSION" ]]; then git tag -a "$TAG" -m "$NOTES"; git push origin --tags; echo $?; fi
     - stage: release
       name: "Make a Release"
-      if: branch != master
+      if: branch != main
       script: skip
       deploy:
         on:
