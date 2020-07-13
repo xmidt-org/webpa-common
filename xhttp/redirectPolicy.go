@@ -22,7 +22,7 @@ type RedirectPolicy struct {
 	// MaxRedirects is the maximum number of redirects to follow.  If unset, DefaultMaxRedirects is used.
 	MaxRedirects int
 
-	// ExcludeHeaders is the blacklist of headers that should not be copied from previous requests.
+	// ExcludeHeaders is the denylist of headers that should not be copied from previous requests.
 	ExcludeHeaders []string
 }
 
