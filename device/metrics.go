@@ -56,7 +56,7 @@ func Metrics() []xmetrics.Metric {
 		{
 			Name:       ModelGauge,
 			Type:       "gauge",
-			LabelNames: []string{"model"},
+			LabelNames: []string{"model", "partnerid", "firmware"},
 		},
 	}
 }

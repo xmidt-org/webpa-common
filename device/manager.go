@@ -103,7 +103,15 @@ func NewManager(o *Options) Manager {
 			Limit:    o.maxDevices(),
 			Measures: measures,
 		}),
-		conveyHWMetric: conveymetric.NewConveyMetric(measures.Models, "hw-model", "model"),
+		conveyHWMetric: conveymetric.NewConveyMetric(measures.Models, []conveymetric.TagLabelPair{
+			{
+				Tag:   "hw-model",
+				Label: "model",
+			},
+			{
+				Tag:   "fw-name",
+				Label: "firmware",
+			}}...),
 
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
@@ -208,8 +216,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 			d.errorLog.Log(logging.MessageKey(), "unable to marshal the convey header", logging.ErrorKey(), err)
 		}
 	}
-
-	metricClosure, err := m.conveyHWMetric.Update(cvy)
+	metricClosure, err := m.conveyHWMetric.Update(cvy, "partnerid", metadata.PartnerIDClaim())
 	if err != nil {
 		d.errorLog.Log(logging.MessageKey(), "failed to update convey metrics", logging.ErrorKey(), err)
 	}
