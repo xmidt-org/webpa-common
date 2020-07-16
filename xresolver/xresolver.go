@@ -99,7 +99,7 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 		return con, err
 	}
 
-	log.WithPrefix(resolve.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "failed to create connection with other routes using original address", "addr", addr)
+	log.WithPrefix(resolve.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "failed to create connection with other routes using original address", "addr", addr, logging.ErrorKey(), err)
 	// if no connection, create using the default dialer
 	return resolve.dialer.DialContext(ctx, network, addr)
 }
@@ -109,6 +109,15 @@ func (resolve *resolver) createConnection(routes []Route, network, port string) 
 		portUsed := port
 		if route.Port != 0 {
 			portUsed = strconv.Itoa(route.Port)
+		} else {
+			if route.Scheme == "http" {
+				portUsed = "80"
+			} else if route.Scheme == "https" {
+				portUsed = "443"
+			} else {
+				log.WithPrefix(resolve.logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to create default port", "scheme", route.Scheme, "host", route.Host)
+			}
+
 		}
 		con, err := resolve.dialer.Dial(network, net.JoinHostPort(route.Host, portUsed))
 		if err == nil {
