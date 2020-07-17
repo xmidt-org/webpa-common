@@ -115,9 +115,9 @@ func (resolve *resolver) createConnection(routes []Route, network, port string) 
 			} else if route.Scheme == "https" {
 				portUsed = "443"
 			} else {
-				log.WithPrefix(resolve.logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "failed to create default port", "scheme", route.Scheme, "host", route.Host)
+				log.WithPrefix(resolve.logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "unknown default port", "scheme", route.Scheme, "host", route.Host)
+				continue
 			}
-
 		}
 		con, err := resolve.dialer.Dial(network, net.JoinHostPort(route.Host, portUsed))
 		if err == nil {
