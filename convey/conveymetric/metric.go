@@ -5,18 +5,19 @@ import (
 	"github.com/xmidt-org/webpa-common/convey"
 )
 
-// UnknownLabelValue is a constant for when key/tag can not be found in the C JSON
+// UnknownLabelValue is a constant for when key/tag can not be found in the C JSON.
 const UnknownLabelValue = "unknown"
 
-// Closure will be returned after Update(), this should be used to update the struct, aka decrement the count
+// Closure will be returned after Update(), this should be used to update the struct, aka decrement the count.
 type Closure func()
 
+// TagLabelPair is a convenient structure for inputs to create a new convey metric.
 type TagLabelPair struct {
 	Tag   string
 	Label string
 }
 
-// Interface provides a way of updating an internal resource
+// Interface provides a way of updating an internal resource.
 type Interface interface {
 	// Update takes the convey JSON to update internal struct, and return a closure to update the struct again, or an
 	// error
