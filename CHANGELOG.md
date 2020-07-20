@@ -5,12 +5,19 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+
+## [v1.10.4]
 ### Fixed
-- added default port for creating a xresolver connection [#499](https://github.com/xmidt-org/webpa-common/pull/499)
+- Added default port for creating a xresolver connection. [#499](https://github.com/xmidt-org/webpa-common/pull/499)
+
+### Added
+- Add partner and firmware label to existing `hardware_model` gauge. [#498](https://github.com/xmidt-org/webpa-common/pull/498)
 
 ### Changed
 - Update word from blacklist to denylist. [#495](https://github.com/xmidt-org/webpa-common/pull/495)
 - Update references to the main branch. [#497](https://github.com/xmidt-org/webpa-common/pull/497)
+
 
 ## [v1.10.3]
 ### Fixed
@@ -116,7 +123,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.3...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.4...HEAD
+[v1.10.4]: https://github.com/xmidt-org/webpa-common/compare/v1.10.3...v1.10.4
 [v1.10.3]: https://github.com/xmidt-org/webpa-common/compare/v1.10.2...v1.10.3
 [v1.10.2]: https://github.com/xmidt-org/webpa-common/compare/v1.10.1...v1.10.2
 [v1.10.1]: https://github.com/xmidt-org/webpa-common/compare/v1.10.0...v1.10.1
