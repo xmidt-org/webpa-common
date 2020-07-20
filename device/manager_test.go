@@ -386,7 +386,7 @@ func TestGaugeCardinality(t *testing.T) {
 	assert.NoError(err)
 
 	assert.NotPanics(func() {
-		dec, err := m.(*manager).conveyHWMetric.Update(convey.C{"hw-model": "cardinality", "model": "f"})
+		dec, err := m.(*manager).conveyHWMetric.Update(convey.C{"hw-model": "cardinality", "fw-name": "firmware-number", "model": "f"}, "partnerid", "comcast")
 		assert.NoError(err)
 		dec()
 	})
