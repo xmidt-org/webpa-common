@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v1.10.5]
 ### Fixed
 - Fixed AllDataCenters config behavior and renamed it to CrossDatacenter. [#502](https://github.com/xmidt-org/webpa-common/pull/502)
 - In service/consul, reset the last wait index if it goes backwards from the previous call. [#501](https://github.com/xmidt-org/webpa-common/pull/501)
@@ -125,7 +127,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.4...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.5...HEAD
+[v1.10.4]: https://github.com/xmidt-org/webpa-common/compare/v1.10.4...v1.10.5
 [v1.10.4]: https://github.com/xmidt-org/webpa-common/compare/v1.10.3...v1.10.4
 [v1.10.3]: https://github.com/xmidt-org/webpa-common/compare/v1.10.2...v1.10.3
 [v1.10.2]: https://github.com/xmidt-org/webpa-common/compare/v1.10.1...v1.10.2
