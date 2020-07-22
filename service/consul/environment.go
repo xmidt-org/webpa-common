@@ -68,14 +68,12 @@ func ensureIDs(r *api.AgentServiceRegistration) {
 }
 
 func newInstancerKey(w Watch) string {
-	datacenter := w.QueryOptions.Datacenter
-
 	return fmt.Sprintf(
 		"%s%s{passingOnly=%t}{datacenter=%s}",
 		w.Service,
 		w.Tags,
 		w.PassingOnly,
-		datacenter,
+		w.QueryOptions.Datacenter,
 	)
 }
 
