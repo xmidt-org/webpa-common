@@ -128,7 +128,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
    moving forward.
 
 [Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.5...HEAD
-[v1.10.4]: https://github.com/xmidt-org/webpa-common/compare/v1.10.4...v1.10.5
+[v1.10.5]: https://github.com/xmidt-org/webpa-common/compare/v1.10.4...v1.10.5
 [v1.10.4]: https://github.com/xmidt-org/webpa-common/compare/v1.10.3...v1.10.4
 [v1.10.3]: https://github.com/xmidt-org/webpa-common/compare/v1.10.2...v1.10.3
 [v1.10.2]: https://github.com/xmidt-org/webpa-common/compare/v1.10.1...v1.10.2
