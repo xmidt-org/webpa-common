@@ -130,7 +130,7 @@ func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, er
 	var datacenters []string
 
 	for _, w := range co.watches() {
-		if w.WatchAllByDatacenter {
+		if w.CrossDatacenter {
 			if len(datacenters) == 0 {
 				datacenters, err = getDatacenters(l, c, co)
 				if err != nil {

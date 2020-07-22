@@ -7,11 +7,11 @@ import (
 const DefaultDatacenterRetries = 10
 
 type Watch struct {
-	Service              string           `json:"service,omitempty"`
-	Tags                 []string         `json:"tags,omitempty"`
-	PassingOnly          bool             `json:"passingOnly"`
-	WatchAllByDatacenter bool             `json:"watchAllByDatacenter"`
-	QueryOptions         api.QueryOptions `json:"queryOptions"`
+	Service         string           `json:"service,omitempty"`
+	Tags            []string         `json:"tags,omitempty"`
+	PassingOnly     bool             `json:"passingOnly"`
+	CrossDatacenter bool             `json:"crossDatacenter"`
+	QueryOptions    api.QueryOptions `json:"queryOptions"`
 }
 
 type Options struct {
