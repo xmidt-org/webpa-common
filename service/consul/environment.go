@@ -68,17 +68,12 @@ func ensureIDs(r *api.AgentServiceRegistration) {
 }
 
 func newInstancerKey(w Watch) string {
-	datacenter := w.QueryOptions.Datacenter
-	if w.AllDatacenters {
-		datacenter = "*all*"
-	}
-
 	return fmt.Sprintf(
 		"%s%s{passingOnly=%t}{datacenter=%s}",
 		w.Service,
 		w.Tags,
 		w.PassingOnly,
-		datacenter,
+		w.QueryOptions.Datacenter,
 	)
 }
 
@@ -135,13 +130,7 @@ func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, er
 	var datacenters []string
 
 	for _, w := range co.watches() {
-		key := newInstancerKey(w)
-		if i.Has(key) {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
-			continue
-		}
-
-		if w.AllDatacenters {
+		if w.CrossDatacenter {
 			if len(datacenters) == 0 {
 				datacenters, err = getDatacenters(l, c, co)
 				if err != nil {
@@ -151,9 +140,19 @@ func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, er
 
 			for _, datacenter := range datacenters {
 				w.QueryOptions.Datacenter = datacenter
+				key := newInstancerKey(w)
+				if i.Has(key) {
+					l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+					continue
+				}
 				i.Set(key, newInstancer(l, c, w))
 			}
 		} else {
+			key := newInstancerKey(w)
+			if i.Has(key) {
+				l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+				continue
+			}
 			i.Set(key, newInstancer(l, c, w))
 		}
 	}
