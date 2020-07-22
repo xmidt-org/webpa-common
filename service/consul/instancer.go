@@ -16,8 +16,6 @@ import (
 	"github.com/xmidt-org/webpa-common/logging"
 )
 
-const defaultIndex = 0
-
 var (
 	errStopped = errors.New("Instancer stopped")
 )
@@ -54,7 +52,7 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 	}
 
 	// grab the initial set of instances
-	instances, index, err := i.getInstances(defaultIndex, nil)
+	instances, index, err := i.getInstances(0, nil)
 	if err == nil {
 		i.logger.Log(level.Key(), level.InfoValue(), "instances", len(instances))
 	} else {
@@ -150,9 +148,16 @@ func (i *instancer) getInstances(lastIndex uint64, stop <-chan struct{}) ([]stri
 			entries = filterEntries(entries, i.filterTags)
 		}
 
+		// see: https://www.consul.io/api-docs/features/blocking#implementation-details
+		if meta == nil || meta.LastIndex < lastIndex {
+			lastIndex = 0
+		} else {
+			lastIndex = meta.LastIndex
+		}
+
 		result <- response{
 			instances: makeInstances(entries),
-			index:     meta.LastIndex,
+			index:     lastIndex,
 		}
 	}()
 
