@@ -67,6 +67,7 @@ func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) 
 		endpoints[i] = new(url.URL)
 		*endpoints[i] = *fe[i]
 
+		endpoints[i].Scheme = original.URL.Scheme
 		endpoints[i].Path = original.URL.Path
 		endpoints[i].RawPath = original.URL.RawPath
 		endpoints[i].RawQuery = original.URL.RawQuery
