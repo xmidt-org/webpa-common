@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- Fixed ServiceEndpoints not faning out when a datacenter is empty [#504](https://github.com/xmidt-org/webpa-common/pull/504)
 
 ## [v1.10.5]
 ### Fixed
