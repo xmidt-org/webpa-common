@@ -36,8 +36,7 @@ func (se *ServiceEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, erro
 	for _, a := range se.accessors {
 		e, err := a.Get(hashKey)
 		if err != nil {
-			se.lock.RUnlock()
-			return nil, err
+			continue
 		}
 
 		endpoints = append(endpoints, e)
