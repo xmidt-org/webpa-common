@@ -80,7 +80,8 @@ func (r *registry) add(newDevice *device) error {
 		r.disconnect.Add(1.0)
 		r.duplicates.Inc()
 		newDevice.Statistics().AddDuplications(existing.Statistics().Duplications() + 1)
-		existing.requestClose(CloseReason{Text: "duplicate"})
+		r.remove(existing.id, CloseReason{Text: "duplication"})
+		// existing.requestClose(CloseReason{Text: "duplicate"})
 	}
 
 	// this will either leave the count the same or add 1 to it ...
