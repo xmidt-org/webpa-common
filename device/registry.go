@@ -76,17 +76,17 @@ func (r *registry) add(newDevice *device) error {
 		return errDeviceLimitReached
 	}
 
-	// this will either leave the count the same or add 1 to it ...
-	r.data[id] = newDevice
-	r.count.Set(float64(len(r.data)))
-	r.lock.Unlock()
-
 	if existing != nil {
 		r.disconnect.Add(1.0)
 		r.duplicates.Inc()
 		newDevice.Statistics().AddDuplications(existing.Statistics().Duplications() + 1)
 		existing.requestClose(CloseReason{Text: "duplicate"})
 	}
+
+	// this will either leave the count the same or add 1 to it ...
+	r.data[id] = newDevice
+	r.count.Set(float64(len(r.data)))
+	r.lock.Unlock()
 
 	r.connect.Inc()
 	return nil
