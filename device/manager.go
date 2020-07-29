@@ -247,7 +247,7 @@ func (m *manager) dispatch(e *Event) {
 // at the time of pump closure.
 func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	// remove will invoke requestClose()
-	m.devices.remove(d.id, reason)
+	m.devices.remove(d, reason)
 
 	closeError := c.Close()
 
@@ -463,7 +463,10 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 }
 
 func (m *manager) Disconnect(id ID, reason CloseReason) bool {
-	_, ok := m.devices.remove(id, reason)
+	d, ok := m.devices.get(id)
+	if ok {
+		_, ok = m.devices.remove(d, reason)
+	}
 	return ok
 }
 

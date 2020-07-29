@@ -80,8 +80,7 @@ func (r *registry) add(newDevice *device) error {
 		r.disconnect.Add(1.0)
 		r.duplicates.Inc()
 		newDevice.Statistics().AddDuplications(existing.Statistics().Duplications() + 1)
-		r.remove(existing.id, CloseReason{Text: "duplication"})
-		// existing.requestClose(CloseReason{Text: "duplicate"})
+		existing.requestClose(CloseReason{Text: "duplicate"})
 	}
 
 	// this will either leave the count the same or add 1 to it ...
@@ -93,22 +92,31 @@ func (r *registry) add(newDevice *device) error {
 	return nil
 }
 
-func (r *registry) remove(id ID, reason CloseReason) (*device, bool) {
+func equalSession(this *device, that *device) bool {
+	return this.Metadata().SessionID() == that.Metadata().SessionID()
+}
+
+func (r *registry) remove(removing *device, reason CloseReason) (*device, bool) {
 	r.lock.Lock()
-	existing, ok := r.data[id]
-	if ok {
-		delete(r.data, id)
+	var deviceRemoved bool
+	existing, ok := r.data[removing.id]
+
+	// If removing and existing are not from the same session, it means
+	// removing has already been removed (replaced)
+	if ok && equalSession(removing, existing) {
+		delete(r.data, existing.id)
+		deviceRemoved = true
 	}
 
 	r.count.Set(float64(len(r.data)))
 	r.lock.Unlock()
 
-	if existing != nil {
+	if deviceRemoved {
 		r.disconnect.Add(1.0)
 		existing.requestClose(reason)
 	}
 
-	return existing, ok
+	return existing, deviceRemoved
 }
 
 func (r *registry) removeIf(f func(d *device) (CloseReason, bool)) int {
