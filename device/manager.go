@@ -264,6 +264,32 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	d.conveyClosure()
 }
 
+func validateInboundWRPSource(message *wrp.Message, expectedSourceID ID) {
+	var (
+		validatedSource = message.Source
+
+		//TODO: what happens if parsing fails?
+		// Some ideas:
+		//1) Keep everything as is but introduce a counter for the number of parsing errors. Decide from there.
+		//2) Use canonical ID (prefix + id) as the Source. Downside is we may not have access to the service
+		// portion.
+		//3) Make it a fatal error and drop the message.
+		actualSourceID, _ = ParseID(message.Source)
+	)
+	if expectedSourceID != actualSourceID {
+		validatedSource = idPattern.ReplaceAllString(message.Source, string(expectedSourceID)+"$3")
+	}
+	message.Source = validatedSource
+}
+
+func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
+	message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
+
+	if message.Type == wrp.SimpleEventMessageType {
+		message.SessionID = deviceMetadata.SessionID()
+	}
+}
+
 // readPump is the goroutine which handles the stream of WRP messages from a device.
 // This goroutine exits when any error occurs on the connection.
 func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
@@ -312,15 +338,11 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
+		validateInboundWRPSource(message, d.ID())
+		addDeviceMetadataContext(message, d.Metadata())
+
 		if message.Type == wrp.SimpleRequestResponseMessageType {
 			m.measures.RequestResponse.Add(1.0)
-		}
-
-		deviceMetadata := event.Device.Metadata()
-		message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
-
-		if message.Type == wrp.SimpleEventMessageType {
-			message.SessionID = deviceMetadata.SessionID()
 		}
 
 		encoder.ResetBytes(&event.Contents)

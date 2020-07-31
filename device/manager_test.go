@@ -395,3 +395,39 @@ func TestGaugeCardinality(t *testing.T) {
 		m.(*manager).measures.Models.With("neat", "bad").Add(-1)
 	})
 }
+
+func TestValidateInboundWRPSource(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	testData := []struct {
+		name           string
+		rawDeviceID    string
+		actualSource   string
+		expectedSource string
+	}{
+		{
+			name:           "fullPath",
+			rawDeviceID:    "mac:11aaBB445566/irrelevant/for/id",
+			actualSource:   "mac:665544332211/service/some/path",
+			expectedSource: "mac:11aabb445566/service/some/path",
+		},
+
+		{
+			name:           "onlyService",
+			rawDeviceID:    "mac:aabbccddeeff/irrelevant/for/id",
+			actualSource:   "serial:hacker/service",
+			expectedSource: "mac:aabbccddeeff/service",
+		},
+	}
+
+	for _, record := range testData {
+		t.Run(record.name, func(t *testing.T) {
+			id, err := ParseID(record.rawDeviceID)
+			require.Nil(err)
+			message := &wrp.Message{Source: record.actualSource}
+			validateInboundWRPSource(message, id)
+			assert.Equal(record.expectedSource, message.Source)
+		})
+	}
+
+}
