@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -116,8 +117,9 @@ func NewManager(o *Options) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		listeners: o.listeners(),
-		measures:  measures,
+		listeners:             o.listeners(),
+		measures:              measures,
+		enforceWRPSourceCheck: o.wrpCheck().Type == "Enforce",
 	}
 }
 
@@ -138,8 +140,9 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	listeners []Listener
-	measures  Measures
+	listeners             []Listener
+	measures              Measures
+	enforceWRPSourceCheck bool
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -264,22 +267,34 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	d.conveyClosure()
 }
 
-func validateInboundWRPSource(message *wrp.Message, expectedSourceID ID) {
-	var (
-		validatedSource = message.Source
-
-		//TODO: what happens if parsing fails?
-		// Some ideas:
-		//1) Keep everything as is but introduce a counter for the number of parsing errors. Decide from there.
-		//2) Use canonical ID (prefix + id) as the Source. Downside is we may not have access to the service
-		// portion.
-		//3) Make it a fatal error and drop the message.
-		actualSourceID, _ = ParseID(message.Source)
-	)
-	if expectedSourceID != actualSourceID {
-		validatedSource = idPattern.ReplaceAllString(message.Source, string(expectedSourceID)+"$3")
+func (m *manager) wrpSourceIsValid(message *wrp.Message, expectedID ID) bool {
+	if len(strings.TrimSpace(message.Source)) == 0 {
+		message.Source = string(expectedID)
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "empty").Add(1)
+		return true
 	}
-	message.Source = validatedSource
+
+	actualID, err = ParseID(message.Source)
+	if err != nil {
+		if m.enforceWRPSourceCheck {
+			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_parse_error").Add(1)
+			return false
+		}
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_parse_error").Add(1)
+		return true
+	}
+
+	if expectedID != actualID {
+		if m.enforceWRPSourceCheck {
+			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_mismatch").Add(1)
+			return false
+		}
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_mismatch").Add(1)
+		return true
+	}
+
+	m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_match").Add(1)
+	return true
 }
 
 func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
@@ -338,7 +353,11 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
-		validateInboundWRPSource(message, d.ID())
+		if !m.wrpSourceIsValid(message, d.ID()) {
+			d.errorLog.Log(logging.MessageKey(), "skipping WRP message with invalid source")
+			continue
+		}
+
 		addDeviceMetadataContext(message, d.Metadata())
 
 		if message.Type == wrp.SimpleRequestResponseMessageType {
