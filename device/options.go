@@ -27,6 +27,10 @@ const (
 	DefaultDeviceMessageQueueSize = 100
 )
 
+type wrpSourceCheckConfig struct {
+	Type string
+}
+
 // Options represent the available configuration options for components
 // within this package
 type Options struct {
@@ -67,6 +71,18 @@ type Options struct {
 
 	// Now is the closure used to determine the current time.  If not set, time.Now is used.
 	Now func() time.Time
+
+	// WRPSourceCheck defines behavior around checking the Source field in WRP messages originating
+	// from this device. The current check cases are:
+	// 1) Source is empty: leaving this field empty suggests very little chance of underlying bad intent
+	//    so the field is populated with the device's canonical ID (i.e. mac:112233445566).
+	// 2) Canonical ID can't be parsed from Source: a bad actor could be behind this behavior and thus the
+	//    message is dropped on the floor when the check type is "Enforce".
+	// 3) Canonical ID doesn't match that of the established websocket connection: this is the most obvious case in
+	//    which a bad actor could have a device pretend sending messages oh behalf of another.
+	// Note: when the check type is "Monitor", no messages are dropped but they are logged as part of the "wrp_source_check"
+	// counter.
+	WRPSourceCheck wrpSourceCheckConfig
 }
 
 func (o *Options) upgrader() *websocket.Upgrader {
@@ -156,4 +172,13 @@ func (o *Options) now() func() time.Time {
 	}
 
 	return time.Now
+}
+
+func (o *Options) wrpCheck() wrpSourceCheckConfig {
+	if o.WRPSourceCheck != nil {
+		if o.WRPSourceCheck.Type == "Enforce" || o.WRPSourceCheck.Type == "Monitor" {
+			return o.WRPSourceCheck
+		}
+	}
+	return wrpSourceCheckConfig{Type: "Monitor"}
 }
