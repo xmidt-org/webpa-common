@@ -21,6 +21,9 @@ import (
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 
+// DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
+const DefaultWRPContentType = "application/octet-stream"
+
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
 // for explicit disconnection.
@@ -356,6 +359,10 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		if !m.wrpSourceIsValid(message, d.ID()) {
 			d.errorLog.Log(logging.MessageKey(), "skipping WRP message with invalid source")
 			continue
+		}
+
+		if len(strings.TrimSpace(message.ContentType)) == 0 {
+			message.ContentType = DefaultWRPContentType
 		}
 
 		addDeviceMetadataContext(message, d.Metadata())
