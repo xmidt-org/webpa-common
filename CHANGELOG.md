@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ### Added
 - Added eventKey to service discovery metric [#509](https://github.com/xmidt-org/webpa-common/pull/509)
 
+### Fixed
+- Fixed serviceEndpoints unit tests failing [#510](https://github.com/xmidt-org/webpa-common/pull/510)
+
+
 ## [v1.10.6]
 ### Fixed
 - Fixed ServiceEndpoints not faning out when a datacenter is empty [#504](https://github.com/xmidt-org/webpa-common/pull/504)
