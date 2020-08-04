@@ -16,6 +16,7 @@ const (
 	DisconnectCounter         = "disconnect_count"
 	DeviceLimitReachedCounter = "device_limit_reached_count"
 	ModelGauge                = "hardware_model"
+	WRPSourceCheck            = "wrp_source_check"
 )
 
 // Metrics is the device module function that adds default device metrics
@@ -58,6 +59,11 @@ func Metrics() []xmetrics.Metric {
 			Type:       "gauge",
 			LabelNames: []string{"model", "partnerid", "firmware"},
 		},
+		{
+			Name:       WRPSourceCheck,
+			Type:       "counter",
+			LabelNames: []string{"outcome", "reason"},
+		},
 	}
 }
 
@@ -72,6 +78,7 @@ type Measures struct {
 	Connect         xmetrics.Incrementer
 	Disconnect      xmetrics.Adder
 	Models          metrics.Gauge
+	WRPSourceCheck  metrics.Counter
 }
 
 // NewMeasures constructs a Measures given a go-kit metrics Provider
@@ -86,5 +93,6 @@ func NewMeasures(p provider.Provider) Measures {
 		Connect:         xmetrics.NewIncrementer(p.NewCounter(ConnectCounter)),
 		Disconnect:      p.NewCounter(DisconnectCounter),
 		Models:          p.NewGauge(ModelGauge),
+		WRPSourceCheck:  p.NewCounter(WRPSourceCheck),
 	}
 }

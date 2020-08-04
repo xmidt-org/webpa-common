@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -116,8 +117,9 @@ func NewManager(o *Options) Manager {
 		deviceMessageQueueSize: o.deviceMessageQueueSize(),
 		pingPeriod:             o.pingPeriod(),
 
-		listeners: o.listeners(),
-		measures:  measures,
+		listeners:             o.listeners(),
+		measures:              measures,
+		enforceWRPSourceCheck: o.wrpCheck().Type == "enforce",
 	}
 }
 
@@ -138,8 +140,9 @@ type manager struct {
 	deviceMessageQueueSize int
 	pingPeriod             time.Duration
 
-	listeners []Listener
-	measures  Measures
+	listeners             []Listener
+	measures              Measures
+	enforceWRPSourceCheck bool
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -264,6 +267,44 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	d.conveyClosure()
 }
 
+func (m *manager) wrpSourceIsValid(message *wrp.Message, expectedID ID) bool {
+	if len(strings.TrimSpace(message.Source)) == 0 {
+		message.Source = string(expectedID)
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "empty").Add(1)
+		return true
+	}
+
+	actualID, err := ParseID(message.Source)
+	if err != nil {
+		if m.enforceWRPSourceCheck {
+			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_parse_error").Add(1)
+			return false
+		}
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_parse_error").Add(1)
+		return true
+	}
+
+	if expectedID != actualID {
+		if m.enforceWRPSourceCheck {
+			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_mismatch").Add(1)
+			return false
+		}
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_mismatch").Add(1)
+		return true
+	}
+
+	m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_match").Add(1)
+	return true
+}
+
+func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
+	message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
+
+	if message.Type == wrp.SimpleEventMessageType {
+		message.SessionID = deviceMetadata.SessionID()
+	}
+}
+
 // readPump is the goroutine which handles the stream of WRP messages from a device.
 // This goroutine exits when any error occurs on the connection.
 func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
@@ -312,15 +353,15 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
-		if message.Type == wrp.SimpleRequestResponseMessageType {
-			m.measures.RequestResponse.Add(1.0)
+		if !m.wrpSourceIsValid(message, d.ID()) {
+			d.errorLog.Log(logging.MessageKey(), "skipping WRP message with invalid source")
+			continue
 		}
 
-		deviceMetadata := event.Device.Metadata()
-		message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
+		addDeviceMetadataContext(message, d.Metadata())
 
-		if message.Type == wrp.SimpleEventMessageType {
-			message.SessionID = deviceMetadata.SessionID()
+		if message.Type == wrp.SimpleRequestResponseMessageType {
+			m.measures.RequestResponse.Add(1.0)
 		}
 
 		encoder.ResetBytes(&event.Contents)
