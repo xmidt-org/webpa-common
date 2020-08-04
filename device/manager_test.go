@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics"
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/xmetrics"
@@ -396,38 +397,110 @@ func TestGaugeCardinality(t *testing.T) {
 	})
 }
 
-func TestValidateInboundWRPSource(t *testing.T) {
+func TestWRPSourceIsValid(t *testing.T) {
 	assert := assert.New(t)
-	require := require.New(t)
+	canonicalID := "mac:112233445566"
 	testData := []struct {
-		name           string
-		rawDeviceID    string
-		actualSource   string
-		expectedSource string
+		Name           string
+		ActualSource   string
+		ExpectedSource string
+		IsValid        bool
+		BaseLabelPairs map[string]string
 	}{
 		{
-			name:           "fullPath",
-			rawDeviceID:    "mac:11aaBB445566/irrelevant/for/id",
-			actualSource:   "mac:665544332211/service/some/path",
-			expectedSource: "mac:11aabb445566/service/some/path",
+			Name:    "EmptySource",
+			IsValid: true,
+			ActualSource: "   	",
+			ExpectedSource: canonicalID,
+			BaseLabelPairs: map[string]string{"reason": "empty"},
 		},
 
 		{
-			name:           "onlyService",
-			rawDeviceID:    "mac:aabbccddeeff/irrelevant/for/id",
-			actualSource:   "serial:hacker/service",
-			expectedSource: "mac:aabbccddeeff/service",
+			Name:           "ParseFailure",
+			IsValid:        false,
+			ActualSource:   "serial>hacker/service",
+			ExpectedSource: "serial>hacker/service",
+			BaseLabelPairs: map[string]string{"reason": "id_parse_error"},
+		},
+		{
+			Name:           "IDMismatch",
+			IsValid:        false,
+			ActualSource:   "mac:665544332211/service/some/path",
+			ExpectedSource: "mac:665544332211/service/some/path",
+			BaseLabelPairs: map[string]string{"reason": "id_mismatch"},
+		},
+		{
+			Name:           "IDMatch",
+			IsValid:        true,
+			ActualSource:   "mac:112233445566/service/some/path",
+			ExpectedSource: "mac:112233445566/service/some/path",
+			BaseLabelPairs: map[string]string{"reason": "id_match"},
 		},
 	}
 
 	for _, record := range testData {
-		t.Run(record.name, func(t *testing.T) {
-			id, err := ParseID(record.rawDeviceID)
-			require.Nil(err)
-			message := &wrp.Message{Source: record.actualSource}
-			validateInboundWRPSource(message, id)
-			assert.Equal(record.expectedSource, message.Source)
+		t.Run(record.Name, func(t *testing.T) {
+			expectedStrictLabels, expectedLenientLabels := createLabelMaps(!record.IsValid, record.BaseLabelPairs)
+
+			// strict mode
+			counter := newTestCounter()
+			message := &wrp.Message{Source: record.ActualSource}
+			m := &manager{enforceWRPSourceCheck: true, measures: Measures{WRPSourceCheck: counter}}
+			ok := m.wrpSourceIsValid(message, ID(canonicalID))
+			assert.Equal(record.IsValid, ok)
+			assert.Equal(record.ExpectedSource, message.Source)
+			assert.Equal(expectedStrictLabels, counter.labelPairs)
+
+			// lenient mode
+			counter = newTestCounter()
+			message = &wrp.Message{Source: record.ActualSource}
+			m = &manager{enforceWRPSourceCheck: false, measures: Measures{WRPSourceCheck: counter}}
+			ok = m.wrpSourceIsValid(message, ID(canonicalID))
+			assert.True(ok)
+			assert.Equal(record.ExpectedSource, message.Source)
+			assert.Equal(expectedLenientLabels, counter.labelPairs)
 		})
 	}
 
+}
+
+func createLabelMaps(rejected bool, baseLabelPairs map[string]string) (strict map[string]string, lenient map[string]string) {
+	strict = make(map[string]string)
+	lenient = make(map[string]string)
+
+	for k, v := range baseLabelPairs {
+		strict[k] = v
+		lenient[k] = v
+	}
+
+	if rejected {
+		strict["outcome"] = "rejected"
+	} else {
+		strict["outcome"] = "accepted"
+	}
+	lenient["outcome"] = "accepted"
+
+	return
+}
+
+type testCounter struct {
+	count      float64
+	labelPairs map[string]string
+}
+
+func (c *testCounter) Add(delta float64) {
+	c.count += delta
+}
+
+func (c *testCounter) With(labelValues ...string) metrics.Counter {
+	for i := 0; i < len(labelValues)-1; i += 2 {
+		c.labelPairs[labelValues[i]] = labelValues[i+1]
+	}
+	return c
+}
+
+func newTestCounter() *testCounter {
+	return &testCounter{
+		labelPairs: make(map[string]string),
+	}
 }

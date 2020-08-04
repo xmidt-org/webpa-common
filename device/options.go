@@ -175,10 +175,10 @@ func (o *Options) now() func() time.Time {
 }
 
 func (o *Options) wrpCheck() wrpSourceCheckConfig {
-	if !oneOf(o.WRPSourceCheck.Type, "enforce", "monitor") {
-		o.WRPSourceCheck.Type = "monitor"
+	if o != nil && oneOf(o.WRPSourceCheck.Type, "enforce", "monitor") {
+		return o.WRPSourceCheck
 	}
-	return o.WRPSourceCheck
+	return wrpSourceCheckConfig{Type: "monito"}
 }
 
 func oneOf(e string, options ...string) bool {
