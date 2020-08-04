@@ -43,6 +43,9 @@ func (se *ServiceEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, erro
 	}
 
 	se.lock.RUnlock()
+	if len(endpoints) == 0 {
+		return []*url.URL{}, errNoFanoutURLs
+	}
 	return xhttp.ApplyURLParser(url.Parse, endpoints...)
 }
 
