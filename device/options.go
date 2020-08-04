@@ -77,10 +77,10 @@ type Options struct {
 	// 1) Source is empty: leaving this field empty suggests very little chance of underlying bad intent
 	//    so the field is populated with the device's canonical ID (i.e. mac:112233445566).
 	// 2) Canonical ID can't be parsed from Source: a bad actor could be behind this behavior and thus the
-	//    message is dropped on the floor when the check type is "Enforce".
+	//    message is dropped on the floor when the check type is "enforce".
 	// 3) Canonical ID doesn't match that of the established websocket connection: this is the most obvious case in
 	//    which a bad actor could have a device pretend sending messages oh behalf of another.
-	// Note: when the check type is "Monitor", no messages are dropped but they are logged as part of the "wrp_source_check"
+	// Note: when the check type is "monitor", no messages are dropped but they are logged as part of the "wrp_source_check"
 	// counter.
 	WRPSourceCheck wrpSourceCheckConfig
 }
@@ -175,10 +175,17 @@ func (o *Options) now() func() time.Time {
 }
 
 func (o *Options) wrpCheck() wrpSourceCheckConfig {
-	if o.WRPSourceCheck != nil {
-		if o.WRPSourceCheck.Type == "Enforce" || o.WRPSourceCheck.Type == "Monitor" {
-			return o.WRPSourceCheck
+	if !oneOf(o.WRPSourceCheck.Type, "enforce", "monitor") {
+		o.WRPSourceCheck.Type = "monitor"
+	}
+	return o.WRPSourceCheck
+}
+
+func oneOf(e string, options ...string) bool {
+	for _, option := range options {
+		if e == option {
+			return true
 		}
 	}
-	return wrpSourceCheckConfig{Type: "Monitor"}
+	return false
 }

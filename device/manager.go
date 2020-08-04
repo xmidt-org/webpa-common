@@ -119,7 +119,7 @@ func NewManager(o *Options) Manager {
 
 		listeners:             o.listeners(),
 		measures:              measures,
-		enforceWRPSourceCheck: o.wrpCheck().Type == "Enforce",
+		enforceWRPSourceCheck: o.wrpCheck().Type == "enforce",
 	}
 }
 
@@ -274,7 +274,7 @@ func (m *manager) wrpSourceIsValid(message *wrp.Message, expectedID ID) bool {
 		return true
 	}
 
-	actualID, err = ParseID(message.Source)
+	actualID, err := ParseID(message.Source)
 	if err != nil {
 		if m.enforceWRPSourceCheck {
 			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_parse_error").Add(1)
