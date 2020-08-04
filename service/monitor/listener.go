@@ -76,14 +76,14 @@ func NewMetricsListener(p provider.Provider) Listener {
 		timestamp := float64(time.Now().Unix())
 
 		if e.Err != nil {
-			errorCount.With(service.ServiceLabel, e.Service).Add(1.0)
-			lastError.With(service.ServiceLabel, e.Service).Set(timestamp)
+			errorCount.With(service.ServiceLabel, e.Service, service.EventKeyLabel, e.Key).Add(1.0)
+			lastError.With(service.ServiceLabel, e.Service, service.EventKeyLabel, e.Key).Set(timestamp)
 		} else {
-			updateCount.With(service.ServiceLabel, e.Service).Add(1.0)
-			lastUpdate.With(service.ServiceLabel, e.Service).Set(timestamp)
+			updateCount.With(service.ServiceLabel, e.Service, service.EventKeyLabel, e.Key).Add(1.0)
+			lastUpdate.With(service.ServiceLabel, e.Service, service.EventKeyLabel, e.Key).Set(timestamp)
 		}
 
-		instanceCount.With(service.ServiceLabel, e.Service).Set(float64(len(e.Instances)))
+		instanceCount.With(service.ServiceLabel, e.Service, service.EventKeyLabel, e.Key).Set(float64(len(e.Instances)))
 	})
 }
 
