@@ -65,7 +65,7 @@ func testNewServiceEndpointsDefault(t *testing.T, se *ServiceEndpoints) {
 
 	urls, err := se.FanoutURLs(request)
 	assert.Empty(urls)
-	assert.NoError(err)
+	assert.Error(err)
 
 	se.MonitorEvent(monitor.Event{Key: "key1"})
 	urls, err = se.FanoutURLs(request)
@@ -121,7 +121,7 @@ func testNewServiceEndpointsCustom(t *testing.T) {
 	urls, err := se.FanoutURLs(request)
 	assert.True(keyFuncCalled)
 	assert.Empty(urls)
-	assert.NoError(err)
+	assert.Error(err)
 
 	keyFuncCalled = false
 	accessorFactoryCalled = false
