@@ -271,24 +271,31 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	d.conveyClosure()
 }
 
-func (m *manager) wrpSourceIsValid(message *wrp.Message, expectedID ID) bool {
+func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
+	expectedID := d.ID()
 	if len(strings.TrimSpace(message.Source)) == 0 {
-		message.Source = string(expectedID)
+		d.errorLog.Log(logging.MessageKey(), "WRP source was empty", "trustLevel", d.Metadata().TrustClaim())
+		if m.enforceWRPSourceCheck {
+			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "empty").Add(1)
+			return false
+		}
 		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "empty").Add(1)
 		return true
 	}
 
 	actualID, err := ParseID(message.Source)
 	if err != nil {
+		d.errorLog.Log(logging.MessageKey(), "Failed to parse ID from WRP source", "trustLevel", d.Metadata().TrustClaim())
 		if m.enforceWRPSourceCheck {
-			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_parse_error").Add(1)
+			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "parse_error").Add(1)
 			return false
 		}
-		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "id_parse_error").Add(1)
+		m.measures.WRPSourceCheck.With("outcome", "accepted", "reason", "parse_error").Add(1)
 		return true
 	}
 
 	if expectedID != actualID {
+		d.errorLog.Log(logging.MessageKey(), "ID in WRP source does not match device's ID", "spoofedID", actualID, "trustLevel", d.Metadata().TrustClaim())
 		if m.enforceWRPSourceCheck {
 			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_mismatch").Add(1)
 			return false
@@ -357,7 +364,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
-		if !m.wrpSourceIsValid(message, d.ID()) {
+		if !m.wrpSourceIsValid(message, d) {
 			d.errorLog.Log(logging.MessageKey(), "skipping WRP message with invalid source")
 			continue
 		}
