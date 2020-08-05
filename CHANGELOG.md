@@ -5,12 +5,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- Added eventKey to service discovery metric [#509](https://github.com/xmidt-org/webpa-common/pull/509)
+
 ### Fixed
 - Fixed serviceEndpoints unit tests failing. [#510](https://github.com/xmidt-org/webpa-common/pull/510)
 
 ### Changed
 - Add configurable check for the source of inbound (device => cloud service) WRP messages. [#507](https://github.com/xmidt-org/webpa-common/pull/507)
 - Populate empty inbound WRP.content_type field with `application/octet-stream`. [#508](https://github.com/xmidt-org/webpa-common/pull/508)
+
 
 ## [v1.10.6]
 ### Fixed
