@@ -99,9 +99,8 @@ func (m *Metadata) ClaimsCopy() map[string]interface{} {
 
 // TrustClaim returns the device's trust level claim.
 // By Default, a device is untrusted (trust = 0).
-func (m *Metadata) TrustClaim() (trust int) {
-	trust, _ = m.Claims()[TrustClaimKey].(int)
-	return
+func (m *Metadata) TrustClaim() int {
+	return cast.ToInt(m.Claims()[TrustClaimKey])
 }
 
 // PartnerIDClaim returns the partner ID claim.
