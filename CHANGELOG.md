@@ -10,11 +10,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Added `trust` label to hardware_model gauge. [#512](https://github.com/xmidt-org/webpa-common/pull/512)
 
 ### Fixed
-- Fixed serviceEndpoints unit tests failing. [#510](https://github.com/xmidt-org/webpa-common/pull/510)
+- Fix serviceEndpoints unit tests failing. [#510](https://github.com/xmidt-org/webpa-common/pull/510)
+- Fix device Metadata Trust() method float64 casting to int. [#511](https://github.com/xmidt-org/webpa-common/pull/511)
 
 ### Changed
 - Add configurable check for the source of inbound (device => cloud service) WRP messages. [#507](https://github.com/xmidt-org/webpa-common/pull/507)
 - Populate empty inbound WRP.content_type field with `application/octet-stream`. [#508](https://github.com/xmidt-org/webpa-common/pull/508)
+- Update inbound WRP source check logic. [#511](https://github.com/xmidt-org/webpa-common/pull/511)
 
 
 ## [v1.10.6]

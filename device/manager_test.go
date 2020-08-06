@@ -399,41 +399,36 @@ func TestGaugeCardinality(t *testing.T) {
 
 func TestWRPSourceIsValid(t *testing.T) {
 	assert := assert.New(t)
-	canonicalID := "mac:112233445566"
+	canonicalID := ID("mac:112233445566")
 	testData := []struct {
 		Name           string
-		ActualSource   string
-		ExpectedSource string
+		Source         string
 		IsValid        bool
 		BaseLabelPairs map[string]string
 	}{
 		{
 			Name:    "EmptySource",
-			IsValid: true,
-			ActualSource: "   	",
-			ExpectedSource: canonicalID,
+			IsValid: false,
+			Source: "   	",
 			BaseLabelPairs: map[string]string{"reason": "empty"},
 		},
 
 		{
 			Name:           "ParseFailure",
 			IsValid:        false,
-			ActualSource:   "serial>hacker/service",
-			ExpectedSource: "serial>hacker/service",
-			BaseLabelPairs: map[string]string{"reason": "id_parse_error"},
+			Source:         "serial>hacker/service",
+			BaseLabelPairs: map[string]string{"reason": "parse_error"},
 		},
 		{
 			Name:           "IDMismatch",
 			IsValid:        false,
-			ActualSource:   "mac:665544332211/service/some/path",
-			ExpectedSource: "mac:665544332211/service/some/path",
+			Source:         "mac:665544332211/service/some/path",
 			BaseLabelPairs: map[string]string{"reason": "id_mismatch"},
 		},
 		{
 			Name:           "IDMatch",
 			IsValid:        true,
-			ActualSource:   "mac:112233445566/service/some/path",
-			ExpectedSource: "mac:112233445566/service/some/path",
+			Source:         "mac:112233445566/service/some/path",
 			BaseLabelPairs: map[string]string{"reason": "id_match"},
 		},
 	}
@@ -442,22 +437,26 @@ func TestWRPSourceIsValid(t *testing.T) {
 		t.Run(record.Name, func(t *testing.T) {
 			expectedStrictLabels, expectedLenientLabels := createLabelMaps(!record.IsValid, record.BaseLabelPairs)
 
+			d := new(device)
+			d.id = canonicalID
+			d.errorLog = log.WithPrefix(logging.NewTestLogger(nil, t), "id", canonicalID)
+			d.metadata = new(Metadata)
+
 			// strict mode
 			counter := newTestCounter()
-			message := &wrp.Message{Source: record.ActualSource}
+			message := &wrp.Message{Source: record.Source}
 			m := &manager{enforceWRPSourceCheck: true, measures: Measures{WRPSourceCheck: counter}}
-			ok := m.wrpSourceIsValid(message, ID(canonicalID))
+			ok := m.wrpSourceIsValid(message, d)
 			assert.Equal(record.IsValid, ok)
-			assert.Equal(record.ExpectedSource, message.Source)
 			assert.Equal(expectedStrictLabels, counter.labelPairs)
 
 			// lenient mode
 			counter = newTestCounter()
-			message = &wrp.Message{Source: record.ActualSource}
+			message = &wrp.Message{Source: record.Source}
 			m = &manager{enforceWRPSourceCheck: false, measures: Measures{WRPSourceCheck: counter}}
-			ok = m.wrpSourceIsValid(message, ID(canonicalID))
+
+			ok = m.wrpSourceIsValid(message, d)
 			assert.True(ok)
-			assert.Equal(record.ExpectedSource, message.Source)
 			assert.Equal(expectedLenientLabels, counter.labelPairs)
 		})
 	}
