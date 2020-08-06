@@ -6,7 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Added
-- Added eventKey to service discovery metric [#509](https://github.com/xmidt-org/webpa-common/pull/509)
+- Added eventKey to service discovery metric. [#509](https://github.com/xmidt-org/webpa-common/pull/509)
+- Added `trust` label to hardware_model gauge. [#512](https://github.com/xmidt-org/webpa-common/pull/512)
 
 ### Fixed
 - Fixed serviceEndpoints unit tests failing. [#510](https://github.com/xmidt-org/webpa-common/pull/510)
