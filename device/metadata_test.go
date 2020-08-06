@@ -1,33 +1,45 @@
 package device
 
 import (
+	"bytes"
 	"math/rand"
 	"sync"
 	"testing"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // claims is a convenient base claims structurally repre to use in tests.
 // If you need to modify it, make a copy using deepCopyMap()
-var claims = map[string]interface{}{
-	"permissions": map[string]interface{}{
-		"read":  true,
-		"write": false,
-	},
-	PartnerIDClaimKey: "comcast",
-	TrustClaimKey:     100,
-	"id":              1234,
-	"aud":             "XMiDT",
-	"custom":          "rbl",
-	"exp":             1594248706,
-	"iat":             1591656706,
-	"iss":             "themis",
-	"jti":             "5LnpSTsPnuh4TA",
-	"nbf":             1591656691,
-	"sub":             "client:supplied",
-	"capabilities":    []string{"xmidt", "webpa"},
+var claims map[string]interface{}
+
+func init() {
+	// This is an easy way to catch unmarshalling surprises for claims
+	// which come from config values.
+	rawYamlConfig := []byte(`
+claims: 
+  aud: XMiDT
+  capabilities: [xmidt, webpa]
+  custom: rbl
+  exp: 1594248706
+  iat: 1591656706
+  id: 1234
+  iss: themis
+  jti: 5LnpSTsPnuh4TA
+  nbf: 1591656691
+  partner-id: comcast
+  sub: "client:supplied"
+  trust: 100
+`)
+	v := viper.New()
+	v.SetConfigType("yaml")
+	err := v.ReadConfig(bytes.NewBuffer(rawYamlConfig))
+	if err != nil {
+		panic(err)
+	}
+	v.UnmarshalKey("claims", &claims)
 }
 
 func TestDeviceMetadataDefaultValues(t *testing.T) {

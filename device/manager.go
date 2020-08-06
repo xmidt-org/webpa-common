@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -222,7 +223,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 			d.errorLog.Log(logging.MessageKey(), "unable to marshal the convey header", logging.ErrorKey(), err)
 		}
 	}
-	metricClosure, err := m.conveyHWMetric.Update(cvy, "partnerid", metadata.PartnerIDClaim())
+	metricClosure, err := m.conveyHWMetric.Update(cvy, "partnerid", metadata.PartnerIDClaim(), "trust", strconv.Itoa(metadata.TrustClaim()))
 	if err != nil {
 		d.errorLog.Log(logging.MessageKey(), "failed to update convey metrics", logging.ErrorKey(), err)
 	}
