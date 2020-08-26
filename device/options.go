@@ -11,8 +11,8 @@ import (
 
 // Check types for the WRP Source check
 const (
-	CheckTypeMonitor = "monitor"
-	CheckTypeEnforce = "enforce"
+	CheckTypeMonitor WRPSourceCheckType = "monitor"
+	CheckTypeEnforce WRPSourceCheckType = "enforce"
 )
 
 const (
@@ -33,8 +33,12 @@ const (
 	DefaultDeviceMessageQueueSize = 100
 )
 
+// WRPSourceCheckType is used to define the different modes
+// in which the source check can run.
+type WRPSourceCheckType string
+
 type wrpSourceCheckConfig struct {
-	Type string
+	Type WRPSourceCheckType
 }
 
 // Options represent the available configuration options for components
@@ -184,7 +188,7 @@ func (o *Options) wrpCheck() wrpSourceCheckConfig {
 	return wrpSourceCheckConfig{Type: CheckTypeMonitor}
 }
 
-func oneOf(e string, options ...string) bool {
+func oneOf(e WRPSourceCheckType, options ...WRPSourceCheckType) bool {
 	for _, option := range options {
 		if e == option {
 			return true
