@@ -90,15 +90,18 @@ type Manager interface {
 // created from the options if one is not supplied.
 func NewManager(o *Options) Manager {
 	var (
-		logger   = o.logger()
-		measures = NewMeasures(o.metricsProvider())
+		logger      = o.logger()
+		debugLogger = logging.Debug(logger)
+		measures    = NewMeasures(o.metricsProvider())
+		wrpCheck    = o.wrpCheck()
 	)
 
-	return &manager{
-		logger:   logger,
-		errorLog: logging.Error(logger),
-		debugLog: logging.Debug(logger),
+	debugLogger.Log(logging.MessageKey(), "source check configuration", "type", wrpCheck.Type)
 
+	return &manager{
+		logger:           logger,
+		errorLog:         logging.Error(logger),
+		debugLog:         debugLogger,
 		readDeadline:     NewDeadline(o.idlePeriod(), o.now()),
 		writeDeadline:    NewDeadline(o.writeTimeout(), o.now()),
 		upgrader:         o.upgrader(),
@@ -123,7 +126,7 @@ func NewManager(o *Options) Manager {
 
 		listeners:             o.listeners(),
 		measures:              measures,
-		enforceWRPSourceCheck: o.wrpCheck().Type == "enforce",
+		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
 	}
 }
 

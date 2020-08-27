@@ -8,16 +8,21 @@ import (
 	"github.com/spf13/cast"
 )
 
-//Reserved metadata keys
+// Reserved metadata keys
 const (
 	JWTClaimsKey = "jwt-claims"
 	SessionIDKey = "session-id"
 )
 
-//Top level JWTClaim keys
+// Top level JWTClaim keys
 const (
 	PartnerIDClaimKey = "partner-id"
 	TrustClaimKey     = "trust"
+)
+
+// Default values
+const (
+	UnknownPartner = "unknown"
 )
 
 var reservedMetadataKeys = map[string]bool{
@@ -104,10 +109,13 @@ func (m *Metadata) TrustClaim() int {
 }
 
 // PartnerIDClaim returns the partner ID claim.
-// If no claim is found, the zero value is returned.
-func (m *Metadata) PartnerIDClaim() (partnerID string) {
-	partnerID, _ = m.Claims()[PartnerIDClaimKey].(string)
-	return
+// If no claim is found, the value defaults to "unknown"
+func (m *Metadata) PartnerIDClaim() string {
+	partnerID, ok := m.Claims()[PartnerIDClaimKey].(string)
+	if !ok {
+		return UnknownPartner
+	}
+	return partnerID
 }
 
 func (m *Metadata) loadData() (data map[string]interface{}) {

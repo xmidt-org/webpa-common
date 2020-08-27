@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Default partnerID in metadata changed from "" to "unknown". [#518](https://github.com/xmidt-org/webpa-common/pull/518)
+
+### Fixed
+- A typo where "monitor" was written as "monito" for a WRP source check. [#518](https://github.com/xmidt-org/webpa-common/pull/518)
 
 ## [v1.10.7]
 ### Added

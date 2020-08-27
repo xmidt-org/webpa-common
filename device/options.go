@@ -9,6 +9,12 @@ import (
 	"github.com/xmidt-org/webpa-common/logging"
 )
 
+// Check types for the WRP Source check
+const (
+	CheckTypeMonitor WRPSourceCheckType = "monitor"
+	CheckTypeEnforce WRPSourceCheckType = "enforce"
+)
+
 const (
 	// DeviceNameHeader is the name of the HTTP header which contains the device service name.
 	// This header is primarily required at connect time to identify the device.
@@ -27,8 +33,12 @@ const (
 	DefaultDeviceMessageQueueSize = 100
 )
 
+// WRPSourceCheckType is used to define the different modes
+// in which the source check can run.
+type WRPSourceCheckType string
+
 type wrpSourceCheckConfig struct {
-	Type string
+	Type WRPSourceCheckType
 }
 
 // Options represent the available configuration options for components
@@ -172,13 +182,13 @@ func (o *Options) now() func() time.Time {
 }
 
 func (o *Options) wrpCheck() wrpSourceCheckConfig {
-	if o != nil && oneOf(o.WRPSourceCheck.Type, "enforce", "monitor") {
+	if o != nil && oneOf(o.WRPSourceCheck.Type, CheckTypeEnforce, CheckTypeMonitor) {
 		return o.WRPSourceCheck
 	}
-	return wrpSourceCheckConfig{Type: "monito"}
+	return wrpSourceCheckConfig{Type: CheckTypeMonitor}
 }
 
-func oneOf(e string, options ...string) bool {
+func oneOf(e WRPSourceCheckType, options ...WRPSourceCheckType) bool {
 	for _, option := range options {
 		if e == option {
 			return true

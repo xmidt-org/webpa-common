@@ -48,7 +48,7 @@ func TestDeviceMetadataDefaultValues(t *testing.T) {
 
 	assert.Empty(m.Claims())
 	assert.Empty(m.SessionID())
-	assert.Empty(m.PartnerIDClaim())
+	assert.Equal(UnknownPartner, m.PartnerIDClaim())
 	assert.Zero(m.TrustClaim())
 	assert.Nil(m.Load("not-exists"))
 }
