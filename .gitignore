@@ -5,6 +5,7 @@ vendor
 pkg
 src
 coverage*
+report.json
 .idea
 server/cpuprofile
 server/memprofile
