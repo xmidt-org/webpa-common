@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Changed
-- Made 6060 pprof server's default address.
+- Made 6060 pprof server's default address. [#521](https://github.com/xmidt-org/webpa-common/pull/521)
 
 
 ## [v1.10.8]
