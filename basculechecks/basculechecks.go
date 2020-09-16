@@ -7,12 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/go-kit/kit/log/level"
-
-	"github.com/go-kit/kit/log"
 	"github.com/goph/emperror"
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/webpa-common/logging"
 )
 
 var (
@@ -20,7 +16,8 @@ var (
 	ErrNoAuth                 = errors.New("couldn't get request info: authorization not found")
 	ErrNonstringVal           = errors.New("expected value to be a string")
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
-	ErrNilAttributes          = fmt.Errorf("nil attributes interface")
+	ErrNilAttributes          = errors.New("nil attributes interface")
+	ErrNilPrefix              = errors.New("prefix regular expression cannot be nil")
 )
 
 const (
@@ -29,13 +26,14 @@ const (
 )
 
 type capabilityCheck struct {
-	prefixToMatch   *regexp.Regexp
-	endpoints       []*regexp.Regexp
-	acceptAllMethod string
-	measures        *AuthCapabilityCheckMeasures
+	prefixToMatch *regexp.Regexp
+	method        MethodConfig
 }
 
-var defaultLogger = log.NewNopLogger()
+type MethodConfig struct {
+	AppendsCapability bool
+	AcceptAllMethod   string
+}
 
 // CreateBasculeCheck creates a function that determines whether or not a
 // client is authorized to make a request to an endpoint by comparing the
@@ -44,100 +42,63 @@ var defaultLogger = log.NewNopLogger()
 // passed, and the outcome of the check will be updated in a metric.
 func (c *capabilityCheck) CreateBasculeCheck(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
-		// if we're not supposed to error out, the outcome should be accepted on failure
-		failureOutcome := AcceptedOutcome
-		if errorOut {
-			// if we actually error out, the outcome is the request being rejected
-			failureOutcome = RejectedOutcome
-		}
-
 		auth, ok := bascule.FromContext(ctx)
 		if !ok {
-			c.measures.CapabilityCheckOutcome.With(OutcomeLabel, failureOutcome, ReasonLabel, TokenMissing, ClientIDLabel, "", PartnerIDLabel, "", EndpointLabel, "").Add(1)
 			if errorOut {
 				return ErrNoAuth
 			}
 			return nil
 		}
 
-		client, partnerID, endpoint, reason, err := c.prepMetrics(auth)
-		labels := []string{ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint}
-		if err != nil {
-			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
-			c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
-			if errorOut {
-				return err
-			}
-			return nil
+		_, err := c.Check(auth)
+		if err != nil && errorOut {
+			return err
 		}
 
-		vals, reason, err := getCapabilities(auth.Token.Attributes())
-		if err != nil {
-			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
-			c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
-			if errorOut {
-				return err
-			}
-			return nil
-		}
-
-		err = c.checkCapabilities(vals, auth.Request)
-		if err != nil {
-			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, NoCapabilitiesMatch)
-			c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
-			if errorOut {
-				return err
-			}
-			return nil
-		}
-
-		labels = append(labels, OutcomeLabel, AcceptedOutcome, ReasonLabel, "")
-		c.measures.CapabilityCheckOutcome.With(labels...).Add(1)
 		return nil
 	}
 }
 
+func (c *capabilityCheck) Check(auth bascule.Authentication) (string, error) {
+	vals, reason, err := getCapabilities(auth.Token.Attributes())
+	if err != nil {
+		return reason, err
+	}
+
+	err = c.checkCapabilities(vals, auth.Request)
+	if err != nil {
+		return NoCapabilitiesMatch, err
+	}
+	return "", nil
+}
+
 // NewCapabilityChecker creates an object that produces a check on capabilities
 // in bascule tokens, to be run by the bascule enforcer middleware.
-func NewCapabilityChecker(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints []*regexp.Regexp) (*capabilityCheck, error) {
-	if m == nil {
-		return nil, errors.New("nil capability check measures")
+func NewCapabilityChecker(prefix *regexp.Regexp, method MethodConfig) (*capabilityCheck, error) {
+	if prefix == nil {
+		return nil, ErrNilPrefix
 	}
+
+	c := capabilityCheck{
+		prefixToMatch: prefix,
+		method:        method,
+	}
+	return &c, nil
+}
+
+// NewCapabilityCheckerFromString creates an object that produces a check on capabilities
+// in bascule tokens, to be run by the bascule enforcer middleware.
+func NewCapabilityCheckerFromString(prefix string, method MethodConfig) (*capabilityCheck, error) {
 	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
 	if err != nil {
 		return nil, emperror.WrapWith(err, "failed to compile prefix given", "prefix", prefix)
 	}
 
 	c := capabilityCheck{
-		prefixToMatch:   matchPrefix,
-		endpoints:       endpoints,
-		acceptAllMethod: acceptAllMethod,
-		measures:        m,
+		prefixToMatch: matchPrefix,
+		method:        method,
 	}
 	return &c, nil
-}
-
-// NewCapabilityCheckerFromStrings creates the capability checker, and allows
-// consumers to provide a list of string endpoints to be compiled into regular
-// expressions.  Only expressions that compile successfully are included in the
-// checker.
-func NewCapabilityCheckerFromStrings(m *AuthCapabilityCheckMeasures, prefix string, acceptAllMethod string, endpoints []string, logger log.Logger) (*capabilityCheck, error) {
-	var endpointRegexps []*regexp.Regexp
-	l := logger
-	if logger == nil {
-		l = defaultLogger
-	}
-	for _, e := range endpoints {
-		r, err := regexp.Compile(e)
-		if err != nil {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "failed to compile regular expression", "regex", e, logging.ErrorKey(), err.Error())
-			continue
-		}
-		endpointRegexps = append(endpointRegexps, r)
-	}
-
-	return NewCapabilityChecker(m, prefix, acceptAllMethod, endpointRegexps)
-
 }
 
 // checkCapabilities parses each capability to check it against the prefix
@@ -152,7 +113,7 @@ func (c *capabilityCheck) checkCapabilities(capabilities []string, requestInfo b
 		}
 
 		method := matches[2]
-		if method != c.acceptAllMethod && method != strings.ToLower(methodToMatch) {
+		if method != c.method.AcceptAllMethod && method != strings.ToLower(methodToMatch) {
 			continue
 		}
 
@@ -167,57 +128,6 @@ func (c *capabilityCheck) checkCapabilities(capabilities []string, requestInfo b
 	}
 	return emperror.With(ErrNoValidCapabilityFound, "capabilitiesFound", capabilities, "urlToMatch", urlToMatch, "methodToMatch", methodToMatch)
 
-}
-
-// prepMetrics gathers the information needed for metric label information.
-func (c *capabilityCheck) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
-	// getting metric information
-	client := auth.Token.Principal()
-	partnerIDs, ok := auth.Token.Attributes().GetStringSlice(PartnerKey)
-	if !ok {
-		return client, "", "", UndeterminedPartnerID, fmt.Errorf("couldn't get partner IDs from attributes using key %v", PartnerKey)
-	}
-	partnerID := determinePartnerMetric(partnerIDs)
-	escapedURL := auth.Request.URL.EscapedPath()
-	endpoint := determineEndpointMetric(c.endpoints, escapedURL)
-	return client, partnerID, endpoint, "", nil
-
-}
-
-// determinePartnerMetric takes a list of partners and decides what the partner
-// metric label should be.
-func determinePartnerMetric(partners []string) string {
-	if len(partners) < 1 {
-		return "none"
-	}
-	if len(partners) == 1 {
-		if partners[0] == "*" {
-			return "wildcard"
-		}
-		return partners[0]
-	}
-	for _, partner := range partners {
-		if partner == "*" {
-			return "wildcard"
-		}
-	}
-	return "many"
-
-}
-
-// determineEndpointMetric takes a list of regular expressions and applies them
-// to the url of the request to decide what the endpoint metric label should be.
-func determineEndpointMetric(endpoints []*regexp.Regexp, urlHit string) string {
-	for _, r := range endpoints {
-		idxs := r.FindStringIndex(urlHit)
-		if idxs == nil {
-			continue
-		}
-		if idxs[0] == 0 {
-			return r.String()
-		}
-	}
-	return "not_recognized"
 }
 
 // getCapabilities runs some error checks while getting the list of
