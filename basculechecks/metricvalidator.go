@@ -19,19 +19,11 @@ package basculechecks
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/webpa-common/logging"
-)
-
-var (
-	ErrNilCapabilitiesChecker = errors.New("capabilities checker cannot be nil")
-	ErrNilMeasures            = errors.New("capability check measures cannot be nil")
 )
 
 var defaultLogger = log.NewNopLogger()
@@ -40,13 +32,13 @@ type CapabilitiesChecker interface {
 	Check(auth bascule.Authentication) (string, error)
 }
 
-type metricValidator struct {
-	c         CapabilitiesChecker
-	measures  *AuthCapabilityCheckMeasures
-	endpoints []*regexp.Regexp
+type MetricValidator struct {
+	C         CapabilitiesChecker
+	Measures  *AuthCapabilityCheckMeasures
+	Endpoints []*regexp.Regexp
 }
 
-func (m *metricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
+func (m MetricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
 		// if we're not supposed to error out, the outcome should be accepted on failure
 		failureOutcome := AcceptedOutcome
@@ -57,7 +49,7 @@ func (m *metricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 
 		auth, ok := bascule.FromContext(ctx)
 		if !ok {
-			m.measures.CapabilityCheckOutcome.With(OutcomeLabel, failureOutcome, ReasonLabel, TokenMissing, ClientIDLabel, "", PartnerIDLabel, "", EndpointLabel, "").Add(1)
+			m.Measures.CapabilityCheckOutcome.With(OutcomeLabel, failureOutcome, ReasonLabel, TokenMissing, ClientIDLabel, "", PartnerIDLabel, "", EndpointLabel, "").Add(1)
 			if errorOut {
 				return ErrNoAuth
 			}
@@ -68,17 +60,17 @@ func (m *metricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 		labels := []string{ClientIDLabel, client, PartnerIDLabel, partnerID, EndpointLabel, endpoint}
 		if err != nil {
 			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
-			m.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+			m.Measures.CapabilityCheckOutcome.With(labels...).Add(1)
 			if errorOut {
 				return err
 			}
 			return nil
 		}
 
-		reason, err = m.c.Check(auth)
+		reason, err = m.C.Check(auth)
 		if err != nil {
 			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
-			m.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+			m.Measures.CapabilityCheckOutcome.With(labels...).Add(1)
 			if errorOut {
 				return err
 			}
@@ -86,55 +78,13 @@ func (m *metricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 		}
 
 		labels = append(labels, OutcomeLabel, AcceptedOutcome, ReasonLabel, "")
-		m.measures.CapabilityCheckOutcome.With(labels...).Add(1)
+		m.Measures.CapabilityCheckOutcome.With(labels...).Add(1)
 		return nil
 	}
 }
 
-func NewMetricCapabilityChecker(c CapabilitiesChecker, m *AuthCapabilityCheckMeasures, endpoints []*regexp.Regexp) (*metricValidator, error) {
-	if c == nil {
-		return nil, ErrNilCapabilitiesChecker
-	}
-	if m == nil {
-		return nil, ErrNilMeasures
-	}
-	mc := metricValidator{
-		measures:  m,
-		c:         c,
-		endpoints: endpoints,
-	}
-	return &mc, nil
-}
-
-func NewMetricCapabilityCheckerFromStrings(c CapabilitiesChecker, m *AuthCapabilityCheckMeasures, endpoints []string, logger log.Logger) (*metricValidator, error) {
-	// there's no point in compiling these regular expressions if things are nil.
-	if c == nil {
-		return nil, ErrNilCapabilitiesChecker
-	}
-	if m == nil {
-		return nil, ErrNilMeasures
-	}
-
-	var endpointRegexps []*regexp.Regexp
-	l := logger
-	if logger == nil {
-		l = defaultLogger
-	}
-	for _, e := range endpoints {
-		r, err := regexp.Compile(e)
-		if err != nil {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "failed to compile regular expression", "regex", e, logging.ErrorKey(), err.Error())
-			continue
-		}
-		endpointRegexps = append(endpointRegexps, r)
-	}
-
-	return NewMetricCapabilityChecker(c, m, endpointRegexps)
-
-}
-
 // prepMetrics gathers the information needed for metric label information.
-func (m *metricValidator) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
+func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
 	// getting metric information
 	client := auth.Token.Principal()
 	partnerIDs, ok := auth.Token.Attributes().GetStringSlice(PartnerKey)
@@ -143,7 +93,7 @@ func (m *metricValidator) prepMetrics(auth bascule.Authentication) (string, stri
 	}
 	partnerID := determinePartnerMetric(partnerIDs)
 	escapedURL := auth.Request.URL.EscapedPath()
-	endpoint := determineEndpointMetric(m.endpoints, escapedURL)
+	endpoint := determineEndpointMetric(m.Endpoints, escapedURL)
 	return client, partnerID, endpoint, "", nil
 }
 

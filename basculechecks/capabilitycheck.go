@@ -18,45 +18,30 @@
 package basculechecks
 
 import (
-	"errors"
 	"regexp"
 	"strings"
-
-	"github.com/goph/emperror"
 )
 
-var (
-	ErrNilPrefix = errors.New("prefix regular expression cannot be nil")
-)
+type ConstCheck string
 
-type constCheck struct {
-	val string
+func (c ConstCheck) Authorized(capability, _, _ string) bool {
+	return string(c) == capability
 }
 
-func (c constCheck) Authorized(capability string, _ string, _ string) bool {
-	return c.val == capability
+type EndpointRegexCheck struct {
+	PrefixToMatch   *regexp.Regexp
+	AcceptAllMethod string
 }
 
-func NewConstCheck(v string) constCheck {
-	return constCheck{
-		val: v,
-	}
-}
-
-type endpointRegexCheck struct {
-	prefixToMatch   *regexp.Regexp
-	acceptAllMethod string
-}
-
-func (e *endpointRegexCheck) Authorized(capability string, urlToMatch string, methodToMatch string) bool {
-	matches := e.prefixToMatch.FindStringSubmatch(capability)
+func (e EndpointRegexCheck) Authorized(capability string, urlToMatch string, methodToMatch string) bool {
+	matches := e.PrefixToMatch.FindStringSubmatch(capability)
 
 	if matches == nil || len(matches) < 2 {
 		return false
 	}
 
 	method := matches[2]
-	if method != e.acceptAllMethod && method != strings.ToLower(methodToMatch) {
+	if method != e.AcceptAllMethod && method != strings.ToLower(methodToMatch) {
 		return false
 	}
 
@@ -67,33 +52,4 @@ func (e *endpointRegexCheck) Authorized(capability string, urlToMatch string, me
 	}
 
 	return true
-}
-
-// NewEndpointRegexCheck creates an object that produces a check on capabilities
-// in bascule tokens, to be run by the bascule enforcer middleware.
-func NewEndpointRegexCheck(prefix *regexp.Regexp, acceptAllMethod string) (*endpointRegexCheck, error) {
-	if prefix == nil {
-		return nil, ErrNilPrefix
-	}
-
-	e := endpointRegexCheck{
-		prefixToMatch:   prefix,
-		acceptAllMethod: acceptAllMethod,
-	}
-	return &e, nil
-}
-
-// NewEndpointRegexCheckFromString creates an object that produces a check on capabilities
-// in bascule tokens, to be run by the bascule enforcer middleware.
-func NewEndpointRegexCheckFromString(prefix string, acceptAllMethod string) (*endpointRegexCheck, error) {
-	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
-	if err != nil {
-		return nil, emperror.WrapWith(err, "failed to compile prefix given", "prefix", prefix)
-	}
-
-	e := endpointRegexCheck{
-		prefixToMatch:   matchPrefix,
-		acceptAllMethod: acceptAllMethod,
-	}
-	return &e, nil
 }
