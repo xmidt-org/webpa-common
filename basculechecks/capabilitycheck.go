@@ -18,6 +18,7 @@
 package basculechecks
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -29,23 +30,42 @@ func (c ConstCheck) Authorized(capability, _, _ string) bool {
 }
 
 type EndpointRegexCheck struct {
-	PrefixToMatch   *regexp.Regexp
-	AcceptAllMethod string
+	prefixToMatch   *regexp.Regexp
+	acceptAllMethod string
+}
+
+// NewCapabilityChecker creates an object that produces a check on capabilities
+// in bascule tokens, to be run by the bascule enforcer middleware.
+func NewEndpointRegexCheck(prefix string, acceptAllMethod string) (EndpointRegexCheck, error) {
+	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
+	if err != nil {
+		return EndpointRegexCheck{}, fmt.Errorf("failed to compile prefix [%v]: %w", prefix, err)
+	}
+
+	e := EndpointRegexCheck{
+		prefixToMatch:   matchPrefix,
+		acceptAllMethod: acceptAllMethod,
+	}
+	return e, nil
 }
 
 func (e EndpointRegexCheck) Authorized(capability string, urlToMatch string, methodToMatch string) bool {
-	matches := e.PrefixToMatch.FindStringSubmatch(capability)
+	matches := e.prefixToMatch.FindStringSubmatch(capability)
 
 	if matches == nil || len(matches) < 2 {
 		return false
 	}
 
 	method := matches[2]
-	if method != e.AcceptAllMethod && method != strings.ToLower(methodToMatch) {
+	if method != e.acceptAllMethod && method != strings.ToLower(methodToMatch) {
 		return false
 	}
 
-	re := regexp.MustCompile(matches[1]) //url regex that capability grants access to
+	re, err := regexp.Compile(matches[1]) //url regex that capability grants access to
+	if err != nil {
+		return false
+	}
+
 	matchIdxs := re.FindStringIndex(urlToMatch)
 	if matchIdxs == nil || matchIdxs[0] != 0 {
 		return false

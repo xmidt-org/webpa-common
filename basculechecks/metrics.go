@@ -50,6 +50,7 @@ const (
 	UndeterminedPartnerID    = "undetermined_partner_ID"
 	UndeterminedCapabilities = "undetermined_capabilities"
 	EmptyCapabilitiesList    = "empty_capabilities_list"
+	TokenMissingValues       = "auth_is_missing_values"
 	NoCapabilitiesMatch      = "no_capabilities_match"
 )
 

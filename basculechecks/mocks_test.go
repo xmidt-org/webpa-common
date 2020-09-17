@@ -17,14 +17,16 @@
 
 package basculechecks
 
-import "github.com/stretchr/testify/mock"
+import (
+	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/bascule"
+)
 
-type mockLogger struct {
+type mockCapabilitiesChecker struct {
 	mock.Mock
 }
 
-func (m *mockLogger) Log(keyvals ...interface{}) error {
-	arguments := m.Called(keyvals)
-	first, _ := arguments.Get(0).(error)
-	return first
+func (m *mockCapabilitiesChecker) Check(auth bascule.Authentication) (string, error) {
+	args := m.Called(auth)
+	return args.String(0), args.Error(1)
 }

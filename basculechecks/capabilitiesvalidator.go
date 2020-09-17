@@ -29,8 +29,10 @@ import (
 var (
 	ErrNoVals                 = errors.New("expected at least one value")
 	ErrNoAuth                 = errors.New("couldn't get request info: authorization not found")
+	ErrNoToken                = errors.New("no token found in Auth")
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
 	ErrNilAttributes          = errors.New("nil attributes interface")
+	ErrNoURL                  = errors.New("invalid URL found in Auth")
 )
 
 const (
@@ -51,7 +53,7 @@ type CapabilitiesValidator struct {
 // method and url to the values at the CapabilityKey in the Attributes of a
 // token.  The function created can error out or not based on the parameter
 // passed, and the outcome of the check will be updated in a metric.
-func (c *CapabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
+func (c CapabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
 		auth, ok := bascule.FromContext(ctx)
 		if !ok {
@@ -70,13 +72,21 @@ func (c *CapabilitiesValidator) CreateValidator(errorOut bool) bascule.Validator
 	}
 }
 
-func (c *CapabilitiesValidator) Check(auth bascule.Authentication) (string, error) {
+func (c CapabilitiesValidator) Check(auth bascule.Authentication) (string, error) {
+	if auth.Token == nil {
+		return TokenMissingValues, ErrNoToken
+	}
 	vals, reason, err := getCapabilities(auth.Token.Attributes())
 	if err != nil {
 		return reason, err
 	}
 
-	err = c.checkCapabilities(vals, auth.Request)
+	if auth.Request.URL == nil {
+		return TokenMissingValues, ErrNoURL
+	}
+	reqURL := auth.Request.URL.EscapedPath()
+	method := auth.Request.Method
+	err = c.checkCapabilities(vals, reqURL, method)
 	if err != nil {
 		return NoCapabilitiesMatch, err
 	}
@@ -85,15 +95,13 @@ func (c *CapabilitiesValidator) Check(auth bascule.Authentication) (string, erro
 
 // checkCapabilities parses each capability to check it against the prefix
 // expected, the url hit, and the method used.  If a match is found, no error is returned.
-func (c *CapabilitiesValidator) checkCapabilities(capabilities []string, requestInfo bascule.Request) error {
-	urlToMatch := requestInfo.URL.EscapedPath()
-	methodToMatch := requestInfo.Method
+func (c CapabilitiesValidator) checkCapabilities(capabilities []string, reqURL string, method string) error {
 	for _, val := range capabilities {
-		if c.Checker.Authorized(val, urlToMatch, methodToMatch) {
+		if c.Checker.Authorized(val, reqURL, method) {
 			return nil
 		}
 	}
-	return emperror.With(ErrNoValidCapabilityFound, "capabilitiesFound", capabilities, "urlToMatch", urlToMatch, "methodToMatch", methodToMatch)
+	return emperror.With(ErrNoValidCapabilityFound, "capabilitiesFound", capabilities, "urlToMatch", reqURL, "methodToMatch", method)
 
 }
 
