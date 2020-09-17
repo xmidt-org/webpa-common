@@ -36,17 +36,17 @@ var (
 
 var defaultLogger = log.NewNopLogger()
 
-type CapabilityChecker interface {
+type CapabilitiesChecker interface {
 	Check(auth bascule.Authentication) (string, error)
 }
 
-type metricChecker struct {
-	c         CapabilityChecker
+type metricValidator struct {
+	c         CapabilitiesChecker
 	measures  *AuthCapabilityCheckMeasures
 	endpoints []*regexp.Regexp
 }
 
-func (m *metricChecker) CreateBasculeCheck(errorOut bool) bascule.ValidatorFunc {
+func (m *metricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
 		// if we're not supposed to error out, the outcome should be accepted on failure
 		failureOutcome := AcceptedOutcome
@@ -91,14 +91,14 @@ func (m *metricChecker) CreateBasculeCheck(errorOut bool) bascule.ValidatorFunc 
 	}
 }
 
-func NewMetricCapabilityChecker(c CapabilityChecker, m *AuthCapabilityCheckMeasures, endpoints []*regexp.Regexp) (*metricChecker, error) {
+func NewMetricCapabilityChecker(c CapabilitiesChecker, m *AuthCapabilityCheckMeasures, endpoints []*regexp.Regexp) (*metricValidator, error) {
 	if c == nil {
 		return nil, ErrNilChecker
 	}
 	if m == nil {
 		return nil, ErrNilMeasures
 	}
-	mc := metricChecker{
+	mc := metricValidator{
 		measures:  m,
 		c:         c,
 		endpoints: endpoints,
@@ -106,7 +106,7 @@ func NewMetricCapabilityChecker(c CapabilityChecker, m *AuthCapabilityCheckMeasu
 	return &mc, nil
 }
 
-func NewMetricCapabilityCheckerFromStrings(c CapabilityChecker, m *AuthCapabilityCheckMeasures, endpoints []string, logger log.Logger) (*metricChecker, error) {
+func NewMetricCapabilityCheckerFromStrings(c CapabilitiesChecker, m *AuthCapabilityCheckMeasures, endpoints []string, logger log.Logger) (*metricValidator, error) {
 	// there's no point in compiling these regular expressions if things are nil.
 	if c == nil {
 		return nil, ErrNilChecker
@@ -134,7 +134,7 @@ func NewMetricCapabilityCheckerFromStrings(c CapabilityChecker, m *AuthCapabilit
 }
 
 // prepMetrics gathers the information needed for metric label information.
-func (m *metricChecker) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
+func (m *metricValidator) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
 	// getting metric information
 	client := auth.Token.Principal()
 	partnerIDs, ok := auth.Token.Attributes().GetStringSlice(PartnerKey)
