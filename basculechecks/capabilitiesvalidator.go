@@ -15,6 +15,7 @@ var (
 	ErrNonstringVal           = errors.New("expected value to be a string")
 	ErrNoValidCapabilityFound = errors.New("no valid capability for endpoint")
 	ErrNilAttributes          = errors.New("nil attributes interface")
+	ErrNilCapabilityChecker   = errors.New("capability checker cannot be nil")
 )
 
 const (
@@ -35,7 +36,7 @@ type capabilitiesValidator struct {
 // method and url to the values at the CapabilityKey in the Attributes of a
 // token.  The function created can error out or not based on the parameter
 // passed, and the outcome of the check will be updated in a metric.
-func (c *capabilitiesValidator) CreateBasculeCheck(errorOut bool) bascule.ValidatorFunc {
+func (c *capabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
 		auth, ok := bascule.FromContext(ctx)
 		if !ok {
@@ -67,11 +68,11 @@ func (c *capabilitiesValidator) Check(auth bascule.Authentication) (string, erro
 	return "", nil
 }
 
-// NewCapabilitiesParser creates an object that produces a check on capabilities
+// NewCapabilitiesValidator creates an object that produces a check on capabilities
 // in bascule tokens, to be run by the bascule enforcer middleware.
-func NewCapabilitiesParser(c CapabilityChecker) (*capabilitiesValidator, error) {
+func NewCapabilitiesValidator(c CapabilityChecker) (*capabilitiesValidator, error) {
 	if c == nil {
-		return nil, ErrNilPrefix
+		return nil, ErrNilCapabilityChecker
 	}
 
 	checker := capabilitiesValidator{

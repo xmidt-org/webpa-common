@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	ErrNilChecker  = errors.New("capability checker cannot be nil")
-	ErrNilMeasures = errors.New("capability check measures cannot be nil")
+	ErrNilCapabilitiesChecker = errors.New("capabilities checker cannot be nil")
+	ErrNilMeasures            = errors.New("capability check measures cannot be nil")
 )
 
 var defaultLogger = log.NewNopLogger()
@@ -93,7 +93,7 @@ func (m *metricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 
 func NewMetricCapabilityChecker(c CapabilitiesChecker, m *AuthCapabilityCheckMeasures, endpoints []*regexp.Regexp) (*metricValidator, error) {
 	if c == nil {
-		return nil, ErrNilChecker
+		return nil, ErrNilCapabilitiesChecker
 	}
 	if m == nil {
 		return nil, ErrNilMeasures
@@ -109,7 +109,7 @@ func NewMetricCapabilityChecker(c CapabilitiesChecker, m *AuthCapabilityCheckMea
 func NewMetricCapabilityCheckerFromStrings(c CapabilitiesChecker, m *AuthCapabilityCheckMeasures, endpoints []string, logger log.Logger) (*metricValidator, error) {
 	// there's no point in compiling these regular expressions if things are nil.
 	if c == nil {
-		return nil, ErrNilChecker
+		return nil, ErrNilCapabilitiesChecker
 	}
 	if m == nil {
 		return nil, ErrNilMeasures
