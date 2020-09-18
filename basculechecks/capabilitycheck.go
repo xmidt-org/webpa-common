@@ -42,10 +42,11 @@ type EndpointRegexCheck struct {
 
 // NewEndpointRegexCheck creates an object that implements the
 // CapabilityChecker interface.  It takes a prefix that is expected at the
-// beinning of a capability and a string that, if provided in the capability,
+// beginning of a capability and a string that, if provided in the capability,
 // authorizes all methods for that endpoint.  After the prefix, the
 // EndpointRegexCheck expects there to be an endpoint regular expression and an
-//http method - separated by a colon.
+//http method - separated by a colon. The expected format of a capability is:
+// <prefix><endpoint regex>:<method>
 func NewEndpointRegexCheck(prefix string, acceptAllMethod string) (EndpointRegexCheck, error) {
 	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
 	if err != nil {
