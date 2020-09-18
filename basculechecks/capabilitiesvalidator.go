@@ -40,19 +40,24 @@ const (
 	PartnerKey    = "allowedResources.allowedPartners"
 )
 
+// CapabilityChecker is an object that can determine if a capability provides
+// authorization to the endpoint.
 type CapabilityChecker interface {
 	Authorized(string, string, string) bool
 }
 
+// CapabilitiesValidator checks the capabilities provided in a
+// bascule.Authentication object to determine if a request is authorized.  It
+// can also provide a function to be used in authorization middleware that
+// pulls the Authentication object from a context before checking it.
 type CapabilitiesValidator struct {
 	Checker CapabilityChecker
 }
 
-// CreateBasculeCheck creates a function that determines whether or not a
-// client is authorized to make a request to an endpoint by comparing the
-// method and url to the values at the CapabilityKey in the Attributes of a
-// token.  The function created can error out or not based on the parameter
-// passed, and the outcome of the check will be updated in a metric.
+// CreateValidator creates a function that determines whether or not a
+// client is authorized to make a request to an endpoint.  It uses the
+// bascule.Authentication from the context to get the information needed by the
+// CapabilityChecker to determine authorization.
 func (c CapabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
 		auth, ok := bascule.FromContext(ctx)
@@ -72,6 +77,11 @@ func (c CapabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorF
 	}
 }
 
+// Check takes the needed values out of the given Authentication object in
+// order to determine if a request is authorized.  It determines this through
+// iterating through each capability and calling the CapabilityChecker.  If no
+// capability authorizes the client for the given endpoint and method, it is
+// unauthorized.
 func (c CapabilitiesValidator) Check(auth bascule.Authentication) (string, error) {
 	if auth.Token == nil {
 		return TokenMissingValues, ErrNoToken
@@ -93,8 +103,9 @@ func (c CapabilitiesValidator) Check(auth bascule.Authentication) (string, error
 	return "", nil
 }
 
-// checkCapabilities parses each capability to check it against the prefix
-// expected, the url hit, and the method used.  If a match is found, no error is returned.
+// checkCapabilities uses a CapabilityChecker to check if each capability
+// provided is authorized.  If an authorized capability is found, no error is
+// returned.
 func (c CapabilitiesValidator) checkCapabilities(capabilities []string, reqURL string, method string) error {
 	for _, val := range capabilities {
 		if c.Checker.Authorized(val, reqURL, method) {

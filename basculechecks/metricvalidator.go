@@ -28,16 +28,27 @@ import (
 
 var defaultLogger = log.NewNopLogger()
 
+// CapabilitiesChecker is an object that can determine if a request is
+// authorized given a bascule.Authentication object.  If it's not authorized,
+// a reason and error are given for logging and metrics.
 type CapabilitiesChecker interface {
 	Check(auth bascule.Authentication) (string, error)
 }
 
+// MetricValidator determines if a request is authorized and then updates a
+// metric to show those results.
 type MetricValidator struct {
 	C         CapabilitiesChecker
 	Measures  *AuthCapabilityCheckMeasures
 	Endpoints []*regexp.Regexp
 }
 
+// CreateValidator provides a function for authorization middleware.  The
+// function parses the information needed for the CapabilitiesChecker, calls it
+// to determine if the request is authorized, and maintains the results in a
+// metric.  The function can actually mark the request as unauthorized or just
+// update the metric and allow the request, depending on configuration.  This
+// allows for monitoring before being more strict with authorization.
 func (m MetricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	return func(ctx context.Context, _ bascule.Token) error {
 		// if we're not supposed to error out, the outcome should be accepted on failure
@@ -83,7 +94,9 @@ func (m MetricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 	}
 }
 
-// prepMetrics gathers the information needed for metric label information.
+// prepMetrics gathers the information needed for metric label information.  It
+// gathers the client ID, partnerID, and endpoint (bucketed) for more information
+// on the metric when a request is unauthorized.
 func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, string, string, string, error) {
 	if auth.Token == nil {
 		return "", "", "", TokenMissingValues, ErrNoToken

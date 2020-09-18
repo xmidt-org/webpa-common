@@ -23,19 +23,29 @@ import (
 	"strings"
 )
 
+// ConstCheck is a basic capability checker that determines a capability is
+// authorized if it matches the ConstCheck's string.
 type ConstCheck string
 
+// Authorized validates the capability provided against the stored string.
 func (c ConstCheck) Authorized(capability, _, _ string) bool {
 	return string(c) == capability
 }
 
+// EndpointRegexCheck uses a regular expression to validate an endpoint and
+// method provided in a capability against the endpoint hit and method used for
+// the request.
 type EndpointRegexCheck struct {
 	prefixToMatch   *regexp.Regexp
 	acceptAllMethod string
 }
 
-// NewCapabilityChecker creates an object that produces a check on capabilities
-// in bascule tokens, to be run by the bascule enforcer middleware.
+// NewEndpointRegexCheck creates an object that implements the
+// CapabilityChecker interface.  It takes a prefix that is expected at the
+// beinning of a capability and a string that, if provided in the capability,
+// authorizes all methods for that endpoint.  After the prefix, the
+// EndpointRegexCheck expects there to be an endpoint regular expression and an
+//http method - separated by a colon.
 func NewEndpointRegexCheck(prefix string, acceptAllMethod string) (EndpointRegexCheck, error) {
 	matchPrefix, err := regexp.Compile("^" + prefix + "(.+):(.+?)$")
 	if err != nil {
@@ -49,6 +59,9 @@ func NewEndpointRegexCheck(prefix string, acceptAllMethod string) (EndpointRegex
 	return e, nil
 }
 
+// Authorized checks the capability against the endpoint hit and method used.
+// If the capability has the correct prefix and is meant to be used with the
+// method provided to access the endpoint provided, it is authorized.
 func (e EndpointRegexCheck) Authorized(capability string, urlToMatch string, methodToMatch string) bool {
 	matches := e.prefixToMatch.FindStringSubmatch(capability)
 
