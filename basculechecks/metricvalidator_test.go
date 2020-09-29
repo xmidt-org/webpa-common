@@ -335,7 +335,7 @@ func TestDeterminePartnerMetric(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			partner := determinePartnerMetric(tc.partnersInput)
+			partner := DeterminePartnerMetric(tc.partnersInput)
 			assert.Equal(tc.expectedResult, partner)
 		})
 	}

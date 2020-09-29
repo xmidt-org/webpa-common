@@ -109,7 +109,7 @@ func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, strin
 	if !ok {
 		return client, "", "", UndeterminedPartnerID, fmt.Errorf("couldn't get partner IDs from attributes using key %v", PartnerKey)
 	}
-	partnerID := determinePartnerMetric(partnerIDs)
+	partnerID := DeterminePartnerMetric(partnerIDs)
 	if auth.Request.URL == nil {
 		return client, partnerID, "", TokenMissingValues, ErrNoURL
 	}
@@ -118,9 +118,9 @@ func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, strin
 	return client, partnerID, endpoint, "", nil
 }
 
-// determinePartnerMetric takes a list of partners and decides what the partner
+// DeterminePartnerMetric takes a list of partners and decides what the partner
 // metric label should be.
-func determinePartnerMetric(partners []string) string {
+func DeterminePartnerMetric(partners []string) string {
 	if len(partners) < 1 {
 		return "none"
 	}
