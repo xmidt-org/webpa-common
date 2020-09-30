@@ -5,8 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v1.11.0]
 ### Changed
 - Updated capability checker to be more modular and have more configurable checks. [#522](https://github.com/xmidt-org/webpa-common/pull/522)
+- Exported function for determining partner ID to use in a metric label from a list of partner IDs. [#523](https://github.com/xmidt-org/webpa-common/pull/523)
 
 ## [v1.10.8]
 ### Changed
@@ -155,7 +158,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.10.8...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.0...HEAD
+[v1.11.0]: https://github.com/xmidt-org/webpa-common/compare/v1.10.8...v1.11.0
 [v1.10.8]: https://github.com/xmidt-org/webpa-common/compare/v1.10.7...v1.10.8
 [v1.10.7]: https://github.com/xmidt-org/webpa-common/compare/v1.10.6...v1.10.7
 [v1.10.6]: https://github.com/xmidt-org/webpa-common/compare/v1.10.5...v1.10.6
