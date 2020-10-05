@@ -26,6 +26,9 @@ const (
 	// DefaultMetricsAddress is the bind address of the metrics server
 	DefaultMetricsAddress = ":8082"
 
+	// DefaultPprofAddress is the bind address of the pprof server
+	DefaultPprofAddress = ":6060"
+
 	// DefaultHealthLogInterval is the interval at which health statistics are emitted
 	// when a non-positive log interval is specified
 	DefaultHealthLogInterval time.Duration = time.Duration(60 * time.Second)
@@ -162,6 +165,7 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 	v.SetDefault("health.logConnectionState", DefaultLogConnectionState)
 
 	v.SetDefault("pprof.name", fmt.Sprintf("%s.%s", applicationName, PprofSuffix))
+	v.SetDefault("pprof.address", DefaultPprofAddress)
 	v.SetDefault("pprof.logConnectionState", DefaultLogConnectionState)
 
 	v.SetDefault("metric.name", fmt.Sprintf("%s.%s", applicationName, MetricsSuffix))
