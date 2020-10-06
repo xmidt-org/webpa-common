@@ -37,8 +37,15 @@ var (
 
 const (
 	CapabilityKey = "capabilities"
-	PartnerKey    = "allowedResources.allowedPartners"
 )
+
+var (
+	partnerKeys    = []string{"allowedResources", "allowedPartners"}
+)
+
+func PartnerKeys() []string {
+	return partnerKeys
+}
 
 // CapabilityChecker is an object that can determine if a capability provides
 // authorization to the endpoint.
@@ -123,9 +130,14 @@ func getCapabilities(attributes bascule.Attributes) ([]string, string, error) {
 		return []string{}, UndeterminedCapabilities, ErrNilAttributes
 	}
 
-	vals, ok := attributes.GetStringSlice(CapabilityKey)
+	val, ok := attributes.Get(CapabilityKey)
 	if !ok {
 		return []string{}, UndeterminedCapabilities, fmt.Errorf("couldn't get capabilities using key %v", CapabilityKey)
+	}
+
+	vals, ok := val.([]string)
+	if !ok {
+		return []string{}, UndeterminedCapabilities, fmt.Errorf("capabilities value not the expected string slice: %v", val)
 	}
 
 	if len(vals) == 0 {

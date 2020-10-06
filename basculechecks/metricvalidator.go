@@ -105,9 +105,13 @@ func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, strin
 	if auth.Token.Attributes() == nil {
 		return client, "", "", TokenMissingValues, ErrNilAttributes
 	}
-	partnerIDs, ok := auth.Token.Attributes().GetStringSlice(PartnerKey)
+	partnerVal, ok := bascule.GetNestedAttribute(auth.Token.Attributes(), PartnerKeys()...)
 	if !ok {
-		return client, "", "", UndeterminedPartnerID, fmt.Errorf("couldn't get partner IDs from attributes using key %v", PartnerKey)
+		return client, "", "", UndeterminedPartnerID, fmt.Errorf("couldn't get partner IDs from attributes using keys %v", PartnerKeys())
+	}
+	partnerIDs, ok := partnerVal.([]string)
+	if !ok {
+		return client, "", "", UndeterminedPartnerID, fmt.Errorf("partner IDs value not the expected string slice: %v", partnerVal)
 	}
 	partnerID := DeterminePartnerMetric(partnerIDs)
 	if auth.Request.URL == nil {
