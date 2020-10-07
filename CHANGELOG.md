@@ -5,8 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v1.11.1]
 ### Changed
 - Made 6060 pprof server's default address. [#521](https://github.com/xmidt-org/webpa-common/pull/521)
+- Bumped bascule version and made attributes-related changes. [#525](https://github.com/xmidt-org/webpa-common/pull/525)
 
 ## [v1.11.0]
 ### Changed
@@ -160,7 +163,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.1...HEAD
+[v1.11.1]: https://github.com/xmidt-org/webpa-common/compare/v1.11.0...v1.11.1
 [v1.11.0]: https://github.com/xmidt-org/webpa-common/compare/v1.10.8...v1.11.0
 [v1.10.8]: https://github.com/xmidt-org/webpa-common/compare/v1.10.7...v1.10.8
 [v1.10.7]: https://github.com/xmidt-org/webpa-common/compare/v1.10.6...v1.10.7

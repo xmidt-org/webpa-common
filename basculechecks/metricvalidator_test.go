@@ -40,9 +40,11 @@ func TestMetricValidatorFunc(t *testing.T) {
 		"joweiafuoiuoiwauf",
 		"it's a match",
 	}
-	goodAttributes := bascule.NewAttributesFromMap(map[string]interface{}{
+	goodAttributes := bascule.NewAttributes(map[string]interface{}{
 		CapabilityKey: capabilities,
-		PartnerKey:    []string{"meh"},
+		"allowedResources": map[string]interface{}{
+			"allowedPartners": []string{"meh"},
+		},
 	})
 
 	tests := []struct {
@@ -150,6 +152,7 @@ func TestPrepMetrics(t *testing.T) {
 		matchingURL    = "/fnvvdsjkfji/mac:12345544322345334/geigosj"
 		client         = "special"
 		prepErr        = errors.New("couldn't get partner IDs from attributes")
+		badValErr      = errors.New("partner IDs value not the expected string slice")
 		goodEndpoint   = `/fnvvdsjkfji/.*/geigosj\b`
 		goodRegex      = regexp.MustCompile(goodEndpoint)
 		unusedEndpoint = `/a/b\b`
@@ -225,7 +228,7 @@ func TestPrepMetrics(t *testing.T) {
 			expectedPartner:   "",
 			expectedEndpoint:  "",
 			expectedReason:    UndeterminedPartnerID,
-			expectedErr:       prepErr,
+			expectedErr:       badValErr,
 		},
 		{
 			description:       "Non Slice Partner ID Error",
@@ -236,7 +239,7 @@ func TestPrepMetrics(t *testing.T) {
 			expectedPartner:   "",
 			expectedEndpoint:  "",
 			expectedReason:    UndeterminedPartnerID,
-			expectedErr:       prepErr,
+			expectedErr:       badValErr,
 		},
 		{
 			description:       "Nil URL Error",
@@ -262,11 +265,16 @@ func TestPrepMetrics(t *testing.T) {
 			// setup auth
 			token := bascule.NewToken("mehType", client, nil)
 			if tc.includeAttributes {
-				a := map[string]interface{}{}
-				if !tc.noPartnerID {
-					a[PartnerKey] = tc.partnerIDs
+				a := map[string]interface{}{
+					"allowedResources": map[string]interface{}{
+						"allowedPartners": tc.partnerIDs,
+					},
 				}
-				attributes := bascule.NewAttributesFromMap(a)
+
+				if tc.noPartnerID {
+					a["allowedResources"] = 5
+				}
+				attributes := bascule.NewAttributes(a)
 				token = bascule.NewToken("mehType", client, attributes)
 			}
 			auth := bascule.Authentication{

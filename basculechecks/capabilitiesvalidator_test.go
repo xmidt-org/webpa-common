@@ -89,7 +89,7 @@ func TestCapabilitiesValidatorFunc(t *testing.T) {
 			}
 			if tc.includeToken {
 				auth.Token = bascule.NewToken("test", "princ",
-					bascule.NewAttributesFromMap(map[string]interface{}{CapabilityKey: capabilities}))
+					bascule.NewAttributes(map[string]interface{}{CapabilityKey: capabilities}))
 			}
 			if tc.includeAuth {
 				ctx = bascule.WithAuthentication(ctx, auth)
@@ -168,7 +168,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 			}
 			if tc.includeAttributes {
 				a.Token = bascule.NewToken("test", "princ",
-					bascule.NewAttributesFromMap(map[string]interface{}{CapabilityKey: capabilities}))
+					bascule.NewAttributes(map[string]interface{}{CapabilityKey: capabilities}))
 			}
 			if tc.includeURL {
 				goodURL, err := url.Parse("/test")
@@ -231,6 +231,7 @@ func TestGetCapabilities(t *testing.T) {
 	goodKeyVal := []string{"cap1", "cap2"}
 	emptyVal := []string{}
 	getCapabilitiesErr := errors.New("couldn't get capabilities using key")
+	badCapabilitiesErr := errors.New("capabilities value not the expected string slice")
 	tests := []struct {
 		description      string
 		nilAttributes    bool
@@ -266,21 +267,21 @@ func TestGetCapabilities(t *testing.T) {
 			keyValue:       nil,
 			expectedVals:   emptyVal,
 			expectedReason: UndeterminedCapabilities,
-			expectedErr:    getCapabilitiesErr,
+			expectedErr:    badCapabilitiesErr,
 		},
 		{
 			description:    "Non List Capabilities Error",
 			keyValue:       struct{ string }{"abcd"},
 			expectedVals:   emptyVal,
 			expectedReason: UndeterminedCapabilities,
-			expectedErr:    getCapabilitiesErr,
+			expectedErr:    badCapabilitiesErr,
 		},
 		{
 			description:    "Non String List Capabilities Error",
 			keyValue:       []int{0, 1, 2},
 			expectedVals:   emptyVal,
 			expectedReason: UndeterminedCapabilities,
-			expectedErr:    getCapabilitiesErr,
+			expectedErr:    badCapabilitiesErr,
 		},
 		{
 			description:    "Empty Capabilities Error",
@@ -298,7 +299,7 @@ func TestGetCapabilities(t *testing.T) {
 			if tc.missingAttribute {
 				m = map[string]interface{}{}
 			}
-			attributes := bascule.NewAttributesFromMap(m)
+			attributes := bascule.NewAttributes(m)
 			if tc.nilAttributes {
 				attributes = nil
 			}
