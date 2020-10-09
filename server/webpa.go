@@ -276,15 +276,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 		if err != nil {
 			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
 				logging.ErrorKey(), err)
-			certs, err := generateCerts(b.CertificateFile, b.KeyFile)
-			if err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
-					logging.ErrorKey(), err)
-			} else {
-				tlsConfig = &tls.Config{}
-				tlsConfig.Certificates = certs
-				tlsConfig.BuildNameToCertificate()
-			}
+			return nil
 		} else {
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
