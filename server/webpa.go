@@ -274,7 +274,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 
 		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
 		if err != nil {
-			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile named "+b.ClientCACertFile,
+			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
 				logging.ErrorKey(), err)
 			return nil
 		} else {
