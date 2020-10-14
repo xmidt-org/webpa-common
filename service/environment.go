@@ -37,6 +37,7 @@ type Environment interface {
 	// Changing the returned Instancers will not result in changing this Environment's state.
 	Instancers() Instancers
 
+	// SetInstancers configures the set of sd.Instancer objects for use in the environment.
 	SetInstancers(i Instancers)
 
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
