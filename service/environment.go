@@ -37,6 +37,8 @@ type Environment interface {
 	// Changing the returned Instancers will not result in changing this Environment's state.
 	Instancers() Instancers
 
+	SetInstancers(i Instancers)
+
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
 	// Typically, this factory is set via configuration by some external source.
 	AccessorFactory() AccessorFactory
@@ -142,6 +144,10 @@ func (e *environment) DefaultScheme() string {
 
 func (e *environment) Instancers() Instancers {
 	return e.instancers.Copy()
+}
+
+func (e *environment) SetInstancers(i Instancers) {
+	e.instancers = i.Copy()
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {

@@ -128,7 +128,6 @@ func newInstancer(l log.Logger, c Client, w Watch) sd.Instancer {
 
 func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, err error) {
 	var datacenters []string
-
 	for _, w := range co.watches() {
 		if w.CrossDatacenter {
 			if len(datacenters) == 0 {
@@ -209,13 +208,41 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 		return nil, err
 	}
 
-	return environment{
+	newServiceEnvironment := environment{
 		service.NewEnvironment(
 			append(
 				eo,
 				service.WithRegistrars(r),
 				service.WithInstancers(i),
 				service.WithCloser(closer),
-			)...,
-		), NewClient(consulClient)}, nil
+			)...), NewClient(consulClient)}
+
+	if co.DatacenterWatchInterval > 0 {
+		go WatchInstancers(l, co, newServiceEnvironment)
+	}
+
+	return newServiceEnvironment, nil
+}
+
+func WatchInstancers(l log.Logger, co Options, e Environment) {
+	if co.DatacenterWatchInterval <= 0 {
+		return
+	}
+
+	createInstancersAgain := time.NewTicker(co.DatacenterWatchInterval)
+	for {
+		select {
+		case <-createInstancersAgain.C:
+			//TODO: check for error when creating new instancers and log that error if it happens. Don't reset instancers
+			//if newInstancers returns nil
+			instancers, err := newInstancers(l, e.Client(), co)
+
+			if err != nil {
+				l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not refresh instancers",
+					logging.ErrorKey(), err)
+				return
+			}
+			e.SetInstancers(instancers)
+		}
+	}
 }

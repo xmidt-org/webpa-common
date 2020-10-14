@@ -82,6 +82,10 @@ func (m *MockEnvironment) Instancers() Instancers {
 	return m.Called().Get(0).(Instancers)
 }
 
+func (m *MockEnvironment) SetInstancers(i Instancers) {
+	m.Called(i)
+}
+
 func (m *MockEnvironment) AccessorFactory() AccessorFactory {
 	return m.Called().Get(0).(AccessorFactory)
 }
