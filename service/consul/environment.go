@@ -232,18 +232,16 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 
 	createInstancersAgain := time.NewTicker(co.DatacenterWatchInterval)
 	for {
-		select {
-		case <-createInstancersAgain.C:
-			//TODO: check for error when creating new instancers and log that error if it happens. Don't reset instancers
-			//if newInstancers returns nil
-			instancers, err := newInstancers(l, e.Client(), co)
+		<-createInstancersAgain.C
+		instancers, err := newInstancers(l, e.Client(), co)
 
-			if err != nil {
-				l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not refresh instancers",
-					logging.ErrorKey(), err)
-				return
-			}
-			e.SetInstancers(instancers)
+		if err != nil {
+			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not refresh instancers",
+				logging.ErrorKey(), err)
+			return
 		}
+		e.SetInstancers(instancers)
+		l.Log(logging.MessageKey(), "successfully set new instancers: ", e.Instancers())
+
 	}
 }
