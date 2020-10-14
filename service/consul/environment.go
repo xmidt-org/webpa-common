@@ -226,6 +226,7 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 
 func WatchInstancers(l log.Logger, co Options, e Environment) {
 	if co.DatacenterWatchInterval <= 0 {
+		l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "Not setting up instancer watch. Watch interval: ", co.DatacenterWatchInterval)
 		return
 	}
 
