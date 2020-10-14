@@ -238,10 +238,9 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 		if err != nil {
 			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not refresh instancers",
 				logging.ErrorKey(), err)
-			return
+			continue
 		}
 		e.SetInstancers(instancers)
-		l.Log(logging.MessageKey(), "successfully set new instancers: ", e.Instancers())
 
 	}
 }
