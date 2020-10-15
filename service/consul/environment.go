@@ -233,7 +233,7 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 	createInstancersAgain := time.NewTicker(co.DatacenterWatchInterval)
 	for {
 		<-createInstancersAgain.C
-		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "oldInstancers: ", e.Instancers())
+		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "before instancers updated ", "oldInstancers: ", e.Instancers())
 		instancers, err := newInstancers(l, e.Client(), co)
 
 		if err != nil {
@@ -242,7 +242,7 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 			continue
 		}
 		e.UpdateInstancers(instancers)
-		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "newInstancers: ", e.Instancers())
+		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "instancers updated", "newInstancers: ", e.Instancers())
 
 	}
 }
