@@ -150,11 +150,11 @@ func (e *environment) Instancers() Instancers {
 func (e *environment) UpdateInstancers(i Instancers) {
 	for key, value := range i {
 		if !e.instancers.Has(key) {
-			e.instancers[key] = i[key]
+			e.instancers[key] = value
 		}
 	}
 
-	for key, value := range e.instancers {
+	for key, _ := range e.instancers {
 		if !i.Has(key) {
 			delete(e.instancers, key)
 		}
