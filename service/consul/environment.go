@@ -231,18 +231,46 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 	}
 
 	createInstancersAgain := time.NewTicker(co.DatacenterWatchInterval)
+	client := e.Client()
 	for {
 		<-createInstancersAgain.C
-		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "before instancers updated ", "oldInstancers: ", e.Instancers())
-		instancers, err := newInstancers(l, e.Client(), co)
 
-		if err != nil {
-			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not refresh instancers",
-				logging.ErrorKey(), err)
-			continue
+		currentInstancers := e.Instancers()
+		keys := make(map[string]bool)
+		instancersToAdd := make(service.Instancers)
+
+		var datacenters []string
+		var err error
+		for _, w := range co.watches() {
+			if w.CrossDatacenter {
+				if len(datacenters) == 0 {
+					datacenters, err = getDatacenters(l, client, co)
+					if err != nil {
+						continue
+					}
+				}
+
+				for _, datacenter := range datacenters {
+					w.QueryOptions.Datacenter = datacenter
+					key := newInstancerKey(w)
+					keys[key] = true
+
+					if currentInstancers.Has(key) {
+						continue
+					}
+
+					if instancersToAdd.Has(key) {
+						l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+						continue
+					}
+					instancersToAdd.Set(key, newInstancer(l, e.Client(), w))
+				}
+			}
 		}
-		e.UpdateInstancers(instancers)
-		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "instancers updated", "newInstancers: ", e.Instancers())
+
+		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "before instancers updated ", "oldInstancers: ", currentInstancers)
+		e.UpdateInstancers(keys, instancersToAdd)
+		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "after instancers updated", "newInstancers: ", e.Instancers())
 
 	}
 }
