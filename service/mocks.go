@@ -82,8 +82,8 @@ func (m *MockEnvironment) Instancers() Instancers {
 	return m.Called().Get(0).(Instancers)
 }
 
-func (m *MockEnvironment) UpdateInstancers(i Instancers) {
-	m.Called(i)
+func (m *MockEnvironment) UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers) {
+	m.Called(currentKeys, instancersToAdd)
 }
 
 func (m *MockEnvironment) AccessorFactory() AccessorFactory {

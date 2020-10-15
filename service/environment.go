@@ -38,7 +38,7 @@ type Environment interface {
 	Instancers() Instancers
 
 	// UpdateInstancers configures the set of sd.Instancer objects for use in the environment.
-	UpdateInstancers(i Instancers)
+	UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers)
 
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
 	// Typically, this factory is set via configuration by some external source.
@@ -147,16 +147,20 @@ func (e *environment) Instancers() Instancers {
 	return e.instancers.Copy()
 }
 
-func (e *environment) UpdateInstancers(i Instancers) {
-	for key, value := range i {
-		if !e.instancers.Has(key) {
-			e.instancers[key] = value
-		}
+func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers) {
+	for key, value := range instancersToAdd {
+		e.instancers.Set(key, value)
 	}
 
-	for key, _ := range e.instancers {
-		if !i.Has(key) {
-			delete(e.instancers, key)
+	for key := range e.instancers {
+		if _, ok := currentKeys[key]; !ok {
+			i, err := e.instancers.Get(key)
+
+			if !err {
+				i.Stop()
+				delete(e.instancers, key)
+			}
+
 		}
 	}
 }
