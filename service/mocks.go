@@ -82,7 +82,7 @@ func (m *MockEnvironment) Instancers() Instancers {
 	return m.Called().Get(0).(Instancers)
 }
 
-func (m *MockEnvironment) SetInstancers(i Instancers) {
+func (m *MockEnvironment) UpdateInstancers(i Instancers) {
 	m.Called(i)
 }
 
