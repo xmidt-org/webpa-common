@@ -240,7 +240,7 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 				logging.ErrorKey(), err)
 			continue
 		}
-		e.SetInstancers(instancers)
+		e.UpdateInstancers(instancers)
 
 	}
 }

@@ -37,8 +37,8 @@ type Environment interface {
 	// Changing the returned Instancers will not result in changing this Environment's state.
 	Instancers() Instancers
 
-	// SetInstancers configures the set of sd.Instancer objects for use in the environment.
-	SetInstancers(i Instancers)
+	// UpdateInstancers configures the set of sd.Instancer objects for use in the environment.
+	UpdateInstancers(i Instancers)
 
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
 	// Typically, this factory is set via configuration by some external source.
@@ -147,8 +147,18 @@ func (e *environment) Instancers() Instancers {
 	return e.instancers.Copy()
 }
 
-func (e *environment) SetInstancers(i Instancers) {
-	e.instancers = i.Copy()
+func (e *environment) UpdateInstancers(i Instancers) {
+	for key, value := range i {
+		if !e.instancers.Has(key) {
+			e.instancers[key] = i[key]
+		}
+	}
+
+	for key, value := range e.instancers {
+		if !i.Has(key) {
+			delete(e.instancers, key)
+		}
+	}
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {
