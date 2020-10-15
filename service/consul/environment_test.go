@@ -2,7 +2,6 @@ package consul
 
 import (
 	"testing"
-	"time"
 
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
@@ -96,7 +95,6 @@ func testNewEnvironmentFull(t *testing.T) {
 					PassingOnly: true,
 				}, // duplicates should be ignored
 			},
-			DatacenterWatchInterval: time.Duration(3) * time.Second,
 		}
 	)
 
@@ -131,57 +129,11 @@ func testNewEnvironmentFull(t *testing.T) {
 	e.Register()
 	e.Deregister()
 
-	<-time.After(time.Duration(30) * time.Second)
-
 	assert.NoError(e.Close())
 
 	clientFactory.AssertExpectations(t)
 	client.AssertExpectations(t)
 	ttlUpdater.AssertExpectations(t)
-}
-
-func TestWatchInstancers(t *testing.T) {
-	co := Options{
-		Client: &api.Config{
-			Address: "localhost:8500",
-			Scheme:  "https",
-		},
-		Watches: []Watch{
-			Watch{
-				Service:         "foobar",
-				Tags:            []string{"tag1"},
-				PassingOnly:     true,
-				CrossDatacenter: true,
-			},
-		},
-		DatacenterWatchInterval: time.Duration(3) * time.Second,
-	}
-
-	serviceEnv := new(service.MockEnvironment)
-	client := new(mockClient)
-
-	client.On("Datacenters").Return([]string{
-		"datacenter1", "datacenter2",
-	}, error(nil))
-
-	client.On("Service",
-		"foobar",
-		"tag1",
-		true,
-		mock.MatchedBy(func(qo *api.QueryOptions) bool { return qo != nil }),
-	).Return([]*api.ServiceEntry{}, new(api.QueryMeta), error(nil))
-
-	newInstancers, _ := newInstancers(nil, client, co)
-	serviceEnv.On("SetInstancers", newInstancers)
-
-	environment := environment{
-		serviceEnv, client,
-	}
-
-	go WatchInstancers(logging.NewTestLogger(nil, t), co, environment)
-
-	<-time.After(time.Duration(30) * time.Second)
-
 }
 
 func TestNewEnvironment(t *testing.T) {
