@@ -268,9 +268,6 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 			}
 		}
 
-		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "before instancers updated ", "oldInstancers: ", currentInstancers)
 		e.UpdateInstancers(keys, instancersToAdd)
-		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "after instancers updated", "newInstancers: ", e.Instancers())
-
 	}
 }
