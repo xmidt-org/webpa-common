@@ -226,7 +226,7 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 
 func WatchInstancers(l log.Logger, co Options, e Environment) {
 	if co.DatacenterWatchInterval <= 0 {
-		l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "Not setting up instancer watch. Watch interval: ", co.DatacenterWatchInterval)
+		l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "Not setting up instancer watch.", "Watch interval: ", co.DatacenterWatchInterval)
 		return
 	}
 
@@ -252,17 +252,23 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 
 				for _, datacenter := range datacenters {
 					w.QueryOptions.Datacenter = datacenter
+
+					// create keys for all datacenters + watched services
 					key := newInstancerKey(w)
 					keys[key] = true
 
+					// don't create new instancer if it is already saved in environment's instancers
 					if currentInstancers.Has(key) {
 						continue
 					}
 
+					// don't create new instancer if it was already created and added to the new instancers map
 					if instancersToAdd.Has(key) {
 						l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
 						continue
 					}
+
+					// create new instancer and add it to the map of instancers to add
 					instancersToAdd.Set(key, newInstancer(l, e.Client(), w))
 				}
 			}

@@ -148,15 +148,17 @@ func (e *environment) Instancers() Instancers {
 }
 
 func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers) {
+	// add new instancers
 	for key, value := range instancersToAdd {
 		e.instancers.Set(key, value)
 	}
 
+	// remove outdated instancers
 	for key := range e.instancers {
 		if _, ok := currentKeys[key]; !ok {
-			i, err := e.instancers.Get(key)
+			i, found := e.instancers.Get(key)
 
-			if !err {
+			if found {
 				i.Stop()
 				delete(e.instancers, key)
 			}
