@@ -83,13 +83,21 @@ func newService(cfg Config) (Service, error){
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates. 
 func Initialize(key string, config config.KeyUnmarshaller, watchers Watch...) (Service, func(), error) {
-	var cfg Config
-	err := config.UnmarshalKey(key, &cfg)
+	cfg := new(Config)
+	err := config.UnmarshalKey(key, cfg)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	svc  := newService(cfg Config)
-	stopWatchers := startWatchers(watchers)
+	validateConfig(cfg)
+
+	svc  := newService(cfg)
+	stopWatchers := startWatchers(cfg.WatchUpdateInterval, svc, watchers)
 	return svc, stopWatchers, nil
+}
+
+func validateConfig(cfg Config) {
+	if cfg.WatchUpdateInterval == 0 {
+		cfg.WatchUpdateInterval = time.Second * 5
+	}
 }

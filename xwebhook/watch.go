@@ -1,5 +1,7 @@
 package xwebhook
 
+import "time"
+
 // Watch is the interface for listening for webhook subcription updates.
 // Updates represent the latest known list of subscriptions.
 type Watch interface {
@@ -22,7 +24,23 @@ type Config struct {
 	WatchUpdateInterval time.Duration
 }
 
-func setupWatchers(watchers Watch...) func() {
-	//TODO: 
-	return func() {}
+func startWatchers(updateInterval time.Duration, svc Service, watchers Watch...) func() {
+	ticker := time.NewTicker(updateInterval)
+
+	go func() {
+		for range ticker.C {
+			webhooks, err := svc.AllWebhooks("") 
+			if err != nil {
+				continue
+			}
+
+			for _, watcher := range watchers {
+				watcher.Update(webhooks)
+			}
+		}
+	}()
+
+	return func() {
+		ticker.Stop()
+	}
 }
