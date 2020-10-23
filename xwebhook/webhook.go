@@ -4,9 +4,9 @@ import (
 	"time"
 )
 
-// Subscription contains all the information needed to serve events to webhook subscribers.
-type Subscription struct {
-	// Address is the subscription request origin HTTP Address
+// Webhook contains all the information needed to serve events to webhook listeners.
+type Webhook struct {
+	// Address is the subscription request origin HTTP Address.
 	Address string `json:"registered_from_address"`
 
 	// Config contains data to inform how events are delivered.

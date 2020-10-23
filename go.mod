@@ -11,6 +11,7 @@ require (
 	github.com/cenk/backoff v2.0.0+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/go-ini/ini v1.36.1-0.20180420150025-bda519ae5f4c // indirect
 	github.com/go-kit/kit v0.9.0
 	github.com/goph/emperror v0.17.3-0.20190703203600-60a8d9faa17b
