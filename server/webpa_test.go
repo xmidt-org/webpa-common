@@ -3,9 +3,6 @@ package server
 import (
 	"crypto/tls"
 	"errors"
-
-	//	"github.com/xmidt-org/webpa-common/health"
-
 	"net/http"
 	"sync"
 	"testing"
