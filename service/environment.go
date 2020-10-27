@@ -145,17 +145,19 @@ func (e *environment) DefaultScheme() string {
 }
 
 func (e *environment) Instancers() Instancers {
-	e.lock.Lock()
+	e.lock.RLock()
 	instancersCopy := e.instancers.Copy()
-	e.lock.Unlock()
+	e.lock.RUnlock()
 	return instancersCopy
 }
 
 func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers) {
 	// add new instancers
-	e.lock.Lock()
+
 	for key, value := range instancersToAdd {
+		e.lock.Lock()
 		e.instancers.Set(key, value)
+		e.lock.Unlock()
 	}
 
 	// remove outdated instancers
@@ -164,14 +166,14 @@ func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersTo
 			i, found := e.instancers.Get(key)
 
 			if found {
+				e.lock.Lock()
 				i.Stop()
 				delete(e.instancers, key)
+				e.lock.Unlock()
 			}
 
 		}
 	}
-
-	e.lock.Unlock()
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {
