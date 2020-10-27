@@ -130,6 +130,7 @@ type environment struct {
 	instancers      Instancers
 	accessorFactory AccessorFactory
 
+	lock      sync.RWMutex
 	closeOnce sync.Once
 	closer    func() error
 	closed    chan struct{}
@@ -144,11 +145,15 @@ func (e *environment) DefaultScheme() string {
 }
 
 func (e *environment) Instancers() Instancers {
-	return e.instancers.Copy()
+	e.lock.Lock()
+	instancersCopy := e.instancers.Copy()
+	e.lock.Unlock()
+	return instancersCopy
 }
 
 func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers) {
 	// add new instancers
+	e.lock.Lock()
 	for key, value := range instancersToAdd {
 		e.instancers.Set(key, value)
 	}
@@ -165,6 +170,8 @@ func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersTo
 
 		}
 	}
+
+	e.lock.Unlock()
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {
