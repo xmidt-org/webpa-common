@@ -239,17 +239,14 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 		keys := make(map[string]bool)
 		instancersToAdd := make(service.Instancers)
 
-		var datacenters []string
-		var err error
+		datacenters, err := getDatacenters(l, client, co)
+
+		if err != nil {
+			continue
+		}
+
 		for _, w := range co.watches() {
 			if w.CrossDatacenter {
-				if len(datacenters) == 0 {
-					datacenters, err = getDatacenters(l, client, co)
-					if err != nil {
-						continue
-					}
-				}
-
 				for _, datacenter := range datacenters {
 					w.QueryOptions.Datacenter = datacenter
 
@@ -274,6 +271,8 @@ func WatchInstancers(l log.Logger, co Options, e Environment) {
 			}
 		}
 
+		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "before instancers updated ", "oldInstancers: ", currentInstancers)
 		e.UpdateInstancers(keys, instancersToAdd)
+		l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "after instancers updated", "newInstancers: ", e.Instancers())
 	}
 }
