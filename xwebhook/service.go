@@ -1,14 +1,14 @@
 package xwebhook
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/fatih/structs"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/themis/config"
-	"github.com/fatih/structs"
-
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -17,25 +17,27 @@ type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks.
 	Add(owner string, w Webhook) error
 
-	// AllWebhooks lists all the current webhooks for the given owner. 
+	// AllWebhooks lists all the current webhooks for the given owner.
 	// If an owner is not provided, all webhooks are returned.
 	AllWebhooks(owner string) ([]Webhook, error)
+
+	//TODO: we can technically support deletion as well if we wanted to.
 }
 
 type service struct {
 	argus *chrysom.Client
 }
 
-func(s *service) Add(owner string, w Webhook) error {
-	item :=  webhookToItem(w)
-	_, err := s.argus.Push(*item, owner)
+func (s *service) Add(owner string, w Webhook) error {
+	item := webhookToItem(w)
+	_, err := s.argus.Push(item, owner)
 	return err
 }
 
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	items, err := s.argus.GetItems(owner)
 	if err != nil {
-		return
+		return nil, err
 	}
 	var webhooks []Webhook
 	for _, item := range items {
@@ -46,13 +48,13 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 		webhooks = append(webhooks, webhook)
 	}
 
-	return webhooks
+	return webhooks, nil
 }
 
 func webhookToItem(w Webhook) model.Item {
 	return model.Item{
 		Identifier: w.Address,
-		Data: structs.Map(w),
+		Data:       structs.Map(w),
 	}
 }
 
@@ -60,29 +62,29 @@ func itemToWebhook(i model.Item) (Webhook, error) {
 	w := new(Webhook)
 	tempBytes, err := json.Marshal(&i.Data)
 	if err != nil {
-		return nil, err
+		return Webhook{}, err
 	}
 	err = json.Unmarshal(tempBytes, w)
 	if err != nil {
-		return nil, err
+		return Webhook{}, err
 	}
 	return *w, nil
 }
 
-func newService(cfg Config) (Service, error){
+func newService(cfg *Config) (Service, error) {
 	argus, err := chrysom.CreateClient(cfg.Argus)
 	if err != nil {
 		return nil, err
 	}
-	svc := service {
+	svc := &service{
 		argus: argus,
 	}
-	return svc, error
+	return svc, nil
 }
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
-// function when you are done watching for updates. 
-func Initialize(key string, config config.KeyUnmarshaller, watchers Watch...) (Service, func(), error) {
+// function when you are done watching for updates.
+func Initialize(key string, config config.KeyUnmarshaller, p provider.Provider, watchers ...Watch) (Service, func(), error) {
 	cfg := new(Config)
 	err := config.UnmarshalKey(key, cfg)
 	if err != nil {
@@ -91,12 +93,21 @@ func Initialize(key string, config config.KeyUnmarshaller, watchers Watch...) (S
 
 	validateConfig(cfg)
 
-	svc  := newService(cfg)
-	stopWatchers := startWatchers(cfg.WatchUpdateInterval, svc, watchers)
+	svc, err := newService(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	m := &measures{
+		pollCount:       p.NewCounter(PollCounter),
+		webhookListSize: p.NewGauge(WebhookListSizeGauge),
+	}
+
+	stopWatchers := startWatchers(cfg.WatchUpdateInterval, m, svc, watchers...)
 	return svc, stopWatchers, nil
 }
 
-func validateConfig(cfg Config) {
+func validateConfig(cfg *Config) {
 	if cfg.WatchUpdateInterval == 0 {
 		cfg.WatchUpdateInterval = time.Second * 5
 	}
