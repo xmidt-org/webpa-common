@@ -3,6 +3,7 @@ package xwebhook
 import (
 	"time"
 
+	"github.com/go-kit/kit/metrics"
 	"github.com/xmidt-org/argus/chrysom"
 )
 
@@ -28,17 +29,23 @@ type Config struct {
 	WatchUpdateInterval time.Duration
 }
 
-func startWatchers(updateInterval time.Duration, m *measures, svc Service, watchers ...Watch) func() {
+func webhookListSizeWatch(s metrics.Gauge) Watch {
+	return WatchFunc(func(webhooks []Webhook) {
+		s.Set(float64(len(webhooks)))
+	})
+}
+
+func startWatchers(updateInterval time.Duration, pollCount metrics.Counter, svc Service, watchers ...Watch) func() {
 	ticker := time.NewTicker(updateInterval)
 
 	go func() {
 		for range ticker.C {
 			webhooks, err := svc.AllWebhooks("")
 			if err != nil {
-				m.pollCount.With(OutcomeLabel, FailureOutcomme).Add(1)
+				pollCount.With(OutcomeLabel, FailureOutcomme).Add(1)
 				continue
 			}
-			m.pollCount.With(OutcomeLabel, FailureOutcomme).Add(1)
+			pollCount.With(OutcomeLabel, SuccessOutcome).Add(1)
 
 			for _, watcher := range watchers {
 				watcher.Update(webhooks)

@@ -13,31 +13,38 @@ import (
 	"github.com/xmidt-org/bascule"
 )
 
-const DEFAULT_EXPIRATION_DURATION time.Duration = time.Minute * 5
+const defaultWebhookExpiration time.Duration = time.Minute * 5
+
+const (
+	contentTypeHeader string = "Content-Type"
+	jsonContentType   string = "application/json"
+)
 
 type getAllWebhooksRequest struct {
 	owner string
 }
 
+type addWebhookRequest struct {
+	owner   string
+	webhook *Webhook
+}
+
 func decodeGetAllWebhooksRequest(ctx context.Context, r *http.Request) (interface{}, error) {
-	var owner string
-	if auth, ok := bascule.FromContext(req.Context()); ok {
-		owner = auth.Token.Principal()
-	}
 	return &getAllWebhooksRequest{
-		owner: owner,
+		owner: getOwner(r),
 	}, nil
 }
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	webhooks := response.([]Webhook)
-	encoded_webhooks, err := json.Marshal(&webhooks)
+	encodedWebhooks, err := json.Marshal(&webhooks)
 	if err != nil {
 		return err
 	}
 
-	rw.Header().Set("Content-Type", "application/json")
-	rw.Write(encoded_webhooks)
+	rw.Header().Set(contentTypeHeader, jsonContentType)
+	_, err = rw.Write(encodedWebhooks)
+	return err
 }
 
 func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{}, error) {
@@ -47,9 +54,11 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 	}
 	webhook := new(Webhook)
 
-	err = json.Unmarshal(requestPayload, webhook);
+	err = json.Unmarshal(requestPayload, webhook)
 	if err != nil {
-		webhook, err = getFirstFromList(requestPayload);
+		//TODO: we should get rid of this if we can. It's not listed in our swagger page but I'm keeping it just to
+		// match the current behavior.
+		webhook, err = getFirstFromList(requestPayload)
 		if err != nil {
 			return nil, err
 		}
@@ -57,15 +66,26 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 
 	err = validateWebhook(webhook, r.RemoteAddr)
 	if err != nil {
-		nil, err
+		return nil, err
 	}
 
-	return webhook, nil
+	return &addWebhookRequest{
+		owner:   getOwner(r),
+		webhook: webhook,
+	}, nil
 }
 
-func encodeAddWebhookRequest(ctx context.Context, rw http.ResponseWriter, response interface {}) error {
-	//TODO: 
+func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
+	rw.Header().Set(contentTypeHeader, jsonContentType)
+	rw.Write([]byte(`{"message": "Success"}`))
 	return nil
+}
+
+func getOwner(r *http.Request) (owner string) {
+	if auth, ok := bascule.FromContext(r.Context()); ok {
+		owner = auth.Token.Principal()
+	}
+	return
 }
 
 func getFirstFromList(requestPayload []byte) (*Webhook, error) {
@@ -82,37 +102,35 @@ func getFirstFromList(requestPayload []byte) (*Webhook, error) {
 	return &webhooks[0], nil
 }
 
-func validateWebhook(webhook *Webhook, requestAddress string) (err error) {
+func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
 	if strings.TrimSpace(webhook.Config.URL) == "" {
 		return errors.New("invalid Config URL")
 	}
 
-	if len(w.Events) == 0 {
+	if len(webhook.Events) == 0 {
 		return errors.New("invalid events")
 	}
 
 	// TODO Validate content type ?  What about different types?
 
-	if len(webhook.Matcher.DeviceId) == 0 {
-		w.Matcher.DeviceId = []string{".*"} // match anything
+	if len(webhook.Matcher.DeviceID) == 0 {
+		webhook.Matcher.DeviceID = []string{".*"} // match anything
 	}
 
-	if "" == webhook.Address && "" != requestAddress {
-		// Record the IP address the request came from
-		host, _, _err := net.SplitHostPort(requestAddress)
-		if nil != _err {
-			err = _err
-			return
+	if webhook.Address == "" && requestOriginAddress != "" {
+		host, _, err := net.SplitHostPort(requestOriginAddress)
+		if err != nil {
+			return err
 		}
 		webhook.Address = host
 	}
 
 	// always set duration to default
-	webhook.Duration = DEFAULT_EXPIRATION_DURATION
+	webhook.Duration = defaultWebhookExpiration
 
 	if &webhook.Until == nil || webhook.Until.Equal(time.Time{}) {
 		webhook.Until = time.Now().Add(webhook.Duration)
 	}
 
-	return
+	return nil
 }

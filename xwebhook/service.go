@@ -14,8 +14,9 @@ import (
 // Service describes the core operations around webhook subscriptions.
 // Initialize() provides a service ready to use and the controls around watching for updates.
 type Service interface {
-	// Add adds the given owned webhook to the current list of webhooks.
-	Add(owner string, w Webhook) error
+	// Add adds the given owned webhook to the current list of webhooks. If the operation
+	// succeeds, it returns a non-empty ID for the webhook.
+	Add(owner string, w *Webhook) (string, error)
 
 	// AllWebhooks lists all the current webhooks for the given owner.
 	// If an owner is not provided, all webhooks are returned.
@@ -28,10 +29,9 @@ type service struct {
 	argus *chrysom.Client
 }
 
-func (s *service) Add(owner string, w Webhook) error {
-	item := webhookToItem(w)
-	_, err := s.argus.Push(item, owner)
-	return err
+func (s *service) Add(owner string, w *Webhook) (string, error) {
+	item := webhookToItem(*w)
+	return s.argus.Push(item, owner)
 }
 
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
@@ -98,12 +98,9 @@ func Initialize(key string, config config.KeyUnmarshaller, p provider.Provider, 
 		return nil, nil, err
 	}
 
-	m := &measures{
-		pollCount:       p.NewCounter(PollCounter),
-		webhookListSize: p.NewGauge(WebhookListSizeGauge),
-	}
+	watchers = append(watchers, webhookListSizeWatch(p.NewGauge(WebhookListSizeGauge)))
 
-	stopWatchers := startWatchers(cfg.WatchUpdateInterval, m, svc, watchers...)
+	stopWatchers := startWatchers(cfg.WatchUpdateInterval, p.NewCounter(PollCounter), svc, watchers...)
 	return svc, stopWatchers, nil
 }
 
