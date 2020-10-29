@@ -8,7 +8,6 @@ import (
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/themis/config"
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -84,13 +83,7 @@ func newService(cfg *Config) (Service, error) {
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func Initialize(key string, config config.KeyUnmarshaller, p provider.Provider, watchers ...Watch) (Service, func(), error) {
-	cfg := new(Config)
-	err := config.UnmarshalKey(key, cfg)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func Initialize(cfg *Config, p provider.Provider, watchers ...Watch) (Service, func(), error) {
 	validateConfig(cfg)
 
 	svc, err := newService(cfg)
