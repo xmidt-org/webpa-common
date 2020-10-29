@@ -40,7 +40,7 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	if err != nil {
 		return nil, err
 	}
-	var webhooks []Webhook
+	webhooks := []Webhook{}
 	for _, item := range items {
 		webhook, err := itemToWebhook(&item)
 		if err != nil {
