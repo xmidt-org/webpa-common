@@ -1,10 +1,11 @@
 package xwebhook
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 )
@@ -32,6 +33,7 @@ func (s *service) Add(owner string, w *Webhook) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fmt.Printf("\n\nPushing item %v\n", item)
 	return s.argus.Push(*item, owner)
 }
 
@@ -64,7 +66,7 @@ func webhookToItem(w *Webhook) (*model.Item, error) {
 	}
 
 	return &model.Item{
-		Identifier: w.Address,
+		Identifier: w.Config.URL,
 		Data:       data,
 	}, nil
 }
@@ -82,11 +84,7 @@ func itemToWebhook(i *model.Item) (*Webhook, error) {
 	return w, nil
 }
 
-func newService(cfg *Config) (Service, error) {
-	argus, err := chrysom.CreateClient(cfg.Argus)
-	if err != nil {
-		return nil, err
-	}
+func newService(argus *chrysom.Client) (Service, error) {
 	svc := &service{
 		argus: argus,
 	}
@@ -95,18 +93,50 @@ func newService(cfg *Config) (Service, error) {
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func Initialize(cfg *Config, p provider.Provider, watchers ...Watch) (Service, func(), error) {
+func Initialize(cfg *Config, watches ...Watch) (Service, func(), error) {
 	validateConfig(cfg)
 
-	svc, err := newService(cfg)
+	watches = append(watches, webhookListSizeWatch(cfg.Argus.MetricsProvider.NewGauge(WebhookListSizeGauge)))
+
+	cfg.Argus.Listener = createArgusListener(watches...)
+
+	argus, err := chrysom.CreateClient(cfg.Argus)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	watchers = append(watchers, webhookListSizeWatch(p.NewGauge(WebhookListSizeGauge)))
+	svc, err := newService(argus)
+	if err != nil {
+		return nil, nil, err
+	}
 
-	stopWatchers := startWatchers(cfg.WatchUpdateInterval, p.NewCounter(PollCounter), svc, watchers...)
-	return svc, stopWatchers, nil
+	argus.Start(context.Background())
+
+	return svc, func() { argus.Stop(context.Background()) }, nil
+}
+
+func createArgusListener(watches ...Watch) chrysom.Listener {
+	if len(watches) < 1 {
+		return nil
+	}
+	return chrysom.ListenerFunc(func(items []model.Item) {
+		webhooks := itemsToWebhooks(items)
+		for _, watch := range watches {
+			watch.Update(webhooks)
+		}
+	})
+}
+
+func itemsToWebhooks(items []model.Item) []Webhook {
+	webhooks := []Webhook{}
+	for _, item := range items {
+		webhook, err := itemToWebhook(&item)
+		if err != nil {
+			continue
+		}
+		webhooks = append(webhooks, *webhook)
+	}
+	return webhooks
 }
 
 func validateConfig(cfg *Config) {

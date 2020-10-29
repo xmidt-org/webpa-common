@@ -34,26 +34,3 @@ func webhookListSizeWatch(s metrics.Gauge) Watch {
 		s.Set(float64(len(webhooks)))
 	})
 }
-
-func startWatchers(updateInterval time.Duration, pollCount metrics.Counter, svc Service, watchers ...Watch) func() {
-	ticker := time.NewTicker(updateInterval)
-
-	go func() {
-		for range ticker.C {
-			webhooks, err := svc.AllWebhooks("")
-			if err != nil {
-				pollCount.With(OutcomeLabel, FailureOutcomme).Add(1)
-				continue
-			}
-			pollCount.With(OutcomeLabel, SuccessOutcome).Add(1)
-
-			for _, watcher := range watchers {
-				watcher.Update(webhooks)
-			}
-		}
-	}()
-
-	return func() {
-		ticker.Stop()
-	}
-}

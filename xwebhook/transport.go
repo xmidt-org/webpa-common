@@ -3,14 +3,16 @@ package xwebhook
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	kithttp "github.com/go-kit/kit/transport/http"
+
 	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 const defaultWebhookExpiration time.Duration = time.Minute * 5
@@ -97,18 +99,18 @@ func getFirstFromList(requestPayload []byte) (*Webhook, error) {
 	}
 
 	if len(webhooks) < 1 {
-		return nil, errors.New("No webhooks in request data list")
+		return nil, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
 	}
 	return &webhooks[0], nil
 }
 
 func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
 	if strings.TrimSpace(webhook.Config.URL) == "" {
-		return errors.New("invalid Config URL")
+		return &xhttp.Error{Code: http.StatusBadRequest, Text: "invalid Config URL"}
 	}
 
 	if len(webhook.Events) == 0 {
-		return errors.New("invalid events")
+		return &xhttp.Error{Code: http.StatusBadRequest, Text: "invalid events"}
 	}
 
 	// TODO Validate content type ?  What about different types?
@@ -133,4 +135,18 @@ func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) 
 	}
 
 	return nil
+}
+
+func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
+	w.Header().Set(contentTypeHeader, jsonContentType)
+	code := http.StatusInternalServerError
+	if sc, ok := err.(kithttp.StatusCoder); ok {
+		code = sc.StatusCode()
+	}
+	w.WriteHeader(code)
+
+	json.NewEncoder(w).Encode(
+		map[string]interface{}{
+			"message": err.Error(),
+		})
 }
