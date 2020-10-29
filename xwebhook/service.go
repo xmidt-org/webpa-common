@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/fatih/structs"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
@@ -29,8 +28,11 @@ type service struct {
 }
 
 func (s *service) Add(owner string, w *Webhook) (string, error) {
-	item := webhookToItem(*w)
-	return s.argus.Push(item, owner)
+	item, err := webhookToItem(w)
+	if err != nil {
+		return "", err
+	}
+	return s.argus.Push(*item, owner)
 }
 
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
@@ -40,34 +42,44 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	}
 	var webhooks []Webhook
 	for _, item := range items {
-		webhook, err := itemToWebhook(item)
+		webhook, err := itemToWebhook(&item)
 		if err != nil {
 			continue
 		}
-		webhooks = append(webhooks, webhook)
+		webhooks = append(webhooks, *webhook)
 	}
 
 	return webhooks, nil
 }
 
-func webhookToItem(w Webhook) model.Item {
-	return model.Item{
-		Identifier: w.Address,
-		Data:       structs.Map(w),
+func webhookToItem(w *Webhook) (*model.Item, error) {
+	encodedWebhook, err := json.Marshal(w)
+	if err != nil {
+		return nil, err
 	}
+	var data map[string]interface{}
+	err = json.Unmarshal(encodedWebhook, &data)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Item{
+		Identifier: w.Address,
+		Data:       data,
+	}, nil
 }
 
-func itemToWebhook(i model.Item) (Webhook, error) {
+func itemToWebhook(i *model.Item) (*Webhook, error) {
 	w := new(Webhook)
-	tempBytes, err := json.Marshal(&i.Data)
+	encodedWebhook, err := json.Marshal(i.Data)
 	if err != nil {
-		return Webhook{}, err
+		return nil, err
 	}
-	err = json.Unmarshal(tempBytes, w)
+	err = json.Unmarshal(encodedWebhook, w)
 	if err != nil {
-		return Webhook{}, err
+		return nil, err
 	}
-	return *w, nil
+	return w, nil
 }
 
 func newService(cfg *Config) (Service, error) {
