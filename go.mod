@@ -41,5 +41,6 @@ require (
 >>>>>>> remove logs
 =======
 
+//The following is to fix the ambiguous import error, basically pins the consul version to 1.7.0
 replace github.com/hashicorp/consul => github.com/hashicorp/consul v1.7.0
 >>>>>>> fix ambiguous import error
