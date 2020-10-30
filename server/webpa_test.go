@@ -1,9 +1,8 @@
 package server
 
 import (
-	"errors"
-	//	"github.com/xmidt-org/webpa-common/health"
 	"crypto/tls"
+	"errors"
 	"net/http"
 	"sync"
 	"testing"
@@ -354,60 +353,100 @@ func TestBasicNewWithClientCACert(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		testData = []struct {
+			description        string
 			address            string
 			certificateFiles   []string
 			keyFiles           []string
 			clientCACertFile   string
 			handler            *mockHandler
 			logConnectionState bool
+			serverExpected     bool
+			TLSExpected        bool
 		}{
-			{"localhost:80", []string{"cert.pem"}, []string{"cert.key"}, "client_ca.pem", new(mockHandler), true},
-			{"localhost:8090", []string{"file.cert"}, []string{"file.key"}, "invalid.cert", new(mockHandler), true},
-			{"localhost:8090", []string{"file.cert"}, []string{"file.key"}, "", new(mockHandler), true},
-			{":8081", []string{}, []string{}, "", new(mockHandler), false},
+			{
+				description:        "Success",
+				address:            "localhost:80",
+				certificateFiles:   []string{"cert.pem"},
+				keyFiles:           []string{"cert.key"},
+				clientCACertFile:   "client_ca.pem",
+				handler:            new(mockHandler),
+				logConnectionState: true,
+				serverExpected:     true,
+				TLSExpected:        true,
+			},
+			{
+				description:        "Invalid Client CA Certificate",
+				address:            "localhost:8090",
+				certificateFiles:   []string{"file.cert"},
+				keyFiles:           []string{"file.key"},
+				clientCACertFile:   "invalid.cert",
+				handler:            new(mockHandler),
+				logConnectionState: true,
+			},
+			{
+				description:        "No Client CA Certificate",
+				address:            "localhost:8090",
+				certificateFiles:   []string{"file.cert"},
+				keyFiles:           []string{"file.key"},
+				clientCACertFile:   "",
+				handler:            new(mockHandler),
+				logConnectionState: true,
+			},
+			{
+				description:        "No certificates",
+				address:            "localhost:8081",
+				certificateFiles:   []string{},
+				keyFiles:           []string{},
+				clientCACertFile:   "",
+				handler:            new(mockHandler),
+				logConnectionState: false,
+				serverExpected:     true,
+			},
 		}
 	)
 
-	for index, record := range testData {
-		t.Logf("%#v", record)
+	for _, record := range testData {
+		t.Run(record.description, func(t *testing.T) {
+			t.Logf("%#v", record)
 
-		var (
-			verify, logger = newTestLogger()
-			basic          = Basic{
-				Name:               expectedName,
-				Address:            record.address,
-				CertificateFile:    record.certificateFiles,
-				KeyFile:            record.keyFiles,
-				ClientCACertFile:   record.clientCACertFile,
-				LogConnectionState: record.logConnectionState,
+			var (
+				verify, logger = newTestLogger()
+				basic          = Basic{
+					Name:               expectedName,
+					Address:            record.address,
+					CertificateFile:    record.certificateFiles,
+					KeyFile:            record.keyFiles,
+					ClientCACertFile:   record.clientCACertFile,
+					LogConnectionState: record.logConnectionState,
+				}
+
+				server = basic.New(logger, record.handler)
+			)
+
+			t.Logf("%#v", server)
+
+			if record.serverExpected {
+				require.NotNil(server)
+				assert.Equal(record.address, server.Addr)
+				assert.Equal(record.handler, server.Handler)
+				assertErrorLog(assert, verify, expectedName, server.ErrorLog)
+
+				tlsConfig := server.TLSConfig
+				if record.TLSExpected {
+					require.NotNil(tlsConfig)
+					assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
+					require.NotNil(tlsConfig.ClientCAs)
+				} else {
+					require.Nil(tlsConfig)
+				}
+
+			} else {
+				require.Nil(server)
 			}
 
-			server = basic.New(logger, record.handler)
-		)
-
-		t.Logf("%#v", server)
-
-		require.NotNil(server)
-		assert.Equal(record.address, server.Addr)
-		assert.Equal(record.handler, server.Handler)
-		assertErrorLog(assert, verify, expectedName, server.ErrorLog)
-
-		switch index {
-		case 0:
-			tlsConfig := server.TLSConfig
-			require.NotNil(tlsConfig)
-			assert.Equal(tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
-			require.NotNil(tlsConfig.ClientCAs)
-		case 1:
-			require.Nil(server.TLSConfig)
-		case 2:
-			require.Nil(server.TLSConfig)
-		case 3:
-			require.Nil(server.TLSConfig)
-		}
-
-		if record.handler != nil {
-			record.handler.AssertExpectations(t)
-		}
+			if record.handler != nil {
+				record.handler.AssertExpectations(t)
+			}
+		})
 	}
 }
