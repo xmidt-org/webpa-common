@@ -36,4 +36,9 @@ require (
 	go.uber.org/fx v1.13.0
 	golang.org/x/crypto v0.0.0-20191106202628-ed6320f186d4 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
+<<<<<<< HEAD
 )
+=======
+
+)
+>>>>>>> remove logs
