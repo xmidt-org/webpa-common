@@ -39,6 +39,7 @@ func decodeGetAllWebhooksRequest(ctx context.Context, r *http.Request) (interfac
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	webhooks := response.([]Webhook)
+	obfuscateSecrets(webhooks)
 	encodedWebhooks, err := json.Marshal(&webhooks)
 	if err != nil {
 		return err
@@ -102,6 +103,12 @@ func getFirstFromList(requestPayload []byte) (*Webhook, error) {
 		return nil, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
 	}
 	return &webhooks[0], nil
+}
+
+func obfuscateSecrets(webhooks []Webhook) {
+	for i := range webhooks {
+		webhooks[i].Config.Secret = "<obfuscated>"
+	}
 }
 
 func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
