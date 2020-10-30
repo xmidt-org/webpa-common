@@ -101,7 +101,10 @@ func (i *DatacenterWatcher) watchDatacenters() {
 				}
 			}
 
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "before instancers updated ", "oldInstancers: ", currentInstancers)
 			environment.UpdateInstancers(keys, instancersToAdd)
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "after instancers updated", "newInstancers: ", environment.Instancers())
+
 		}
 
 	}
