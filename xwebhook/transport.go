@@ -15,6 +15,13 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
+const (
+	// ClientIDHeader provides a fallback method for fetching the client ID of users
+	// registering their webhooks. The main method fetches this value from the claims of
+	// the authentication JWT.
+	ClientIDHeader = "X-Xmidt-Client-Id"
+)
+
 const defaultWebhookExpiration time.Duration = time.Minute * 5
 
 const (
@@ -85,8 +92,11 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, respo
 }
 
 func getOwner(r *http.Request) (owner string) {
-	if auth, ok := bascule.FromContext(r.Context()); ok {
+	auth, ok := bascule.FromContext(r.Context())
+	if ok {
 		owner = auth.Token.Principal()
+	} else {
+		owner = r.Header.Get(ClientIDHeader)
 	}
 	return
 }

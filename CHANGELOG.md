@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Changed
 - Obfuscate secrets when listing webhooks. [#534](https://github.com/xmidt-org/webpa-common/pull/534)
+- Add client ID fallback method when adding webhook. [#533](https://github.com/xmidt-org/webpa-common/pull/533)
 
 ## [v1.11.1]
 ### Changed
