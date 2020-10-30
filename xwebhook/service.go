@@ -3,7 +3,6 @@ package xwebhook
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/xmidt-org/argus/chrysom"
@@ -33,7 +32,6 @@ func (s *service) Add(owner string, w *Webhook) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Printf("\n\nPushing item %v\n", item)
 	return s.argus.Push(*item, owner)
 }
 
