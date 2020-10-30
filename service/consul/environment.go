@@ -222,6 +222,7 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 		if err != nil {
 			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create datacenter watcher", logging.ErrorKey(), err)
 		} else {
+			l.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "Succesfully created datacenter watcher")
 			datacenterWatcher.Start()
 		}
 	}
