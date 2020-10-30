@@ -14,6 +14,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/schema v1.0.3-0.20180614150749-e0e4b92809ac
 	github.com/gorilla/websocket v1.4.2
+	github.com/hashicorp/consul v1.7.0
 	github.com/hashicorp/consul/api v1.7.0
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
