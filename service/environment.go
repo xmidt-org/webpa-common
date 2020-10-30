@@ -161,19 +161,18 @@ func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersTo
 	}
 
 	// remove outdated instancers
+	e.lock.Lock()
 	for key := range e.instancers {
 		if _, ok := currentKeys[key]; !ok {
 			i, found := e.instancers.Get(key)
 
 			if found {
-				e.lock.Lock()
 				i.Stop()
 				delete(e.instancers, key)
-				e.lock.Unlock()
 			}
-
 		}
 	}
+	e.lock.Unlock()
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {
