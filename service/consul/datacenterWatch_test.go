@@ -26,7 +26,7 @@ func TestNewDatacenterrWatcher(t *testing.T) {
 		logger          log.Logger
 		environment     Environment
 		options         Options
-		expectedWatcher *DatacenterWatcher
+		expectedWatcher *datacenterWatcher
 		expectedErr     error
 	}{
 		{
@@ -34,7 +34,7 @@ func TestNewDatacenterrWatcher(t *testing.T) {
 			logger:      logger,
 			environment: environment,
 			options:     validOptions,
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				watchInterval: validOptions.DatacenterWatchInterval,
 				logger:        logger,
 				environment:   environment,
@@ -45,7 +45,7 @@ func TestNewDatacenterrWatcher(t *testing.T) {
 			description: "Success with Default Logger",
 			environment: environment,
 			options:     validOptions,
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				watchInterval: validOptions.DatacenterWatchInterval,
 				logger:        defaultLogger,
 				environment:   environment,
