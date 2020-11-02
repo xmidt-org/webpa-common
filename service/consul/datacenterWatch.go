@@ -10,9 +10,9 @@ import (
 	"github.com/xmidt-org/webpa-common/service"
 )
 
-//DatacenterWatcher checks if datacenters have been updated, based on an interval
-//If they have, then the DatacenterWatcher will update the Instancers dictionary
-type DatacenterWatcher struct {
+//datacenterWatcher checks if datacenters have been updated, based on an interval
+//If they have, then the datacenterWatcher will update the Instancers dictionary
+type datacenterWatcher struct {
 	watchInterval time.Duration
 	logger        log.Logger
 	shutdown      chan struct{}
@@ -24,7 +24,7 @@ var (
 	defaultLogger = log.NewNopLogger()
 )
 
-func newDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*DatacenterWatcher, error) {
+func newDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
 	if options.DatacenterWatchInterval == 0 {
 		return nil, errors.New("interval cannot be 0")
 	}
@@ -33,7 +33,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		logger = defaultLogger
 	}
 
-	return &DatacenterWatcher{
+	return &datacenterWatcher{
 		watchInterval: options.DatacenterWatchInterval,
 		logger:        logger,
 		shutdown:      make(chan struct{}),
@@ -43,15 +43,15 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 
 }
 
-func (i *DatacenterWatcher) Start() {
+func (i *datacenterWatcher) start() {
 	go i.watchDatacenters()
 }
 
-func (i *DatacenterWatcher) Stop() {
+func (i *datacenterWatcher) stop() {
 	close(i.shutdown)
 }
 
-func (i *DatacenterWatcher) watchDatacenters() {
+func (i *datacenterWatcher) watchDatacenters() {
 
 	environment := i.environment
 	client := i.environment.Client()
