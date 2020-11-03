@@ -1,10 +1,13 @@
 package fanout
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"sync"
 
+	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/service"
 	"github.com/xmidt-org/webpa-common/service/monitor"
@@ -16,10 +19,16 @@ import (
 // This type is a monitor.Listener, and fanout URLs are computed from all configured
 // instancers.
 type ServiceEndpoints struct {
-	lock            sync.RWMutex
-	keyFunc         servicehttp.KeyFunc
-	accessorFactory service.AccessorFactory
-	accessors       map[string]service.Accessor
+	lock                sync.RWMutex
+	keyFunc             servicehttp.KeyFunc
+	accessorFactory     service.AccessorFactory
+	accessors           map[string]service.Accessor
+	inactiveDatacenters map[string]bool
+	chrysomClient       *chrysom.Client
+}
+
+type Datacenter struct {
+	active bool
 }
 
 // FanoutURLs uses the currently available discovered endpoints to produce a set of URLs.
@@ -85,6 +94,14 @@ func WithAccessorFactory(af service.AccessorFactory) ServiceEndpointsOption {
 	}
 }
 
+func WithChrysomClient(cc *chrysom.Client) ServiceEndpointsOption {
+	return func(se *ServiceEndpoints) {
+		if cc != nil {
+			se.chrysomClient = cc
+		}
+	}
+}
+
 // NewServiceEndpoints creates a ServiceEndpoints instance.  By default, device.IDHashParser is used as the KeyFunc
 // and service.DefaultAccessorFactory is used as the accessor factory.
 func NewServiceEndpoints(options ...ServiceEndpointsOption) *ServiceEndpoints {
@@ -96,6 +113,11 @@ func NewServiceEndpoints(options ...ServiceEndpointsOption) *ServiceEndpoints {
 
 	for _, o := range options {
 		o(se)
+	}
+
+	if se.chrysomClient != nil {
+		// TODO: context should be passed in from client
+		se.chrysomClient.Start(context.Background())
 	}
 
 	return se
@@ -122,4 +144,18 @@ func MonitorEndpoints(e Endpoints, options ...monitor.Option) (monitor.Interface
 	}
 
 	return nil, nil
+}
+
+func CreateDatacentersListener(se *ServiceEndpoints) chrysom.ListenerFunc {
+	return func(items []model.Item) {
+		// Add all inactive datacenters to list
+		// Create list of all active datacenters
+		// Pass to function that will create the proper instancers and update the dictionary as needed
+		for _, item := range items {
+			if item.Data["active"] == false {
+				datacenterName := item.Data["name"].(string)
+				se.inactiveDatacenters[datacenterName] = true
+			}
+		}
+	}
 }
