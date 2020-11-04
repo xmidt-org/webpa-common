@@ -40,6 +40,10 @@ func (e environment) Client() Client {
 	return e.client
 }
 
+func (e environment) DatacenterWatcher() datacenterWatcher {
+	return e.datacenterWatcher
+}
+
 func generateID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
@@ -215,9 +219,10 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 				service.WithRegistrars(r),
 				service.WithInstancers(i),
 				service.WithCloser(closer),
-			)...), NewClient(consulClient)}
+			)...), NewClient(consulClient), datacenterWatcher{}}
 
 	if co.DatacenterWatchInterval > 0 {
+		// TODO: pass in chrysom config into new datacenter watcher creation, save new datacenter watcher inside service discovery environment
 		datacenterWatcher, err := newDatacenterWatcher(l, newServiceEnvironment, co)
 		if err != nil {
 			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create datacenter watcher", logging.ErrorKey(), err)
