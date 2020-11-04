@@ -10,11 +10,12 @@ require (
 	github.com/c9s/goprocinfo v0.0.0-20151025191153-19cb9f127a9c
 	github.com/davecgh/go-spew v1.1.1
 	github.com/go-kit/kit v0.9.0
+	github.com/google/uuid v1.1.2 // indirect
 	github.com/goph/emperror v0.17.3-0.20190703203600-60a8d9faa17b
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/schema v1.0.3-0.20180614150749-e0e4b92809ac
 	github.com/gorilla/websocket v1.4.2
-	github.com/hashicorp/consul v1.7.0
+	github.com/hashicorp/consul v1.7.0 // indirect
 	github.com/hashicorp/consul/api v1.7.0
 	github.com/hashicorp/go-immutable-radix v1.1.0 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
@@ -30,7 +31,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go/codec v1.1.7
-	github.com/xmidt-org/argus v0.3.6
+	github.com/xmidt-org/argus v0.3.9
 	github.com/xmidt-org/bascule v0.9.0
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/wrp-go/v3 v3.0.1
