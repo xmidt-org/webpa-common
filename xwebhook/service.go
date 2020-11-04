@@ -2,9 +2,14 @@ package xwebhook
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 )
@@ -13,30 +18,42 @@ import (
 // Initialize() provides a service ready to use and the controls around watching for updates.
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
-	// succeeds, it returns a non-empty ID for the webhook.
-	Add(owner string, w *Webhook) (string, error)
+	// succeeds, a non-nil error is returned.
+	Add(owner string, w *Webhook) error
 
 	// AllWebhooks lists all the current webhooks for the given owner.
 	// If an owner is not provided, all webhooks are returned.
 	AllWebhooks(owner string) ([]Webhook, error)
-
-	//TODO: we can technically support deletion as well if we wanted to.
+}
+type loggerGroup struct {
+	Error log.Logger
+	Debug log.Logger
 }
 
 type service struct {
-	argus *chrysom.Client
+	argus   *chrysom.Client
+	loggers *loggerGroup
 }
 
-func (s *service) Add(owner string, w *Webhook) (string, error) {
+func (s *service) Add(owner string, w *Webhook) error {
 	item, err := webhookToItem(w)
 	if err != nil {
-		return "", err
+		return err
 	}
-	return s.argus.Push(*item, owner)
+	result, err := s.argus.Push(*item, owner, false)
+	if err != nil {
+		return err
+	}
+
+	if result == chrysom.CreatedPushResult || result == chrysom.UpdatedPushResult {
+		return nil
+	}
+	return errors.New("operation to add webhook to db failed")
 }
 
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
-	items, err := s.argus.GetItems(owner)
+	s.loggers.Debug.Log("msg", "AllWebhooks called", "owner", owner)
+	items, err := s.argus.GetItems(owner, true)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +80,14 @@ func webhookToItem(w *Webhook) (*model.Item, error) {
 		return nil, err
 	}
 
+	checkSumURL := sha256.Sum256([]byte(w.Config.URL))
+	TTLSeconds := int64(w.Duration.Seconds())
+
 	return &model.Item{
 		Identifier: w.Config.URL,
 		Data:       data,
+		UUID:       base64.RawURLEncoding.EncodeToString(checkSumURL[:]),
+		TTL:        &TTLSeconds,
 	}, nil
 }
 
@@ -82,11 +104,16 @@ func itemToWebhook(i *model.Item) (*Webhook, error) {
 	return w, nil
 }
 
-func newService(argus *chrysom.Client) (Service, error) {
-	svc := &service{
-		argus: argus,
+func newLoggerGroup(root log.Logger) *loggerGroup {
+	if root == nil {
+		root = log.NewNopLogger()
 	}
-	return svc, nil
+
+	return &loggerGroup{
+		Debug: log.WithPrefix(root, level.Key(), level.DebugValue()),
+		Error: log.WithPrefix(root, level.Key(), level.ErrorValue()),
+	}
+
 }
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
@@ -103,9 +130,9 @@ func Initialize(cfg *Config, watches ...Watch) (Service, func(), error) {
 		return nil, nil, err
 	}
 
-	svc, err := newService(argus)
-	if err != nil {
-		return nil, nil, err
+	svc := &service{
+		loggers: newLoggerGroup(cfg.Argus.Logger),
+		argus:   argus,
 	}
 
 	argus.Start(context.Background())

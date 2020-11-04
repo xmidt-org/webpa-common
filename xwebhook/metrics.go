@@ -18,8 +18,8 @@ const (
 
 // Label Values
 const (
-	SuccessOutcome  = "success"
-	FailureOutcomme = "failure"
+	SuccessOutcome = "success"
+	FailureOutcome = "failure"
 )
 
 // Metrics returns the Metrics relevant to this package

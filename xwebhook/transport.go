@@ -85,7 +85,7 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 	}, nil
 }
 
-func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
+func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
 	rw.Header().Set(contentTypeHeader, jsonContentType)
 	rw.Write([]byte(`{"message": "Success"}`))
 	return nil
@@ -94,7 +94,15 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, respo
 func getOwner(r *http.Request) (owner string) {
 	auth, ok := bascule.FromContext(r.Context())
 	if ok {
-		owner = auth.Token.Principal()
+		tokenType := auth.Token.Type()
+		if tokenType == "jwt" {
+			owner = auth.Token.Principal()
+		} else if tokenType == "basic" {
+			//TODO: while a JWT's principal is its sub claim (https://tools.ietf.org/html/rfc7519#section-4.1.2)  which
+			// is recommended to have some scope of uniqueness, a basic token's principal is just the username which
+			// has no guarantees to be unique. Something to watch out for when using basic auth.
+			owner = auth.Token.Principal()
+		}
 	} else {
 		owner = r.Header.Get(ClientIDHeader)
 	}
