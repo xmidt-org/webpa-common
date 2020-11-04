@@ -2,6 +2,7 @@ package xwebhook
 
 import (
 	"github.com/go-kit/kit/metrics"
+	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
@@ -24,20 +25,15 @@ const (
 
 // Metrics returns the Metrics relevant to this package
 func Metrics() []xmetrics.Metric {
-	return []xmetrics.Metric{
-		xmetrics.Metric{
-			Name:       PollCounter,
-			Type:       xmetrics.CounterType,
-			Help:       "Counts data polls to fetch webhook items.",
-			LabelNames: []string{OutcomeLabel},
-		},
-
-		xmetrics.Metric{
+	metrics := []xmetrics.Metric{
+		{
 			Name: WebhookListSizeGauge,
 			Type: xmetrics.GaugeType,
 			Help: "Size of the current list of webhooks.",
 		},
 	}
+	metrics = append(metrics, chrysom.Metrics()...)
+	return metrics
 }
 
 type measures struct {
