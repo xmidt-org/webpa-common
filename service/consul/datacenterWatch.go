@@ -14,15 +14,6 @@ import (
 )
 
 //datacenterWatcher checks if datacenters have been updated, based on an interval
-<<<<<<< HEAD
-//If they have, then the datacenterWatcher will update the Instancers dictionary
-type datacenterWatcher struct {
-	watchInterval time.Duration
-	logger        log.Logger
-	shutdown      chan struct{}
-	environment   Environment
-	options       Options
-=======
 type DatacenterWatcher struct {
 	logger                 log.Logger
 	environment            Environment
@@ -41,7 +32,6 @@ type chrysomDatacenterWatch struct {
 type consulDatacenterWatch struct {
 	watchInterval time.Duration
 	shutdown      chan struct{}
->>>>>>> testing
 }
 
 var (
