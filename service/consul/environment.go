@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -38,10 +39,6 @@ type environment struct {
 
 func (e environment) Client() Client {
 	return e.client
-}
-
-func (e environment) DatacenterWatcher() datacenterWatcher {
-	return e.datacenterWatcher
 }
 
 func generateID() string {
@@ -219,15 +216,22 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 				service.WithRegistrars(r),
 				service.WithInstancers(i),
 				service.WithCloser(closer),
-			)...), NewClient(consulClient), datacenterWatcher{}}
+			)...), NewClient(consulClient)}
 
-	if co.DatacenterWatchInterval > 0 {
+	if co.DatacenterWatchInterval > 0 || co.ChrysomConfig.PullInterval > 0 {
 		// TODO: pass in chrysom config into new datacenter watcher creation, save new datacenter watcher inside service discovery environment
-		datacenterWatcher, err := newDatacenterWatcher(l, newServiceEnvironment, co)
+		datacenterWatcher, err := NewDatacenterWatcher(l, newServiceEnvironment, co, context.Background())
 		if err != nil {
 			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create datacenter watcher", logging.ErrorKey(), err)
 		} else {
-			datacenterWatcher.start()
+			if co.DatacenterWatchInterval > 0 {
+				datacenterWatcher.StartConsulTicker()
+			}
+
+			if co.ChrysomConfig.PullInterval > 0 {
+				datacenterWatcher.StartChrysomTicker()
+			}
+
 		}
 	}
 

@@ -1,13 +1,15 @@
 package fanout
 
 import (
-	"context"
 	"net/http"
 	"net/url"
 	"sync"
 
+<<<<<<< HEAD
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+=======
+>>>>>>> testing
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/service"
 	"github.com/xmidt-org/webpa-common/service/monitor"
@@ -94,14 +96,6 @@ func WithAccessorFactory(af service.AccessorFactory) ServiceEndpointsOption {
 	}
 }
 
-func WithChrysomClient(cc *chrysom.Client) ServiceEndpointsOption {
-	return func(se *ServiceEndpoints) {
-		if cc != nil {
-			se.chrysomClient = cc
-		}
-	}
-}
-
 // NewServiceEndpoints creates a ServiceEndpoints instance.  By default, device.IDHashParser is used as the KeyFunc
 // and service.DefaultAccessorFactory is used as the accessor factory.
 func NewServiceEndpoints(options ...ServiceEndpointsOption) *ServiceEndpoints {
@@ -113,11 +107,6 @@ func NewServiceEndpoints(options ...ServiceEndpointsOption) *ServiceEndpoints {
 
 	for _, o := range options {
 		o(se)
-	}
-
-	if se.chrysomClient != nil {
-		// TODO: context should be passed in from client
-		se.chrysomClient.Start(context.Background())
 	}
 
 	return se
