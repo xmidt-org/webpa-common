@@ -9,7 +9,7 @@ import (
 // Names
 const (
 	PollCounter          = "webhook_polls_total"
-	WebhookListSizeGauge = "webhook_list_size_value"
+	WebhookListSizeGauge = "xwebhook_list_size_value"
 )
 
 // Labels
