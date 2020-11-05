@@ -5,11 +5,8 @@ import (
 	"net/url"
 	"sync"
 
-<<<<<<< HEAD
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-=======
->>>>>>> testing
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/service"
 	"github.com/xmidt-org/webpa-common/service/monitor"
