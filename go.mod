@@ -9,13 +9,17 @@ require (
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20151025191153-19cb9f127a9c
 	github.com/davecgh/go-spew v1.1.1
-	github.com/go-kit/kit v0.9.0
+	github.com/go-kit/kit v0.10.0
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/goph/emperror v0.17.3-0.20190703203600-60a8d9faa17b
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/schema v1.0.3-0.20180614150749-e0e4b92809ac
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/consul/api v1.7.0
+	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
+	github.com/hashicorp/go-uuid v1.0.2 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/serf v0.9.4 // indirect
 	github.com/jtacoma/uritemplates v1.0.0
 	github.com/justinas/alice v1.2.0
 	github.com/kr/pretty v0.2.1 // indirect
@@ -24,7 +28,7 @@ require (
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/prometheus/client_golang v1.4.1
 	github.com/rubyist/circuitbreaker v2.2.0+incompatible
-	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec
+	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
 	github.com/segmentio/ksuid v1.0.2
 	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.0
