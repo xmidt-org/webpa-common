@@ -26,11 +26,7 @@ require (
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go/codec v1.1.7
-<<<<<<< HEAD
-	github.com/xmidt-org/argus v0.3.9
-=======
 	github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764
->>>>>>> updating to more recent argus version
 	github.com/xmidt-org/bascule v0.9.0
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/wrp-go/v3 v3.0.1
@@ -39,4 +35,4 @@ require (
 )
 
 //The following is to fix the ambiguous import error, basically pins the consul version to 1.7.0
-replace github.com/hashicorp/consul => github.com/hashicorp/consul v1.7.0
+// replace github.com/hashicorp/consul => github.com/hashicorp/consul v1.7.0

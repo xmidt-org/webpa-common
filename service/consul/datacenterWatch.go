@@ -9,6 +9,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/service"
 )
@@ -18,7 +19,7 @@ type DatacenterWatcher struct {
 	logger                 log.Logger
 	environment            Environment
 	options                Options
-	inactiveDatacenters    map[string]bool //TODO: need to add RWlock
+	inactiveDatacenters    map[string]bool
 	chrysomDatacenterWatch *chrysomDatacenterWatch
 	consulDatacenterWatch  *consulDatacenterWatch
 	lock                   sync.RWMutex
