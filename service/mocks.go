@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/mock"
 )
@@ -92,4 +93,8 @@ func (m *MockEnvironment) AccessorFactory() AccessorFactory {
 
 func (m *MockEnvironment) Closed() <-chan struct{} {
 	return m.Called().Get(0).(<-chan struct{})
+}
+
+func (m *MockEnvironment) Provider() provider.Provider {
+	return m.Called().Get(0).(provider.Provider)
 }

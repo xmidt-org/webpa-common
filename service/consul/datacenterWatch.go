@@ -71,11 +71,18 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 	}
 
 	if options.ChrysomConfig.PullInterval > 0 {
+
+		if environment.Provider() == nil {
+			return nil, errors.New("must pass in a metrics provider")
+		}
+
+		options.ChrysomConfig.MetricsProvider = environment.Provider()
 		options.ChrysomConfig.Listener = datacenterWatcher.DatacentersListener()
+		options.ChrysomConfig.Logger = logger
 		chrysomClient, err := chrysom.CreateClient(*options.ChrysomConfig)
 
 		if err != nil {
-			return nil, errors.New("could not create chrysom client")
+			return nil, err
 		}
 
 		if ctx == nil {
