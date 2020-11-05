@@ -26,6 +26,7 @@ import (
 
 var (
 	ErrNilDefaultChecker = errors.New("default checker cannot be nil")
+	ErrEmptyEndpoint     = errors.New("endpoint provided is empty")
 )
 
 // CapabilitiesMap runs a capability check based on the value of the parsedURL,
@@ -67,7 +68,7 @@ func (c CapabilitiesMap) Check(auth bascule.Authentication, vs ParsedValues) (st
 	}
 
 	if vs.Endpoint == "" {
-		return EmptyParsedURL, errors.New("endpoint provided is empty")
+		return EmptyParsedURL, ErrEmptyEndpoint
 	}
 
 	capabilities, reason, err := getCapabilities(auth.Token.Attributes())
@@ -75,6 +76,7 @@ func (c CapabilitiesMap) Check(auth bascule.Authentication, vs ParsedValues) (st
 		return reason, err
 	}
 
+	// determine which CapabilityChecker to use.
 	checker, ok := c.checkers[vs.Endpoint]
 	if !ok || checker == nil {
 		checker = c.defaultChecker
