@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	partnerKeys    = []string{"allowedResources", "allowedPartners"}
+	partnerKeys = []string{"allowedResources", "allowedPartners"}
 )
 
 func PartnerKeys() []string {
@@ -75,7 +75,7 @@ func (c CapabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorF
 			return nil
 		}
 
-		_, err := c.Check(auth)
+		_, err := c.Check(auth, ParsedValues{})
 		if err != nil && errorOut {
 			return err
 		}
@@ -89,7 +89,7 @@ func (c CapabilitiesValidator) CreateValidator(errorOut bool) bascule.ValidatorF
 // iterating through each capability and calling the CapabilityChecker.  If no
 // capability authorizes the client for the given endpoint and method, it is
 // unauthorized.
-func (c CapabilitiesValidator) Check(auth bascule.Authentication) (string, error) {
+func (c CapabilitiesValidator) Check(auth bascule.Authentication, _ ParsedValues) (string, error) {
 	if auth.Token == nil {
 		return TokenMissingValues, ErrNoToken
 	}

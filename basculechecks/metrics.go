@@ -52,6 +52,7 @@ const (
 	EmptyCapabilitiesList    = "empty_capabilities_list"
 	TokenMissingValues       = "auth_is_missing_values"
 	NoCapabilitiesMatch      = "no_capabilities_match"
+	EmptyParsedURL           = "empty_parsed_URL"
 )
 
 // Metrics returns the Metrics relevant to this package

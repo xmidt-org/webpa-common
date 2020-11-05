@@ -32,7 +32,12 @@ var defaultLogger = log.NewNopLogger()
 // authorized given a bascule.Authentication object.  If it's not authorized,
 // a reason and error are given for logging and metrics.
 type CapabilitiesChecker interface {
-	Check(auth bascule.Authentication) (string, error)
+	Check(auth bascule.Authentication, vals ParsedValues) (string, error)
+}
+
+type ParsedValues struct {
+	Endpoint string
+	Partner  string
 }
 
 // MetricValidator determines if a request is authorized and then updates a
@@ -78,7 +83,12 @@ func (m MetricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 			return nil
 		}
 
-		reason, err = m.C.Check(auth)
+		v := ParsedValues{
+			Endpoint: endpoint,
+			Partner:  partnerID,
+		}
+
+		reason, err = m.C.Check(auth, v)
 		if err != nil {
 			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
 			m.Measures.CapabilityCheckOutcome.With(labels...).Add(1)

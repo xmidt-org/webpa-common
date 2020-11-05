@@ -123,7 +123,7 @@ func TestMetricValidatorFunc(t *testing.T) {
 			}
 			mockCapabilitiesChecker := new(mockCapabilitiesChecker)
 			if tc.checkCallExpected {
-				mockCapabilitiesChecker.On("Check", mock.Anything).Return(tc.checkReason, tc.checkErr).Once()
+				mockCapabilitiesChecker.On("Check", mock.Anything, mock.Anything).Return(tc.checkReason, tc.checkErr).Once()
 			}
 
 			counter := generic.NewCounter("test_capability_check")

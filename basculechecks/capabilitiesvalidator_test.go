@@ -114,6 +114,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 		"joweiafuoiuoiwauf",
 		"it's a match",
 	}
+	pv := ParsedValues{}
 	tests := []struct {
 		description       string
 		includeToken      bool
@@ -178,7 +179,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 					Method: "GET",
 				}
 			}
-			reason, err := c.Check(a)
+			reason, err := c.Check(a, pv)
 			assert.Equal(tc.expectedReason, reason)
 			if err == nil || tc.expectedErr == nil {
 				assert.Equal(tc.expectedErr, err)
