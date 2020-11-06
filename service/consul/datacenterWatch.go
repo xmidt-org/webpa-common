@@ -124,6 +124,8 @@ func (d *DatacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 		case <-d.consulDatacenterWatch.shutdown:
 			return
 		case <-ticker.C:
+			d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "consul timer")
+
 			datacenters, err := getDatacenters(logger, client, options)
 
 			if err != nil {
@@ -182,19 +184,23 @@ func (d *DatacenterWatcher) UpdateInstancers(datacenters []string) {
 		}
 	}
 
+	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "BEFORE instancers update", "instancers: ", environment.Instancers())
+
 	environment.UpdateInstancers(keys, instancersToAdd)
+
+	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "AFTER instancers update", "instancers: ", environment.Instancers())
+
 }
 
 func (d *DatacenterWatcher) DatacentersListener() chrysom.ListenerFunc {
 	return func(items []model.Item) {
-		activeDatacenters := make([]string, len(items))
+		d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "getting from chrysom database", "items: ", items)
 		for _, item := range items {
 			datacenterName := item.Data["name"].(string)
 			if item.Data["active"] == true {
 				d.lock.Lock()
 				delete(d.inactiveDatacenters, datacenterName)
 				d.lock.Unlock()
-				activeDatacenters = append(activeDatacenters, datacenterName)
 			} else {
 				d.lock.Lock()
 				d.inactiveDatacenters[datacenterName] = true
