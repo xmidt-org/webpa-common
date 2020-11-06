@@ -5,8 +5,6 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/device"
 	"github.com/xmidt-org/webpa-common/service"
 	"github.com/xmidt-org/webpa-common/service/monitor"
@@ -18,16 +16,10 @@ import (
 // This type is a monitor.Listener, and fanout URLs are computed from all configured
 // instancers.
 type ServiceEndpoints struct {
-	lock                sync.RWMutex
-	keyFunc             servicehttp.KeyFunc
-	accessorFactory     service.AccessorFactory
-	accessors           map[string]service.Accessor
-	inactiveDatacenters map[string]bool
-	chrysomClient       *chrysom.Client
-}
-
-type Datacenter struct {
-	active bool
+	lock            sync.RWMutex
+	keyFunc         servicehttp.KeyFunc
+	accessorFactory service.AccessorFactory
+	accessors       map[string]service.Accessor
 }
 
 // FanoutURLs uses the currently available discovered endpoints to produce a set of URLs.
@@ -130,18 +122,4 @@ func MonitorEndpoints(e Endpoints, options ...monitor.Option) (monitor.Interface
 	}
 
 	return nil, nil
-}
-
-func CreateDatacentersListener(se *ServiceEndpoints) chrysom.ListenerFunc {
-	return func(items []model.Item) {
-		// Add all inactive datacenters to list
-		// Create list of all active datacenters
-		// Pass to function that will create the proper instancers and update the dictionary as needed
-		for _, item := range items {
-			if item.Data["active"] == false {
-				datacenterName := item.Data["name"].(string)
-				se.inactiveDatacenters[datacenterName] = true
-			}
-		}
-	}
 }
