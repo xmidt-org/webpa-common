@@ -23,6 +23,15 @@ import (
 	"strings"
 )
 
+// AlwaysCheck is a CapabilityChecker that always returns either true or false.
+type AlwaysCheck bool
+
+// Authorized returns the saved boolean value, rather than checking the
+// parameters given.
+func (a AlwaysCheck) Authorized(_, _, _ string) bool {
+	return bool(a)
+}
+
 // ConstCheck is a basic capability checker that determines a capability is
 // authorized if it matches the ConstCheck's string.
 type ConstCheck string

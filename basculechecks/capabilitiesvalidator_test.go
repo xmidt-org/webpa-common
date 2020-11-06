@@ -120,7 +120,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 		includeToken      bool
 		includeAttributes bool
 		includeURL        bool
-		goodCapability    string
+		checker           CapabilityChecker
 		expectedReason    string
 		expectedErr       error
 	}{
@@ -128,7 +128,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 			description:       "Success",
 			includeAttributes: true,
 			includeURL:        true,
-			goodCapability:    "it's a match",
+			checker:           ConstCheck("it's a match"),
 			expectedErr:       nil,
 		},
 		{
@@ -152,6 +152,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 			description:       "Check Capabilities Error",
 			includeAttributes: true,
 			includeURL:        true,
+			checker:           AlwaysCheck(false),
 			expectedReason:    NoCapabilitiesMatch,
 			expectedErr:       ErrNoValidCapabilityFound,
 		},
@@ -161,7 +162,7 @@ func TestCapabilitiesValidatorCheck(t *testing.T) {
 			assert := assert.New(t)
 			require := require.New(t)
 			c := CapabilitiesValidator{
-				Checker: ConstCheck(tc.goodCapability),
+				Checker: tc.checker,
 			}
 			a := bascule.Authentication{}
 			if tc.includeToken {
