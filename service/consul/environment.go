@@ -128,7 +128,6 @@ func newInstancer(l log.Logger, c Client, w Watch) sd.Instancer {
 
 func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, err error) {
 	var datacenters []string
-
 	for _, w := range co.watches() {
 		if w.CrossDatacenter {
 			if len(datacenters) == 0 {
@@ -209,13 +208,23 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 		return nil, err
 	}
 
-	return environment{
+	newServiceEnvironment := environment{
 		service.NewEnvironment(
 			append(
 				eo,
 				service.WithRegistrars(r),
 				service.WithInstancers(i),
 				service.WithCloser(closer),
-			)...,
-		), NewClient(consulClient)}, nil
+			)...), NewClient(consulClient)}
+
+	if co.DatacenterWatchInterval > 0 {
+		datacenterWatcher, err := newDatacenterWatcher(l, newServiceEnvironment, co)
+		if err != nil {
+			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create datacenter watcher", logging.ErrorKey(), err)
+		} else {
+			datacenterWatcher.start()
+		}
+	}
+
+	return newServiceEnvironment, nil
 }

@@ -37,6 +37,9 @@ type Environment interface {
 	// Changing the returned Instancers will not result in changing this Environment's state.
 	Instancers() Instancers
 
+	// UpdateInstancers configures the set of sd.Instancer objects for use in the environment.
+	UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers)
+
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
 	// Typically, this factory is set via configuration by some external source.
 	AccessorFactory() AccessorFactory
@@ -127,6 +130,7 @@ type environment struct {
 	instancers      Instancers
 	accessorFactory AccessorFactory
 
+	lock      sync.RWMutex
 	closeOnce sync.Once
 	closer    func() error
 	closed    chan struct{}
@@ -141,7 +145,34 @@ func (e *environment) DefaultScheme() string {
 }
 
 func (e *environment) Instancers() Instancers {
-	return e.instancers.Copy()
+	e.lock.RLock()
+	instancersCopy := e.instancers.Copy()
+	e.lock.RUnlock()
+	return instancersCopy
+}
+
+func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersToAdd Instancers) {
+	// add new instancers
+
+	for key, value := range instancersToAdd {
+		e.lock.Lock()
+		e.instancers.Set(key, value)
+		e.lock.Unlock()
+	}
+
+	// remove outdated instancers
+	e.lock.Lock()
+	for key := range e.instancers {
+		if _, ok := currentKeys[key]; !ok {
+			i, found := e.instancers.Get(key)
+
+			if found {
+				i.Stop()
+				delete(e.instancers, key)
+			}
+		}
+	}
+	e.lock.Unlock()
 }
 
 func (e *environment) AccessorFactory() AccessorFactory {

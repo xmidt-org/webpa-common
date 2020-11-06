@@ -1,6 +1,8 @@
 package consul
 
 import (
+	"time"
+
 	"github.com/hashicorp/consul/api"
 )
 
@@ -15,11 +17,12 @@ type Watch struct {
 }
 
 type Options struct {
-	Client            *api.Config                    `json:"client"`
-	DisableGenerateID bool                           `json:"disableGenerateID"`
-	DatacenterRetries int                            `json:"datacenterRetries"`
-	Registrations     []api.AgentServiceRegistration `json:"registrations,omitempty"`
-	Watches           []Watch                        `json:"watches,omitempty"`
+	Client                  *api.Config                    `json:"client"`
+	DisableGenerateID       bool                           `json:"disableGenerateID"`
+	DatacenterRetries       int                            `json:"datacenterRetries"`
+	DatacenterWatchInterval time.Duration                  `json:"datacenterWatchInterval"`
+	Registrations           []api.AgentServiceRegistration `json:"registrations,omitempty"`
+	Watches                 []Watch                        `json:"watches,omitempty"`
 }
 
 func (o *Options) config() *api.Config {
