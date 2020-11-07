@@ -14,7 +14,7 @@ import (
 	"github.com/xmidt-org/webpa-common/service"
 )
 
-//datacenterWatcher checks if datacenters have been updated, based on an interval
+//DatacenterWatcher checks if datacenters have been updated, based on an interval
 type DatacenterWatcher struct {
 	logger                 log.Logger
 	environment            Environment
@@ -61,7 +61,7 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		inactiveDatacenters:   make(map[string]bool),
 	}
 
-	if options.ChrysomConfig.PullInterval > 0 {
+	if options.ChrysomConfig != nil && options.ChrysomConfig.PullInterval > 0 {
 
 		if environment.Provider() == nil {
 			return nil, errors.New("must pass in a metrics provider")
@@ -84,6 +84,8 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 			chrysomClient: chrysomClient,
 			ctx:           ctx,
 		}
+	} else if options.ChrysomConfig != nil {
+		return nil, errors.New("chrysom pull interval cannot be 0")
 	}
 
 	return datacenterWatcher, nil
@@ -91,14 +93,16 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 }
 
 func (d *DatacenterWatcher) StartConsulTicker() {
-	if d.consulDatacenterWatch.watchInterval > 0 {
+	if d.consulDatacenterWatch != nil {
 		ticker := time.NewTicker(d.consulDatacenterWatch.watchInterval)
 		go d.watchDatacenters(ticker)
 	}
 }
 
 func (d *DatacenterWatcher) StopConsulTicker() {
-	close(d.consulDatacenterWatch.shutdown)
+	if d.consulDatacenterWatch != nil {
+		close(d.consulDatacenterWatch.shutdown)
+	}
 }
 
 func (d *DatacenterWatcher) StartChrysomTicker() {

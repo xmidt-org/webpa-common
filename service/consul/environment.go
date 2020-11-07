@@ -218,7 +218,7 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 				service.WithCloser(closer),
 			)...), NewClient(consulClient)}
 
-	if co.DatacenterWatchInterval > 0 || co.ChrysomConfig.PullInterval > 0 {
+	if co.DatacenterWatchInterval > 0 || (co.ChrysomConfig != nil && co.ChrysomConfig.PullInterval > 0) {
 		// TODO: pass in chrysom config into new datacenter watcher creation, save new datacenter watcher inside service discovery environment
 		datacenterWatcher, err := NewDatacenterWatcher(l, newServiceEnvironment, co, context.Background())
 		if err != nil {

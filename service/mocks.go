@@ -96,5 +96,10 @@ func (m *MockEnvironment) Closed() <-chan struct{} {
 }
 
 func (m *MockEnvironment) Provider() provider.Provider {
-	return m.Called().Get(0).(provider.Provider)
+	if m.Called().Get(1).(bool) {
+		return m.Called().Get(0).(provider.Provider)
+	}
+
+	return nil
+
 }
