@@ -198,29 +198,7 @@ func (d *DatacenterWatcher) UpdateInstancers(datacenters []string) {
 
 func (d *DatacenterWatcher) DatacentersListener() chrysom.ListenerFunc {
 	return func(items []model.Item) {
-		d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "getting from chrysom database", "items: ", items)
-		chrysomMap := make(map[string]bool)
-		for _, item := range items {
-			datacenterName := item.Data["name"].(string)
-			if item.Data["active"] == false {
-				chrysomMap[datacenterName] = true
-				d.lock.Lock()
-				d.inactiveDatacenters[datacenterName] = true
-				d.lock.Unlock()
-			}
-		}
-
-		d.lock.Lock()
-
-		for key, _ := range d.inactiveDatacenters {
-			_, ok := chrysomMap[key]
-
-			if !ok {
-				delete(d.inactiveDatacenters, key)
-			}
-		}
-
-		d.lock.Unlock()
+		updateInactiveDatacenters(items, d.inactiveDatacenters, d.logger, &d.lock)
 
 		datacenters, err := getDatacenters(d.logger, d.environment.Client(), d.options)
 
@@ -229,4 +207,30 @@ func (d *DatacenterWatcher) DatacentersListener() chrysom.ListenerFunc {
 		}
 
 	}
+}
+
+func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, logger log.Logger, lock *sync.RWMutex) {
+	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "getting from chrysom database", "items: ", items)
+	chrysomMap := make(map[string]bool)
+	for _, item := range items {
+		datacenterName := item.Data["name"].(string)
+		if item.Data["active"] == false {
+			chrysomMap[datacenterName] = true
+			lock.Lock()
+			inactiveDatacenters[datacenterName] = true
+			lock.Unlock()
+		}
+	}
+
+	lock.Lock()
+
+	for key := range inactiveDatacenters {
+		_, ok := chrysomMap[key]
+
+		if !ok {
+			delete(inactiveDatacenters, key)
+		}
+	}
+
+	lock.Unlock()
 }

@@ -3,12 +3,14 @@ package consul
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/service"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
@@ -220,6 +222,75 @@ func TestNewDatacenterWatcher(t *testing.T) {
 
 }
 
-func TestDatacentersListener(t *testing.T) {
+func TestUpdateInactiveDatacenters(t *testing.T) {
+	logger := log.NewNopLogger()
 
+	tests := []struct {
+		description                 string
+		items                       []model.Item
+		currentInactiveDatacenters  map[string]bool
+		expectedInactiveDatacenters map[string]bool
+		logger                      log.Logger
+		lock                        sync.RWMutex
+	}{
+		{
+			description:                 "Empty database results, empty inactive datacenters",
+			items:                       []model.Item{},
+			currentInactiveDatacenters:  map[string]bool{},
+			expectedInactiveDatacenters: map[string]bool{},
+		},
+		{
+			description: "Empty database results, non-empty inactive datacenters",
+			items:       []model.Item{},
+			currentInactiveDatacenters: map[string]bool{
+				"testDC": true,
+			},
+			expectedInactiveDatacenters: map[string]bool{},
+		},
+		{
+			description: "Non-Empty Database Results",
+			items: []model.Item{
+				{
+					UUID:       "random-id",
+					Identifier: "datacenters",
+					Data: map[string]interface{}{
+						"name":   "testDC1",
+						"active": false,
+					},
+				},
+				{
+					UUID:       "random-id2",
+					Identifier: "datacenters",
+					Data: map[string]interface{}{
+						"name":   "testDC2",
+						"active": true,
+					},
+				},
+				{
+					UUID:       "random-id3",
+					Identifier: "datacenters",
+					Data: map[string]interface{}{
+						"name":   "testDC3",
+						"active": false,
+					},
+				},
+			},
+			currentInactiveDatacenters: map[string]bool{
+				"testDC2": true,
+			},
+			expectedInactiveDatacenters: map[string]bool{
+				"testDC1": true,
+				"testDC3": true,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			assert := assert.New(t)
+			updateInactiveDatacenters(tc.items, tc.currentInactiveDatacenters, logger, &tc.lock)
+			assert.Equal(tc.expectedInactiveDatacenters, tc.currentInactiveDatacenters)
+
+		})
+	}
 }
