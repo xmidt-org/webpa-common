@@ -128,8 +128,6 @@ func (d *DatacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 		case <-d.consulDatacenterWatch.shutdown:
 			return
 		case <-ticker.C:
-			d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "consul timer")
-
 			datacenters, err := getDatacenters(logger, client, options)
 
 			if err != nil {
@@ -188,17 +186,13 @@ func (d *DatacenterWatcher) UpdateInstancers(datacenters []string) {
 		}
 	}
 
-	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "BEFORE instancers update", "instancers: ", environment.Instancers())
-
 	environment.UpdateInstancers(keys, instancersToAdd)
-
-	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "AFTER instancers update", "instancers: ", environment.Instancers())
 
 }
 
 func (d *DatacenterWatcher) DatacentersListener() chrysom.ListenerFunc {
 	return func(items []model.Item) {
-		updateInactiveDatacenters(items, d.inactiveDatacenters, d.logger, &d.lock)
+		updateInactiveDatacenters(items, d.inactiveDatacenters, &d.lock)
 
 		datacenters, err := getDatacenters(d.logger, d.environment.Client(), d.options)
 
@@ -209,8 +203,7 @@ func (d *DatacenterWatcher) DatacentersListener() chrysom.ListenerFunc {
 	}
 }
 
-func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, logger log.Logger, lock *sync.RWMutex) {
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "getting from chrysom database", "items: ", items)
+func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, lock *sync.RWMutex) {
 	chrysomMap := make(map[string]bool)
 	for _, item := range items {
 		datacenterName := item.Data["name"].(string)

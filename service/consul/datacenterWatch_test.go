@@ -223,8 +223,6 @@ func TestNewDatacenterWatcher(t *testing.T) {
 }
 
 func TestUpdateInactiveDatacenters(t *testing.T) {
-	logger := log.NewNopLogger()
-
 	tests := []struct {
 		description                 string
 		items                       []model.Item
@@ -288,7 +286,7 @@ func TestUpdateInactiveDatacenters(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			updateInactiveDatacenters(tc.items, tc.currentInactiveDatacenters, logger, &tc.lock)
+			updateInactiveDatacenters(tc.items, tc.currentInactiveDatacenters, &tc.lock)
 			assert.Equal(tc.expectedInactiveDatacenters, tc.currentInactiveDatacenters)
 
 		})
