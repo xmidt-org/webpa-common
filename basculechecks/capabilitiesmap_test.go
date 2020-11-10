@@ -26,79 +26,19 @@ import (
 	"github.com/xmidt-org/bascule"
 )
 
-func TestNewCapabilitiesMap(t *testing.T) {
-	goodCheckers := map[string]CapabilityChecker{
-		"a":      ConstCheck("meh"),
-		"bcedef": ConstCheck("yay"),
-		"all":    ConstCheck("good"),
-	}
-	emptyCheckers := map[string]CapabilityChecker{}
-	goodDefault := ConstCheck("default checker")
-	tests := []struct {
-		description    string
-		goodDefault    bool
-		checkersMap    map[string]CapabilityChecker
-		expectedStruct *CapabilitiesMap
-		expectedErr    error
-	}{
-		{
-			description: "Success",
-			goodDefault: true,
-			checkersMap: goodCheckers,
-			expectedStruct: &CapabilitiesMap{
-				checkers:       goodCheckers,
-				defaultChecker: goodDefault,
-			},
-		},
-		{
-			description: "Success with Empty Checkers",
-			goodDefault: true,
-			checkersMap: emptyCheckers,
-			expectedStruct: &CapabilitiesMap{
-				checkers:       emptyCheckers,
-				defaultChecker: goodDefault,
-			},
-		},
-		{
-			description: "Success with Nil Checkers",
-			goodDefault: true,
-			checkersMap: nil,
-			expectedStruct: &CapabilitiesMap{
-				checkers:       emptyCheckers,
-				defaultChecker: goodDefault,
-			},
-		},
-		{
-			description:    "Nil Default Error",
-			checkersMap:    goodCheckers,
-			expectedStruct: nil,
-			expectedErr:    ErrNilDefaultChecker,
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.description, func(t *testing.T) {
-			assert := assert.New(t)
-			var d CapabilityChecker
-			if tc.goodDefault {
-				d = goodDefault
-			}
-			c, err := NewCapabilitiesMap(tc.checkersMap, d)
-			assert.Equal(tc.expectedStruct, c)
-			assert.Equal(tc.expectedErr, err)
-		})
-	}
-}
-
 func TestCapabilitiesMapCheck(t *testing.T) {
 	goodDefault := ConstCheck("default checker")
 	checkersMap := map[string]CapabilityChecker{
-		"a":      ConstCheck("meh"),
-		"bcedef": ConstCheck("yay"),
-		"all":    ConstCheck("good"),
+		"a":        ConstCheck("meh"),
+		"bcedef":   ConstCheck("yay"),
+		"all":      ConstCheck("good"),
+		"fallback": nil,
 	}
-	cm, err := NewCapabilitiesMap(checkersMap, goodDefault)
-	require.Nil(t, err)
-	require.NotNil(t, cm)
+	cm := CapabilitiesMap{
+		Checkers:       checkersMap,
+		DefaultChecker: goodDefault,
+	}
+	nilCM := CapabilitiesMap{}
 	goodCapabilities := []string{
 		"test",
 		"",
@@ -118,6 +58,7 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 	badToken := bascule.NewToken("", "", nil)
 	tests := []struct {
 		description    string
+		cm             CapabilitiesMap
 		token          bascule.Token
 		includeURL     bool
 		endpoint       string
@@ -126,18 +67,28 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 	}{
 		{
 			description: "Success",
+			cm:          cm,
 			token:       goodToken,
 			includeURL:  true,
 			endpoint:    "bcedef",
 		},
 		{
-			description: "Success with Default Checker",
+			description: "Success Not in Map",
+			cm:          cm,
 			token:       defaultToken,
 			includeURL:  true,
 			endpoint:    "b",
 		},
 		{
+			description: "Success Nil Map Value",
+			cm:          cm,
+			token:       defaultToken,
+			includeURL:  true,
+			endpoint:    "fallback",
+		},
+		{
 			description:    "No Match Error",
+			cm:             cm,
 			token:          goodToken,
 			includeURL:     true,
 			endpoint:       "b",
@@ -146,6 +97,16 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 		},
 		{
 			description:    "No Match with Default Checker Error",
+			cm:             cm,
+			token:          defaultToken,
+			includeURL:     true,
+			endpoint:       "bcedef",
+			expectedReason: NoCapabilitiesMatch,
+			expectedErr:    ErrNoValidCapabilityFound,
+		},
+		{
+			description:    "No Match Nil Default Checker Error",
+			cm:             nilCM,
 			token:          defaultToken,
 			includeURL:     true,
 			endpoint:       "bcedef",
@@ -154,6 +115,7 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 		},
 		{
 			description:    "No Token Error",
+			cm:             cm,
 			token:          nil,
 			includeURL:     true,
 			expectedReason: TokenMissingValues,
@@ -161,6 +123,7 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 		},
 		{
 			description:    "No Request URL Error",
+			cm:             cm,
 			token:          goodToken,
 			includeURL:     false,
 			expectedReason: TokenMissingValues,
@@ -168,6 +131,7 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 		},
 		{
 			description:    "Empty Endpoint Error",
+			cm:             cm,
 			token:          goodToken,
 			includeURL:     true,
 			endpoint:       "",
@@ -176,6 +140,7 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 		},
 		{
 			description:    "Get Capabilities Error",
+			cm:             cm,
 			token:          badToken,
 			includeURL:     true,
 			endpoint:       "b",
@@ -198,7 +163,7 @@ func TestCapabilitiesMapCheck(t *testing.T) {
 					Method: "GET",
 				}
 			}
-			reason, err := cm.Check(auth, ParsedValues{Endpoint: tc.endpoint})
+			reason, err := tc.cm.Check(auth, ParsedValues{Endpoint: tc.endpoint})
 			assert.Equal(tc.expectedReason, reason)
 			if err == nil || tc.expectedErr == nil {
 				assert.Equal(tc.expectedErr, err)

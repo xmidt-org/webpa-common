@@ -29,15 +29,26 @@ import (
 var defaultLogger = log.NewNopLogger()
 
 // CapabilitiesChecker is an object that can determine if a request is
-// authorized given a bascule.Authentication object.  If it's not authorized,
-// a reason and error are given for logging and metrics.
+// authorized given a bascule.Authentication object.  If it's not authorized, a
+// reason and error are given for logging and metrics.
 type CapabilitiesChecker interface {
 	Check(auth bascule.Authentication, vals ParsedValues) (string, error)
 }
 
+// ParsedValues are values determined from the bascule Authentication.
 type ParsedValues struct {
+	// Endpoint is the string representation of a regular expression that
+	// matches the URL for the request.  The main benefit of this string is it
+	// most likely won't include strings that change from one request to the
+	// next (ie, device ID).
 	Endpoint string
-	Partner  string
+	// Partner is a string representation of the list of partners found in the
+	// JWT, where:
+	//   - any list including "*" as a partner is determined to be "wildcard".
+	//   - when the list is <1 item, the partner is deteremined to be "none".
+	//   - when the list is >1 item, the partner is determined to be "many".
+	//   - when the list is only one item, that is the partner value.
+	Partner string
 }
 
 // MetricValidator determines if a request is authorized and then updates a

@@ -51,6 +51,7 @@ const (
 	UndeterminedCapabilities = "undetermined_capabilities"
 	EmptyCapabilitiesList    = "empty_capabilities_list"
 	TokenMissingValues       = "auth_is_missing_values"
+	NoCapabilityChecker      = "no_capability_checker"
 	NoCapabilitiesMatch      = "no_capabilities_match"
 	EmptyParsedURL           = "empty_parsed_URL"
 )
@@ -58,7 +59,7 @@ const (
 // Metrics returns the Metrics relevant to this package
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
-		xmetrics.Metric{
+		{
 			Name:       AuthCapabilityCheckOutcome,
 			Type:       xmetrics.CounterType,
 			Help:       "Counter for the capability checker, providing outcome information by client, partner, and endpoint",

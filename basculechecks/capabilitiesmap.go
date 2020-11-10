@@ -34,23 +34,8 @@ var (
 // be some regex values, allowing for bucketing of urls that contain some kind
 // of ID or otherwise variable portion of a URL.
 type CapabilitiesMap struct {
-	checkers       map[string]CapabilityChecker
-	defaultChecker CapabilityChecker
-}
-
-// NewCapabilitiesMap validates the default Checker and sets up the map to be
-// non-nil in order to create a good CapabilitiesMap struct.
-func NewCapabilitiesMap(checkers map[string]CapabilityChecker, defaultChecker CapabilityChecker) (*CapabilitiesMap, error) {
-	if defaultChecker == nil {
-		return nil, ErrNilDefaultChecker
-	}
-	if checkers == nil {
-		checkers = make(map[string]CapabilityChecker)
-	}
-	return &CapabilitiesMap{
-		checkers:       checkers,
-		defaultChecker: defaultChecker,
-	}, nil
+	Checkers       map[string]CapabilityChecker
+	DefaultChecker CapabilityChecker
 }
 
 // Check uses the parsed endpoint value to determine which CapabilityChecker to
@@ -77,12 +62,21 @@ func (c CapabilitiesMap) Check(auth bascule.Authentication, vs ParsedValues) (st
 	}
 
 	// determine which CapabilityChecker to use.
-	checker, ok := c.checkers[vs.Endpoint]
+	checker, ok := c.Checkers[vs.Endpoint]
 	if !ok || checker == nil {
-		checker = c.defaultChecker
+		checker = c.DefaultChecker
 	}
 	reqURL := auth.Request.URL.EscapedPath()
 	method := auth.Request.Method
+
+	// if the checker is nil, we treat it like a checker that always returns
+	// false.
+	if checker == nil {
+		return NoCapabilitiesMatch, emperror.With(ErrNoValidCapabilityFound,
+			"capabilitiesFound", capabilities, "request URL", reqURL,
+			"request method", method, "parsed URL", vs.Endpoint,
+			"checker", checker)
+	}
 
 	// if one of the capabilities is good, then the request is authorized
 	// for this endpoint.
