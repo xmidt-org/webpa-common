@@ -45,7 +45,7 @@ type ParsedValues struct {
 	// Partner is a string representation of the list of partners found in the
 	// JWT, where:
 	//   - any list including "*" as a partner is determined to be "wildcard".
-	//   - when the list is <1 item, the partner is deteremined to be "none".
+	//   - when the list is <1 item, the partner is determined to be "none".
 	//   - when the list is >1 item, the partner is determined to be "many".
 	//   - when the list is only one item, that is the partner value.
 	Partner string
