@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Updated basculechecks library to run different capability checks based on the endpoint hit. [#538](https://github.com/xmidt-org/webpa-common/pull/538)
+
 ### Fixed
 - Bug in which only mTLS was allowed as valid config for an HTTP server. [#544](https://github.com/xmidt-org/webpa-common/pull/544)
 
