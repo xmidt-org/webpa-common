@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 
+## [v1.11.3]
+### Changed
+- Updated basculechecks library to run different capability checks based on the endpoint hit. [#538](https://github.com/xmidt-org/webpa-common/pull/538)
+
+### Fixed
+- Bug in which only mTLS was allowed as valid config for an HTTP server. [#544](https://github.com/xmidt-org/webpa-common/pull/544)
+
 ## [v1.11.2]
 ### Changed
 - Update xwebhook to a stable version of argus. [#537](https://github.com/xmidt-org/webpa-common/pull/537)
@@ -170,7 +177,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.3...HEAD
+[v1.11.3]: https://github.com/xmidt-org/webpa-common/compare/v1.11.2...v1.11.3
 [v1.11.2]: https://github.com/xmidt-org/webpa-common/compare/v1.11.1...v1.11.2
 [v1.11.1]: https://github.com/xmidt-org/webpa-common/compare/v1.11.0...v1.11.1
 [v1.11.0]: https://github.com/xmidt-org/webpa-common/compare/v1.10.8...v1.11.0

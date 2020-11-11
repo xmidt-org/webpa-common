@@ -24,6 +24,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAlwaysCheck(t *testing.T) {
+	assert := assert.New(t)
+	alwaysTrue := AlwaysCheck(true)
+	assert.True(alwaysTrue.Authorized("a", "b", "c"))
+	alwaysFalse := AlwaysCheck(false)
+	assert.False(alwaysFalse.Authorized("a", "b", "c"))
+}
+
 func TestConstCapabilityChecker(t *testing.T) {
 	var v interface{}
 	v = ConstCheck("test")

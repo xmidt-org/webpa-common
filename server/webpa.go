@@ -239,7 +239,7 @@ func validCertSlices(certificateFiles, keyFiles []string) bool {
 	return valid
 }
 
-func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, err error) {
+func loadCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, err error) {
 	if !validCertSlices(certificateFiles, keyFiles) {
 		return []tls.Certificate{}, errors.New("certFiles and keyFiles are not valid")
 	}
@@ -260,40 +260,39 @@ func generateCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate
 // but the handler may be nil.  If the handler is nil, http.DefaultServeMux is used, which matches
 // the behavior of http.Server.
 //
-// This method returns nil if the configured address is empty, effectively disabling
+// This method returns nil if the configured address is empty or if any config errors occur, effectively disabling
 // this server from startup.
 func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	if len(b.Address) == 0 {
 		return nil
 	}
 
-	// Adding MTLS support using client CA cert pool
 	var tlsConfig *tls.Config
-	// Only when HTTPS i.e. cert & key present, check for client CA and set TLS config for MTLS
-	if (len(b.CertificateFile) > 0 && len(b.KeyFile) > 0) || len(b.ClientCACertFile) > 0 {
-
-		caCert, err := ioutil.ReadFile(b.ClientCACertFile)
+	if len(b.CertificateFile) > 0 && len(b.KeyFile) > 0 {
+		certs, err := loadCerts(b.CertificateFile, b.KeyFile)
 		if err != nil {
-			logging.Error(logger).Log(logging.MessageKey(), "Error in reading ClientCACertFile ",
-				logging.ErrorKey(), err)
+			logging.Error(logger).Log(logging.MessageKey(), "Error loading cert and key file to configure TLS", logging.ErrorKey(), err)
 			return nil
-		} else {
+		}
+
+		tlsConfig = &tls.Config{
+			Certificates: certs,
+			MinVersion:   b.minVersion(),
+			MaxVersion:   b.maxVersion(),
+		}
+
+		if len(b.ClientCACertFile) > 0 {
+			caCert, err := ioutil.ReadFile(b.ClientCACertFile)
+
+			if err != nil {
+				logging.Error(logger).Log(logging.MessageKey(), "Error loading clientCACert file to configure mTLS", logging.ErrorKey(), err)
+				return nil
+			}
+
 			caCertPool := x509.NewCertPool()
 			caCertPool.AppendCertsFromPEM(caCert)
-			tlsConfig = &tls.Config{
-				ClientCAs:  caCertPool,
-				ClientAuth: tls.RequireAndVerifyClientCert,
-				MaxVersion: b.maxVersion(),
-				MinVersion: b.minVersion(),
-			}
-			certs, err := generateCerts(b.CertificateFile, b.KeyFile)
-			if err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "Error in generating certs",
-					logging.ErrorKey(), err)
-			} else {
-				tlsConfig.Certificates = certs
-			}
-			tlsConfig.BuildNameToCertificate()
+			tlsConfig.ClientCAs = caCertPool
+			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 		}
 	}
 
