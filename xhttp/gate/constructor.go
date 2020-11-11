@@ -19,7 +19,7 @@ func (c *constructor) decorate(next http.Handler) http.Handler {
 				msg, err := RequestToWRP(request)
 
 				if msg != nil && err != nil {
-					if c.g.FilterRequest(*msg) {
+					if c.g.Filters().FilterRequest(*msg) {
 						next.ServeHTTP(response, request)
 					}
 				} else {

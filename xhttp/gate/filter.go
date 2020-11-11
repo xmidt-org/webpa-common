@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -19,9 +20,14 @@ type Filter struct {
 	Gate Interface
 }
 
-type FilterRequest struct {
+type filterRequest struct {
 	Key    string
 	Values []string
+}
+
+type FiltersStore struct {
+	filters map[string]map[string]struct{}
+	lock    sync.RWMutex
 }
 
 const (
@@ -45,7 +51,7 @@ func (f *Filter) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 		response.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(response, `{"filters": %v}`, filters)
 	} else if method == "POST" || method == "PUT" {
-		var message FilterRequest
+		var message filterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
 		request.Body.Close()
 
@@ -57,7 +63,7 @@ func (f *Filter) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 
 		err = json.Unmarshal(msgBytes, &message)
 		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not decode request body", logging.ErrorKey(), err)
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not unmarshal request body", logging.ErrorKey(), err)
 			xhttp.WriteError(response, http.StatusBadRequest, err)
 			return
 		}
@@ -84,7 +90,7 @@ func (f *Filter) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 			}
 		}
 
-		f.Gate.EditFilters(message.Key, message.Values, true)
+		f.Gate.Filters().EditFilters(message.Key, message.Values, true)
 
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", f.Gate.Filters())
 
@@ -99,7 +105,7 @@ func RequestToWRP(req *http.Request) (*wrp.Message, error) {
 		msgBytes, err := ioutil.ReadAll(req.Body)
 		req.Body.Close()
 
-		// Write in what you just read
+		// Write in what was just read
 		req.Body = ioutil.NopCloser(bytes.NewBuffer(msgBytes))
 
 		if err != nil {
@@ -115,4 +121,91 @@ func RequestToWRP(req *http.Request) (*wrp.Message, error) {
 	}
 
 	return nil, nil
+}
+
+func (f *FiltersStore) Prettify() map[string][]string {
+	copy := make(map[string][]string)
+
+	f.lock.RLock()
+	for k, v := range f.filters {
+		var filters []string
+		for filter := range v {
+			filters = append(filters, filter)
+		}
+
+		copy[k] = filters
+	}
+	f.lock.RUnlock()
+
+	return copy
+}
+
+func (f *FiltersStore) Filters() map[string]map[string]struct{} {
+	filtersCopy := make(map[string]map[string]struct{})
+
+	f.lock.RLock()
+	for key, val := range f.filters {
+		valCopy := make(map[string]struct{})
+
+		for k, v := range val {
+			valCopy[k] = v
+		}
+
+		filtersCopy[key] = valCopy
+	}
+	f.lock.RUnlock()
+
+	return filtersCopy
+}
+
+//allows for adding and removing filters
+//Will completely overwrite current filters in place
+func (f *FiltersStore) EditFilters(key string, values []string, add bool) {
+	f.lock.Lock()
+	if add {
+		valuesMap := make(map[string]struct{})
+
+		for _, v := range values {
+			valuesMap[v] = emptyVal
+		}
+
+		f.filters[key] = valuesMap
+	} else {
+
+		_, ok := f.filters[key]
+
+		if ok {
+			delete(f.filters, key)
+		}
+	}
+	f.lock.Unlock()
+}
+
+func (f *FiltersStore) FilterRequest(msg wrp.Message) bool {
+	f.lock.RLock()
+	defer f.lock.RUnlock()
+
+	for filterKey, filterValues := range f.filters {
+		switch filterKey {
+		case partnerIDKey:
+			if filterMatch(filterValues, msg.PartnerIDs...) {
+				return true
+			}
+		}
+	}
+
+	return true
+}
+
+func filterMatch(filterValues map[string]struct{}, paramsToCheck ...string) bool {
+	for _, param := range paramsToCheck {
+		_, found := filterValues[param]
+
+		if found {
+			return true
+		}
+	}
+
+	return false
+
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-kit/kit/metrics/discard"
 	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/wrp-go/v2"
 )
 
 const (
@@ -38,14 +37,7 @@ type Interface interface {
 	// at which this gate entered that state.
 	State() (bool, time.Time)
 
-	//Filters returns a cpoy of the filters being applied in allowing requests
-	Filters() map[string]map[string]bool
-
-	//EditFilters allows for adding or removing filters from the filters map
-	EditFilters(key string, value []string, add bool)
-
-	//FilterRequest returns true if the message is allowed to pass and false if it isn't
-	FilterRequest(msg wrp.Message) bool
+	Filters() *FiltersStore
 }
 
 // GateOption is a configuration option for a gate Interface
@@ -66,10 +58,12 @@ func WithGauge(gauge xmetrics.Setter) GateOption {
 // initial state, and any configured gauge is updated to reflect this initial state.
 func New(initial bool, options ...GateOption) Interface {
 	g := &gate{
-		open:    initial,
-		now:     time.Now,
-		state:   discard.NewGauge(),
-		filters: make(map[string]map[string]bool),
+		open:  initial,
+		now:   time.Now,
+		state: discard.NewGauge(),
+		filters: &FiltersStore{
+			filters: make(map[string]map[string]struct{}),
+		},
 	}
 
 	for _, o := range options {
@@ -88,12 +82,11 @@ func New(initial bool, options ...GateOption) Interface {
 
 // gate is the internal Interface implementation
 type gate struct {
-	lock        sync.RWMutex
-	filtersLock sync.RWMutex
-	open        bool
-	timestamp   time.Time
-	now         func() time.Time
-	filters     map[string]map[string]bool
+	lock      sync.RWMutex
+	open      bool
+	timestamp time.Time
+	now       func() time.Time
+	filters   *FiltersStore
 
 	state xmetrics.Setter
 }
@@ -151,65 +144,6 @@ func (g *gate) String() string {
 	}
 }
 
-func (g *gate) Filters() map[string]map[string]bool {
-	filtersCopy := make(map[string]map[string]bool)
-
-	g.filtersLock.RLock()
-	for key, val := range g.filters {
-		valCopy := make(map[string]bool)
-
-		for k, v := range val {
-			valCopy[k] = v
-		}
-
-		filtersCopy[key] = valCopy
-	}
-	g.filtersLock.RUnlock()
-
-	return filtersCopy
-}
-
-//allows for adding and removing filters
-//Will completely overwrite current filters in place
-func (g *gate) EditFilters(key string, values []string, add bool) {
-	g.filtersLock.Lock()
-	if add {
-		valuesMap := make(map[string]bool)
-
-		for _, v := range values {
-			valuesMap[v] = true
-		}
-
-		g.filters[key] = valuesMap
-	} else {
-
-		_, ok := g.filters[key]
-
-		if ok {
-			delete(g.filters, key)
-		}
-	}
-	g.filtersLock.Unlock()
-}
-
-func (g *gate) FilterRequest(msg wrp.Message) bool {
-	g.filtersLock.RLock()
-	accept := true
-filterLoop:
-	for k, v := range g.filters {
-		switch k {
-		case partnerIDKey:
-			for _, id := range msg.PartnerIDs {
-				_, found := v[id]
-
-				if found {
-					accept = false
-					break filterLoop
-				}
-			}
-		}
-	}
-	g.filtersLock.RUnlock()
-
-	return accept
+func (g *gate) Filters() *FiltersStore {
+	return g.filters
 }
