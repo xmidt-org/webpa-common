@@ -31,7 +31,7 @@ type consulDatacenterWatch struct {
 	shutdown      chan struct{}
 }
 
-type DatacenterFilter struct {
+type datacenterFilter struct {
 	Name     string `mapstructure:"name"`
 	Inactive bool   `mapstructure:"inactive"`
 }
@@ -182,7 +182,7 @@ func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[strin
 	chrysomMap := make(map[string]bool)
 	for _, item := range items {
 
-		var df DatacenterFilter
+		var df datacenterFilter
 
 		// decode database item data into datacenter filter structure
 		err := mapstructure.Decode(item.Data, &df)
