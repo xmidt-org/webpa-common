@@ -16,18 +16,13 @@ import (
 
 //DatacenterWatcher checks if datacenters have been updated, based on an interval
 type DatacenterWatcher struct {
-	logger                 log.Logger
-	environment            Environment
-	options                Options
-	inactiveDatacenters    map[string]bool
-	chrysomDatacenterWatch *chrysomDatacenterWatch
-	consulDatacenterWatch  *consulDatacenterWatch
-	lock                   sync.RWMutex
-}
-
-type chrysomDatacenterWatch struct {
-	chrysomClient *chrysom.Client
-	ctx           context.Context
+	logger                log.Logger
+	environment           Environment
+	options               Options
+	inactiveDatacenters   map[string]bool
+	chrysomClient         *chrysom.Client
+	consulDatacenterWatch *consulDatacenterWatch
+	lock                  sync.RWMutex
 }
 
 type consulDatacenterWatch struct {
@@ -39,7 +34,7 @@ var (
 	defaultLogger = log.NewNopLogger()
 )
 
-func NewDatacenterWatcher(logger log.Logger, environment Environment, options Options, ctx context.Context) (*DatacenterWatcher, error) {
+func NewDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*DatacenterWatcher, error) {
 	var consulWatch *consulDatacenterWatch
 
 	if logger == nil {
@@ -76,14 +71,8 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 			return nil, err
 		}
 
-		if ctx == nil {
-			ctx = context.Background()
-		}
+		datacenterWatcher.chrysomClient = chrysomClient
 
-		datacenterWatcher.chrysomDatacenterWatch = &chrysomDatacenterWatch{
-			chrysomClient: chrysomClient,
-			ctx:           ctx,
-		}
 	} else if options.ChrysomConfig != nil {
 		return nil, errors.New("chrysom pull interval cannot be 0")
 	}
@@ -106,14 +95,14 @@ func (d *DatacenterWatcher) StopConsulTicker() {
 }
 
 func (d *DatacenterWatcher) StartChrysomTicker() {
-	if d.chrysomDatacenterWatch != nil {
-		d.chrysomDatacenterWatch.chrysomClient.Start(d.chrysomDatacenterWatch.ctx)
+	if d.chrysomClient != nil {
+		d.chrysomClient.Start(context.Background())
 	}
 }
 
 func (d *DatacenterWatcher) StopChrysomTicker() {
-	if d.chrysomDatacenterWatch != nil {
-		d.chrysomDatacenterWatch.chrysomClient.Stop(d.chrysomDatacenterWatch.ctx)
+	if d.chrysomClient != nil {
+		d.chrysomClient.Stop(context.Background())
 	}
 }
 

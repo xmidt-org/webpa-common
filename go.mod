@@ -33,6 +33,3 @@ require (
 	go.uber.org/fx v1.13.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
-
-//The following is to fix the ambiguous import error, basically pins the consul version to 1.7.0
-// replace github.com/hashicorp/consul => github.com/hashicorp/consul v1.7.0
