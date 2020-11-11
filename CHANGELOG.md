@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+
+## [v1.11.3]
 ### Changed
 - Updated basculechecks library to run different capability checks based on the endpoint hit. [#538](https://github.com/xmidt-org/webpa-common/pull/538)
 
@@ -174,7 +177,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.2...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.3...HEAD
+[v1.11.3]: https://github.com/xmidt-org/webpa-common/compare/v1.11.2...v1.11.3
 [v1.11.2]: https://github.com/xmidt-org/webpa-common/compare/v1.11.1...v1.11.2
 [v1.11.1]: https://github.com/xmidt-org/webpa-common/compare/v1.11.0...v1.11.1
 [v1.11.0]: https://github.com/xmidt-org/webpa-common/compare/v1.10.8...v1.11.0
