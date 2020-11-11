@@ -1,7 +1,6 @@
 package consul
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -219,18 +218,9 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 			)...), NewClient(consulClient)}
 
 	if co.DatacenterWatchInterval > 0 || (co.ChrysomConfig != nil && co.ChrysomConfig.PullInterval > 0) {
-		datacenterWatcher, err := NewDatacenterWatcher(l, newServiceEnvironment, co, context.Background())
+		_, err := NewDatacenterWatcher(l, newServiceEnvironment, co)
 		if err != nil {
 			l.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not create datacenter watcher", logging.ErrorKey(), err)
-		} else {
-			if co.DatacenterWatchInterval > 0 {
-				datacenterWatcher.StartConsulTicker()
-			}
-
-			if co.ChrysomConfig.PullInterval > 0 {
-				datacenterWatcher.StartChrysomTicker()
-			}
-
 		}
 	}
 

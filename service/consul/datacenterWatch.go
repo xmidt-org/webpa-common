@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/mitchellh/mapstructure"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -15,7 +16,7 @@ import (
 )
 
 //DatacenterWatcher checks if datacenters have been updated, based on an interval
-type DatacenterWatcher struct {
+type datacenterWatcher struct {
 	logger                log.Logger
 	environment           Environment
 	options               Options
@@ -30,25 +31,33 @@ type consulDatacenterWatch struct {
 	shutdown      chan struct{}
 }
 
+type DatacenterFilter struct {
+	Name     string `mapstructure:"name"`
+	Inactive bool   `mapstructure:"inactive"`
+}
+
 var (
 	defaultLogger = log.NewNopLogger()
 )
 
-func NewDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*DatacenterWatcher, error) {
+func NewDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
 	var consulWatch *consulDatacenterWatch
 
 	if logger == nil {
 		logger = defaultLogger
 	}
 
-	if options.DatacenterWatchInterval > 0 {
-		consulWatch = &consulDatacenterWatch{
-			watchInterval: options.DatacenterWatchInterval,
-			shutdown:      make(chan struct{}),
-		}
+	if options.DatacenterWatchInterval <= 0 {
+		//default consul interval is 5m
+		options.DatacenterWatchInterval = time.Duration(5 * time.Minute)
 	}
 
-	datacenterWatcher := &DatacenterWatcher{
+	consulWatch = &consulDatacenterWatch{
+		watchInterval: options.DatacenterWatchInterval,
+		shutdown:      make(chan struct{}),
+	}
+
+	datacenterWatcher := &datacenterWatcher{
 		consulDatacenterWatch: consulWatch,
 		logger:                logger,
 		options:               options,
@@ -63,7 +72,13 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		}
 
 		options.ChrysomConfig.MetricsProvider = environment.Provider()
-		options.ChrysomConfig.Listener = datacenterWatcher.DatacentersListener()
+
+		var datacenterListenerFunc chrysom.ListenerFunc = func(items []model.Item) {
+			updateInactiveDatacenters(items, datacenterWatcher.inactiveDatacenters, &datacenterWatcher.lock, logger)
+		}
+
+		options.ChrysomConfig.Listener = datacenterListenerFunc
+
 		options.ChrysomConfig.Logger = logger
 		chrysomClient, err := chrysom.CreateClient(*options.ChrysomConfig)
 
@@ -71,53 +86,40 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 			return nil, err
 		}
 
+		//create chrysom client and start it
 		datacenterWatcher.chrysomClient = chrysomClient
+		datacenterWatcher.chrysomClient.Start(context.Background())
 
-	} else if options.ChrysomConfig != nil {
+	} else if options.ChrysomConfig != nil && options.ChrysomConfig.PullInterval <= 0 {
 		return nil, errors.New("chrysom pull interval cannot be 0")
 	}
+
+	//start consul watch
+	ticker := time.NewTicker(datacenterWatcher.consulDatacenterWatch.watchInterval)
+	go datacenterWatcher.watchDatacenters(ticker)
 
 	return datacenterWatcher, nil
 
 }
 
-func (d *DatacenterWatcher) StartConsulTicker() {
-	if d.consulDatacenterWatch != nil {
-		ticker := time.NewTicker(d.consulDatacenterWatch.watchInterval)
-		go d.watchDatacenters(ticker)
-	}
-}
+func (d *datacenterWatcher) Stop() {
+	close(d.consulDatacenterWatch.shutdown)
 
-func (d *DatacenterWatcher) StopConsulTicker() {
-	if d.consulDatacenterWatch != nil {
-		close(d.consulDatacenterWatch.shutdown)
-	}
-}
-
-func (d *DatacenterWatcher) StartChrysomTicker() {
-	if d.chrysomClient != nil {
-		d.chrysomClient.Start(context.Background())
-	}
-}
-
-func (d *DatacenterWatcher) StopChrysomTicker() {
 	if d.chrysomClient != nil {
 		d.chrysomClient.Stop(context.Background())
 	}
 }
 
-func (d *DatacenterWatcher) watchDatacenters(ticker *time.Ticker) {
-
-	client := d.environment.Client()
-	logger := d.logger
-	options := d.options
-
+func (d *datacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 	for {
 		select {
 		case <-d.consulDatacenterWatch.shutdown:
 			return
+		case <-d.environment.Closed():
+			d.Stop()
+			return
 		case <-ticker.C:
-			datacenters, err := getDatacenters(logger, client, options)
+			datacenters, err := getDatacenters(d.logger, d.environment.Client(), d.options)
 
 			if err != nil {
 				continue
@@ -130,16 +132,13 @@ func (d *DatacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 	}
 }
 
-func (d *DatacenterWatcher) UpdateInstancers(datacenters []string) {
+func (d *datacenterWatcher) UpdateInstancers(datacenters []string) {
 	keys := make(map[string]bool)
 	instancersToAdd := make(service.Instancers)
 
-	options := d.options
-	environment := d.environment
-	logger := d.logger
-	currentInstancers := environment.Instancers()
+	currentInstancers := d.environment.Instancers()
 
-	for _, w := range options.watches() {
+	for _, w := range d.options.watches() {
 		if w.CrossDatacenter {
 			for _, datacenter := range datacenters {
 
@@ -149,7 +148,7 @@ func (d *DatacenterWatcher) UpdateInstancers(datacenters []string) {
 				d.lock.RUnlock()
 
 				if found {
-					logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "datacenter set as inactive", "datacenter name: ", datacenter)
+					d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "datacenter set as inactive", "datacenter name: ", datacenter)
 					continue
 				}
 				w.QueryOptions.Datacenter = datacenter
@@ -165,41 +164,38 @@ func (d *DatacenterWatcher) UpdateInstancers(datacenters []string) {
 
 				// don't create new instancer if it was already created and added to the new instancers map
 				if instancersToAdd.Has(key) {
-					logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+					d.logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
 					continue
 				}
 
 				// create new instancer and add it to the map of instancers to add
-				instancersToAdd.Set(key, newInstancer(logger, d.environment.Client(), w))
+				instancersToAdd.Set(key, newInstancer(d.logger, d.environment.Client(), w))
 			}
 		}
 	}
 
-	environment.UpdateInstancers(keys, instancersToAdd)
+	d.environment.UpdateInstancers(keys, instancersToAdd)
 
 }
 
-func (d *DatacenterWatcher) DatacentersListener() chrysom.ListenerFunc {
-	return func(items []model.Item) {
-		updateInactiveDatacenters(items, d.inactiveDatacenters, &d.lock)
-
-		datacenters, err := getDatacenters(d.logger, d.environment.Client(), d.options)
-
-		if err == nil {
-			d.UpdateInstancers(datacenters)
-		}
-
-	}
-}
-
-func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, lock *sync.RWMutex) {
+func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, lock *sync.RWMutex, logger log.Logger) {
 	chrysomMap := make(map[string]bool)
 	for _, item := range items {
-		datacenterName := item.Data["name"].(string)
-		if item.Data["active"] == false {
-			chrysomMap[datacenterName] = true
+
+		var df DatacenterFilter
+
+		// decode database item data into datacenter filter structure
+		err := mapstructure.Decode(item.Data, &df)
+
+		if err != nil {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to decode database results into datacenter filter struct")
+			continue
+		}
+
+		if df.Inactive {
+			chrysomMap[df.Name] = true
 			lock.Lock()
-			inactiveDatacenters[datacenterName] = true
+			inactiveDatacenters[df.Name] = true
 			lock.Unlock()
 		}
 	}

@@ -18,9 +18,11 @@ import (
 func TestNewDatacenterWatcher(t *testing.T) {
 	logger := log.NewNopLogger()
 	p := xmetricstest.NewProvider(nil, chrysom.Metrics)
+	envShutdownChan := make(<-chan struct{})
 
 	mockServiceEnvironment := new(service.MockEnvironment)
 	mockServiceEnvironment.On("Provider").Return(p, true)
+	mockServiceEnvironment.On("Closed").Return(envShutdownChan)
 
 	noProviderEnv := new(service.MockEnvironment)
 	noProviderEnv.On("Provider").Return(nil, false)
@@ -42,7 +44,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 		environment     Environment
 		options         Options
 		ctx             context.Context
-		expectedWatcher *DatacenterWatcher
+		expectedWatcher *datacenterWatcher
 		expectedErr     error
 	}{
 
@@ -55,7 +57,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			options: Options{
 				DatacenterWatchInterval: time.Duration(10 * time.Second),
 			},
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				logger: logger,
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
@@ -78,16 +80,20 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			options: Options{
 				ChrysomConfig: &validChrysomConfig,
 			},
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				logger: logger,
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					ChrysomConfig: &validChrysomConfig,
+					DatacenterWatchInterval: time.Duration(5 * time.Minute),
+					ChrysomConfig:           &validChrysomConfig,
 				},
-				inactiveDatacenters:    make(map[string]bool),
-				chrysomDatacenterWatch: &chrysomDatacenterWatch{},
+				consulDatacenterWatch: &consulDatacenterWatch{
+					watchInterval: time.Duration(5 * time.Minute),
+				},
+				inactiveDatacenters: make(map[string]bool),
+				chrysomClient:       &chrysom.Client{},
 			},
 		},
 		{
@@ -100,7 +106,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				DatacenterWatchInterval: time.Duration(10 * time.Second),
 				ChrysomConfig:           &validChrysomConfig,
 			},
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				logger: logger,
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
@@ -113,7 +119,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				consulDatacenterWatch: &consulDatacenterWatch{
 					watchInterval: time.Duration(10 * time.Second),
 				},
-				chrysomDatacenterWatch: &chrysomDatacenterWatch{},
+				chrysomClient: &chrysom.Client{},
 			},
 		},
 		{
@@ -124,7 +130,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			options: Options{
 				DatacenterWatchInterval: time.Duration(10 * time.Second),
 			},
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				logger: defaultLogger,
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
@@ -147,13 +153,16 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			options: Options{
 				DatacenterWatchInterval: 0,
 			},
-			expectedWatcher: &DatacenterWatcher{
+			expectedWatcher: &datacenterWatcher{
 				logger: logger,
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					DatacenterWatchInterval: 0,
+					DatacenterWatchInterval: time.Duration(5 * time.Minute),
+				},
+				consulDatacenterWatch: &consulDatacenterWatch{
+					watchInterval: time.Duration(5 * time.Minute),
 				},
 				inactiveDatacenters: make(map[string]bool),
 			},
@@ -193,23 +202,19 @@ func TestNewDatacenterWatcher(t *testing.T) {
 	for _, testCase := range tests {
 		t.Run(testCase.description, func(t *testing.T) {
 			assert := assert.New(t)
-			w, err := NewDatacenterWatcher(testCase.logger, testCase.environment, testCase.options, testCase.ctx)
+			w, err := NewDatacenterWatcher(testCase.logger, testCase.environment, testCase.options)
 
 			if testCase.expectedErr == nil {
 				assert.NotNil(w.inactiveDatacenters)
 
-				if testCase.expectedWatcher.consulDatacenterWatch != nil {
-					assert.NotNil(w.consulDatacenterWatch)
-					assert.NotNil(w.consulDatacenterWatch.shutdown)
-					assert.Equal(testCase.expectedWatcher.consulDatacenterWatch.watchInterval, w.consulDatacenterWatch.watchInterval)
-					testCase.expectedWatcher.consulDatacenterWatch = w.consulDatacenterWatch
-				}
+				assert.NotNil(w.consulDatacenterWatch)
+				assert.NotNil(w.consulDatacenterWatch.shutdown)
+				assert.Equal(testCase.expectedWatcher.consulDatacenterWatch.watchInterval, w.consulDatacenterWatch.watchInterval)
+				testCase.expectedWatcher.consulDatacenterWatch = w.consulDatacenterWatch
 
-				if testCase.expectedWatcher.chrysomDatacenterWatch != nil {
-					assert.NotNil(w.chrysomDatacenterWatch)
-					assert.NotNil(w.chrysomDatacenterWatch.chrysomClient)
-					assert.NotNil(w.chrysomDatacenterWatch.ctx)
-					testCase.expectedWatcher.chrysomDatacenterWatch = w.chrysomDatacenterWatch
+				if testCase.expectedWatcher.chrysomClient != nil {
+					assert.NotNil(w.chrysomClient)
+					testCase.expectedWatcher.chrysomClient = w.chrysomClient
 				}
 
 				assert.Equal(testCase.expectedWatcher, w)
@@ -223,12 +228,13 @@ func TestNewDatacenterWatcher(t *testing.T) {
 }
 
 func TestUpdateInactiveDatacenters(t *testing.T) {
+	logger := log.NewNopLogger()
+
 	tests := []struct {
 		description                 string
 		items                       []model.Item
 		currentInactiveDatacenters  map[string]bool
 		expectedInactiveDatacenters map[string]bool
-		logger                      log.Logger
 		lock                        sync.RWMutex
 	}{
 		{
@@ -252,24 +258,24 @@ func TestUpdateInactiveDatacenters(t *testing.T) {
 					UUID:       "random-id",
 					Identifier: "datacenters",
 					Data: map[string]interface{}{
-						"name":   "testDC1",
-						"active": false,
+						"name":     "testDC1",
+						"inactive": true,
 					},
 				},
 				{
 					UUID:       "random-id2",
 					Identifier: "datacenters",
 					Data: map[string]interface{}{
-						"name":   "testDC2",
-						"active": true,
+						"name":     "testDC2",
+						"inactive": false,
 					},
 				},
 				{
 					UUID:       "random-id3",
 					Identifier: "datacenters",
 					Data: map[string]interface{}{
-						"name":   "testDC3",
-						"active": false,
+						"name":     "testDC3",
+						"inactive": true,
 					},
 				},
 			},
@@ -286,7 +292,7 @@ func TestUpdateInactiveDatacenters(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			updateInactiveDatacenters(tc.items, tc.currentInactiveDatacenters, &tc.lock)
+			updateInactiveDatacenters(tc.items, tc.currentInactiveDatacenters, &tc.lock, logger)
 			assert.Equal(tc.expectedInactiveDatacenters, tc.currentInactiveDatacenters)
 
 		})
