@@ -29,6 +29,8 @@ require (
 	github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764
 	github.com/xmidt-org/bascule v0.9.0
 	github.com/xmidt-org/themis v0.4.4
+	github.com/xmidt-org/wrp-go v1.3.4
+	github.com/xmidt-org/wrp-go/v2 v2.0.1
 	github.com/xmidt-org/wrp-go/v3 v3.0.1
 	go.uber.org/fx v1.13.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
