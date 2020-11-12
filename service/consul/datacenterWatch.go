@@ -114,8 +114,10 @@ func (d *datacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 	for {
 		select {
 		case <-d.consulDatacenterWatch.shutdown:
+			ticker.Stop()
 			return
 		case <-d.environment.Closed():
+			ticker.Stop()
 			d.Stop()
 			return
 		case <-ticker.C:
