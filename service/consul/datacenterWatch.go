@@ -17,18 +17,13 @@ import (
 
 //DatacenterWatcher checks if datacenters have been updated, based on an interval
 type datacenterWatcher struct {
-	logger                log.Logger
-	environment           Environment
-	options               Options
-	inactiveDatacenters   map[string]bool
-	chrysomClient         *chrysom.Client
-	consulDatacenterWatch *consulDatacenterWatch
-	lock                  sync.RWMutex
-}
-
-type consulDatacenterWatch struct {
-	watchInterval time.Duration
-	shutdown      chan struct{}
+	logger              log.Logger
+	environment         Environment
+	options             Options
+	inactiveDatacenters map[string]bool
+	chrysomClient       *chrysom.Client
+	consulWatchInterval time.Duration
+	lock                sync.RWMutex
 }
 
 type datacenterFilter struct {
@@ -40,8 +35,7 @@ var (
 	defaultLogger = log.NewNopLogger()
 )
 
-func NewDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
-	var consulWatch *consulDatacenterWatch
+func newDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
 
 	if logger == nil {
 		logger = defaultLogger
@@ -52,17 +46,12 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		options.DatacenterWatchInterval = time.Duration(5 * time.Minute)
 	}
 
-	consulWatch = &consulDatacenterWatch{
-		watchInterval: options.DatacenterWatchInterval,
-		shutdown:      make(chan struct{}),
-	}
-
 	datacenterWatcher := &datacenterWatcher{
-		consulDatacenterWatch: consulWatch,
-		logger:                logger,
-		options:               options,
-		environment:           environment,
-		inactiveDatacenters:   make(map[string]bool),
+		consulWatchInterval: options.DatacenterWatchInterval,
+		logger:              logger,
+		options:             options,
+		environment:         environment,
+		inactiveDatacenters: make(map[string]bool),
 	}
 
 	if options.ChrysomConfig != nil && options.ChrysomConfig.PullInterval > 0 {
@@ -95,16 +84,14 @@ func NewDatacenterWatcher(logger log.Logger, environment Environment, options Op
 	}
 
 	//start consul watch
-	ticker := time.NewTicker(datacenterWatcher.consulDatacenterWatch.watchInterval)
+	ticker := time.NewTicker(datacenterWatcher.consulWatchInterval)
 	go datacenterWatcher.watchDatacenters(ticker)
 
 	return datacenterWatcher, nil
 
 }
 
-func (d *datacenterWatcher) Stop() {
-	close(d.consulDatacenterWatch.shutdown)
-
+func (d *datacenterWatcher) stop() {
 	if d.chrysomClient != nil {
 		d.chrysomClient.Stop(context.Background())
 	}
@@ -113,12 +100,9 @@ func (d *datacenterWatcher) Stop() {
 func (d *datacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 	for {
 		select {
-		case <-d.consulDatacenterWatch.shutdown:
-			ticker.Stop()
-			return
 		case <-d.environment.Closed():
 			ticker.Stop()
-			d.Stop()
+			d.stop()
 			return
 		case <-ticker.C:
 			datacenters, err := getDatacenters(d.logger, d.environment.Client(), d.options)
@@ -127,14 +111,14 @@ func (d *datacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 				continue
 			}
 
-			d.UpdateInstancers(datacenters)
+			d.updateInstancers(datacenters)
 
 		}
 
 	}
 }
 
-func (d *datacenterWatcher) UpdateInstancers(datacenters []string) {
+func (d *datacenterWatcher) updateInstancers(datacenters []string) {
 	keys := make(map[string]bool)
 	instancersToAdd := make(service.Instancers)
 
