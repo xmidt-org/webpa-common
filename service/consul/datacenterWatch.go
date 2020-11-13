@@ -130,13 +130,12 @@ func (d *datacenterWatcher) updateInstancers(datacenters []string) {
 
 				//check if datacenter is part of inactive datacenters list
 				d.lock.RLock()
-				_, found := d.inactiveDatacenters[datacenter]
-				d.lock.RUnlock()
-
-				if found {
+				if _, found := d.inactiveDatacenters[datacenter]; found {
 					d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "datacenter set as inactive", "datacenter name: ", datacenter)
 					continue
 				}
+				d.lock.RUnlock()
+
 				w.QueryOptions.Datacenter = datacenter
 
 				// create keys for all datacenters + watched services
