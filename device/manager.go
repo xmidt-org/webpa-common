@@ -11,6 +11,7 @@ import (
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/convey/conveymetric"
+	"github.com/xmidt-org/webpa-common/xhttp/gate"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
@@ -150,6 +151,8 @@ type manager struct {
 	listeners             []Listener
 	measures              Measures
 	enforceWRPSourceCheck bool
+
+	gate *gate.Interface
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -180,6 +183,8 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Metadata:   metadata,
 		Logger:     m.logger,
 	})
+
+	//TODO: Filter here
 
 	if len(metadata.Claims()) < 1 {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")

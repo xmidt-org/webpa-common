@@ -181,7 +181,7 @@ func (f *FiltersStore) EditFilters(key string, values []string, add bool) {
 	f.lock.Unlock()
 }
 
-func (f *FiltersStore) FilterRequest(msg wrp.Message) bool {
+func (f *FiltersStore) FilterRequest(m *Metadata) bool {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
