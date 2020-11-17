@@ -29,7 +29,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 
 	validChrysomConfig := chrysom.ClientConfig{
 		Bucket:       "random-bucket",
-		PullInterval: time.Duration(10 * time.Second),
+		PullInterval: 10 * time.Second,
 		Address:      "http://argus:6600",
 		AdminToken:   "admin-token",
 		Auth: chrysom.Auth{
@@ -55,7 +55,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				DatacenterWatchInterval: time.Duration(10 * time.Second),
+				DatacenterWatchInterval: 10 * time.Second,
 			},
 			expectedWatcher: &datacenterWatcher{
 				logger: logger,
@@ -63,10 +63,10 @@ func TestNewDatacenterWatcher(t *testing.T) {
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					DatacenterWatchInterval: time.Duration(10 * time.Second),
+					DatacenterWatchInterval: 10 * time.Second,
 				},
 				inactiveDatacenters: make(map[string]bool),
-				consulWatchInterval: time.Duration(10 * time.Second),
+				consulWatchInterval: 10 * time.Second,
 			},
 		},
 		{
@@ -84,10 +84,10 @@ func TestNewDatacenterWatcher(t *testing.T) {
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					DatacenterWatchInterval: time.Duration(5 * time.Minute),
+					DatacenterWatchInterval: defaultWatchInterval,
 					ChrysomConfig:           &validChrysomConfig,
 				},
-				consulWatchInterval: time.Duration(5 * time.Minute),
+				consulWatchInterval: defaultWatchInterval,
 				inactiveDatacenters: make(map[string]bool),
 				chrysomClient:       &chrysom.Client{},
 			},
@@ -99,7 +99,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				DatacenterWatchInterval: time.Duration(10 * time.Second),
+				DatacenterWatchInterval: 10 * time.Second,
 				ChrysomConfig:           &validChrysomConfig,
 			},
 			expectedWatcher: &datacenterWatcher{
@@ -108,11 +108,11 @@ func TestNewDatacenterWatcher(t *testing.T) {
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					DatacenterWatchInterval: time.Duration(10 * time.Second),
+					DatacenterWatchInterval: 10 * time.Second,
 					ChrysomConfig:           &validChrysomConfig,
 				},
 				inactiveDatacenters: make(map[string]bool),
-				consulWatchInterval: time.Duration(10 * time.Second),
+				consulWatchInterval: 10 * time.Second,
 				chrysomClient:       &chrysom.Client{},
 			},
 		},
@@ -122,7 +122,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				DatacenterWatchInterval: time.Duration(10 * time.Second),
+				DatacenterWatchInterval: 10 * time.Second,
 			},
 			expectedWatcher: &datacenterWatcher{
 				logger: defaultLogger,
@@ -130,9 +130,9 @@ func TestNewDatacenterWatcher(t *testing.T) {
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					DatacenterWatchInterval: time.Duration(10 * time.Second),
+					DatacenterWatchInterval: 10 * time.Second,
 				},
-				consulWatchInterval: time.Duration(10 * time.Second),
+				consulWatchInterval: 10 * time.Second,
 				inactiveDatacenters: make(map[string]bool),
 			},
 		},
@@ -151,9 +151,9 @@ func TestNewDatacenterWatcher(t *testing.T) {
 					mockServiceEnvironment, new(mockClient),
 				},
 				options: Options{
-					DatacenterWatchInterval: time.Duration(5 * time.Minute),
+					DatacenterWatchInterval: defaultWatchInterval,
 				},
-				consulWatchInterval: time.Duration(5 * time.Minute),
+				consulWatchInterval: defaultWatchInterval,
 				inactiveDatacenters: make(map[string]bool),
 			},
 		},

@@ -15,7 +15,7 @@ import (
 	"github.com/xmidt-org/webpa-common/service"
 )
 
-//DatacenterWatcher checks if datacenters have been updated, based on an interval
+// datacenterWatcher checks if datacenters have been updated, based on an interval.
 type datacenterWatcher struct {
 	logger              log.Logger
 	environment         Environment
@@ -27,12 +27,13 @@ type datacenterWatcher struct {
 }
 
 type datacenterFilter struct {
-	Name     string `mapstructure:"name"`
-	Inactive bool   `mapstructure:"inactive"`
+	Name     string
+	Inactive bool
 }
 
 var (
-	defaultLogger = log.NewNopLogger()
+	defaultLogger        = log.NewNopLogger()
+	defaultWatchInterval = 5 * time.Minute
 )
 
 func newDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
@@ -43,7 +44,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 
 	if options.DatacenterWatchInterval <= 0 {
 		//default consul interval is 5m
-		options.DatacenterWatchInterval = time.Duration(5 * time.Minute)
+		options.DatacenterWatchInterval = defaultWatchInterval
 	}
 
 	datacenterWatcher := &datacenterWatcher{
@@ -54,8 +55,12 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		inactiveDatacenters: make(map[string]bool),
 	}
 
-	if options.ChrysomConfig != nil && options.ChrysomConfig.PullInterval > 0 {
+	if options.ChrysomConfig != nil {
+		if options.ChrysomConfig.PullInterval <= 0 {
+			return nil, errors.New("chrysom pull interval cannot be 0")
+		}
 
+		// only chrysom client uses the provider for metrics
 		if environment.Provider() == nil {
 			return nil, errors.New("must pass in a metrics provider")
 		}
@@ -78,9 +83,6 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		//create chrysom client and start it
 		datacenterWatcher.chrysomClient = chrysomClient
 		datacenterWatcher.chrysomClient.Start(context.Background())
-
-	} else if options.ChrysomConfig != nil && options.ChrysomConfig.PullInterval <= 0 {
-		return nil, errors.New("chrysom pull interval cannot be 0")
 	}
 
 	//start consul watch
@@ -108,6 +110,7 @@ func (d *datacenterWatcher) watchDatacenters(ticker *time.Ticker) {
 			datacenters, err := getDatacenters(d.logger, d.environment.Client(), d.options)
 
 			if err != nil {
+				// getDatacenters function logs the error, but a metric should be added
 				continue
 			}
 
@@ -128,38 +131,16 @@ func (d *datacenterWatcher) updateInstancers(datacenters []string) {
 		if w.CrossDatacenter {
 			for _, datacenter := range datacenters {
 
-				//check if datacenter is part of inactive datacenters list
-				d.lock.RLock()
-				if _, found := d.inactiveDatacenters[datacenter]; found {
-					d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "datacenter set as inactive", "datacenter name: ", datacenter)
-					continue
-				}
-				d.lock.RUnlock()
-
-				w.QueryOptions.Datacenter = datacenter
-
-				// create keys for all datacenters + watched services
-				key := newInstancerKey(w)
-				keys[key] = true
-
-				// don't create new instancer if it is already saved in environment's instancers
-				if currentInstancers.Has(key) {
-					continue
-				}
-
-				// don't create new instancer if it was already created and added to the new instancers map
-				if instancersToAdd.Has(key) {
-					d.logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
-					continue
-				}
-
-				// create new instancer and add it to the map of instancers to add
-				instancersToAdd.Set(key, newInstancer(d.logger, d.environment.Client(), w))
+				createNewInstancer(keys, instancersToAdd, currentInstancers, d, datacenter, w)
 			}
 		}
 	}
 
+	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "BEFORE instancers update", d.environment.Instancers())
+
 	d.environment.UpdateInstancers(keys, instancersToAdd)
+
+	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "AFTER instancers update", d.environment.Instancers())
 
 }
 
@@ -196,4 +177,36 @@ func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[strin
 	}
 
 	lock.Unlock()
+}
+
+func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers, currentInstancers service.Instancers, dw *datacenterWatcher, datacenter string, w Watch) {
+	//check if datacenter is part of inactive datacenters list
+	dw.lock.RLock()
+	_, found := dw.inactiveDatacenters[datacenter]
+	dw.lock.RUnlock()
+
+	if found {
+		dw.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "datacenter set as inactive", "datacenter name: ", datacenter)
+		return
+	}
+
+	w.QueryOptions.Datacenter = datacenter
+
+	// create keys for all datacenters + watched services
+	key := newInstancerKey(w)
+	keys[key] = true
+
+	// don't create new instancer if it is already saved in environment's instancers
+	if currentInstancers.Has(key) {
+		return
+	}
+
+	// don't create new instancer if it was already created and added to the new instancers map
+	if instancersToAdd.Has(key) {
+		dw.logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+		return
+	}
+
+	// create new instancer and add it to the map of instancers to add
+	instancersToAdd.Set(key, newInstancer(dw.logger, dw.environment.Client(), w))
 }
