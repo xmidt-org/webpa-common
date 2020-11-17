@@ -76,7 +76,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: &validChrysomConfig,
+				ChrysomConfig: validChrysomConfig,
 			},
 			expectedWatcher: &datacenterWatcher{
 				logger: logger,
@@ -85,7 +85,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				},
 				options: Options{
 					DatacenterWatchInterval: defaultWatchInterval,
-					ChrysomConfig:           &validChrysomConfig,
+					ChrysomConfig:           validChrysomConfig,
 				},
 				consulWatchInterval: defaultWatchInterval,
 				inactiveDatacenters: make(map[string]bool),
@@ -100,7 +100,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			},
 			options: Options{
 				DatacenterWatchInterval: 10 * time.Second,
-				ChrysomConfig:           &validChrysomConfig,
+				ChrysomConfig:           validChrysomConfig,
 			},
 			expectedWatcher: &datacenterWatcher{
 				logger: logger,
@@ -109,7 +109,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				},
 				options: Options{
 					DatacenterWatchInterval: 10 * time.Second,
-					ChrysomConfig:           &validChrysomConfig,
+					ChrysomConfig:           validChrysomConfig,
 				},
 				inactiveDatacenters: make(map[string]bool),
 				consulWatchInterval: 10 * time.Second,
@@ -164,7 +164,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				noProviderEnv, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: &validChrysomConfig,
+				ChrysomConfig: validChrysomConfig,
 			},
 			expectedErr: errors.New("must pass in a metrics provider"),
 		},
@@ -175,7 +175,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: &chrysom.ClientConfig{
+				ChrysomConfig: chrysom.ClientConfig{
 					Bucket:       "random-bucket",
 					PullInterval: 0,
 					Address:      "http://argus:6600",

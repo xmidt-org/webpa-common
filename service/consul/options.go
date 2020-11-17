@@ -19,7 +19,7 @@ type Watch struct {
 
 type Options struct {
 	Client                  *api.Config                    `json:"client"`
-	ChrysomConfig           *chrysom.ClientConfig          `json:"chrysomConfig"`
+	ChrysomConfig           chrysom.ClientConfig           `json:"chrysomConfig"`
 	DisableGenerateID       bool                           `json:"disableGenerateID"`
 	DatacenterRetries       int                            `json:"datacenterRetries"`
 	DatacenterWatchInterval time.Duration                  `json:"datacenterWatchInterval"`

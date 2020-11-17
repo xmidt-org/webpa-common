@@ -55,7 +55,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		inactiveDatacenters: make(map[string]bool),
 	}
 
-	if options.ChrysomConfig != nil {
+	if len(options.ChrysomConfig.Bucket) > 0 {
 		if options.ChrysomConfig.PullInterval <= 0 {
 			return nil, errors.New("chrysom pull interval cannot be 0")
 		}
@@ -74,7 +74,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		options.ChrysomConfig.Listener = datacenterListenerFunc
 
 		options.ChrysomConfig.Logger = logger
-		chrysomClient, err := chrysom.CreateClient(*options.ChrysomConfig)
+		chrysomClient, err := chrysom.CreateClient(options.ChrysomConfig)
 
 		if err != nil {
 			return nil, err
@@ -136,11 +136,7 @@ func (d *datacenterWatcher) updateInstancers(datacenters []string) {
 		}
 	}
 
-	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "BEFORE instancers update", d.environment.Instancers())
-
 	d.environment.UpdateInstancers(keys, instancersToAdd)
-
-	d.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "AFTER instancers update", d.environment.Instancers())
 
 }
 
