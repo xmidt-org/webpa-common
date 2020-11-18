@@ -70,6 +70,29 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			},
 		},
 		{
+			description: "Empty Chrysom Client Bucket",
+			logger:      logger,
+			environment: environment{
+				mockServiceEnvironment, new(mockClient),
+			},
+			options: Options{
+				ChrysomConfig: chrysom.ClientConfig{
+					Bucket: "",
+				},
+			},
+			expectedWatcher: &datacenterWatcher{
+				logger: logger,
+				environment: environment{
+					mockServiceEnvironment, new(mockClient),
+				},
+				options: Options{
+					DatacenterWatchInterval: defaultWatchInterval,
+				},
+				inactiveDatacenters: make(map[string]bool),
+				consulWatchInterval: defaultWatchInterval,
+			},
+		},
+		{
 			description: "Successful Chrysom Client",
 			logger:      logger,
 			environment: environment{
