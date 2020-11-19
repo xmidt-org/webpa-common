@@ -19,20 +19,44 @@ const (
 )
 
 var (
-	emptyVal       = struct{}{}
-	FiltersAllowed = map[string]struct{}{
-		device.PartnerIDClaimKey: emptyVal,
-	}
+	emptyVal = struct{}{}
 )
 
 type FilterGate struct {
-	filters map[string]map[interface{}]struct{}
-	lock    sync.RWMutex
+	filters        map[string]map[interface{}]struct{}
+	allowedFilters map[string]struct{}
+	lock           sync.RWMutex
 }
+
+type FilterGateOption func(*FilterGate)
 
 type filterRequest struct {
 	Key    string
 	Values []interface{}
+}
+
+func New(options ...FilterGateOption) *FilterGate {
+	fg := &FilterGate{
+		filters:        make(map[string]map[interface{}]struct{}),
+		allowedFilters: make(map[string]struct{}),
+	}
+
+	for _, o := range options {
+		o(fg)
+	}
+
+	return fg
+
+}
+
+func WithAllowedFilters(allowedFilters map[string]struct{}) FilterGateOption {
+	return func(fg *FilterGate) {
+		if allowedFilters != nil {
+			fg.allowedFilters = allowedFilters
+		} else {
+			fg.allowedFilters = make(map[string]struct{})
+		}
+	}
 }
 
 func (f *FilterGate) PrettifyFilters() map[string][]interface{} {
@@ -215,12 +239,12 @@ func (f *FilterGate) ServeHTTP(response http.ResponseWriter, request *http.Reque
 		}
 
 		if method == "POST" || method == "PUT" {
-			if FiltersAllowed != nil {
-				_, ok := FiltersAllowed[message.Key]
+			if f.allowedFilters != nil {
+				_, ok := f.allowedFilters[message.Key]
 
 				if !ok {
 					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, FiltersAllowed)
+					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, f.allowedFilters)
 					return
 				}
 			}
