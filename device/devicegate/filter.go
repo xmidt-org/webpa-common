@@ -22,21 +22,21 @@ var (
 	emptyVal = struct{}{}
 )
 
-type FilterGate struct {
+type FilterGateOption func(*filterGate)
+
+type filterGate struct {
 	filters        map[string]map[interface{}]struct{}
 	allowedFilters map[string]struct{}
 	lock           sync.RWMutex
 }
-
-type FilterGateOption func(*FilterGate)
 
 type filterRequest struct {
 	Key    string
 	Values []interface{}
 }
 
-func New(options ...FilterGateOption) *FilterGate {
-	fg := &FilterGate{
+func New(options ...FilterGateOption) *filterGate {
+	fg := &filterGate{
 		filters:        make(map[string]map[interface{}]struct{}),
 		allowedFilters: make(map[string]struct{}),
 	}
@@ -50,7 +50,7 @@ func New(options ...FilterGateOption) *FilterGate {
 }
 
 func WithAllowedFilters(allowedFilters map[string]struct{}) FilterGateOption {
-	return func(fg *FilterGate) {
+	return func(fg *filterGate) {
 		if allowedFilters != nil {
 			fg.allowedFilters = allowedFilters
 		} else {
@@ -59,7 +59,7 @@ func WithAllowedFilters(allowedFilters map[string]struct{}) FilterGateOption {
 	}
 }
 
-func (f *FilterGate) PrettifyFilters() map[string][]interface{} {
+func (f *filterGate) PrettifyFilters() map[string][]interface{} {
 	copy := make(map[string][]interface{})
 
 	f.lock.RLock()
@@ -76,7 +76,7 @@ func (f *FilterGate) PrettifyFilters() map[string][]interface{} {
 	return copy
 }
 
-func (f *FilterGate) FiltersCopy() map[string]map[interface{}]struct{} {
+func (f *filterGate) FiltersCopy() map[string]map[interface{}]struct{} {
 	filtersCopy := make(map[string]map[interface{}]struct{})
 
 	f.lock.RLock()
@@ -94,13 +94,13 @@ func (f *FilterGate) FiltersCopy() map[string]map[interface{}]struct{} {
 	return filtersCopy
 }
 
-func (f *FilterGate) Filters() map[string]map[interface{}]struct{} {
+func (f *filterGate) Filters() map[string]map[interface{}]struct{} {
 	return f.filters
 }
 
 //allows for adding and removing filters
 //Will completely overwrite current filters in place
-func (f *FilterGate) EditFilters(key string, values []interface{}, add bool) bool {
+func (f *filterGate) EditFilters(key string, values []interface{}, add bool) bool {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 	if add {
@@ -126,7 +126,7 @@ func (f *FilterGate) EditFilters(key string, values []interface{}, add bool) boo
 	}
 }
 
-func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResult) {
+func (f *filterGate) AllowConnection(d device.Interface) (bool, device.MatchResult) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
@@ -199,7 +199,7 @@ func filterMatch(filterValues map[interface{}]struct{}, paramsToCheck ...interfa
 
 }
 
-func (f *FilterGate) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+func (f *filterGate) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 
 	logger := logging.GetLogger(request.Context())
 
@@ -239,14 +239,12 @@ func (f *FilterGate) ServeHTTP(response http.ResponseWriter, request *http.Reque
 		}
 
 		if method == "POST" || method == "PUT" {
-			if f.allowedFilters != nil {
-				_, ok := f.allowedFilters[message.Key]
+			_, ok := f.allowedFilters[message.Key]
 
-				if !ok {
-					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, f.allowedFilters)
-					return
-				}
+			if !ok {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
+				xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, f.allowedFilters)
+				return
 			}
 
 			f.EditFilters(message.Key, message.Values, true)
