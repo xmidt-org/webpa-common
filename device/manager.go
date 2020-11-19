@@ -11,7 +11,6 @@ import (
 
 	"github.com/xmidt-org/webpa-common/convey"
 	"github.com/xmidt-org/webpa-common/convey/conveymetric"
-	"github.com/xmidt-org/webpa-common/xhttp/gate"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
@@ -53,6 +52,9 @@ type Connector interface {
 	// DisconnectAll disconnects all devices from this instance, and returns the count of
 	// devices disconnected.
 	DisconnectAll(CloseReason) int
+
+	// GetFilter returns the Filter interface used for filtering connection requests
+	GetFilter() Filter
 }
 
 // Router handles dispatching messages to devices.
@@ -128,6 +130,9 @@ func NewManager(o *Options) Manager {
 		listeners:             o.listeners(),
 		measures:              measures,
 		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
+		filters: &filtersStore{
+			filters: make(map[string]map[string]struct{}),
+		},
 	}
 }
 
@@ -152,7 +157,7 @@ type manager struct {
 	measures              Measures
 	enforceWRPSourceCheck bool
 
-	gate *gate.Interface
+	filters Filter
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -184,7 +189,10 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Logger:     m.logger,
 	})
 
-	//TODO: Filter here
+	if allow, matchResults := m.filters.AllowConnection(d); !allow {
+		d.infoLog.Log("filter", "filter match found,", "location", matchResults.location, "key", matchResults.key)
+		return nil, nil
+	}
 
 	if len(metadata.Claims()) < 1 {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")
@@ -539,6 +547,10 @@ func (m *manager) DisconnectIf(filter func(ID) (CloseReason, bool)) int {
 
 func (m *manager) DisconnectAll(reason CloseReason) int {
 	return m.devices.removeAll(reason)
+}
+
+func (m *manager) GetFilter() Filter {
+	return m.filters
 }
 
 func (m *manager) Len() int {

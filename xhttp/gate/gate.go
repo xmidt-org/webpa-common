@@ -36,8 +36,6 @@ type Interface interface {
 	// State returns the current state (true for open, false for closed) along with the time
 	// at which this gate entered that state.
 	State() (bool, time.Time)
-
-	Filters() *FiltersStore
 }
 
 // GateOption is a configuration option for a gate Interface
@@ -61,9 +59,6 @@ func New(initial bool, options ...GateOption) Interface {
 		open:  initial,
 		now:   time.Now,
 		state: discard.NewGauge(),
-		filters: &FiltersStore{
-			filters: make(map[string]map[string]struct{}),
-		},
 	}
 
 	for _, o := range options {
@@ -86,7 +81,6 @@ type gate struct {
 	open      bool
 	timestamp time.Time
 	now       func() time.Time
-	filters   *FiltersStore
 
 	state xmetrics.Setter
 }
@@ -142,8 +136,4 @@ func (g *gate) String() string {
 	} else {
 		return "closed"
 	}
-}
-
-func (g *gate) Filters() *FiltersStore {
-	return g.filters
 }

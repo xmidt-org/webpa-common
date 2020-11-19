@@ -14,18 +14,7 @@ type constructor struct {
 func (c *constructor) decorate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		if c.g.Open() {
-			//filter and see if request should go through
-			if request.Body != nil {
-				msg, err := RequestToWRP(request)
-
-				if msg != nil && err != nil {
-					if c.g.Filters().FilterRequest(*msg) {
-						next.ServeHTTP(response, request)
-					}
-				} else {
-					c.closed.ServeHTTP(response, request)
-				}
-			}
+			next.ServeHTTP(response, request)
 		} else {
 			c.closed.ServeHTTP(response, request)
 		}

@@ -31,6 +31,10 @@ func (m *MockConnector) DisconnectAll(reason CloseReason) int {
 	return m.Called(reason).Int(0)
 }
 
+func (m *MockConnector) GetFilter() Filter {
+	return m.Called().Get(0).(Filter)
+}
+
 type MockRegistry struct {
 	mock.Mock
 }
