@@ -81,6 +81,21 @@ type Registry interface {
 	VisitAll(func(Interface) bool) int
 }
 
+type Filter interface {
+	AllowConnection(d Interface) (bool, MatchResult)
+}
+
+type MatchResult struct {
+	Location string
+	Key      string
+}
+
+type FilterFunc func(d Interface) (bool, MatchResult)
+
+func (filter FilterFunc) AllowConnection(d Interface) (bool, MatchResult) {
+	return filter(d)
+}
+
 // Manager supplies a hub for connecting and disconnecting devices as well as
 // an access point for obtaining device metadata.
 type Manager interface {
@@ -89,9 +104,12 @@ type Manager interface {
 	Registry
 }
 
+// ManagerOption is a configuration option for a manager
+type ManagerOption func(*manager)
+
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
 // created from the options if one is not supplied.
-func NewManager(o *Options) Manager {
+func NewManager(o *Options, options ...ManagerOption) Manager {
 	var (
 		logger      = o.logger()
 		debugLogger = logging.Debug(logger)
@@ -101,7 +119,7 @@ func NewManager(o *Options) Manager {
 
 	debugLogger.Log(logging.MessageKey(), "source check configuration", "type", wrpCheck.Type)
 
-	return &manager{
+	m := &manager{
 		logger:           logger,
 		errorLog:         logging.Error(logger),
 		debugLog:         debugLogger,
@@ -130,10 +148,15 @@ func NewManager(o *Options) Manager {
 		listeners:             o.listeners(),
 		measures:              measures,
 		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
-		filters: &filtersStore{
-			filters: make(map[string]map[string]struct{}),
-		},
+		filters:               defaultFilterFunc(),
 	}
+
+	for _, o := range options {
+		o(m)
+	}
+
+	return m
+
 }
 
 // manager is the internal Manager implementation.
@@ -158,6 +181,16 @@ type manager struct {
 	enforceWRPSourceCheck bool
 
 	filters Filter
+}
+
+func WithFilter(f Filter) ManagerOption {
+	return func(m *manager) {
+		if f != nil {
+			m.filters = f
+		} else {
+			m.filters = defaultFilterFunc()
+		}
+	}
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -190,7 +223,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	})
 
 	if allow, matchResults := m.filters.AllowConnection(d); !allow {
-		d.infoLog.Log("filter", "filter match found,", "location", matchResults.location, "key", matchResults.key)
+		d.infoLog.Log("filter", "filter match found,", "location", matchResults.Location, "key", matchResults.Key)
 		return nil, nil
 	}
 
@@ -551,6 +584,12 @@ func (m *manager) DisconnectAll(reason CloseReason) int {
 
 func (m *manager) GetFilter() Filter {
 	return m.filters
+}
+
+func defaultFilterFunc() FilterFunc {
+	return func(d Interface) (bool, MatchResult) {
+		return true, MatchResult{}
+	}
 }
 
 func (m *manager) Len() int {
