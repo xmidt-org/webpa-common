@@ -35,7 +35,7 @@ type filterRequest struct {
 	Values []interface{}
 }
 
-func New(options ...FilterGateOption) *filterGate {
+func NewFilterGate(options ...FilterGateOption) *filterGate {
 	fg := &filterGate{
 		filters:        make(map[string]map[interface{}]struct{}),
 		allowedFilters: make(map[string]struct{}),
