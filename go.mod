@@ -25,7 +25,7 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/miekg/dns v1.1.26
 	github.com/mitchellh/go-testing-interface v1.14.0 // indirect
-	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/mitchellh/mapstructure v1.3.3
 	github.com/prometheus/client_golang v1.4.1
 	github.com/rubyist/circuitbreaker v2.2.0+incompatible
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
