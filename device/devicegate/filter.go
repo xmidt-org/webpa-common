@@ -12,7 +12,7 @@ const (
 )
 
 type DeviceGate interface {
-	GetFilters() map[string]interface{}
+	GetFilters() map[string][]interface{}
 	GetFilter(key string) (map[interface{}]bool, bool)
 	SetFilter(key string, values []interface{}) ([]interface{}, bool)
 	DeleteFilter(key string) bool
