@@ -233,7 +233,7 @@ func TestGetCapabilities(t *testing.T) {
 	goodKeyVal := []string{"cap1", "cap2"}
 	emptyVal := []string{}
 	getCapabilitiesErr := errors.New("couldn't get capabilities using key")
-	badCapabilitiesErr := errors.New("capabilities value not the expected string slice")
+	badCapabilitiesErr := errors.New("not the expected string slice")
 	tests := []struct {
 		description      string
 		nilAttributes    bool

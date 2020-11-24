@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/goph/emperror"
+	"github.com/spf13/cast"
 	"github.com/xmidt-org/bascule"
 )
 
@@ -135,9 +136,9 @@ func getCapabilities(attributes bascule.Attributes) ([]string, string, error) {
 		return []string{}, UndeterminedCapabilities, fmt.Errorf("couldn't get capabilities using key %v", CapabilityKey)
 	}
 
-	vals, ok := val.([]string)
-	if !ok {
-		return []string{}, UndeterminedCapabilities, fmt.Errorf("capabilities value not the expected string slice: %v", val)
+	vals, err := cast.ToStringSliceE(val)
+	if err != nil {
+		return []string{}, UndeterminedCapabilities, fmt.Errorf("capabilities \"%v\" not the expected string slice: %v", val, err)
 	}
 
 	if len(vals) == 0 {
