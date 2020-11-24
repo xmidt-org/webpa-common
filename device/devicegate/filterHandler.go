@@ -56,11 +56,11 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 		if method == "POST" || method == "PUT" {
 
-			_, ok := fh.Gate.AllowedFilters()[message.Key]
+			_, ok := fh.Gate.GetAllowedFilters()[message.Key]
 
 			if !ok {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-				xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, fh.Gate.AllowedFilters())
+				xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, fh.Gate.GetAllowedFilters())
 				return
 			}
 

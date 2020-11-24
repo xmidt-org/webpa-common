@@ -16,7 +16,7 @@ type DeviceGate interface {
 	GetFilter(key string) (map[interface{}]bool, bool)
 	SetFilter(key string, values []interface{}) ([]interface{}, bool)
 	DeleteFilter(key string) bool
-	AllowedFilters() map[string]bool
+	GetAllowedFilters() map[string]bool
 	device.Filter
 }
 
@@ -114,6 +114,10 @@ func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResu
 	}
 
 	return true, device.MatchResult{}
+}
+
+func (f *FilterGate) GetAllowedFilters() map[string]bool {
+	return f.AllowedFilters
 }
 
 func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues map[interface{}]bool, m *device.Metadata) bool {
