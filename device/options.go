@@ -90,6 +90,9 @@ type Options struct {
 	// Note: when the check type is "monitor", no messages are dropped but they are logged as an error and update the "wrp_source_check"
 	// counter.
 	WRPSourceCheck wrpSourceCheckConfig
+
+	// Filter determines whether or not a device should be able to connect to talaria based on the filters in place
+	Filter Filter
 }
 
 func (o *Options) upgrader() *websocket.Upgrader {
@@ -179,6 +182,14 @@ func (o *Options) now() func() time.Time {
 	}
 
 	return time.Now
+}
+
+func (o *Options) filter() Filter {
+	if o != nil && o.Filter != nil {
+		return o.Filter
+	}
+
+	return defaultFilterFunc()
 }
 
 func (o *Options) wrpCheck() wrpSourceCheckConfig {

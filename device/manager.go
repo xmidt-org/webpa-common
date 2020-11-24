@@ -109,7 +109,7 @@ type ManagerOption func(*manager)
 
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
 // created from the options if one is not supplied.
-func NewManager(o *Options, options ...ManagerOption) Manager {
+func NewManager(o *Options) Manager {
 	var (
 		logger      = o.logger()
 		debugLogger = logging.Debug(logger)
@@ -119,7 +119,7 @@ func NewManager(o *Options, options ...ManagerOption) Manager {
 
 	debugLogger.Log(logging.MessageKey(), "source check configuration", "type", wrpCheck.Type)
 
-	m := &manager{
+	return &manager{
 		logger:           logger,
 		errorLog:         logging.Error(logger),
 		debugLog:         debugLogger,
@@ -148,14 +148,8 @@ func NewManager(o *Options, options ...ManagerOption) Manager {
 		listeners:             o.listeners(),
 		measures:              measures,
 		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
-		filters:               defaultFilterFunc(),
+		filter:                o.filter(),
 	}
-
-	for _, o := range options {
-		o(m)
-	}
-
-	return m
 
 }
 
@@ -180,17 +174,7 @@ type manager struct {
 	measures              Measures
 	enforceWRPSourceCheck bool
 
-	filters Filter
-}
-
-func WithFilter(f Filter) ManagerOption {
-	return func(m *manager) {
-		if f != nil {
-			m.filters = f
-		} else {
-			m.filters = defaultFilterFunc()
-		}
-	}
+	filter Filter
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -222,9 +206,9 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Logger:     m.logger,
 	})
 
-	if allow, matchResults := m.filters.AllowConnection(d); !allow {
+	if allow, matchResults := m.filter.AllowConnection(d); !allow {
 		d.infoLog.Log("filter", "filter match found,", "location", matchResults.Location, "key", matchResults.Key)
-		return nil, nil
+		return nil, ErrorDeviceFilteredOut
 	}
 
 	if len(metadata.Claims()) < 1 {
@@ -583,7 +567,7 @@ func (m *manager) DisconnectAll(reason CloseReason) int {
 }
 
 func (m *manager) GetFilter() Filter {
-	return m.filters
+	return m.filter
 }
 
 func defaultFilterFunc() FilterFunc {

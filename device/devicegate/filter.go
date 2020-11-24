@@ -1,16 +1,9 @@
 package devicegate
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
 	"sync"
 
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/device"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 const (
@@ -18,16 +11,22 @@ const (
 	claimsLocation      = "claims"
 )
 
-var (
-	emptyVal = struct{}{}
-)
+type DeviceGate interface {
+	GetFilters() map[string]interface{}
+	GetFilter(key string) (map[interface{}]bool, bool)
+	SetFilter(key string, values []interface{}) ([]interface{}, bool)
+	DeleteFilter(key string) bool
+	AllowedFilters() map[string]bool
+	device.Filter
+}
 
-type FilterGateOption func(*FilterGate)
+type FilterStore map[string]map[interface{}]bool
 
 type FilterGate struct {
-	filters        map[string]map[interface{}]struct{}
-	allowedFilters map[string]struct{}
-	lock           sync.RWMutex
+	FilterStore    FilterStore
+	AllowedFilters map[string]bool
+
+	lock sync.RWMutex
 }
 
 type filterRequest struct {
@@ -35,35 +34,11 @@ type filterRequest struct {
 	Values []interface{}
 }
 
-func NewFilterGate(options ...FilterGateOption) *FilterGate {
-	fg := &FilterGate{
-		filters:        make(map[string]map[interface{}]struct{}),
-		allowedFilters: make(map[string]struct{}),
-	}
-
-	for _, o := range options {
-		o(fg)
-	}
-
-	return fg
-
-}
-
-func WithAllowedFilters(allowedFilters map[string]struct{}) FilterGateOption {
-	return func(fg *FilterGate) {
-		if allowedFilters != nil {
-			fg.allowedFilters = allowedFilters
-		} else {
-			fg.allowedFilters = make(map[string]struct{})
-		}
-	}
-}
-
-func (f *FilterGate) PrettifyFilters() map[string][]interface{} {
+func (f *FilterGate) GetFilters() map[string][]interface{} {
 	copy := make(map[string][]interface{})
 
 	f.lock.RLock()
-	for k, v := range f.filters {
+	for k, v := range f.FilterStore {
 		var filters []interface{}
 		for filter := range v {
 			filters = append(filters, filter)
@@ -76,64 +51,52 @@ func (f *FilterGate) PrettifyFilters() map[string][]interface{} {
 	return copy
 }
 
-func (f *FilterGate) FiltersCopy() map[string]map[interface{}]struct{} {
-	filtersCopy := make(map[string]map[interface{}]struct{})
-
+func (f *FilterGate) GetFilter(key string) (map[interface{}]bool, bool) {
 	f.lock.RLock()
-	for key, val := range f.filters {
-		valCopy := make(map[interface{}]struct{})
+	defer f.lock.RUnlock()
 
-		for k, v := range val {
-			valCopy[k] = v
-		}
+	v, ok := f.FilterStore[key]
+	return v, ok
 
-		filtersCopy[key] = valCopy
-	}
-	f.lock.RUnlock()
-
-	return filtersCopy
 }
 
-func (f *FilterGate) Filters() map[string]map[interface{}]struct{} {
-	return f.filters
-}
-
-//allows for adding and removing filters
-//Will completely overwrite current filters in place
-func (f *FilterGate) EditFilters(key string, values []interface{}, add bool) bool {
+func (f *FilterGate) SetFilter(key string, values []interface{}) ([]interface{}, bool) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
-	if add {
-		valuesMap := make(map[interface{}]struct{})
 
-		for _, v := range values {
-			valuesMap[v] = emptyVal
-		}
+	newValues := make(map[interface{}]bool)
 
-		f.filters[key] = valuesMap
-
-		return true
-	} else {
-
-		_, ok := f.filters[key]
-
-		if ok {
-			delete(f.filters, key)
-			return true
-		}
-
-		return false
+	for _, v := range values {
+		newValues[v] = true
 	}
+
+	f.FilterStore[key] = newValues
+
+	return values, true
+}
+
+func (f *FilterGate) DeleteFilter(key string) bool {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
+	_, ok := f.FilterStore[key]
+
+	if ok {
+		delete(f.FilterStore, key)
+		return true
+	}
+
+	return false
 }
 
 func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResult) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
-	for filterKey, filterValues := range f.filters {
+	for filterKey, filterValues := range f.FilterStore {
 
 		// check if filter is in claims
-		if claimsMatch(filterKey, filterValues, d.Metadata()) {
+		if f.FilterStore.claimsMatch(filterKey, filterValues, d.Metadata()) {
 			return false, device.MatchResult{
 				Location: metadataMapLocation,
 				Key:      filterKey,
@@ -141,7 +104,7 @@ func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResu
 		}
 
 		// check if filter is in metadata map
-		if metadataMapMatch(filterKey, filterValues, d.Metadata()) {
+		if f.FilterStore.metadataMapMatch(filterKey, filterValues, d.Metadata()) {
 			return false, device.MatchResult{
 				Location: claimsLocation,
 				Key:      filterKey,
@@ -153,7 +116,7 @@ func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResu
 	return true, device.MatchResult{}
 }
 
-func metadataMapMatch(keyToCheck string, filterValues map[interface{}]struct{}, m *device.Metadata) bool {
+func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues map[interface{}]bool, m *device.Metadata) bool {
 	metadataVal := m.Load(keyToCheck)
 	if metadataVal != nil {
 		switch t := metadataVal.(type) {
@@ -169,7 +132,7 @@ func metadataMapMatch(keyToCheck string, filterValues map[interface{}]struct{}, 
 
 }
 
-func claimsMatch(keyToCheck string, filterValues map[interface{}]struct{}, m *device.Metadata) bool {
+func (f *FilterStore) claimsMatch(keyToCheck string, filterValues map[interface{}]bool, m *device.Metadata) bool {
 	claimsMap := m.Claims()
 
 	claimsVal, found := claimsMap[keyToCheck]
@@ -186,7 +149,7 @@ func claimsMatch(keyToCheck string, filterValues map[interface{}]struct{}, m *de
 	return false
 }
 
-func filterMatch(filterValues map[interface{}]struct{}, paramsToCheck ...interface{}) bool {
+func filterMatch(filterValues map[interface{}]bool, paramsToCheck ...interface{}) bool {
 	for _, param := range paramsToCheck {
 		_, found := filterValues[param]
 
@@ -199,65 +162,15 @@ func filterMatch(filterValues map[interface{}]struct{}, paramsToCheck ...interfa
 
 }
 
-func (f *FilterGate) ServeHTTP(response http.ResponseWriter, request *http.Request) {
+func mapToArray(m map[interface{}]bool) []interface{} {
 
-	logger := logging.GetLogger(request.Context())
+	list := make([]interface{}, len(m))
 
-	method := request.Method
-	if method == "GET" {
-		filters := f.PrettifyFilters()
-		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %v}`, filters)
-	} else if method == "POST" || method == "PUT" || method == "DELETE" {
-		var message filterRequest
-		msgBytes, err := ioutil.ReadAll(request.Body)
-		request.Body.Close()
-
-		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not read request body", logging.ErrorKey(), err)
-			xhttp.WriteError(response, http.StatusBadRequest, err)
-			return
-		}
-
-		err = json.Unmarshal(msgBytes, &message)
-		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not unmarshal request body", logging.ErrorKey(), err)
-			xhttp.WriteError(response, http.StatusBadRequest, err)
-			return
-		}
-
-		if len(message.Key) == 0 {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter key found")
-			xhttp.WriteErrorf(response, http.StatusBadRequest, "missing filter key")
-			return
-		}
-
-		if len(message.Values) == 0 {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter values found")
-			xhttp.WriteErrorf(response, http.StatusBadRequest, "missing filter values")
-			return
-		}
-
-		if method == "POST" || method == "PUT" {
-
-			if f.allowedFilters != nil {
-				_, ok := f.allowedFilters[message.Key]
-
-				if !ok {
-					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, f.allowedFilters)
-					return
-				}
-			}
-
-			f.EditFilters(message.Key, message.Values, true)
-
-		} else if method == "DELETE" {
-			f.EditFilters(message.Key, message.Values, false)
-		}
-
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", f.Filters())
-
-		response.WriteHeader(http.StatusOK)
+	i := 0
+	for key, _ := range m {
+		list[i] = key
+		i++
 	}
+
+	return list
 }

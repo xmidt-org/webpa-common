@@ -24,4 +24,5 @@ var (
 	ErrorDeviceClosed                 = errors.New("That device has been closed")
 	ErrorTransactionsClosed           = errors.New("Transactions are closed for that device")
 	ErrorTransactionsAlreadyClosed    = errors.New("That Transactions is already closed")
+	ErrorDeviceFilteredOut            = errors.New("Device blocked from connecting due to filters")
 )
