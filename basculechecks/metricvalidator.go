@@ -123,6 +123,9 @@ func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, strin
 	if auth.Token == nil {
 		return "", "", "", TokenMissingValues, ErrNoToken
 	}
+	if auth.Request.URL == nil {
+		return "", "", "", TokenMissingValues, ErrNoURL
+	}
 	client := auth.Token.Principal()
 	if auth.Token.Attributes() == nil {
 		return client, "", "", TokenMissingValues, ErrNilAttributes
