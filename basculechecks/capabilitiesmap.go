@@ -88,6 +88,7 @@ func (c CapabilitiesMap) Check(auth bascule.Authentication, vs ParsedValues) (st
 
 	return NoCapabilitiesMatch, emperror.With(ErrNoValidCapabilityFound,
 		"capabilitiesFound", capabilities, "request URL", reqURL,
-		"request method", method, "parsed URL", vs.Endpoint)
+		"request method", method, "parsed URL", vs.Endpoint,
+		"checker", checker)
 
 }
