@@ -59,9 +59,9 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			allowedFilters, allowedFiltersFound := fh.Gate.GetAllowedFilters()
 
 			if allowedFiltersFound {
-				if allowedFilters.Exists(message.Key) {
+				if !allowedFilters.Has(message.Key) {
 					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, allowedFilters.GetAll())
+					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, allowedFilters.String())
 					return
 				}
 			}
@@ -81,41 +81,57 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	}
 }
 
-// manual construction of JSON string
-func writeFilters(b *strings.Builder) func(string, interface{}) {
+func writeFilters(b *strings.Builder) func(string, Set) {
 	var needsComma bool
-	var currentKey string
 
-	return func(key string, val interface{}) {
-		if currentKey != key {
-			if len(currentKey) > 0 {
-				b.WriteString("]\n")
-				needsComma = false
-			}
-
-			currentKey = key
-			fmt.Fprintf(b, `"%s": [`, currentKey)
-		}
-
+	return func(key string, val Set) {
 		if needsComma {
-			b.WriteString(", ")
+			b.WriteString(",\n")
 			needsComma = false
 		}
 
-		fmt.Fprintf(b, `"%v"`, val)
+		fmt.Fprintf(b, `"%s": `, key)
+		fmt.Fprintf(b, "%s", val.String())
 		needsComma = true
 	}
 }
 
+// manual construction of JSON string
+// func writeFilters(b *strings.Builder) func(string, Set) {
+// 	var needsComma bool
+// 	var currentKey string
+
+// 	return func(key string, val interface{}) {
+// 		if currentKey != key {
+// 			if len(currentKey) > 0 {
+// 				b.WriteString("]\n")
+// 				needsComma = false
+// 			}
+
+// 			currentKey = key
+// 			fmt.Fprintf(b, `"%s": [`, currentKey)
+// 		}
+
+// 		if needsComma {
+// 			b.WriteString(", ")
+// 			needsComma = false
+// 		}
+
+// 		fmt.Fprintf(b, `"%v"`, val)
+// 		needsComma = true
+// 	}
+// }
+
 func filtersToString(g DeviceGate) string {
 	var b strings.Builder
 	var filtersBuilder strings.Builder
-	b.WriteString("{\n")
+	b.WriteString("{")
 	g.VisitAll(writeFilters(&filtersBuilder))
 
 	if filtersBuilder.Len() > 0 {
-		filtersBuilder.WriteString("]\n")
+		filtersBuilder.WriteString("\n")
 		b.WriteString(filtersBuilder.String())
+		filtersBuilder.WriteString("\n")
 	}
 	b.WriteString("}")
 	return b.String()
