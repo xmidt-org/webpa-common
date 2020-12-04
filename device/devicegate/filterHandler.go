@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -21,9 +22,9 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	method := request.Method
 	if method == "GET" {
-		filters := fh.Gate.GetFilters()
+		filters, _ := fh.Gate.FiltersToString()
 		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %v}`, filters)
+		fmt.Fprintf(response, `{"filters": %s}`, filters)
 	} else if method == "POST" || method == "PUT" || method == "DELETE" {
 		var message filterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
@@ -70,8 +71,37 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			fh.Gate.DeleteFilter(message.Key)
 		}
 
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", fh.Gate.GetFilters())
+		filters, _ := fh.Gate.FiltersToString()
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", filters)
 
 		response.WriteHeader(http.StatusOK)
+		response.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(response, `{"filters": %s}`, filters)
+	}
+}
+
+// manual construction of JSON string
+func filtersToString(b *strings.Builder) func(string, interface{}) {
+	var needsComma bool
+	var currentKey string
+
+	return func(key string, val interface{}) {
+		if currentKey != key {
+			if len(currentKey) > 0 {
+				b.WriteString("]\n")
+				needsComma = false
+			}
+
+			currentKey = key
+			fmt.Fprintf(b, `"%s": [`, currentKey)
+		}
+
+		if needsComma {
+			b.WriteString(", ")
+			needsComma = false
+		}
+
+		fmt.Fprintf(b, `"%v"`, val)
+		needsComma = true
 	}
 }

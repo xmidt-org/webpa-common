@@ -1,6 +1,7 @@
 package devicegate
 
 import (
+	"encoding/json"
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/device"
@@ -12,11 +13,12 @@ const (
 )
 
 type DeviceGate interface {
-	GetFilters() map[string][]interface{}
+	VisitAll(visit func(string, interface{}))
 	GetFilter(key string) (map[interface{}]bool, bool)
 	SetFilter(key string, values []interface{}) ([]interface{}, bool)
 	DeleteFilter(key string) bool
 	GetAllowedFilters() map[string]bool
+	FiltersToString() (string, error)
 	device.Filter
 }
 
@@ -34,21 +36,14 @@ type filterRequest struct {
 	Values []interface{}
 }
 
-func (f *FilterGate) GetFilters() map[string][]interface{} {
-	copy := make(map[string][]interface{})
-
+func (f *FilterGate) VisitAll(visit func(string, interface{})) {
 	f.lock.RLock()
-	for k, v := range f.FilterStore {
-		var filters []interface{}
-		for filter := range v {
-			filters = append(filters, filter)
+	defer f.lock.RUnlock()
+	for key, filterValues := range f.FilterStore {
+		for val := range filterValues {
+			visit(key, val)
 		}
-
-		copy[k] = filters
 	}
-	f.lock.RUnlock()
-
-	return copy
 }
 
 func (f *FilterGate) GetFilter(key string) (map[interface{}]bool, bool) {
@@ -87,6 +82,10 @@ func (f *FilterGate) DeleteFilter(key string) bool {
 	}
 
 	return false
+}
+
+func (f *FilterGate) FiltersToString() (string, error) {
+	return f.FilterStore.String()
 }
 
 func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResult) {
@@ -153,6 +152,15 @@ func (f *FilterStore) claimsMatch(keyToCheck string, filterValues map[interface{
 	return false
 }
 
+func (f *FilterStore) String() (string, error) {
+	data, err := json.Marshal(f)
+	if err != nil {
+		return "", err
+	}
+
+	return string(data), nil
+}
+
 func filterMatch(filterValues map[interface{}]bool, paramsToCheck ...interface{}) bool {
 	for _, param := range paramsToCheck {
 		_, found := filterValues[param]
@@ -171,7 +179,7 @@ func mapToArray(m map[interface{}]bool) []interface{} {
 	list := make([]interface{}, len(m))
 
 	i := 0
-	for key, _ := range m {
+	for key := range m {
 		list[i] = key
 		i++
 	}
