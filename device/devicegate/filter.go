@@ -13,18 +13,26 @@ const (
 
 type DeviceGate interface {
 	VisitAll(visit func(string, interface{}))
-	GetFilter(key string) (map[interface{}]bool, bool)
+	GetFilter(key string) (Set, bool)
 	SetFilter(key string, values []interface{}) ([]interface{}, bool)
 	DeleteFilter(key string) bool
-	GetAllowedFilters() map[string]bool
+	GetAllowedFilters() (Set, bool)
 	device.Filter
 }
 
-type FilterStore map[string]map[interface{}]bool
+type Set interface {
+	Exists(interface{}) bool
+	GetAll() []interface{}
+	VisitAll(func(interface{}))
+}
+
+type FilterStore map[string]Set
+
+type FilterSet map[interface{}]bool
 
 type FilterGate struct {
 	FilterStore    FilterStore
-	AllowedFilters map[string]bool
+	AllowedFilters Set
 
 	lock sync.RWMutex
 }
@@ -38,13 +46,13 @@ func (f *FilterGate) VisitAll(visit func(string, interface{})) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 	for key, filterValues := range f.FilterStore {
-		for val := range filterValues {
-			visit(key, val)
-		}
+		filterValues.VisitAll(func(v interface{}) {
+			visit(key, v)
+		})
 	}
 }
 
-func (f *FilterGate) GetFilter(key string) (map[interface{}]bool, bool) {
+func (f *FilterGate) GetFilter(key string) (Set, bool) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
 
@@ -53,11 +61,12 @@ func (f *FilterGate) GetFilter(key string) (map[interface{}]bool, bool) {
 
 }
 
+// TODO: return set of old values instead?
 func (f *FilterGate) SetFilter(key string, values []interface{}) ([]interface{}, bool) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
-	newValues := make(map[interface{}]bool)
+	newValues := make(FilterSet)
 
 	for _, v := range values {
 		newValues[v] = true
@@ -109,11 +118,15 @@ func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResu
 	return true, device.MatchResult{}
 }
 
-func (f *FilterGate) GetAllowedFilters() map[string]bool {
-	return f.AllowedFilters
+func (f *FilterGate) GetAllowedFilters() (Set, bool) {
+	if f.AllowedFilters == nil {
+		return f.AllowedFilters, false
+	}
+
+	return f.AllowedFilters, true
 }
 
-func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues map[interface{}]bool, m *device.Metadata) bool {
+func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues Set, m *device.Metadata) bool {
 	metadataVal := m.Load(keyToCheck)
 	if metadataVal != nil {
 		switch t := metadataVal.(type) {
@@ -129,7 +142,7 @@ func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues map[inter
 
 }
 
-func (f *FilterStore) claimsMatch(keyToCheck string, filterValues map[interface{}]bool, m *device.Metadata) bool {
+func (f *FilterStore) claimsMatch(keyToCheck string, filterValues Set, m *device.Metadata) bool {
 	claimsMap := m.Claims()
 
 	claimsVal, found := claimsMap[keyToCheck]
@@ -146,11 +159,9 @@ func (f *FilterStore) claimsMatch(keyToCheck string, filterValues map[interface{
 	return false
 }
 
-func filterMatch(filterValues map[interface{}]bool, paramsToCheck ...interface{}) bool {
+func filterMatch(filterValues Set, paramsToCheck ...interface{}) bool {
 	for _, param := range paramsToCheck {
-		_, found := filterValues[param]
-
-		if found {
+		if filterValues.Exists(param) {
 			return true
 		}
 	}
@@ -159,15 +170,21 @@ func filterMatch(filterValues map[interface{}]bool, paramsToCheck ...interface{}
 
 }
 
-func mapToArray(m map[interface{}]bool) []interface{} {
+func (s FilterSet) Exists(key interface{}) bool {
+	return s[key]
+}
 
-	list := make([]interface{}, len(m))
-
-	i := 0
-	for key := range m {
-		list[i] = key
-		i++
+func (s FilterSet) GetAll() []interface{} {
+	list := make([]interface{}, len(s))
+	for key := range s {
+		list = append(list, key)
 	}
 
 	return list
+}
+
+func (s FilterSet) VisitAll(f func(interface{})) {
+	for key := range s {
+		f(key)
+	}
 }

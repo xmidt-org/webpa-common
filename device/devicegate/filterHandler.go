@@ -22,9 +22,8 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	method := request.Method
 	if method == "GET" {
-		filters := filtersToString(fh.Gate)
 		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %s}`, filters)
+		fmt.Fprintf(response, `{"filters": %s}`, filtersToString(fh.Gate))
 	} else if method == "POST" || method == "PUT" || method == "DELETE" {
 		var message filterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
@@ -49,20 +48,22 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			return
 		}
 
-		if len(message.Values) == 0 {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter values found")
-			xhttp.WriteErrorf(response, http.StatusBadRequest, "missing filter values")
-			return
-		}
-
 		if method == "POST" || method == "PUT" {
 
-			_, ok := fh.Gate.GetAllowedFilters()[message.Key]
-
-			if !ok {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-				xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, fh.Gate.GetAllowedFilters())
+			if len(message.Values) == 0 {
+				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter values found")
+				xhttp.WriteErrorf(response, http.StatusBadRequest, "missing filter values")
 				return
+			}
+
+			allowedFilters, allowedFiltersFound := fh.Gate.GetAllowedFilters()
+
+			if allowedFiltersFound {
+				if allowedFilters.Exists(message.Key) {
+					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
+					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, allowedFilters.GetAll())
+					return
+				}
 			}
 
 			fh.Gate.SetFilter(message.Key, message.Values)
@@ -108,8 +109,14 @@ func writeFilters(b *strings.Builder) func(string, interface{}) {
 
 func filtersToString(g DeviceGate) string {
 	var b strings.Builder
-	b.WriteString("{ \n")
-	g.VisitAll(writeFilters(&b))
-	b.WriteString("]\n}")
+	var filtersBuilder strings.Builder
+	b.WriteString("{\n")
+	g.VisitAll(writeFilters(&filtersBuilder))
+
+	if filtersBuilder.Len() > 0 {
+		filtersBuilder.WriteString("]\n")
+		b.WriteString(filtersBuilder.String())
+	}
+	b.WriteString("}")
 	return b.String()
 }
