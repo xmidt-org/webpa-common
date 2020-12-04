@@ -1,7 +1,6 @@
 package devicegate
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/device"
@@ -18,7 +17,6 @@ type DeviceGate interface {
 	SetFilter(key string, values []interface{}) ([]interface{}, bool)
 	DeleteFilter(key string) bool
 	GetAllowedFilters() map[string]bool
-	FiltersToString() (string, error)
 	device.Filter
 }
 
@@ -84,10 +82,6 @@ func (f *FilterGate) DeleteFilter(key string) bool {
 	return false
 }
 
-func (f *FilterGate) FiltersToString() (string, error) {
-	return f.FilterStore.String()
-}
-
 func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResult) {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
@@ -150,15 +144,6 @@ func (f *FilterStore) claimsMatch(keyToCheck string, filterValues map[interface{
 	}
 
 	return false
-}
-
-func (f *FilterStore) String() (string, error) {
-	data, err := json.Marshal(f)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
 }
 
 func filterMatch(filterValues map[interface{}]bool, paramsToCheck ...interface{}) bool {

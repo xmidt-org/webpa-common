@@ -22,7 +22,7 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 
 	method := request.Method
 	if method == "GET" {
-		filters, _ := fh.Gate.FiltersToString()
+		filters := filtersToString(fh.Gate)
 		response.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(response, `{"filters": %s}`, filters)
 	} else if method == "POST" || method == "PUT" || method == "DELETE" {
@@ -71,7 +71,7 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			fh.Gate.DeleteFilter(message.Key)
 		}
 
-		filters, _ := fh.Gate.FiltersToString()
+		filters := filtersToString(fh.Gate)
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", filters)
 
 		response.WriteHeader(http.StatusOK)
@@ -81,7 +81,7 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 }
 
 // manual construction of JSON string
-func filtersToString(b *strings.Builder) func(string, interface{}) {
+func writeFilters(b *strings.Builder) func(string, interface{}) {
 	var needsComma bool
 	var currentKey string
 
@@ -104,4 +104,12 @@ func filtersToString(b *strings.Builder) func(string, interface{}) {
 		fmt.Fprintf(b, `"%v"`, val)
 		needsComma = true
 	}
+}
+
+func filtersToString(g DeviceGate) string {
+	var b strings.Builder
+	b.WriteString("{ \n")
+	g.VisitAll(writeFilters(&b))
+	b.WriteString("]\n}")
+	return b.String()
 }
