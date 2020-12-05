@@ -12,8 +12,9 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
+// FilterHandler is an http.Handler that can get, add, and delete filters from a devicegate Interface
 type FilterHandler struct {
-	Gate DeviceGate
+	Gate Interface
 }
 
 func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
@@ -21,10 +22,10 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	logger := logging.GetLogger(request.Context())
 
 	method := request.Method
-	if method == "GET" {
+	if method == http.MethodGet {
 		response.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(response, `{"filters": %s}`, filtersToString(fh.Gate))
-	} else if method == "POST" || method == "PUT" || method == "DELETE" {
+	} else if method == http.MethodPost || method == http.MethodPut || method == http.MethodDelete {
 		var message filterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
 		request.Body.Close()
@@ -48,7 +49,7 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			return
 		}
 
-		if method == "POST" || method == "PUT" {
+		if method == http.MethodPost || method == http.MethodPut {
 
 			if len(message.Values) == 0 {
 				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter values found")
@@ -66,21 +67,28 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 				}
 			}
 
-			fh.Gate.SetFilter(message.Key, message.Values)
+			_, new := fh.Gate.SetFilter(message.Key, message.Values)
 
-		} else if method == "DELETE" {
+			if new {
+				response.WriteHeader(http.StatusCreated)
+			} else {
+				response.WriteHeader(http.StatusOK)
+			}
+
+		} else if method == http.MethodDelete {
 			fh.Gate.DeleteFilter(message.Key)
+			response.WriteHeader(http.StatusOK)
 		}
 
 		filters := filtersToString(fh.Gate)
 		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", filters)
 
-		response.WriteHeader(http.StatusOK)
 		response.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(response, `{"filters": %s}`, filters)
 	}
 }
 
+// creates visitor function to convert filters to string
 func writeFilters(b *strings.Builder) func(string, Set) {
 	var needsComma bool
 
@@ -96,33 +104,8 @@ func writeFilters(b *strings.Builder) func(string, Set) {
 	}
 }
 
-// manual construction of JSON string
-// func writeFilters(b *strings.Builder) func(string, Set) {
-// 	var needsComma bool
-// 	var currentKey string
-
-// 	return func(key string, val interface{}) {
-// 		if currentKey != key {
-// 			if len(currentKey) > 0 {
-// 				b.WriteString("]\n")
-// 				needsComma = false
-// 			}
-
-// 			currentKey = key
-// 			fmt.Fprintf(b, `"%s": [`, currentKey)
-// 		}
-
-// 		if needsComma {
-// 			b.WriteString(", ")
-// 			needsComma = false
-// 		}
-
-// 		fmt.Fprintf(b, `"%v"`, val)
-// 		needsComma = true
-// 	}
-// }
-
-func filtersToString(g DeviceGate) string {
+// wrapper to build JSON string representation of filters
+func filtersToString(g Interface) string {
 	var b strings.Builder
 	var filtersBuilder strings.Builder
 	b.WriteString("{")

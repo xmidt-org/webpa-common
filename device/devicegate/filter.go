@@ -13,28 +13,53 @@ const (
 	claimsLocation      = "claims"
 )
 
-type DeviceGate interface {
+// Interface is a gate interface specifically for filtering devices
+type Interface interface {
+	device.Filter
+
+	// VisitAll applies the given visitor function to each set of filter values
+	//
+	// No methods on this Interface should be called from within the visitor function, or
+	// a deadlock will likely occur.
 	VisitAll(visit func(string, Set))
+
+	// GetFilter returns the set of filter values associated with a filter key and a bool
+	// that is true if the key was found, false if it doesn't exist.
 	GetFilter(key string) (Set, bool)
 
 	// SetFilter saves the filter values and filter key to filter by. It returns a Set of the old values and a
-	// bool that is true if the filter key did not previously exist and false if the filter key had existed beforehand
+	// bool that is true if the filter key did not previously exist and false if the filter key had existed beforehand.
 	SetFilter(key string, values []interface{}) (Set, bool)
+
+	// DeleteFilter deletes a filter key. This completely removes all filter values associated with that key as well.
+	// Returns true if key had existed and values actually deleted, and false if key was not found.
 	DeleteFilter(key string) bool
+
+	// GetAllowedFilters returns the set of filters that devices are allowed to be filtered by. Also returns a
+	// bool that is true if there are allowed filters set, and false if there aren't (meaning that all filters are allowed)
 	GetAllowedFilters() (Set, bool)
-	device.Filter
 }
 
+// Set is an interface that represents a read-only hashset
 type Set interface {
+
+	// Has returns true if a value exists in the set, false if it doesn't.
 	Has(interface{}) bool
+
+	// VisitAll applies the visitor function to every value in the set.
 	VisitAll(func(interface{}))
+
+	// String returns a string representation of the set.
 	String() string
 }
 
+// FilterStore can be used to store filters in the Interface
 type FilterStore map[string]Set
 
+// FilterSet is a concrete type that implements the Set interface
 type FilterSet map[interface{}]bool
 
+// FilterGate is a concrete implementation of the Interface
 type FilterGate struct {
 	FilterStore    FilterStore
 	AllowedFilters Set
@@ -134,6 +159,35 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 	return f.AllowedFilters, true
 }
 
+func (s FilterSet) Has(key interface{}) bool {
+	return s[key]
+}
+
+func (s FilterSet) VisitAll(f func(interface{})) {
+	for key := range s {
+		f(key)
+	}
+}
+
+func (s FilterSet) String() string {
+	var b strings.Builder
+	b.WriteString("[")
+
+	var needsComma bool
+	s.VisitAll(func(v interface{}) {
+		if needsComma {
+			b.WriteString(", ")
+			needsComma = false
+		}
+
+		fmt.Fprintf(&b, `"%v"`, v)
+		needsComma = true
+	})
+
+	b.WriteString("]")
+	return b.String()
+}
+
 func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues Set, m *device.Metadata) bool {
 	metadataVal := m.Load(keyToCheck)
 	if metadataVal != nil {
@@ -167,6 +221,7 @@ func (f *FilterStore) claimsMatch(keyToCheck string, filterValues Set, m *device
 	return false
 }
 
+// function to check if any params are in a set
 func filterMatch(filterValues Set, paramsToCheck ...interface{}) bool {
 	for _, param := range paramsToCheck {
 		if filterValues.Has(param) {
@@ -176,33 +231,4 @@ func filterMatch(filterValues Set, paramsToCheck ...interface{}) bool {
 
 	return false
 
-}
-
-func (s FilterSet) Has(key interface{}) bool {
-	return s[key]
-}
-
-func (s FilterSet) VisitAll(f func(interface{})) {
-	for key := range s {
-		f(key)
-	}
-}
-
-func (s FilterSet) String() string {
-	var b strings.Builder
-	b.WriteString("[")
-
-	var needsComma bool
-	s.VisitAll(func(v interface{}) {
-		if needsComma {
-			b.WriteString(", ")
-			needsComma = false
-		}
-
-		fmt.Fprintf(&b, `"%v"`, v)
-		needsComma = true
-	})
-
-	b.WriteString("]")
-	return b.String()
 }

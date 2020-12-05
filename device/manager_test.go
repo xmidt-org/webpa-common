@@ -18,6 +18,7 @@ import (
 
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -77,6 +78,26 @@ func closeTestDevices(assert *assert.Assertions, devices map[ID]Connection) {
 	for _, connection := range devices {
 		assert.Nil(connection.Close())
 	}
+}
+
+func testManagerConnectFilterDeny(t *testing.T) {
+	assert := assert.New(t)
+	mockFilter := new(mockFilter)
+	options := &Options{
+		Logger: log.NewNopLogger(),
+		Filter: mockFilter,
+	}
+
+	manager := NewManager(options)
+	response := httptest.NewRecorder()
+	request := WithIDRequest(ID("mac:123412341234"), httptest.NewRequest("POST", "http://localhost.com", nil))
+
+	mockFilter.On("AllowConnection", mock.Anything).Return(false, MatchResult{}).Once()
+
+	device, err := manager.Connect(response, request, nil)
+	assert.Nil(device)
+	assert.Equal(err, ErrorDeviceFilteredOut)
+
 }
 
 func testManagerConnectMissingDeviceContext(t *testing.T) {
@@ -362,6 +383,7 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 func TestManager(t *testing.T) {
 	t.Run("Connect", func(t *testing.T) {
 		t.Run("MissingDeviceContext", testManagerConnectMissingDeviceContext)
+		t.Run("FilterOutDevice", testManagerConnectFilterDeny)
 		t.Run("UpgradeError", testManagerConnectUpgradeError)
 		t.Run("Visit", testManagerConnectVisit)
 		t.Run("IncludesConvey", testManagerConnectIncludesConvey)
