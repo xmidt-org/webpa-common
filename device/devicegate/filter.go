@@ -67,7 +67,7 @@ type FilterGate struct {
 	lock sync.RWMutex
 }
 
-type filterRequest struct {
+type FilterRequest struct {
 	Key    string
 	Values []interface{}
 }

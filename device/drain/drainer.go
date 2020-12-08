@@ -115,6 +115,9 @@ type Job struct {
 	// Tick is the time unit for the Rate field.  If Rate is set but this field is not set,
 	// a tick of 1 second is used as the default.
 	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
+
+	// Filter holds the filter to drain devices by. If this is set for the job, only devices that match the filter will be drained
+	Filter device.Filter `json:"filter,omitempty" schema:"filter`
 }
 
 // ToMap returns a map representation of this Job appropriate for marshaling to formats like JSON.
@@ -135,6 +138,8 @@ func (j Job) ToMap() map[string]interface{} {
 	if j.Tick > 0 {
 		m["tick"] = j.Tick.String()
 	}
+
+	// TODO: add filter to string representation
 
 	return m
 }
@@ -251,6 +256,10 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 
 	more = true
 	dr.registry.VisitAll(func(d device.Interface) bool {
+		if allow, _ := jc.j.Filter.AllowConnection(d); allow {
+			return true
+		}
+
 		select {
 		case batch <- d.ID():
 			return true
@@ -432,4 +441,10 @@ func (dr *drainer) Cancel() (<-chan struct{}, error) {
 	jc := dr.current.Load().(jobContext)
 	close(jc.cancel)
 	return jc.done, nil
+}
+
+func defaultDrainFilterFunc() device.FilterFunc {
+	return func(d device.Interface) (bool, device.MatchResult) {
+		return false, device.MatchResult{}
+	}
 }
