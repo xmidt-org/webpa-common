@@ -48,11 +48,7 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if len(msgBytes) == 0 {
-		input.DrainFilter = DrainFilter{
-			Filter: defaultDrainFilterFunc(),
-		}
-	} else {
+	if len(msgBytes) > 0 {
 		if err := json.Unmarshal(msgBytes, &reqBody); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to unmarshal request body", logging.ErrorKey(), err)
 			xhttp.WriteError(response, http.StatusBadRequest, err)
@@ -66,16 +62,11 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 
 			fg.SetFilter(reqBody.Key, reqBody.Values)
 
-			input.DrainFilter = DrainFilter{
-				Filter:        &fg,
-				FilterRequest: reqBody,
-			}
-		} else {
-			input.DrainFilter = DrainFilter{
-				Filter: defaultDrainFilterFunc(),
+			input.DrainFilter = drainFilter{
+				filter:        &fg,
+				filterRequest: reqBody,
 			}
 		}
-
 	}
 
 	_, output, err := s.Drainer.Start(input)
