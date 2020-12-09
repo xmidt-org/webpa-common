@@ -18,6 +18,9 @@ type Progress struct {
 	// so this value can be lower than Visited, even in a job that has finished.
 	Drained int `json:"drained"`
 
+	// TODO: fill out description
+	Skipped int `json:"drained"`
+
 	// Started is the UTC system time at which the drain job was started.
 	Started time.Time `json:"started"`
 
@@ -27,6 +30,7 @@ type Progress struct {
 }
 
 type tracker struct {
+	skipped  int32
 	visited  int32
 	drained  int32
 	started  time.Time
@@ -38,6 +42,7 @@ func (t *tracker) Progress() Progress {
 	p := Progress{
 		Visited: int(atomic.LoadInt32(&t.visited)),
 		Drained: int(atomic.LoadInt32(&t.drained)),
+		Skipped: int(atomic.LoadInt32(&t.skipped)),
 		Started: t.started,
 	}
 
@@ -50,6 +55,10 @@ func (t *tracker) Progress() Progress {
 
 func (t *tracker) addVisited(delta int) {
 	atomic.AddInt32(&t.visited, int32(delta))
+}
+
+func (t *tracker) addSkipped(delta int) {
+	atomic.AddInt32(&t.skipped, int32(delta))
 }
 
 func (t *tracker) addDrained(delta int) {

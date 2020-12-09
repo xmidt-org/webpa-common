@@ -2,6 +2,7 @@ package drain
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -141,6 +142,10 @@ func (j Job) ToMap() map[string]interface{} {
 
 	// TODO: add filter to string representation
 
+	if stringRep, ok := j.Filter.(fmt.Stringer); ok {
+		m["filter"] = stringRep.String()
+	}
+
 	return m
 }
 
@@ -255,8 +260,10 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
 
 	more = true
+	skipped := 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
 		if allow, _ := jc.j.Filter.AllowConnection(d); allow {
+			skipped++
 			return true
 		}
 
@@ -296,6 +303,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 
 		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
 		jc.t.addVisited(visited)
+		jc.t.addSkipped(skipped)
 		jc.t.addDrained(drained)
 	} else {
 		// if no devices were visited (or enqueued), then we must be done.

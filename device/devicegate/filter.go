@@ -68,8 +68,8 @@ type FilterGate struct {
 }
 
 type FilterRequest struct {
-	Key    string
-	Values []interface{}
+	Key    string        `json:"key"`
+	Values []interface{} `json:"values"`
 }
 
 func (f *FilterGate) VisitAll(visit func(string, Set)) {
