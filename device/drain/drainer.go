@@ -1,6 +1,7 @@
 package drain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -143,13 +144,8 @@ func (j Job) ToMap() map[string]interface{} {
 	}
 
 	// TODO: add filter to string representation
-	if deviceGate, ok := j.Filter.(devicegate.Interface); ok {
-		var b strings.Builder
-		deviceGate.VisitAll(func(key string, val devicegate.Set) {
-			fmt.Fprintf(&b, `%s: %s`, key, val.String())
-		})
-
-		m["filter"] = b.String()
+	if stringRep, ok := j.Filter.(fmt.Stringer); ok {
+		m["filter"] = stringRep.String()
 	} else {
 		m["filter"] = ""
 	}
@@ -259,6 +255,29 @@ type drainer struct {
 	active      uint32
 	currentID   uint32
 	current     atomic.Value
+}
+
+type drainFilter struct {
+	devicegate.FilterGate
+}
+
+func (d *drainFilter) String() string {
+	var b strings.Builder
+	var needsComma bool
+
+	b.WriteString("{\n")
+	d.VisitAll(func(key string, val devicegate.Set) {
+		if needsComma {
+			b.WriteString(",\n")
+			needsComma = false
+		}
+
+		fmt.Fprintf(&b, `"%s": %s`, key, val.String())
+		needsComma = true
+	})
+	b.WriteString("}\n")
+
+	return string(json.RawMessage(b.String()))
 }
 
 // nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts

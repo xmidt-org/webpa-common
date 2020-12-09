@@ -58,13 +58,13 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 		}
 
 		if len(reqBody.Key) > 0 && len(reqBody.Values) > 0 {
-			fg := &devicegate.FilterGate{
+			fg := devicegate.FilterGate{
 				FilterStore: make(devicegate.FilterStore),
 			}
 
 			fg.SetFilter(reqBody.Key, reqBody.Values)
 
-			input.Filter = fg
+			input.Filter = &drainFilter{fg}
 		} else {
 			input.Filter = defaultDrainFilterFunc()
 		}
