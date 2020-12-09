@@ -3,6 +3,7 @@ package drain
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-kit/kit/metrics/discard"
 
 	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/device/devicegate"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 )
@@ -141,9 +143,13 @@ func (j Job) ToMap() map[string]interface{} {
 	}
 
 	// TODO: add filter to string representation
+	if deviceGate, ok := j.Filter.(devicegate.Interface); ok {
+		var b strings.Builder
+		deviceGate.VisitAll(func(key string, val devicegate.Set) {
+			fmt.Fprintf(&b, `"%s": "%s"`, key, val.String())
+		})
 
-	if stringRep, ok := j.Filter.(fmt.Stringer); ok {
-		m["filter"] = stringRep.String()
+		m["filter"] = fmt.Sprintf(b.String())
 	}
 
 	return m
@@ -302,15 +308,16 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 		}
 
 		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained, "skipped", skipped)
-		jc.t.addSkipped(skipped)
 		jc.t.addVisited(visited)
 		jc.t.addDrained(drained)
 	} else {
 		// if no devices were visited (or enqueued), then we must be done.
 		// either a cancellation occurred or no devices are left
-		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "no devices visited")
+		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "no devices visited", "skipped", skipped)
 		more = false
 	}
+
+	jc.t.addSkipped(skipped)
 
 	return
 }

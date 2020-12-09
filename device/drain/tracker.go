@@ -18,7 +18,8 @@ type Progress struct {
 	// so this value can be lower than Visited, even in a job that has finished.
 	Drained int `json:"drained"`
 
-	// TODO: fill out description
+	// Skipped is the count of devices that are not added to any batches because they do
+	// not meet the filters that are being drained
 	Skipped int `json:"skipped"`
 
 	// Started is the UTC system time at which the drain job was started.
