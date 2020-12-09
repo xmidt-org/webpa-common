@@ -1,10 +1,7 @@
 package drain
 
 import (
-	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -101,6 +98,11 @@ func WithDrainCounter(a xmetrics.Adder) Option {
 	}
 }
 
+type DrainFilter struct {
+	Filter        device.Filter
+	FilterRequest devicegate.FilterRequest
+}
+
 type Job struct {
 	// Count is the total number of devices to disconnect.  If this field is nonpositive and percent is unset,
 	// the count of connected devices at the start of job execution is used.  If Percent is set, this field's
@@ -121,7 +123,7 @@ type Job struct {
 	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
 
 	// Filter holds the filter to drain devices by. If this is set for the job, only devices that match the filter will be drained
-	Filter device.Filter `json:"filter,omitempty" schema:"filter`
+	DrainFilter DrainFilter `json:"filter,omitempty" schema:"filter`
 }
 
 // ToMap returns a map representation of this Job appropriate for marshaling to formats like JSON.
@@ -144,11 +146,7 @@ func (j Job) ToMap() map[string]interface{} {
 	}
 
 	// TODO: add filter to string representation
-	if stringRep, ok := j.Filter.(fmt.Stringer); ok {
-		m["filter"] = stringRep.String()
-	} else {
-		m["filter"] = ""
-	}
+	m["filter"] = j.DrainFilter.FilterRequest
 
 	return m
 }
@@ -257,28 +255,28 @@ type drainer struct {
 	current     atomic.Value
 }
 
-type drainFilter struct {
-	devicegate.FilterGate
-}
+// type drainFilter struct {
+// 	devicegate.FilterGate
+// }
 
-func (d *drainFilter) String() string {
-	var b strings.Builder
-	var needsComma bool
+// func (d *drainFilter) String() string {
+// 	var b strings.Builder
+// 	var needsComma bool
 
-	b.WriteString("{\n")
-	d.VisitAll(func(key string, val devicegate.Set) {
-		if needsComma {
-			b.WriteString(",\n")
-			needsComma = false
-		}
+// 	b.WriteString("{\n")
+// 	d.VisitAll(func(key string, val devicegate.Set) {
+// 		if needsComma {
+// 			b.WriteString(",\n")
+// 			needsComma = false
+// 		}
 
-		fmt.Fprintf(&b, `"%s": %s`, key, val.String())
-		needsComma = true
-	})
-	b.WriteString("}\n")
+// 		fmt.Fprintf(&b, `"%s": %s`, key, val.String())
+// 		needsComma = true
+// 	})
+// 	b.WriteString("}\n")
 
-	return string(json.RawMessage(b.String()))
-}
+// 	return string(json.RawMessage(b.String()))
+// }
 
 // nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts
 // to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If cancelled, or if
@@ -289,7 +287,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	more = true
 	skipped := 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
-		if allow, _ := jc.j.Filter.AllowConnection(d); allow {
+		if allow, _ := jc.j.DrainFilter.Filter.AllowConnection(d); allow {
 			skipped++
 			return true
 		}
