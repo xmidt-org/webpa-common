@@ -146,10 +146,12 @@ func (j Job) ToMap() map[string]interface{} {
 	if deviceGate, ok := j.Filter.(devicegate.Interface); ok {
 		var b strings.Builder
 		deviceGate.VisitAll(func(key string, val devicegate.Set) {
-			fmt.Fprintf(&b, `"%s": "%s"`, key, val.String())
+			fmt.Fprintf(&b, `%s: %s`, key, val.String())
 		})
 
-		m["filter"] = fmt.Sprintf(b.String())
+		m["filter"] = b.String()
+	} else {
+		m["filter"] = ""
 	}
 
 	return m
