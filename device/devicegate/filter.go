@@ -67,9 +67,9 @@ type FilterGate struct {
 	lock sync.RWMutex
 }
 
-type filterRequest struct {
-	Key    string
-	Values []interface{}
+type FilterRequest struct {
+	Key    string        `json:"key"`
+	Values []interface{} `json:"values"`
 }
 
 func (f *FilterGate) VisitAll(visit func(string, Set)) {

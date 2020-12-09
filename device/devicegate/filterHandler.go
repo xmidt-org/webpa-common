@@ -26,7 +26,7 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 		response.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(response, `{"filters": %s}`, filtersToString(fh.Gate))
 	} else if method == http.MethodPost || method == http.MethodPut || method == http.MethodDelete {
-		var message filterRequest
+		var message FilterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
 		request.Body.Close()
 
