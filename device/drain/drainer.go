@@ -301,9 +301,9 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 			}
 		}
 
-		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
-		jc.t.addVisited(visited)
+		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained, "skipped", skipped)
 		jc.t.addSkipped(skipped)
+		jc.t.addVisited(visited)
 		jc.t.addDrained(drained)
 	} else {
 		// if no devices were visited (or enqueued), then we must be done.
@@ -334,7 +334,7 @@ func (dr *drainer) jobFinished(jc jobContext) {
 	close(jc.done)
 
 	p := jc.t.Progress()
-	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain complete", "visited", p.Visited, "drained", p.Drained)
+	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain complete", "visited", p.Visited, "drained", p.Drained, "skipped", p.Skipped)
 }
 
 // drain is run as a goroutine to drain devices at a particular rate

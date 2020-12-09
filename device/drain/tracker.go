@@ -19,7 +19,7 @@ type Progress struct {
 	Drained int `json:"drained"`
 
 	// TODO: fill out description
-	Skipped int `json:"drained"`
+	Skipped int `json:"skipped"`
 
 	// Started is the UTC system time at which the drain job was started.
 	Started time.Time `json:"started"`
