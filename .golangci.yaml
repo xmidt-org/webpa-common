@@ -9,9 +9,8 @@ linters:
     - goconst
     - gosec
     - misspell
-    - stylecheck
     - unconvert
-    - whitespace
     - prealloc
   disable:
     - errcheck
+    - ineffassign
