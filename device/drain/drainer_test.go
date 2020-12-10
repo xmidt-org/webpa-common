@@ -8,11 +8,27 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/device/devicegate"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
 
 func testJobNormalize(t *testing.T) {
+	testDrainFilter := &drainFilter{
+		filter: &devicegate.FilterGate{
+			FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
+				"test": devicegate.FilterSet(map[interface{}]bool{
+					"testValue":  true,
+					"testValue2": true,
+				}),
+			}),
+		},
+		filterRequest: devicegate.FilterRequest{
+			Key:    "test",
+			Values: []interface{}{"testValue", "testValue2"},
+		},
+	}
+
 	testData := []struct {
 		deviceCount int
 		actual      Job
@@ -25,6 +41,7 @@ func testJobNormalize(t *testing.T) {
 		{0, Job{Percent: 0}, Job{Count: 0}},
 		{123752, Job{Percent: 17}, Job{Count: 21037, Percent: 17}},
 		{73, Job{Percent: 100}, Job{Count: 73, Percent: 100}},
+		{90, Job{DrainFilter: testDrainFilter}, Job{Count: 90, DrainFilter: testDrainFilter}},
 	}
 
 	for i, record := range testData {

@@ -98,10 +98,10 @@ func WithDrainCounter(a xmetrics.Adder) Option {
 	}
 }
 
-// drainFilter contains the filter information for a drain job
-type drainFilter struct {
-	filter        device.Filter
-	filterRequest devicegate.FilterRequest
+// DrainFilter contains the filter information for a drain job
+type DrainFilter interface {
+	device.Filter
+	GetFilterRequest() devicegate.FilterRequest
 }
 
 type Job struct {
@@ -123,8 +123,8 @@ type Job struct {
 	// a tick of 1 second is used as the default.
 	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
 
-	// Filter holds the filter to drain devices by. If this is set for the job, only devices that match the filter will be drained
-	DrainFilter drainFilter `json:"filter,omitempty" schema:"filter`
+	// DrainFilter holds the filter to drain devices by. If this is set for the job, only devices that match the filter will be drained
+	DrainFilter DrainFilter `json:"filter,omitempty" schema:"filter"`
 }
 
 // ToMap returns a map representation of this Job appropriate for marshaling to formats like JSON.
@@ -146,7 +146,11 @@ func (j Job) ToMap() map[string]interface{} {
 		m["tick"] = j.Tick.String()
 	}
 
-	m["filter"] = j.DrainFilter.filterRequest
+	if df, ok := j.DrainFilter.(DrainFilter); ok {
+		m["filter"] = df.GetFilterRequest()
+	} else {
+		m["filter"] = devicegate.FilterRequest{}
+	}
 
 	return m
 }
@@ -166,12 +170,6 @@ func (j *Job) normalize(deviceCount int) {
 	} else {
 		j.Rate = 0
 		j.Tick = 0
-	}
-
-	if j.DrainFilter.filter == nil {
-		j.DrainFilter = drainFilter{
-			filter: defaultDrainFilterFunc(),
-		}
 	}
 }
 
@@ -261,6 +259,23 @@ type drainer struct {
 	current     atomic.Value
 }
 
+// drainFilter is a concrete implementation of the DrainFilter interface
+type drainFilter struct {
+	filter        device.Filter
+	filterRequest devicegate.FilterRequest
+}
+
+func (d *drainFilter) GetFilterRequest() devicegate.FilterRequest {
+	return d.filterRequest
+}
+
+func (df *drainFilter) AllowConnection(d device.Interface) (bool, device.MatchResult) {
+	if df.filter == nil {
+		return false, device.MatchResult{}
+	}
+	return df.filter.AllowConnection(d)
+}
+
 // nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts
 // to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If cancelled, or if
 // no more devices are available, this method returns false.
@@ -270,9 +285,12 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	more = true
 	skipped := 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
-		if allow, _ := jc.j.DrainFilter.filter.AllowConnection(d); allow {
-			skipped++
-			return true
+		// if drain filter set, see if device should be drained
+		if jc.j.DrainFilter != nil {
+			if allow, _ := jc.j.DrainFilter.AllowConnection(d); allow {
+				skipped++
+				return true
+			}
 		}
 
 		select {
@@ -458,10 +476,4 @@ func (dr *drainer) Cancel() (<-chan struct{}, error) {
 	jc := dr.current.Load().(jobContext)
 	close(jc.cancel)
 	return jc.done, nil
-}
-
-func defaultDrainFilterFunc() device.FilterFunc {
-	return func(d device.Interface) (bool, device.MatchResult) {
-		return false, device.MatchResult{}
-	}
 }

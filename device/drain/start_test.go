@@ -29,7 +29,7 @@ func testStartServeHTTPDefaultLogger(t *testing.T) {
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
 	assert.JSONEq(
-		`{"count": 126, "percent": 10, "rate": 12, "tick": "5m0s"}`,
+		`{"count": 126, "percent": 10, "rate": 12, "tick": "5m0s", "filter":{"key": "", "values": null}}`,
 		response.Body.String(),
 	)
 
@@ -82,7 +82,7 @@ func testStartServeHTTPValid(t *testing.T) {
 			assert.Equal(http.StatusOK, response.Code)
 			assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
 			assert.JSONEq(
-				`{"count": 47192, "percent": 57, "rate": 500, "tick": "37s"}`,
+				`{"count": 47192, "percent": 57, "rate": 500, "tick": "37s", "filter":{"key": "", "values": null}}`,
 				response.Body.String(),
 			)
 

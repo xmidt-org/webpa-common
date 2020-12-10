@@ -62,7 +62,7 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 
 			fg.SetFilter(reqBody.Key, reqBody.Values)
 
-			input.DrainFilter = drainFilter{
+			input.DrainFilter = &drainFilter{
 				filter:        &fg,
 				filterRequest: reqBody,
 			}
