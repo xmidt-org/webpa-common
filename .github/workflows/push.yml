@@ -23,7 +23,7 @@ jobs:
 
       # Run build of the application
       - name: Run build
-        run: go build .
+        run: go build ./...
 
       # Run gofmt on the code
       - name: Run gofmt
@@ -57,7 +57,7 @@ jobs:
           # args: -v
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
-          only-new-issues: true
+          # only-new-issues: true
 
   sonarcloud:
     runs-on: ubuntu-latest
