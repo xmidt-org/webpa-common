@@ -1,0 +1,17 @@
+---
+linters-settings:
+  misspell:
+    locale: US
+
+linters:
+  enable:
+    - bodyclose
+    - goconst
+    - gosec
+    - misspell
+    - stylecheck
+    - unconvert
+    - whitespace
+    - prealloc
+  disable:
+    - errcheck
