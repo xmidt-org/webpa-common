@@ -89,10 +89,10 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 }
 
 // creates visitor function to convert filters to string
-func writeFilters(b *strings.Builder) func(string, Set) {
+func writeFilters(b *strings.Builder) func(string, Set) bool {
 	var needsComma bool
 
-	return func(key string, val Set) {
+	return func(key string, val Set) bool {
 		if needsComma {
 			b.WriteString(",\n")
 			needsComma = false
@@ -101,6 +101,8 @@ func writeFilters(b *strings.Builder) func(string, Set) {
 		fmt.Fprintf(b, `"%s": `, key)
 		fmt.Fprintf(b, "%s", val.String())
 		needsComma = true
+
+		return true
 	}
 }
 

@@ -21,7 +21,7 @@ type Interface interface {
 	//
 	// No methods on this Interface should be called from within the visitor function, or
 	// a deadlock will likely occur.
-	VisitAll(visit func(string, Set))
+	VisitAll(visit func(string, Set) bool) int
 
 	// GetFilter returns the set of filter values associated with a filter key and a bool
 	// that is true if the key was found, false if it doesn't exist.
@@ -72,12 +72,19 @@ type FilterRequest struct {
 	Values []interface{} `json:"values"`
 }
 
-func (f *FilterGate) VisitAll(visit func(string, Set)) {
+func (f *FilterGate) VisitAll(visit func(string, Set) bool) int {
 	f.lock.RLock()
 	defer f.lock.RUnlock()
+
+	visited := 0
 	for key, filterValues := range f.FilterStore {
-		visit(key, filterValues)
+		visited++
+		if !visit(key, filterValues) {
+			break
+		}
 	}
+
+	return visited
 }
 
 func (f *FilterGate) GetFilter(key string) (Set, bool) {

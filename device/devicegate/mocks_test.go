@@ -9,8 +9,9 @@ type mockDeviceGate struct {
 	mock.Mock
 }
 
-func (m *mockDeviceGate) VisitAll(visit func(string, Set)) {
-	m.Called(visit)
+func (m *mockDeviceGate) VisitAll(visit func(string, Set) bool) int {
+	args := m.Called(visit)
+	return args.Int(0)
 }
 
 func (m *mockDeviceGate) GetFilter(key string) (Set, bool) {

@@ -28,7 +28,7 @@ func TestServeHTTPGet(t *testing.T) {
 		}
 	)
 
-	mockDeviceGate.On("VisitAll", mock.Anything).Return(nil)
+	mockDeviceGate.On("VisitAll", mock.Anything).Return(0)
 
 	f.ServeHTTP(response, request.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
@@ -158,7 +158,7 @@ func TestSuccessfulAdd(t *testing.T) {
 
 			mockDeviceGate.On("GetAllowedFilters").Return(tc.allowedFilters, tc.allowedFiltersSet).Once()
 			mockDeviceGate.On("SetFilter", mock.AnythingOfType("string"), mock.Anything).Return(nil, tc.newKey).Once()
-			mockDeviceGate.On("VisitAll", mock.Anything).Return(nil).Once()
+			mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
 
 			response := httptest.NewRecorder()
 			f.ServeHTTP(response, tc.request)
@@ -184,7 +184,7 @@ func TestSuccessfulDelete(t *testing.T) {
 
 	req := httptest.NewRequest("DELETE", "/", bytes.NewBuffer([]byte(`{"key": "test"}`)))
 	mockDeviceGate.On("DeleteFilter", "test").Return(true).Once()
-	mockDeviceGate.On("VisitAll", mock.Anything).Return(nil).Once()
+	mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
 
 	f.ServeHTTP(response, req.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
