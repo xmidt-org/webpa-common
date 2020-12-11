@@ -33,8 +33,11 @@ jobs:
       - name: Run testing
         run: |
           go test -v -race -coverprofile=coverage.txt ./...
+          echo "one done"
           go test -race -json ./... > report.json
+          echo "two done"
           curl -v -s https://codecov.io/bash | bash
+          echo "three done"
 
   lint:
     strategy:
