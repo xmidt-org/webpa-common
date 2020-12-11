@@ -388,7 +388,7 @@ func (dr *drainer) drain(jc jobContext) {
 				more = false
 			}
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled", "drain", "drain function")
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
 			more = false
 		}
 	}
