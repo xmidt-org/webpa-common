@@ -1,6 +1,6 @@
 # webpa-common
 
-[![Build Status](https://travis-ci.com/xmidt-org/webpa-common.svg?branch=main)](https://travis-ci.com/xmidt-org/webpa-common) 
+[![Build Status](https://github.com/xmidt-org/webpa-common/workflows/CI/badge.svg)](https://github.com/xmidt-org/webpa-common/actions)
 [![codecov.io](http://codecov.io/github/xmidt-org/webpa-common/coverage.svg?branch=main)](http://codecov.io/github/xmidt-org/webpa-common?branch=main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/webpa-common)](https://goreportcard.com/report/github.com/xmidt-org/webpa-common)
 [![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/webpa-common/blob/main/LICENSE)
