@@ -19,7 +19,7 @@ jobs:
           export VERSION=${GITHUB_REF#refs/tags/}
           export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$1\n" if /.*## \[${VERSION}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
           export TODAY=`date +'%m/%d/%Y'`
-          echo ::set-rname name=rname::$(echo ${VERSION} ${TODAY})
+          echo ::set-output name=rname::$(echo ${VERSION} ${TODAY})
           echo ::set-output name=body::${NOTES}
       - name: create release
         id: create_release
