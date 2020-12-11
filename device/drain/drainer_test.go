@@ -13,6 +13,12 @@ import (
 	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
 )
 
+type deviceInfo struct {
+	claims map[string]interface{}
+	store  map[string]interface{}
+	count  int
+}
+
 func testJobNormalize(t *testing.T) {
 	testDrainFilter := &drainFilter{
 		filter: &devicegate.FilterGate{
@@ -601,7 +607,6 @@ func testDrainerDrainCancel(t *testing.T) {
 
 func TestDrainer(t *testing.T) {
 	deviceCounts := []int{0, 1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
-
 	t.Run("DisconnectAll", func(t *testing.T) {
 		for _, deviceCount := range deviceCounts {
 			t.Run(fmt.Sprintf("deviceCount=%d", deviceCount), func(t *testing.T) {
@@ -621,4 +626,360 @@ func TestDrainer(t *testing.T) {
 	t.Run("VisitCancel", testDrainerVisitCancel)
 	t.Run("DisconnectCancel", testDrainerDisconnectCancel)
 	t.Run("DrainCancel", testDrainerDrainCancel)
+}
+
+func testDrainAllFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo deviceInfo, df DrainFilter, expectedSkipped int) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil)
+		logger   = logging.NewTestLogger(nil, t)
+
+		// generate manager with devices that have two different metadatas
+		manager = generateManagerWithDifferentDevices(assert, deviceTypeOne.claims, deviceTypeOne.store, uint64(deviceTypeOne.count), deviceTypeTwo.claims, deviceTypeTwo.store, uint64(deviceTypeTwo.count))
+
+		firstTime        = true
+		expectedStarted  = time.Now()
+		expectedFinished = expectedStarted.Add(10 * time.Minute)
+
+		stopCalled = false
+		stop       = func() {
+			stopCalled = true
+		}
+
+		ticker     = make(chan time.Time, 1)
+		totalCount = deviceTypeOne.count + deviceTypeTwo.count
+
+		d = New(
+			WithLogger(logger),
+			WithRegistry(manager),
+			WithConnector(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
+		)
+	)
+
+	require.NotNil(d)
+	d.(*drainer).now = func() time.Time {
+		if firstTime {
+			firstTime = false
+			return expectedStarted
+		}
+
+		return expectedFinished
+	}
+
+	d.(*drainer).newTicker = func(d time.Duration) (<-chan time.Time, func()) {
+		assert.Equal(time.Second, d)
+		return ticker, stop
+	}
+
+	defer d.Cancel() // cleanup in case of horribleness
+
+	// test that cancel errors if there is not a drain job in progress
+	done, err := d.Cancel()
+	assert.Nil(done)
+	assert.Error(err)
+
+	// test status when drain hasn't started
+	active, job, progress := d.Status()
+	assert.False(active)
+	assert.Equal(Job{}, job)
+	assert.Equal(Progress{}, progress)
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	// start drain job
+	done, job, err = d.Start(Job{Rate: 100, Tick: time.Second, DrainFilter: df})
+	require.NoError(err)
+	require.NotNil(done)
+	assert.Equal(Job{Count: totalCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	{
+		// test starting another drain job when there is one in progress
+		done, job, err := d.Start(Job{Rate: 123, Tick: time.Minute})
+		assert.Nil(done)
+		assert.Error(err)
+		assert.Equal(Job{}, job)
+	}
+
+	// get status of drain job in progress
+	active, job, progress = d.Status()
+	assert.True(active)
+	assert.Equal(Job{Count: totalCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
+	assert.Equal(Progress{Visited: 0, Drained: 0, Started: expectedStarted.UTC(), Finished: nil}, progress)
+
+	go func() {
+		ticks := totalCount / 100
+		if (totalCount % 100) > 0 {
+			ticks++
+		}
+
+		for i := 0; i < ticks; i++ {
+			ticker <- time.Time{}
+		}
+	}()
+
+	close(manager.pauseDisconnect)
+	close(manager.pauseVisit)
+
+	// make sure jobFinished is called and done channel is closed
+	select {
+	case <-done:
+		// passed
+	case <-time.After(5 * time.Second):
+		assert.Fail("Drain failed to complete")
+		return
+	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(float64(totalCount - expectedSkipped)))
+
+	// test cancel when not draining
+	done, err = d.Cancel()
+	assert.Nil(done)
+	assert.Error(err)
+
+	active, job, progress = d.Status()
+	assert.False(active)
+	assert.Equal(Job{Count: totalCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
+	assert.Equal(totalCount-expectedSkipped, progress.Visited)
+	assert.Equal(totalCount-expectedSkipped, progress.Drained)
+	assert.Equal(expectedStarted.UTC(), progress.Started)
+	require.NotNil(progress.Finished)
+	assert.Equal(expectedFinished.UTC(), *progress.Finished)
+
+	assert.Equal(expectedSkipped, len(manager.devices))
+	assert.True(stopCalled)
+}
+
+func testDisconnectAllFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo deviceInfo, df DrainFilter, expectedSkipped int) {
+	var (
+		assert   = assert.New(t)
+		require  = require.New(t)
+		provider = xmetricstest.NewProvider(nil)
+		logger   = logging.NewTestLogger(nil, t)
+
+		manager = generateManagerWithDifferentDevices(assert, deviceTypeOne.claims, deviceTypeOne.store, uint64(deviceTypeOne.count), deviceTypeTwo.claims, deviceTypeTwo.store, uint64(deviceTypeTwo.count))
+
+		firstTime        = true
+		expectedStarted  = time.Now()
+		expectedFinished = expectedStarted.Add(10 * time.Minute)
+
+		totalCount = deviceTypeOne.count + deviceTypeTwo.count
+
+		d = New(
+			WithLogger(logger),
+			WithRegistry(manager),
+			WithConnector(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
+		)
+	)
+
+	require.NotNil(d)
+	d.(*drainer).now = func() time.Time {
+		if firstTime {
+			firstTime = false
+			return expectedStarted
+		}
+
+		return expectedFinished
+	}
+
+	defer d.Cancel() // cleanup in case of panic
+
+	done, err := d.Cancel()
+	assert.Nil(done)
+	assert.Error(err)
+
+	active, job, progress := d.Status()
+	assert.False(active)
+	assert.Equal(Job{}, job)
+	assert.Equal(Progress{}, progress)
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	done, job, err = d.Start(Job{DrainFilter: df})
+	require.NoError(err)
+	require.NotNil(done)
+	assert.Equal(Job{Count: totalCount, DrainFilter: df}, job)
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	{
+		done, job, err := d.Start(Job{Rate: 123, Tick: time.Minute})
+		assert.Nil(done)
+		assert.Error(err)
+		assert.Equal(Job{}, job)
+	}
+
+	active, job, progress = d.Status()
+	assert.True(active)
+	assert.Equal(Job{Count: totalCount, DrainFilter: df}, job)
+	assert.Equal(Progress{Visited: 0, Drained: 0, Started: expectedStarted.UTC(), Finished: nil}, progress)
+
+	close(manager.pauseDisconnect)
+	close(manager.pauseVisit)
+	select {
+	case <-done:
+		// passed
+	case <-time.After(5 * time.Second):
+		assert.Fail("Disconnect all failed to complete")
+		return
+	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(float64(totalCount - expectedSkipped)))
+
+	done, err = d.Cancel()
+	assert.Nil(done)
+	assert.Error(err)
+
+	active, job, progress = d.Status()
+	assert.False(active)
+	assert.Equal(Job{Count: totalCount, DrainFilter: df}, job)
+	assert.Equal(totalCount-expectedSkipped, progress.Visited)
+	assert.Equal(totalCount-expectedSkipped, progress.Drained)
+	assert.Equal(expectedStarted.UTC(), progress.Started)
+	require.NotNil(progress.Finished)
+	assert.Equal(expectedFinished.UTC(), *progress.Finished)
+
+	assert.Equal(expectedSkipped, len(manager.devices))
+}
+
+func TestDrainerFilter(t *testing.T) {
+	var (
+		filterKey   = "test"
+		filterValue = "test1"
+	)
+	counts := [][]int{
+		[]int{0, 0},
+		[]int{1, 0},
+		[]int{2, 0},
+		[]int{0, 1},
+		[]int{0, 2},
+		[]int{1, 1},
+		[]int{0, disconnectBatchSize - 1},
+		[]int{disconnectBatchSize - 1, 0},
+		[]int{0, disconnectBatchSize},
+		[]int{disconnectBatchSize, 0},
+		[]int{0, disconnectBatchSize + 1},
+		[]int{disconnectBatchSize + 1, 0},
+		[]int{89, 1709},
+		[]int{1304, 43},
+	}
+
+	df := drainFilter{
+		filter: &devicegate.FilterGate{
+			FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
+				filterKey: devicegate.FilterSet(map[interface{}]bool{
+					filterValue: true,
+				}),
+			}),
+		},
+		filterRequest: devicegate.FilterRequest{
+			Key:    filterKey,
+			Values: []interface{}{filterValue},
+		},
+	}
+
+	metadata1 := map[string]interface{}{
+		filterKey: "test",
+	}
+
+	metadata2 := map[string]interface{}{
+		filterKey: filterValue,
+	}
+
+	t.Run("DrainAllFilter-Claims Match", func(t *testing.T) {
+		for _, deviceCount := range counts {
+			deviceCount1 := deviceCount[0]
+			deviceCount2 := deviceCount[1]
+
+			deviceTypeOne := deviceInfo{
+				claims: metadata1,
+				count:  deviceCount1,
+			}
+
+			deviceTypeTwo := deviceInfo{
+				claims: metadata2,
+				count:  deviceCount2,
+			}
+
+			t.Run(fmt.Sprintf("deviceCount=%d", deviceCount1+deviceCount2), func(t *testing.T) {
+				testDrainAllFilter(t, deviceTypeOne, deviceTypeTwo, &df, deviceTypeOne.count)
+			})
+		}
+	})
+
+	t.Run("DisconnectAllFilter-Claims Match", func(t *testing.T) {
+		for _, deviceCount := range counts {
+			deviceCount1 := deviceCount[0]
+			deviceCount2 := deviceCount[1]
+
+			deviceTypeOne := deviceInfo{
+				claims: metadata1,
+				count:  deviceCount1,
+			}
+
+			deviceTypeTwo := deviceInfo{
+				claims: metadata2,
+				count:  deviceCount2,
+			}
+
+			t.Run(fmt.Sprintf("deviceCount=%d", deviceCount1+deviceCount2), func(t *testing.T) {
+				testDisconnectAllFilter(t, deviceTypeOne, deviceTypeTwo, &df, deviceTypeOne.count)
+			})
+		}
+	})
+
+	t.Run("DrainAllFilter-Store Match", func(t *testing.T) {
+		for _, deviceCount := range counts {
+			deviceCount1 := deviceCount[0]
+			deviceCount2 := deviceCount[1]
+
+			deviceTypeOne := deviceInfo{
+				store: metadata1,
+				count: deviceCount1,
+			}
+
+			deviceTypeTwo := deviceInfo{
+				store: metadata2,
+				count: deviceCount2,
+			}
+
+			t.Run(fmt.Sprintf("deviceCount=%d", deviceCount1+deviceCount2), func(t *testing.T) {
+				testDrainAllFilter(t, deviceTypeOne, deviceTypeTwo, &df, deviceTypeOne.count)
+			})
+		}
+	})
+
+	t.Run("DisconnectAllFilter-Store Match", func(t *testing.T) {
+		for _, deviceCount := range counts {
+			deviceCount1 := deviceCount[0]
+			deviceCount2 := deviceCount[1]
+
+			deviceTypeOne := deviceInfo{
+				store: metadata1,
+				count: deviceCount1,
+			}
+
+			deviceTypeTwo := deviceInfo{
+				store: metadata2,
+				count: deviceCount2,
+			}
+
+			t.Run(fmt.Sprintf("deviceCount=%d", deviceCount1+deviceCount2), func(t *testing.T) {
+				testDisconnectAllFilter(t, deviceTypeOne, deviceTypeTwo, &df, deviceTypeOne.count)
+			})
+		}
+	})
+
 }

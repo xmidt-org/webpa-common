@@ -45,14 +45,14 @@ func TestStatus(t *testing.T) {
 				false,
 				Job{},
 				Progress{},
-				fmt.Sprintf(`{"active": false, "job": {"count": 0, "filter": {"key":"", "values":null}}, "progress": {"visited": 0, "drained": 0, "skipped": 0, "started": "%s"}}`, zeroTime),
+				fmt.Sprintf(`{"active": false, "job": {"count": 0, "filter": {"key":"", "values":null}}, "progress": {"visited": 0, "drained": 0, "started": "%s"}}`, zeroTime),
 			},
 
 			{
 				true,
 				Job{Count: 67283, Percent: 97, Rate: 127, Tick: 17 * time.Second},
-				Progress{Visited: 12, Drained: 4, Skipped: 0, Started: now, Finished: &now},
-				fmt.Sprintf(`{"active": true, "job": {"count": 67283, "percent": 97, "rate": 127, "tick": "17s", "filter": {"key":"", "values":null}}, "progress": {"visited": 12, "drained": 4, "skipped": 0, "started": "%s", "finished": "%s"}}`, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)),
+				Progress{Visited: 12, Drained: 4, Started: now, Finished: &now},
+				fmt.Sprintf(`{"active": true, "job": {"count": 67283, "percent": 97, "rate": 127, "tick": "17s", "filter": {"key":"", "values":null}}, "progress": {"visited": 12, "drained": 4, "started": "%s", "finished": "%s"}}`, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)),
 			},
 		}
 	)

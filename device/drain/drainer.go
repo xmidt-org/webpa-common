@@ -279,11 +279,11 @@ func (df *drainFilter) AllowConnection(d device.Interface) (bool, device.MatchRe
 // nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts
 // to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If cancelled, or if
 // no more devices are available, this method returns false.
-func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
+func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int, skipped int) {
 	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
 
 	more = true
-	skipped := 0
+	skipped = 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
 		// if drain filter set, see if device should be drained
 		if jc.j.DrainFilter != nil {
@@ -327,17 +327,15 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 			}
 		}
 
-		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained, "skipped", skipped)
+		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
 		jc.t.addVisited(visited)
 		jc.t.addDrained(drained)
 	} else {
 		// if no devices were visited (or enqueued), then we must be done.
 		// either a cancellation occurred or no devices are left
-		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "no devices visited", "skipped", skipped)
+		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "no devices visited")
 		more = false
 	}
-
-	jc.t.addSkipped(skipped)
 
 	return
 }
@@ -361,7 +359,7 @@ func (dr *drainer) jobFinished(jc jobContext) {
 	close(jc.done)
 
 	p := jc.t.Progress()
-	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain complete", "visited", p.Visited, "drained", p.Drained, "skipped", p.Skipped)
+	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain complete", "visited", p.Visited, "drained", p.Drained)
 }
 
 // drain is run as a goroutine to drain devices at a particular rate
@@ -372,6 +370,7 @@ func (dr *drainer) drain(jc jobContext) {
 	var (
 		remaining = jc.j.Count
 		visited   = 0
+		skipped   = 0
 		more      = true
 		batch     = make(chan device.ID, jc.j.Rate)
 	)
@@ -383,10 +382,13 @@ func (dr *drainer) drain(jc jobContext) {
 
 		select {
 		case <-jc.ticker:
-			more, visited = dr.nextBatch(jc, batch)
+			more, visited, skipped = dr.nextBatch(jc, batch)
 			remaining -= visited
+			if skipped == remaining {
+				more = false
+			}
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled", "drain", "drain function")
 			more = false
 		}
 	}
@@ -409,7 +411,7 @@ func (dr *drainer) disconnect(jc jobContext) {
 			batch = make(chan device.ID, remaining)
 		}
 
-		more, visited = dr.nextBatch(jc, batch)
+		more, visited, _ = dr.nextBatch(jc, batch)
 		remaining -= visited
 	}
 }
