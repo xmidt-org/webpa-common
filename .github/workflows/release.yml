@@ -16,8 +16,11 @@ jobs:
       - name: Prepare Release Body
         id: prep
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo ::set-output name=body::$(git tag -l --format='%(contents)' ${VERSION} | tail -n+3)
+          export VERSION=${GITHUB_REF#refs/tags/}
+          export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$1\n" if /.*## \[${VERSION}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
+          export TODAY=`date +'%m/%d/%Y'`
+          echo ::set-rname name=rname::$(echo ${VERSION} ${TODAY})
+          echo ::set-output name=body::${NOTES}
       - name: create release
         id: create_release
         uses: actions/create-release@v1
@@ -27,4 +30,5 @@ jobs:
           tag_name: ${{ github.ref }}
           draft: false
           prerelease: false
+          release_name: ${{ steps.prep.outputs.rname }}
           body: ${{ steps.prep.outputs.body }}
