@@ -8,4 +8,4 @@ ignore:
   - "vendor"
 
 fixes:
-  - "github.com/xmidt-org/caduceus/::"
+  - "github.com/xmidt-org/webpa-common/::"

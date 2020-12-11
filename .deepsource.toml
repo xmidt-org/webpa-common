@@ -7,4 +7,4 @@ name = "go"
 enabled = true
 
   [analyzers.meta]
-  import_paths = ["github.com/xmidt-org/actions-testing"]
+  import_paths = ["github.com/xmidt-org/webpa-common"]
