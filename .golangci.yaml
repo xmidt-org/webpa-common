@@ -6,6 +6,9 @@ linters-settings:
 linters:
   enable:
     - bodyclose
+    - dupl
+    - errorlint
+    - funlen
     - goconst
     - gosec
     - misspell
@@ -14,3 +17,4 @@ linters:
   disable:
     - errcheck
     - ineffassign
+    - varcheck
