@@ -111,7 +111,6 @@ func testStartServeHTTPWithBody(t *testing.T) {
 
 	testData := []struct {
 		description        string
-		uri                string
 		body               []byte
 		expected           Job
 		expectedJSON       string
@@ -119,7 +118,6 @@ func testStartServeHTTPWithBody(t *testing.T) {
 	}{
 		{
 			description:        "Success with body",
-			uri:                "/foo?count=22&rate=10&tick=20s",
 			body:               []byte(`{"key": "test", "values": ["test1", "test2"]}`),
 			expected:           Job{Count: 22, Rate: 10, Tick: 20 * time.Second, DrainFilter: df},
 			expectedJSON:       `{"count": 47192, "percent": 57, "rate": 500, "tick": "37s", "filter":{"key": "test", "values": ["test1", "test2"]}}`,
@@ -127,35 +125,30 @@ func testStartServeHTTPWithBody(t *testing.T) {
 		},
 		{
 			description:        "Unmarshal error",
-			uri:                "/foo?count=22&rate=10&tick=20s",
 			body:               []byte(`this is not a filter request`),
 			expected:           Job{Count: 22, Rate: 10, Tick: 20 * time.Second},
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			description:        "Empty Body",
-			uri:                "/foo?count=22&rate=10&tick=20s",
 			body:               []byte(`{}`),
 			expected:           Job{Count: 22, Rate: 10, Tick: 20 * time.Second},
 			expectedStatusCode: http.StatusOK,
 		},
 		{
 			description:        "No value field",
-			uri:                "/foo?count=22&rate=10&tick=20s",
 			body:               []byte(`{"key": "test"}`),
 			expected:           Job{Count: 22, Rate: 10, Tick: 20 * time.Second},
 			expectedStatusCode: http.StatusOK,
 		},
 		{
 			description:        "No key",
-			uri:                "/foo?count=22&rate=10&tick=20s",
 			body:               []byte(`{"values": ["test1", "test2"]}`),
 			expected:           Job{Count: 22, Rate: 10, Tick: 20 * time.Second},
 			expectedStatusCode: http.StatusOK,
 		},
 		{
 			description:        "Empty values array",
-			uri:                "/foo?count=22&rate=10&tick=20s",
 			body:               []byte(`{"key": "test", "values": []}`),
 			expected:           Job{Count: 22, Rate: 10, Tick: 20 * time.Second},
 			expectedStatusCode: http.StatusOK,
@@ -173,7 +166,7 @@ func testStartServeHTTPWithBody(t *testing.T) {
 
 				ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
 				response = httptest.NewRecorder()
-				request  = httptest.NewRequest("POST", record.uri, bytes.NewBuffer(record.body)).WithContext(ctx)
+				request  = httptest.NewRequest("POST", "/foo?count=22&rate=10&tick=20s", bytes.NewBuffer(record.body)).WithContext(ctx)
 			)
 
 			if record.expectedStatusCode == http.StatusOK {
