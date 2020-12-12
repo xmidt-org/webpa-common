@@ -139,7 +139,7 @@ func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 	return sm
 }
 
-func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneClaims map[string]interface{}, metadataOneStore map[string]interface{}, deviceCountOne uint64, metadataTwoClaims map[string]interface{}, metadataTwoStore map[string]interface{}, deviceCountTwo uint64) *stubManager {
+func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneClaims map[string]interface{}, deviceCountOne uint64, metadataTwoClaims map[string]interface{}, deviceCountTwo uint64) *stubManager {
 	totalCount := deviceCountOne + deviceCountTwo
 	sm := &stubManager{
 		assert:          assert,
@@ -163,17 +163,10 @@ func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneC
 			metadata := new(device.Metadata)
 			metadata.SetClaims(metadataOneClaims)
 
-			for key, val := range metadataOneStore {
-				metadata.Store(key, val)
-			}
 			d.On("Metadata").Return(metadata)
 		} else {
 			metadata := new(device.Metadata)
 			metadata.SetClaims(metadataTwoClaims)
-
-			for key, val := range metadataTwoStore {
-				metadata.Store(key, val)
-			}
 
 			d.On("Metadata").Return(metadata)
 		}

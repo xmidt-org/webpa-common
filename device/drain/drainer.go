@@ -146,10 +146,8 @@ func (j Job) ToMap() map[string]interface{} {
 		m["tick"] = j.Tick.String()
 	}
 
-	if df, ok := j.DrainFilter.(DrainFilter); ok {
-		m["filter"] = df.GetFilterRequest()
-	} else {
-		m["filter"] = devicegate.FilterRequest{}
+	if j.DrainFilter != nil {
+		m["filter"] = j.DrainFilter.GetFilterRequest()
 	}
 
 	return m
@@ -384,7 +382,10 @@ func (dr *drainer) drain(jc jobContext) {
 		case <-jc.ticker:
 			more, visited, skipped = dr.nextBatch(jc, batch)
 			remaining -= visited
-			if skipped == remaining {
+
+			// If the number skipped is the number remaining in the registry,
+			// then there are no more devices that need to be disconnected.
+			if skipped == dr.registry.Len() {
 				more = false
 			}
 		case <-jc.cancel:
