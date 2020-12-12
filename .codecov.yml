@@ -1,0 +1,11 @@
+coverage:
+  range: 50..80
+  round: down
+  precision: 2
+
+ignore:
+  - "*_test.go"
+  - "vendor"
+
+fixes:
+  - "github.com/xmidt-org/webpa-common/::"
