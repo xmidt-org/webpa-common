@@ -123,7 +123,7 @@ func TestMetricValidatorFunc(t *testing.T) {
 			}
 			mockCapabilitiesChecker := new(mockCapabilitiesChecker)
 			if tc.checkCallExpected {
-				mockCapabilitiesChecker.On("Check", mock.Anything).Return(tc.checkReason, tc.checkErr).Once()
+				mockCapabilitiesChecker.On("Check", mock.Anything, mock.Anything).Return(tc.checkReason, tc.checkErr).Once()
 			}
 
 			counter := generic.NewCounter("test_capability_check")
@@ -152,7 +152,7 @@ func TestPrepMetrics(t *testing.T) {
 		matchingURL    = "/fnvvdsjkfji/mac:12345544322345334/geigosj"
 		client         = "special"
 		prepErr        = errors.New("couldn't get partner IDs from attributes")
-		badValErr      = errors.New("partner IDs value not the expected string slice")
+		badValErr      = errors.New("couldn't be cast to string slice")
 		goodEndpoint   = `/fnvvdsjkfji/.*/geigosj\b`
 		goodRegex      = regexp.MustCompile(goodEndpoint)
 		unusedEndpoint = `/a/b\b`

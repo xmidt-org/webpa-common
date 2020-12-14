@@ -23,16 +23,33 @@ import (
 	"regexp"
 
 	"github.com/go-kit/kit/log"
+	"github.com/spf13/cast"
 	"github.com/xmidt-org/bascule"
 )
 
 var defaultLogger = log.NewNopLogger()
 
 // CapabilitiesChecker is an object that can determine if a request is
-// authorized given a bascule.Authentication object.  If it's not authorized,
-// a reason and error are given for logging and metrics.
+// authorized given a bascule.Authentication object.  If it's not authorized, a
+// reason and error are given for logging and metrics.
 type CapabilitiesChecker interface {
-	Check(auth bascule.Authentication) (string, error)
+	Check(auth bascule.Authentication, vals ParsedValues) (string, error)
+}
+
+// ParsedValues are values determined from the bascule Authentication.
+type ParsedValues struct {
+	// Endpoint is the string representation of a regular expression that
+	// matches the URL for the request.  The main benefit of this string is it
+	// most likely won't include strings that change from one request to the
+	// next (ie, device ID).
+	Endpoint string
+	// Partner is a string representation of the list of partners found in the
+	// JWT, where:
+	//   - any list including "*" as a partner is determined to be "wildcard".
+	//   - when the list is <1 item, the partner is determined to be "none".
+	//   - when the list is >1 item, the partner is determined to be "many".
+	//   - when the list is only one item, that is the partner value.
+	Partner string
 }
 
 // MetricValidator determines if a request is authorized and then updates a
@@ -78,7 +95,12 @@ func (m MetricValidator) CreateValidator(errorOut bool) bascule.ValidatorFunc {
 			return nil
 		}
 
-		reason, err = m.C.Check(auth)
+		v := ParsedValues{
+			Endpoint: endpoint,
+			Partner:  partnerID,
+		}
+
+		reason, err = m.C.Check(auth, v)
 		if err != nil {
 			labels = append(labels, OutcomeLabel, failureOutcome, ReasonLabel, reason)
 			m.Measures.CapabilityCheckOutcome.With(labels...).Add(1)
@@ -105,15 +127,17 @@ func (m MetricValidator) prepMetrics(auth bascule.Authentication) (string, strin
 	if auth.Token.Attributes() == nil {
 		return client, "", "", TokenMissingValues, ErrNilAttributes
 	}
+
 	partnerVal, ok := bascule.GetNestedAttribute(auth.Token.Attributes(), PartnerKeys()...)
 	if !ok {
 		return client, "", "", UndeterminedPartnerID, fmt.Errorf("couldn't get partner IDs from attributes using keys %v", PartnerKeys())
 	}
-	partnerIDs, ok := partnerVal.([]string)
-	if !ok {
-		return client, "", "", UndeterminedPartnerID, fmt.Errorf("partner IDs value not the expected string slice: %v", partnerVal)
+	partnerIDs, err := cast.ToStringSliceE(partnerVal)
+	if err != nil {
+		return client, "", "", UndeterminedPartnerID, fmt.Errorf("partner IDs \"%v\" couldn't be cast to string slice: %v", partnerVal, err)
 	}
 	partnerID := DeterminePartnerMetric(partnerIDs)
+
 	if auth.Request.URL == nil {
 		return client, partnerID, "", TokenMissingValues, ErrNoURL
 	}

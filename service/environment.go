@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/go-kit/kit/sd"
 )
 
@@ -46,6 +47,10 @@ type Environment interface {
 
 	// Closed returns a channel that is closed when this Environment in closed.
 	Closed() <-chan struct{}
+
+	// Provider returns the metrics provider that is associated with this environment
+	// Mainly used for the argus chrysom client
+	Provider() provider.Provider
 }
 
 // Option represents a service discovery option for configuring an Environment
@@ -107,6 +112,15 @@ func WithCloser(f func() error) Option {
 	}
 }
 
+// WithProvider configures the metrics provider for the environment
+func WithProvider(p provider.Provider) Option {
+	return func(e *environment) {
+		if p != nil {
+			e.provider = p
+		}
+	}
+}
+
 // NewEnvironment constructs a new service discovery client environment.  It is possible to construct
 // an environment without any Registrars or Instancers, which essentially makes a no-op environment.
 func NewEnvironment(options ...Option) Environment {
@@ -129,6 +143,7 @@ type environment struct {
 	registrars      Registrars
 	instancers      Instancers
 	accessorFactory AccessorFactory
+	provider        provider.Provider
 
 	lock      sync.RWMutex
 	closeOnce sync.Once
@@ -206,4 +221,8 @@ func (e *environment) Close() (err error) {
 	})
 
 	return
+}
+
+func (e *environment) Provider() provider.Provider {
+	return e.provider
 }
