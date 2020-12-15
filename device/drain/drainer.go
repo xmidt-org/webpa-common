@@ -275,7 +275,7 @@ func (df *drainFilter) AllowConnection(d device.Interface) (bool, device.MatchRe
 }
 
 // nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts
-// to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If cancelled, or if
+// to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If canceled, or if
 // no more devices are available, this method returns false.
 func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int, skipped int) {
 	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
@@ -295,7 +295,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 		case batch <- d.ID():
 			return true
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
 			more = false
 			return false
 		default:
@@ -318,7 +318,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 					drained++
 				}
 			case <-jc.cancel:
-				jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+				jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
 				more = false
 			default:
 				finished = true
@@ -389,7 +389,7 @@ func (dr *drainer) drain(jc jobContext) {
 				more = false
 			}
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
 			more = false
 		}
 	}

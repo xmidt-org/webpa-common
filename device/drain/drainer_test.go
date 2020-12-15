@@ -482,7 +482,7 @@ func testDrainerVisitCancel(t *testing.T) {
 	case <-done:
 		// passing
 	case <-time.After(5 * time.Second):
-		assert.Fail("The job did not complete after being cancelled")
+		assert.Fail("The job did not complete after being canceled")
 		return
 	}
 
@@ -528,7 +528,7 @@ func testDrainerDisconnectCancel(t *testing.T) {
 	case <-done:
 		// passing
 	case <-time.After(5 * time.Second):
-		assert.Fail("The job did not complete after being cancelled")
+		assert.Fail("The job did not complete after being canceled")
 		return
 	}
 
@@ -549,7 +549,6 @@ func testDrainerDrainCancel(t *testing.T) {
 		stop       = func() {
 			stopCalled = true
 		}
-
 		ticker = make(chan time.Time, 1)
 
 		d = New(
@@ -605,8 +604,7 @@ func testDrainerDrainCancel(t *testing.T) {
 }
 
 func TestDrainer(t *testing.T) {
-	// deviceCounts := []int{0, 1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
-	deviceCounts := []int{0}
+	deviceCounts := []int{0, 1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
 
 	t.Run("DisconnectAll", func(t *testing.T) {
 		for _, deviceCount := range deviceCounts {
@@ -650,6 +648,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 
 		ticker     = make(chan time.Time, 1)
 		totalCount = deviceTypeOne.count + deviceTypeTwo.count
+		realCount  = totalCount
 
 		d = New(
 			WithLogger(logger),
@@ -659,6 +658,10 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 			WithDrainCounter(provider.NewCounter("counter")),
 		)
 	)
+
+	if count > 0 {
+		realCount = count
+	}
 
 	require.NotNil(d)
 	d.(*drainer).now = func() time.Time {
@@ -701,11 +704,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 	require.NoError(err)
 	require.NotNil(done)
 
-	if count > 0 {
-		assert.Equal(Job{Count: count, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
-	} else {
-		assert.Equal(Job{Count: totalCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
-	}
+	assert.Equal(Job{Count: realCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
 
 	provider.Assert(t, "state")(xmetricstest.Value(MetricDraining))
 	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
@@ -721,19 +720,11 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 	// get status of drain job in progress
 	active, job, progress = d.Status()
 	assert.True(active)
-	if count > 0 {
-		assert.Equal(Job{Count: count, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
-	} else {
-		assert.Equal(Job{Count: totalCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
-	}
+	assert.Equal(Job{Count: realCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
 
 	assert.Equal(Progress{Visited: 0, Drained: 0, Started: expectedStarted.UTC(), Finished: nil}, progress)
 
 	go func() {
-		realCount := totalCount
-		if count > 0 {
-			realCount = count
-		}
 		ticks := realCount / 100
 		if (realCount % 100) > 0 {
 			ticks++
@@ -772,11 +763,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 	active, job, progress = d.Status()
 	assert.False(active)
 
-	if count > 0 {
-		assert.Equal(Job{Count: count, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
-	} else {
-		assert.Equal(Job{Count: totalCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
-	}
+	assert.Equal(Job{Count: realCount, Rate: 100, Tick: time.Second, DrainFilter: df}, job)
 
 	if count > 0 && count <= (totalCount-expectedSkipped) {
 		assert.Equal(count, progress.Visited)
@@ -936,7 +923,7 @@ func testDisconnectFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo 
 	assert.Equal(expectedFinished.UTC(), *progress.Finished)
 }
 
-func TestDrainWithFilter(t *testing.T) {
+func TestDrainerWithFilter(t *testing.T) {
 	var (
 		filterKey   = "test"
 		filterValue = "test1"
@@ -954,13 +941,8 @@ func TestDrainWithFilter(t *testing.T) {
 			},
 		}
 
-		metadata1 = map[string]interface{}{
-			filterKey: "test",
-		}
-
-		metadata2 = map[string]interface{}{
-			filterKey: filterValue,
-		}
+		metadata1 = map[string]interface{}{filterKey: "test"}
+		metadata2 = map[string]interface{}{filterKey: filterValue}
 
 		counts = [][]int{
 			[]int{0, 0, 100},
@@ -981,99 +963,23 @@ func TestDrainWithFilter(t *testing.T) {
 	)
 
 	for _, deviceCount := range counts {
-		deviceCount1 := deviceCount[0]
-		deviceCount2 := deviceCount[1]
-		expectedSkip := deviceCount1
-
+		expectedSkip := deviceCount[0]
 		devices := []deviceInfo{
-			deviceInfo{
-				count:  deviceCount1,
-				claims: metadata1,
-			},
-			deviceInfo{
-				count:  deviceCount2,
-				claims: metadata2,
-			},
+			deviceInfo{count: deviceCount[0], claims: metadata1},
+			deviceInfo{count: deviceCount[1], claims: metadata2},
 		}
 
-		t.Run(fmt.Sprintf("deviceCount=%d", deviceCount1+deviceCount2), func(t *testing.T) {
-			t.Run("All", func(t *testing.T) {
+		t.Run(fmt.Sprintf("deviceCount=%d", deviceCount[0]+deviceCount[1]), func(t *testing.T) {
+			t.Run("DrainAll", func(t *testing.T) {
 				testDrainFilter(t, devices[0], devices[1], &df, expectedSkip, -1)
 			})
-
-			t.Run("WithCount", func(t *testing.T) {
+			t.Run("DrainWithCount", func(t *testing.T) {
 				testDrainFilter(t, devices[0], devices[1], &df, expectedSkip, deviceCount[2])
 			})
-		})
-	}
-}
-
-func TestDisconnectWithFilter(t *testing.T) {
-	var (
-		filterKey   = "test"
-		filterValue = "test1"
-		df          = drainFilter{
-			filter: &devicegate.FilterGate{
-				FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-					filterKey: devicegate.FilterSet(map[interface{}]bool{
-						filterValue: true,
-					}),
-				}),
-			},
-			filterRequest: devicegate.FilterRequest{
-				Key:    filterKey,
-				Values: []interface{}{filterValue},
-			},
-		}
-
-		metadata1 = map[string]interface{}{
-			filterKey: "test",
-		}
-
-		metadata2 = map[string]interface{}{
-			filterKey: filterValue,
-		}
-
-		counts = [][]int{
-			[]int{0, 0, 100},
-			[]int{1, 0, 1},
-			[]int{2, 0, 9},
-			[]int{0, 1, 100},
-			[]int{0, 2, 1},
-			[]int{1, 1, 19},
-			[]int{0, disconnectBatchSize - 1, 100},
-			[]int{disconnectBatchSize - 1, 0, 20},
-			[]int{0, disconnectBatchSize, 20},
-			[]int{disconnectBatchSize, 0, 53},
-			[]int{0, disconnectBatchSize + 1, 120},
-			[]int{disconnectBatchSize + 1, 0, 400},
-			[]int{89, 1709, 1091},
-			[]int{1704, 43, 1000},
-		}
-	)
-
-	for _, deviceCount := range counts {
-		deviceCount1 := deviceCount[0]
-		deviceCount2 := deviceCount[1]
-		expectedSkip := deviceCount1
-
-		devices := []deviceInfo{
-			deviceInfo{
-				count:  deviceCount1,
-				claims: metadata1,
-			},
-			deviceInfo{
-				count:  deviceCount2,
-				claims: metadata2,
-			},
-		}
-
-		t.Run(fmt.Sprintf("deviceCount=%d", deviceCount1+deviceCount2), func(t *testing.T) {
-			t.Run("All", func(t *testing.T) {
+			t.Run("DisconnectAll", func(t *testing.T) {
 				testDisconnectFilter(t, devices[0], devices[1], &df, expectedSkip, -1)
 			})
-
-			t.Run("WithCount", func(t *testing.T) {
+			t.Run("DisconnectWithCount", func(t *testing.T) {
 				testDisconnectFilter(t, devices[0], devices[1], &df, expectedSkip, deviceCount[2])
 			})
 		})

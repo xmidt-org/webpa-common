@@ -27,7 +27,6 @@ type Progress struct {
 }
 
 type tracker struct {
-	skipped  int32
 	visited  int32
 	drained  int32
 	started  time.Time

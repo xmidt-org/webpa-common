@@ -30,7 +30,7 @@ func testStartServeHTTPDefaultLogger(t *testing.T) {
 	d.On("Start", Job{}).Return(done, Job{Count: 126, Percent: 10, Rate: 12, Tick: 5 * time.Minute}, error(nil))
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
-	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	assert.Equal("application/json", response.Header().Get("Content-Type"))
 	assert.JSONEq(
 		`{"count": 126, "percent": 10, "rate": 12, "tick": "5m0s"}`,
 		response.Body.String(),
@@ -83,7 +83,7 @@ func testStartServeHTTPValid(t *testing.T) {
 			d.On("Start", record.expected).Return(done, Job{Count: 47192, Percent: 57, Rate: 500, Tick: 37 * time.Second, DrainFilter: record.expected.DrainFilter}, error(nil)).Once()
 			start.ServeHTTP(response, request)
 			assert.Equal(http.StatusOK, response.Code)
-			assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+			assert.Equal("application/json", response.Header().Get("Content-Type"))
 			assert.JSONEq(
 				`{"count": 47192, "percent": 57, "rate": 500, "tick": "37s"}`,
 				response.Body.String(),
@@ -174,7 +174,7 @@ func testStartServeHTTPWithBody(t *testing.T) {
 			}
 			start.ServeHTTP(response, request)
 			assert.Equal(record.expectedStatusCode, response.Code)
-			assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+			assert.Equal("application/json", response.Header().Get("Content-Type"))
 			if record.expectedStatusCode == http.StatusOK {
 				if len(record.expectedJSON) == 0 {
 					assert.JSONEq(
