@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -24,7 +23,12 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 	method := request.Method
 	if method == http.MethodGet {
 		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %s}`, filtersToString(fh.Gate))
+		if JSON, err := json.Marshal(fh.Gate); err == nil {
+			fmt.Fprintf(response, `%s`, JSON)
+		} else {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not marshal filters into JSON", logging.ErrorKey(), err)
+			xhttp.WriteError(response, http.StatusInternalServerError, err)
+		}
 	} else if method == http.MethodPost || method == http.MethodPut || method == http.MethodDelete {
 		var message FilterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
@@ -57,19 +61,20 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 				return
 			}
 
-			allowedFilters, allowedFiltersFound := fh.Gate.GetAllowedFilters()
-
-			if allowedFiltersFound {
+			if allowedFilters, allowedFiltersFound := fh.Gate.GetAllowedFilters(); allowedFiltersFound {
 				if !allowedFilters.Has(message.Key) {
 					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, allowedFilters.String())
+					if allowedFiltersJSON, err := json.Marshal(allowedFilters); err == nil {
+						xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %s", message.Key, allowedFiltersJSON)
+					} else {
+						xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed.", message.Key)
+					}
 					return
+
 				}
 			}
 
-			_, new := fh.Gate.SetFilter(message.Key, message.Values)
-
-			if new {
+			if _, created := fh.Gate.SetFilter(message.Key, message.Values); created {
 				response.WriteHeader(http.StatusCreated)
 			} else {
 				response.WriteHeader(http.StatusOK)
@@ -80,44 +85,46 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			response.WriteHeader(http.StatusOK)
 		}
 
-		filters := filtersToString(fh.Gate)
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", filters)
-
-		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %s}`, filters)
+		if filtersJSON, err := json.Marshal(fh.Gate); err == nil {
+			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", string(filtersJSON))
+			response.Header().Set("Content-Type", "application/json")
+			fmt.Fprintf(response, `%s`, filtersJSON)
+		} else {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not marshal filters into JSON", logging.ErrorKey(), err)
+		}
 	}
 }
 
 // creates visitor function to convert filters to string
-func writeFilters(b *strings.Builder) func(string, Set) bool {
-	var needsComma bool
+// func writeFilters(b *strings.Builder) func(string, Set) bool {
+// 	var needsComma bool
 
-	return func(key string, val Set) bool {
-		if needsComma {
-			b.WriteString(",\n")
-			needsComma = false
-		}
+// 	return func(key string, val Set) bool {
+// 		if needsComma {
+// 			b.WriteString(",\n")
+// 			needsComma = false
+// 		}
 
-		fmt.Fprintf(b, `"%s": `, key)
-		fmt.Fprintf(b, "%s", val.String())
-		needsComma = true
+// 		fmt.Fprintf(b, `"%s": `, key)
+// 		fmt.Fprintf(b, "%s", val.String())
+// 		needsComma = true
 
-		return true
-	}
-}
+// 		return true
+// 	}
+// }
 
 // wrapper to build JSON string representation of filters
-func filtersToString(g Interface) string {
-	var b strings.Builder
-	var filtersBuilder strings.Builder
-	b.WriteString("{")
-	g.VisitAll(writeFilters(&filtersBuilder))
+// func filtersToString(g Interface) string {
+// 	var b strings.Builder
+// 	var filtersBuilder strings.Builder
+// 	b.WriteString("{")
+// 	g.VisitAll(writeFilters(&filtersBuilder))
 
-	if filtersBuilder.Len() > 0 {
-		filtersBuilder.WriteString("\n")
-		b.WriteString(filtersBuilder.String())
-		filtersBuilder.WriteString("\n")
-	}
-	b.WriteString("}")
-	return b.String()
-}
+// 	if filtersBuilder.Len() > 0 {
+// 		filtersBuilder.WriteString("\n")
+// 		b.WriteString(filtersBuilder.String())
+// 		filtersBuilder.WriteString("\n")
+// 	}
+// 	b.WriteString("}")
+// 	return b.String()
+// }
