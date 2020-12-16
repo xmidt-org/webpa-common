@@ -17,7 +17,6 @@ const (
 // Interface is a gate interface specifically for filtering devices
 type Interface interface {
 	device.Filter
-	json.Marshaler
 
 	// VisitAll applies the given visitor function to each set of filter values
 	//
@@ -50,9 +49,6 @@ type Set interface {
 
 	// VisitAll applies the visitor function to every value in the set.
 	VisitAll(func(interface{}))
-
-	// String returns a string representation of the set.
-	// String() string
 }
 
 // FilterStore can be used to store filters in the Interface
@@ -155,10 +151,6 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 	return f.AllowedFilters, true
 }
 
-func (f *FilterGate) MarshalJSON() ([]byte, error) {
-	return json.Marshal(f)
-}
-
 func (s FilterSet) Has(key interface{}) bool {
 	return s[key]
 }
@@ -205,9 +197,13 @@ func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *devi
 	if val != nil {
 		switch t := val.(type) {
 		case []interface{}:
-			return filterMatch(filterValues, t...), result
+			if filterMatch(filterValues, t...) {
+				return true, result
+			}
 		case interface{}:
-			return filterMatch(filterValues, t), result
+			if filterMatch(filterValues, t) {
+				return true, result
+			}
 		}
 	}
 
