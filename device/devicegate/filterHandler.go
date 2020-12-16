@@ -2,10 +2,10 @@ package devicegate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/webpa-common/logging"
@@ -18,13 +18,13 @@ type FilterHandler struct {
 }
 
 func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-
 	logger := logging.GetLogger(request.Context())
 
 	method := request.Method
 	if method == http.MethodGet {
 		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %s}`, filtersToString(fh.Gate))
+		JSON, _ := json.Marshal(fh.Gate)
+		fmt.Fprintf(response, `%s`, JSON)
 	} else if method == http.MethodPost || method == http.MethodPut || method == http.MethodDelete {
 		var message FilterRequest
 		msgBytes, err := ioutil.ReadAll(request.Body)
@@ -36,88 +36,53 @@ func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.R
 			return
 		}
 
-		err = json.Unmarshal(msgBytes, &message)
-		if err != nil {
+		if err := json.Unmarshal(msgBytes, &message); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "could not unmarshal request body", logging.ErrorKey(), err)
 			xhttp.WriteError(response, http.StatusBadRequest, err)
 			return
 		}
 
-		if len(message.Key) == 0 {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter key found")
-			xhttp.WriteErrorf(response, http.StatusBadRequest, "missing filter key")
+		if allow, err := checkRequestDetails(method, message, fh.Gate); !allow {
+			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), err)
+			xhttp.WriteError(response, http.StatusBadRequest, err)
 			return
 		}
 
 		if method == http.MethodPost || method == http.MethodPut {
-
-			if len(message.Values) == 0 {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no filter values found")
-				xhttp.WriteErrorf(response, http.StatusBadRequest, "missing filter values")
-				return
-			}
-
-			allowedFilters, allowedFiltersFound := fh.Gate.GetAllowedFilters()
-
-			if allowedFiltersFound {
-				if !allowedFilters.Has(message.Key) {
-					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "filter key is not allowed", "key: ", message.Key)
-					xhttp.WriteErrorf(response, http.StatusBadRequest, "filter key %s is not allowed. Allowed filters: %v", message.Key, allowedFilters.String())
-					return
-				}
-			}
-
-			_, new := fh.Gate.SetFilter(message.Key, message.Values)
-
-			if new {
+			if _, created := fh.Gate.SetFilter(message.Key, message.Values); created {
 				response.WriteHeader(http.StatusCreated)
 			} else {
 				response.WriteHeader(http.StatusOK)
 			}
-
 		} else if method == http.MethodDelete {
 			fh.Gate.DeleteFilter(message.Key)
 			response.WriteHeader(http.StatusOK)
 		}
 
-		filters := filtersToString(fh.Gate)
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", filters)
-
+		filtersJSON, _ := json.Marshal(fh.Gate)
+		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", string(filtersJSON))
 		response.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(response, `{"filters": %s}`, filters)
+		fmt.Fprintf(response, `%s`, filtersJSON)
 	}
 }
 
-// creates visitor function to convert filters to string
-func writeFilters(b *strings.Builder) func(string, Set) bool {
-	var needsComma bool
+func checkRequestDetails(methodType string, f FilterRequest, gate Interface) (bool, error) {
+	if len(f.Key) == 0 {
+		return false, errors.New("missing filter key")
+	}
 
-	return func(key string, val Set) bool {
-		if needsComma {
-			b.WriteString(",\n")
-			needsComma = false
+	if methodType == http.MethodPost || methodType == http.MethodPut {
+		if len(f.Values) == 0 {
+			return false, errors.New("missing filter values")
 		}
 
-		fmt.Fprintf(b, `"%s": `, key)
-		fmt.Fprintf(b, "%s", val.String())
-		needsComma = true
-
-		return true
+		if allowedFilters, allowedFiltersFound := gate.GetAllowedFilters(); allowedFiltersFound {
+			if !allowedFilters.Has(f.Key) {
+				allowedFiltersJSON, _ := json.Marshal(allowedFilters)
+				return false, fmt.Errorf("filter key %s is not allowed. Allowed filters: %s", f.Key, allowedFiltersJSON)
+			}
+		}
 	}
-}
 
-// wrapper to build JSON string representation of filters
-func filtersToString(g Interface) string {
-	var b strings.Builder
-	var filtersBuilder strings.Builder
-	b.WriteString("{")
-	g.VisitAll(writeFilters(&filtersBuilder))
-
-	if filtersBuilder.Len() > 0 {
-		filtersBuilder.WriteString("\n")
-		b.WriteString(filtersBuilder.String())
-		filtersBuilder.WriteString("\n")
-	}
-	b.WriteString("}")
-	return b.String()
+	return true, nil
 }

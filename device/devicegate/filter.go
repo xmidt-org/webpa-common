@@ -1,6 +1,7 @@
 package devicegate
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -42,15 +43,12 @@ type Interface interface {
 
 // Set is an interface that represents a read-only hashset
 type Set interface {
-
+	json.Marshaler
 	// Has returns true if a value exists in the set, false if it doesn't.
 	Has(interface{}) bool
 
 	// VisitAll applies the visitor function to every value in the set.
 	VisitAll(func(interface{}))
-
-	// String returns a string representation of the set.
-	String() string
 }
 
 // FilterStore can be used to store filters in the Interface
@@ -61,8 +59,8 @@ type FilterSet map[interface{}]bool
 
 // FilterGate is a concrete implementation of the Interface
 type FilterGate struct {
-	FilterStore    FilterStore
-	AllowedFilters Set
+	FilterStore    FilterStore `json:"filters"`
+	AllowedFilters Set         `json:"allowedFilters"`
 
 	lock sync.RWMutex
 }
@@ -136,23 +134,10 @@ func (f *FilterGate) AllowConnection(d device.Interface) (bool, device.MatchResu
 	defer f.lock.RUnlock()
 
 	for filterKey, filterValues := range f.FilterStore {
-
-		// check if filter is in claims
-		if f.FilterStore.claimsMatch(filterKey, filterValues, d.Metadata()) {
-			return false, device.MatchResult{
-				Location: metadataMapLocation,
-				Key:      filterKey,
-			}
+		// check for filter match
+		if found, result := f.FilterStore.metadataMatch(filterKey, filterValues, d.Metadata()); found {
+			return false, result
 		}
-
-		// check if filter is in metadata map
-		if f.FilterStore.metadataMapMatch(filterKey, filterValues, d.Metadata()) {
-			return false, device.MatchResult{
-				Location: claimsLocation,
-				Key:      filterKey,
-			}
-		}
-
 	}
 
 	return true, device.MatchResult{}
@@ -176,7 +161,7 @@ func (s FilterSet) VisitAll(f func(interface{})) {
 	}
 }
 
-func (s FilterSet) String() string {
+func (s FilterSet) MarshalJSON() ([]byte, error) {
 	var b strings.Builder
 	b.WriteString("[")
 
@@ -192,40 +177,37 @@ func (s FilterSet) String() string {
 	})
 
 	b.WriteString("]")
-	return b.String()
+
+	return []byte(b.String()), nil
 }
 
-func (f *FilterStore) metadataMapMatch(keyToCheck string, filterValues Set, m *device.Metadata) bool {
-	metadataVal := m.Load(keyToCheck)
-	if metadataVal != nil {
-		switch t := metadataVal.(type) {
-		case interface{}:
-			return filterMatch(filterValues, t)
-		case []interface{}:
-			return filterMatch(filterValues, t...)
+func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *device.Metadata) (bool, device.MatchResult) {
+	var val interface{}
+	result := device.MatchResult{
+		Key: keyToCheck,
+	}
+	if metadataVal := m.Load(keyToCheck); metadataVal != nil {
+		val = metadataVal
+		result.Location = metadataMapLocation
+	} else if claimsVal, found := m.Claims()[keyToCheck]; found {
+		val = claimsVal
+		result.Location = claimsLocation
+	}
 
+	if val != nil {
+		switch t := val.(type) {
+		case []interface{}:
+			if filterMatch(filterValues, t...) {
+				return true, result
+			}
+		case interface{}:
+			if filterMatch(filterValues, t) {
+				return true, result
+			}
 		}
 	}
 
-	return false
-
-}
-
-func (f *FilterStore) claimsMatch(keyToCheck string, filterValues Set, m *device.Metadata) bool {
-	claimsMap := m.Claims()
-
-	claimsVal, found := claimsMap[keyToCheck]
-
-	if found {
-		switch t := claimsVal.(type) {
-		case interface{}:
-			return filterMatch(filterValues, t)
-		case []interface{}:
-			return filterMatch(filterValues, t...)
-		}
-	}
-
-	return false
+	return false, device.MatchResult{}
 }
 
 // function to check if any params are in a set

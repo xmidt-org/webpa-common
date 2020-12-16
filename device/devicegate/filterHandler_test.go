@@ -29,10 +29,11 @@ func TestServeHTTPGet(t *testing.T) {
 	)
 
 	mockDeviceGate.On("VisitAll", mock.Anything).Return(0)
-
+	mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil).Once()
 	f.ServeHTTP(response, request.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
-	assert.NotEmpty(response.Result().Body)
+	assert.NotEmpty(response.Body)
+
 }
 
 func TestBadRequest(t *testing.T) {
@@ -156,6 +157,7 @@ func TestSuccessfulAdd(t *testing.T) {
 				Gate: mockDeviceGate,
 			}
 
+			mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil)
 			mockDeviceGate.On("GetAllowedFilters").Return(tc.allowedFilters, tc.allowedFiltersSet).Once()
 			mockDeviceGate.On("SetFilter", mock.AnythingOfType("string"), mock.Anything).Return(nil, tc.newKey).Once()
 			mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
@@ -163,13 +165,13 @@ func TestSuccessfulAdd(t *testing.T) {
 			response := httptest.NewRecorder()
 			f.ServeHTTP(response, tc.request)
 			assert.Equal(tc.expectedStatusCode, response.Code)
-			assert.NotEmpty(response.Result().Body)
+			assert.NotEmpty(response.Body)
 		})
 	}
 
 }
 
-func TestSuccessfulDelete(t *testing.T) {
+func TestDelete(t *testing.T) {
 	var (
 		logger   = logging.NewTestLogger(nil, t)
 		ctx      = logging.WithLogger(context.Background(), logger)
@@ -182,10 +184,11 @@ func TestSuccessfulDelete(t *testing.T) {
 		}
 	)
 
-	req := httptest.NewRequest("DELETE", "/", bytes.NewBuffer([]byte(`{"key": "test"}`)))
 	mockDeviceGate.On("DeleteFilter", "test").Return(true).Once()
 	mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
+	mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil).Once()
 
+	req := httptest.NewRequest("DELETE", "/", bytes.NewBuffer([]byte(`{"key": "test"}`)))
 	f.ServeHTTP(response, req.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
 }

@@ -165,36 +165,39 @@ func TestGetAllowedFilters(t *testing.T) {
 	assert := assert.New(t)
 
 	tests := []struct {
-		description string
-		filterGate  FilterGate
-		setExists   bool
+		description    string
+		allowedFilters FilterSet
+		setExists      bool
 	}{
 		{
 			description: "Non-empty allowed filters set",
-			filterGate: FilterGate{
-				AllowedFilters: FilterSet(map[interface{}]bool{
-					"test":          true,
-					"random-filter": true,
-				}),
-			},
+			allowedFilters: FilterSet(map[interface{}]bool{
+				"test":          true,
+				"random-filter": true,
+			}),
 			setExists: true,
 		},
 		{
-			description: "Empty allowed filters set",
-			filterGate: FilterGate{
-				AllowedFilters: FilterSet(map[interface{}]bool{}),
-			},
-			setExists: true,
+			description:    "Empty allowed filters set",
+			allowedFilters: FilterSet(map[interface{}]bool{}),
+			setExists:      true,
 		},
 		{
-			description: "Nil allowed filters set",
-			filterGate:  FilterGate{},
+			description:    "Nil allowed filters set",
+			allowedFilters: nil,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
-			filters, isSet := tc.filterGate.GetAllowedFilters()
+			var fg FilterGate
+			if tc.allowedFilters != nil {
+				fg = FilterGate{
+					AllowedFilters: tc.allowedFilters,
+				}
+			}
+
+			filters, isSet := fg.GetAllowedFilters()
 
 			assert.Equal(tc.setExists, isSet)
 
@@ -204,5 +207,113 @@ func TestGetAllowedFilters(t *testing.T) {
 				assert.Nil(filters)
 			}
 		})
+	}
+}
+
+func TestMetadataMatch(t *testing.T) {
+	assert := assert.New(t)
+	tests := []struct {
+		description         string
+		claims              map[string]interface{}
+		store               map[string]interface{}
+		filterKey           string
+		filterValues        Set
+		expectedMatch       bool
+		expectedMatchResult device.MatchResult
+	}{
+		{
+			description: "claims match",
+			claims: map[string]interface{}{
+				"test":  "test1",
+				"test2": "random-value",
+			},
+			filterKey: "test",
+			filterValues: FilterSet(map[interface{}]bool{
+				"test1": true,
+				"test2": true,
+			}),
+			expectedMatch:       true,
+			expectedMatchResult: device.MatchResult{Location: claimsLocation, Key: "test"},
+		},
+		{
+			description: "store match",
+			store: map[string]interface{}{
+				"test":  "test1",
+				"test2": "random-value",
+			},
+			filterKey: "test",
+			filterValues: FilterSet(map[interface{}]bool{
+				"test1": true,
+				"test2": true,
+			}),
+			expectedMatch:       true,
+			expectedMatchResult: device.MatchResult{Location: metadataMapLocation, Key: "test"},
+		},
+		{
+			description: "array match",
+			claims: map[string]interface{}{
+				"test":  []interface{}{"test1", "random"},
+				"test2": "random-value",
+			},
+			filterKey: "test",
+			filterValues: FilterSet(map[interface{}]bool{
+				"test1": true,
+				"test2": true,
+			}),
+			expectedMatch:       true,
+			expectedMatchResult: device.MatchResult{Location: claimsLocation, Key: "test"},
+		},
+		{
+			description: "no value match",
+			claims: map[string]interface{}{
+				"test":  []interface{}{"test1", "random"},
+				"test2": "random-value",
+			},
+			store: map[string]interface{}{
+				"test":  "test1",
+				"test2": "random-value",
+			},
+			filterKey: "test",
+			filterValues: FilterSet(map[interface{}]bool{
+				"comcast": true,
+				"sky":     true,
+			}),
+		},
+		{
+			description: "no key match",
+			claims: map[string]interface{}{
+				"test":  []interface{}{"test1", "random"},
+				"test2": "random-value",
+			},
+			store: map[string]interface{}{
+				"test":  "test1",
+				"test2": "random-value",
+			},
+			filterKey: "random-key",
+			filterValues: FilterSet(map[interface{}]bool{
+				"test1":  true,
+				"random": true,
+			}),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			m := new(device.Metadata)
+			m.SetClaims(tc.claims)
+
+			for key, val := range tc.store {
+				m.Store(key, val)
+			}
+
+			fs := FilterStore(map[string]Set{
+				tc.filterKey: tc.filterValues,
+			})
+
+			match, result := fs.metadataMatch(tc.filterKey, tc.filterValues, m)
+			assert.Equal(tc.expectedMatch, match)
+			assert.Equal(tc.expectedMatchResult, result)
+		})
+
 	}
 }
