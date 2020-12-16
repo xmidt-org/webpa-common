@@ -17,7 +17,6 @@ type FilterHandler struct {
 }
 
 func (fh *FilterHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-
 	logger := logging.GetLogger(request.Context())
 
 	method := request.Method

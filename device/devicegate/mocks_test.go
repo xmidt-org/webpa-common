@@ -42,3 +42,9 @@ func (m *mockDeviceGate) AllowConnection(d device.Interface) (bool, device.Match
 	result, _ := args.Get(1).(device.MatchResult)
 	return args.Bool(0), result
 }
+
+func (m *mockDeviceGate) MarshalJSON() ([]byte, error) {
+	args := m.Called()
+	json, _ := args.Get(0).([]byte)
+	return json, args.Error(1)
+}

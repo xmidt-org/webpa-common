@@ -1,6 +1,7 @@
 package devicegate
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -16,6 +17,7 @@ const (
 // Interface is a gate interface specifically for filtering devices
 type Interface interface {
 	device.Filter
+	json.Marshaler
 
 	// VisitAll applies the given visitor function to each set of filter values
 	//
@@ -42,15 +44,12 @@ type Interface interface {
 
 // Set is an interface that represents a read-only hashset
 type Set interface {
-
+	json.Marshaler
 	// Has returns true if a value exists in the set, false if it doesn't.
 	Has(interface{}) bool
 
 	// VisitAll applies the visitor function to every value in the set.
 	VisitAll(func(interface{}))
-
-	// marshal into json
-	MarshalJSON() ([]byte, error)
 
 	// String returns a string representation of the set.
 	// String() string
@@ -64,8 +63,8 @@ type FilterSet map[interface{}]bool
 
 // FilterGate is a concrete implementation of the Interface
 type FilterGate struct {
-	FilterStore    FilterStore
-	AllowedFilters Set
+	FilterStore    FilterStore `json:"filters"`
+	AllowedFilters Set         `json:"allowedFilters"`
 
 	lock sync.RWMutex
 }
@@ -156,9 +155,9 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 	return f.AllowedFilters, true
 }
 
-// func (f *FilterGate) MarshalJSON() ([]byte, error) {
-// 	return json.Marshal(f.FilterStore)
-// }
+func (f *FilterGate) MarshalJSON() ([]byte, error) {
+	return json.Marshal(f)
+}
 
 func (s FilterSet) Has(key interface{}) bool {
 	return s[key]
@@ -189,25 +188,6 @@ func (s FilterSet) MarshalJSON() ([]byte, error) {
 
 	return []byte(b.String()), nil
 }
-
-// func (s FilterSet) String() string {
-// 	var b strings.Builder
-// 	b.WriteString("[")
-
-// 	var needsComma bool
-// 	s.VisitAll(func(v interface{}) {
-// 		if needsComma {
-// 			b.WriteString(", ")
-// 			needsComma = false
-// 		}
-
-// 		fmt.Fprintf(&b, `"%v"`, v)
-// 		needsComma = true
-// 	})
-
-// 	b.WriteString("]")
-// 	return b.String()
-// }
 
 func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *device.Metadata) (bool, device.MatchResult) {
 	var val interface{}
