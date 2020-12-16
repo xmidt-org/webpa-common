@@ -1,0 +1,34 @@
+name: release
+
+on:
+  push:
+    tags:
+      # Push events to matching v#.#.#*, ex: v1.2.3, v.2.4.6-beta
+      - 'v[0-9]+.[0-9]+.[0-9]+*'
+
+jobs:
+  release:
+    runs-on: [ ubuntu-latest ]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Prepare Release Body
+        id: prep
+        run: |
+          export VERSION=${GITHUB_REF#refs/tags/}
+          export NOTES=$(cat CHANGELOG.md | perl -0777 -ne 'print "$1\n" if /.*## \[${VERSION}\]\s(.*?)\s+## \[(v\d+.\d+.\d+)\].*/s')
+          export TODAY=`date +'%m/%d/%Y'`
+          echo ::set-output name=rname::$(echo ${VERSION} ${TODAY})
+          echo ::set-output name=body::${NOTES}
+      - name: create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+          release_name: ${{ steps.prep.outputs.rname }}
+          body: ${{ steps.prep.outputs.body }}

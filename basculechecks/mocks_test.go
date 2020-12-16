@@ -26,7 +26,7 @@ type mockCapabilitiesChecker struct {
 	mock.Mock
 }
 
-func (m *mockCapabilitiesChecker) Check(auth bascule.Authentication) (string, error) {
-	args := m.Called(auth)
+func (m *mockCapabilitiesChecker) Check(auth bascule.Authentication, v ParsedValues) (string, error) {
+	args := m.Called(auth, v)
 	return args.String(0), args.Error(1)
 }
