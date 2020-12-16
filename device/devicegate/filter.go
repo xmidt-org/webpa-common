@@ -1,7 +1,6 @@
 package devicegate
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -156,9 +155,10 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 
 	return f.AllowedFilters, true
 }
-func (f *FilterGate) MarshalJSON() ([]byte, error) {
-	return json.Marshal(f.FilterStore)
-}
+
+// func (f *FilterGate) MarshalJSON() ([]byte, error) {
+// 	return json.Marshal(f.FilterStore)
+// }
 
 func (s FilterSet) Has(key interface{}) bool {
 	return s[key]
