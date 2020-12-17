@@ -40,6 +40,7 @@ func testJobNormalize(t *testing.T) {
 	}
 }
 
+// messing around trying to trigger the linter on this file.
 func TestJob(t *testing.T) {
 	t.Run("Normalize", testJobNormalize)
 }
