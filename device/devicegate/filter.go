@@ -2,8 +2,6 @@ package devicegate
 
 import (
 	"encoding/json"
-	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/device"
@@ -162,23 +160,14 @@ func (s FilterSet) VisitAll(f func(interface{})) {
 }
 
 func (s FilterSet) MarshalJSON() ([]byte, error) {
-	var b strings.Builder
-	b.WriteString("[")
-
-	var needsComma bool
+	temp := make([]interface{}, len(s))
+	index := 0
 	s.VisitAll(func(v interface{}) {
-		if needsComma {
-			b.WriteString(", ")
-			needsComma = false
-		}
-
-		fmt.Fprintf(&b, `"%v"`, v)
-		needsComma = true
+		temp[index] = v
+		index++
 	})
 
-	b.WriteString("]")
-
-	return []byte(b.String()), nil
+	return json.Marshal(temp)
 }
 
 func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *device.Metadata) (bool, device.MatchResult) {

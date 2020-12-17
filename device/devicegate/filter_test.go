@@ -1,6 +1,7 @@
 package devicegate
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -313,6 +314,52 @@ func TestMetadataMatch(t *testing.T) {
 			match, result := fs.metadataMatch(tc.filterKey, tc.filterValues, m)
 			assert.Equal(tc.expectedMatch, match)
 			assert.Equal(tc.expectedMatchResult, result)
+		})
+
+	}
+}
+
+func TestMarshalJSON(t *testing.T) {
+	assert := assert.New(t)
+	tests := []struct {
+		description    string
+		filterSet      FilterSet
+		expectedOutput []byte
+	}{
+		{
+			description: "Successful String Unmarshal",
+			filterSet: FilterSet(map[interface{}]bool{
+				"test1": true,
+				"test2": true,
+			}),
+			expectedOutput: []byte(`["test1","test2"]`),
+		},
+		{
+			description: "Successful Int Unmarshal",
+			filterSet: FilterSet(map[interface{}]bool{
+				1: true,
+				2: true,
+				3: true,
+			}),
+			expectedOutput: []byte(`[1,2,3]`),
+		},
+		{
+			description:    "Empty Set",
+			filterSet:      FilterSet(map[interface{}]bool{}),
+			expectedOutput: []byte(`[]`),
+		},
+		{
+			description:    "Nil Set",
+			filterSet:      nil,
+			expectedOutput: []byte(`[]`),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
+			JSON, err := json.Marshal(tc.filterSet)
+			assert.ElementsMatch(tc.expectedOutput, JSON)
+			assert.Nil(err)
 		})
 
 	}
