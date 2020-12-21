@@ -17,7 +17,6 @@ import (
 	"github.com/miekg/dns"
 	"github.com/spf13/viper"
 	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xmetrics"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -62,7 +61,7 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, string, http.Handler, log.Logger, xmetrics.Registry, func() time.Time)
+	Initialize(*mux.Router, *url.URL, string, http.Handler, log.Logger, AWSMetrics, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string) error
@@ -128,7 +127,7 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
 func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider string,
-	handler http.Handler, logger log.Logger, registry xmetrics.Registry, now func() time.Time) {
+	handler http.Handler, logger log.Logger, metrics AWSMetrics, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
@@ -172,7 +171,7 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider s
 	ss.errorLog = log.WithPrefix(logger, level.Key(), level.ErrorValue())
 	ss.debugLog = log.WithPrefix(logger, level.Key(), level.DebugValue())
 
-	ss.metrics = ApplyMetricsData(registry)
+	ss.metrics = metrics
 	ss.snsNotificationReceivedChan = ss.SNSNotificationReceivedInit()
 
 	ss.debugLog.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
