@@ -88,7 +88,7 @@ func (f *Factory) Prune(items []W) (list []W) {
 
 // NewRegistryAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewRegistryAndHandler(metrics WebhookMetrics) (Registry, http.Handler) {
+func (f *Factory) NewRegistryAndHandler(metrics *WebhookMetrics) (Registry, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -125,7 +125,7 @@ type monitor struct {
 	undertakerTicker <-chan time.Time
 	AWS.Notifier
 	externalUpdate func([]W)
-	metrics        WebhookMetrics
+	metrics        *WebhookMetrics
 }
 
 func (m *monitor) listen() {

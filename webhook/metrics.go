@@ -55,7 +55,8 @@ func Metrics() []xmetrics.Metric {
 
 // ApplyMetricsData is used for setting the counter values on the WebhookMetrics
 // when stored and accessing for later use
-func ApplyMetricsData(registry xmetrics.Registry) (m WebhookMetrics) {
+func ApplyMetricsData(registry xmetrics.Registry) (m *WebhookMetrics) {
+	m = &WebhookMetrics{}
 	for _, metric := range Metrics() {
 		switch metric.Name {
 		case ListSize:
@@ -68,4 +69,9 @@ func ApplyMetricsData(registry xmetrics.Registry) (m WebhookMetrics) {
 	}
 
 	return
+}
+
+func SetCounters(m *WebhookMetrics) {
+	m.ListSize.Add(0.0)
+	m.NotificationUnmarshallFailed.Add(0.0)
 }
