@@ -16,8 +16,8 @@ const (
 type WebhookMetrics struct {
 	fx.In
 
-	ListSize                     metrics.Gauge   `name:"webhook_list_size_value"`
-	NotificationUnmarshallFailed metrics.Counter `name:"notification_unmarshall_failed_count"`
+	ListSize                     metrics.Gauge
+	NotificationUnmarshallFailed metrics.Counter
 }
 
 func ProvideMetrics() fx.Option {
