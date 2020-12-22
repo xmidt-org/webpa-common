@@ -69,8 +69,3 @@ func ApplyMetricsData(registry xmetrics.Registry) (m WebhookMetrics) {
 
 	return
 }
-
-func SetCounters(m WebhookMetrics) {
-	m.ListSize.Add(0.0)
-	m.NotificationUnmarshallFailed.Add(0.0)
-}

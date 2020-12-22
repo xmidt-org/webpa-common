@@ -133,10 +133,3 @@ func ApplyMetricsData(registry xmetrics.Registry) (m AWSMetrics) {
 
 	return
 }
-
-func SetCounters(m *AWSMetrics) {
-	m.DnsReadyQueryCount.Add(0.0)
-	m.DnsReady.Add(0.0)
-	m.SNSNotificationSent.Add(0.0)
-	m.SNSSubscribed.Add(0.0)
-}
