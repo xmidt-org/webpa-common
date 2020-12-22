@@ -109,8 +109,7 @@ func Metrics() []xmetrics.Metric {
 
 // ApplyMetricsData is used for setting the counter values on the AWSMetrics
 // when stored and accessing for later use
-func ApplyMetricsData(registry xmetrics.Registry) (m *AWSMetrics) {
-	m = &AWSMetrics{}
+func ApplyMetricsData(registry xmetrics.Registry) (m AWSMetrics) {
 	for _, metric := range Metrics() {
 		switch metric.Name {
 		case DnsReadyQueryCount:

@@ -53,7 +53,7 @@ type SNSServer struct {
 
 	errorLog                    log.Logger
 	debugLog                    log.Logger
-	metrics                     *AWSMetrics
+	metrics                     AWSMetrics
 	snsNotificationReceivedChan chan int
 	waitForDns                  time.Duration
 }
@@ -61,7 +61,7 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, string, http.Handler, log.Logger, *AWSMetrics, func() time.Time)
+	Initialize(*mux.Router, *url.URL, string, http.Handler, log.Logger, AWSMetrics, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string) error
@@ -127,7 +127,7 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
 func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider string,
-	handler http.Handler, logger log.Logger, metrics *AWSMetrics, now func() time.Time) {
+	handler http.Handler, logger log.Logger, metrics AWSMetrics, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
