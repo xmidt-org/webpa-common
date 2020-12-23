@@ -2,7 +2,10 @@ package webhook
 
 import (
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics"
+	"go.uber.org/fx"
 )
 
 const (
@@ -11,8 +14,27 @@ const (
 )
 
 type WebhookMetrics struct {
-	ListSize                     metrics.Gauge
-	NotificationUnmarshallFailed metrics.Counter
+	fx.In
+
+	ListSize                     metrics.Gauge   `name:"webhook_list_size_value"`
+	NotificationUnmarshallFailed metrics.Counter `name:"notification_unmarshall_failed_count"`
+}
+
+func ProvideMetrics() fx.Option {
+	return fx.Provide(
+		themisXmetrics.ProvideGauge(
+			prometheus.GaugeOpts{
+				Name: ListSize,
+				Help: "Amount of current listeners",
+			},
+		),
+		themisXmetrics.ProvideCounter(
+			prometheus.CounterOpts{
+				Name: NotificationUnmarshallFailed,
+				Help: "Count of the number notification messages that failed to unmarshall",
+			},
+		),
+	)
 }
 
 // Metrics returns the defined metrics as a list

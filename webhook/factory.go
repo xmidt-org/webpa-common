@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/viper"
 	AWS "github.com/xmidt-org/webpa-common/webhook/aws"
 	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const (
@@ -89,7 +88,7 @@ func (f *Factory) Prune(items []W) (list []W) {
 
 // NewRegistryAndHandler returns a List instance for accessing webhooks and an HTTP handler
 // which can receive updates from external systems.
-func (f *Factory) NewRegistryAndHandler(registry xmetrics.Registry) (Registry, http.Handler) {
+func (f *Factory) NewRegistryAndHandler(metrics WebhookMetrics) (Registry, http.Handler) {
 	tick := f.Tick
 	if tick == nil {
 		tick = time.Tick
@@ -103,7 +102,7 @@ func (f *Factory) NewRegistryAndHandler(registry xmetrics.Registry) (Registry, h
 	}
 	f.m = monitor
 	f.m.Notifier = f.Notifier
-	f.m.metrics = ApplyMetricsData(registry)
+	f.m.metrics = metrics
 
 	reg := NewRegistry(f.m)
 

@@ -101,7 +101,8 @@ func SetUpTestSNSServerWithChannelSize(t *testing.T, channelSize int64) (*SNSSer
 	r := mux.NewRouter()
 	logger := logging.NewTestLogger(nil, t)
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(r, nil, "", nil, logger, registry, testNow)
+	awsMetrics := ApplyMetricsData(registry)
+	ss.Initialize(r, nil, "", nil, logger, awsMetrics, testNow)
 
 	return ss, m, mv, r
 }
@@ -466,7 +467,8 @@ func TestListSubscriptionsByMatchingEndpointSuccessWithNextToken(t *testing.T) {
 
 	logger := logging.NewTestLogger(nil, t)
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, nil, "", nil, logger, registry, testNow)
+	awsMetrics := ApplyMetricsData(registry)
+	ss.Initialize(nil, nil, "", nil, logger, awsMetrics, testNow)
 
 	sub1 := &sns.Subscription{
 		Endpoint:        aws.String("http://host:10000/sns/1503357402"),
