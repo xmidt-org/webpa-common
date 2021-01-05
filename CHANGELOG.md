@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Update code to use the latest Argus changes. [#557](https://github.com/xmidt-org/webpa-common/pull/557)
 
 ## [v1.11.4]
 - Fixed string slice casting issue in basculechecks package. [#548](https://github.com/xmidt-org/webpa-common/pull/548)
