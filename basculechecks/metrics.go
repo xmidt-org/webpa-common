@@ -39,6 +39,7 @@ const (
 	ClientIDLabel  = "clientid"
 	EndpointLabel  = "endpoint"
 	PartnerIDLabel = "partnerid"
+	ServerLabel = "server"
 )
 
 // outcomes
@@ -63,7 +64,7 @@ func Metrics() []xmetrics.Metric {
 			Name:       AuthCapabilityCheckOutcome,
 			Type:       xmetrics.CounterType,
 			Help:       "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
-			LabelNames: []string{OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel},
+			LabelNames: []string{ServerLabel, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel},
 		},
 	}
 }
@@ -74,15 +75,24 @@ func ProvideMetrics() fx.Option {
 			Name:        AuthCapabilityCheckOutcome,
 			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
 			ConstLabels: nil,
-		}, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel),
+		}, ServerLabel, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel),
+	)
+}
+
+
+func ProvideMetricsVec() fx.Option {
+	return fx.Provide(
+		themisXmetrics.ProvideCounterVec(prometheus.CounterOpts{
+			Name:        AuthCapabilityCheckOutcome,
+			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			ConstLabels: nil,
+		}, ServerLabel, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel),
 	)
 }
 
 // AuthCapabilityCheckMeasures describes the defined metrics that will be used by clients
 type AuthCapabilityCheckMeasures struct {
-	fx.In
-
-	CapabilityCheckOutcome metrics.Counter `name:"auth_capability_check"`
+	CapabilityCheckOutcome metrics.Counter
 }
 
 // NewAuthCapabilityCheckMeasures realizes desired metrics
