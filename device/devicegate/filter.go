@@ -53,7 +53,10 @@ type Set interface {
 type FilterStore map[string]Set
 
 // FilterSet is a concrete type that implements the Set interface
-type FilterSet map[interface{}]bool
+type FilterSet struct {
+	set  map[interface{}]bool
+	lock sync.RWMutex
+}
 
 // FilterGate is a concrete implementation of the Interface
 type FilterGate struct {
@@ -97,13 +100,15 @@ func (f *FilterGate) SetFilter(key string, values []interface{}) (Set, bool) {
 	defer f.lock.Unlock()
 
 	oldValues := f.FilterStore[key]
-	newValues := make(FilterSet)
+	newValues := make(map[interface{}]bool)
 
 	for _, v := range values {
 		newValues[v] = true
 	}
 
-	f.FilterStore[key] = newValues
+	f.FilterStore[key] = &FilterSet{
+		set: newValues,
+	}
 
 	if oldValues == nil {
 		return oldValues, true
@@ -149,23 +154,25 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 	return f.AllowedFilters, true
 }
 
-func (s FilterSet) Has(key interface{}) bool {
-	return s[key]
+func (s *FilterSet) Has(key interface{}) bool {
+	return s.set[key]
 }
 
-func (s FilterSet) VisitAll(f func(interface{})) {
-	for key := range s {
+func (s *FilterSet) VisitAll(f func(interface{})) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	for key := range s.set {
 		f(key)
 	}
 }
 
-func (s FilterSet) MarshalJSON() ([]byte, error) {
-	temp := make([]interface{}, len(s))
-	index := 0
-	s.VisitAll(func(v interface{}) {
-		temp[index] = v
-		index++
-	})
+func (s *FilterSet) MarshalJSON() ([]byte, error) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+	temp := make([]interface{}, 0, len(s.set))
+	for key := range s.set {
+		temp = append(temp, key)
+	}
 
 	return json.Marshal(temp)
 }
