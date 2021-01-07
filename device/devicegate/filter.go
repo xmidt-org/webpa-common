@@ -54,7 +54,7 @@ type FilterStore map[string]Set
 
 // FilterSet is a concrete type that implements the Set interface
 type FilterSet struct {
-	set  map[interface{}]bool
+	Set  map[interface{}]bool
 	lock sync.RWMutex
 }
 
@@ -107,7 +107,7 @@ func (f *FilterGate) SetFilter(key string, values []interface{}) (Set, bool) {
 	}
 
 	f.FilterStore[key] = &FilterSet{
-		set: newValues,
+		Set: newValues,
 	}
 
 	if oldValues == nil {
@@ -155,13 +155,13 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 }
 
 func (s *FilterSet) Has(key interface{}) bool {
-	return s.set[key]
+	return s.Set[key]
 }
 
 func (s *FilterSet) VisitAll(f func(interface{})) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	for key := range s.set {
+	for key := range s.Set {
 		f(key)
 	}
 }
@@ -169,8 +169,8 @@ func (s *FilterSet) VisitAll(f func(interface{})) {
 func (s *FilterSet) MarshalJSON() ([]byte, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	temp := make([]interface{}, 0, len(s.set))
-	for key := range s.set {
+	temp := make([]interface{}, 0, len(s.Set))
+	for key := range s.Set {
 		temp = append(temp, key)
 	}
 
