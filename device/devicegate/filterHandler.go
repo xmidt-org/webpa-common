@@ -86,6 +86,7 @@ func (gl GateLogger) Then(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		next.ServeHTTP(response, request)
 
+		gl.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "context", "context details", request.Context())
 		if gate, ok := request.Context().Value(gateKey).(Interface); ok {
 			if filtersJSON, err := json.Marshal(gate); err == nil {
 				response.Header().Set("Content-Type", "application/json")
