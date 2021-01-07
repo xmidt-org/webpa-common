@@ -14,7 +14,9 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
-const gateKey = "gate"
+type ContextKey string
+
+const gateKey ContextKey = "gate"
 
 // FilterHandler is an http.Handler that can get, add, and delete filters from a devicegate Interface
 type FilterHandler struct {
@@ -88,6 +90,8 @@ func (gl GateLogger) Then(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		next.ServeHTTP(response, request)
 
+		val := request.Context().Value(gateKey)
+		fmt.Printf("Middleware Checking key: %+v, nil?: %b", val, val == nil)
 		gl.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "context", "context details", request.Context())
 		if gate, ok := request.Context().Value(gateKey).(Interface); ok {
 			if filtersJSON, err := json.Marshal(gate); err == nil {
