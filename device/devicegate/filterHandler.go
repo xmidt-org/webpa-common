@@ -56,6 +56,7 @@ func (fh *FilterHandler) UpdateFilters(response http.ResponseWriter, request *ht
 
 	newCtx := context.WithValue(request.Context(), gateKey, fh.Gate)
 	request = request.Clone(newCtx)
+	fmt.Printf("Checking key: %s", request.Context().Value(gateKey))
 }
 
 func (fh *FilterHandler) DeleteFilter(response http.ResponseWriter, request *http.Request) {
