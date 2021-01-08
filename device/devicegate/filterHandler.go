@@ -14,6 +14,7 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
+// ContextKey is a custom type for setting keys in a request's context
 type ContextKey string
 
 const gateKey ContextKey = "gate"
@@ -23,16 +24,19 @@ type FilterHandler struct {
 	Gate Interface
 }
 
+// GateLogger is used to log extra details about the gate
 type GateLogger struct {
 	Logger log.Logger
 }
 
+// GetFilters is a handler function that gets all of the filters set on a gate
 func (fh *FilterHandler) GetFilters(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	JSON, _ := json.Marshal(fh.Gate)
 	fmt.Fprintf(response, `%s`, JSON)
 }
 
+// UpdateFilters is a handler function that updates the filters stored in a gate
 func (fh *FilterHandler) UpdateFilters(response http.ResponseWriter, request *http.Request) {
 	logger := logging.GetLogger(request.Context())
 
@@ -58,10 +62,9 @@ func (fh *FilterHandler) UpdateFilters(response http.ResponseWriter, request *ht
 
 	newCtx := context.WithValue(request.Context(), gateKey, fh.Gate)
 	*request = *request.WithContext(newCtx)
-	val := request.Context().Value(gateKey)
-	fmt.Printf("Checking key: %+v, nil?: %b", val, val == nil)
 }
 
+// DeleteFilter is a handler function used to delete a particular filter stored in the gate
 func (fh *FilterHandler) DeleteFilter(response http.ResponseWriter, request *http.Request) {
 	logger := logging.GetLogger(request.Context())
 
@@ -86,13 +89,11 @@ func (fh *FilterHandler) DeleteFilter(response http.ResponseWriter, request *htt
 	*request = *request.WithContext(newCtx)
 }
 
-func (gl GateLogger) Then(next http.Handler) http.Handler {
+// LogFilters is a decorator that logs the updated filters list and writes the updated list in the response body
+func (gl GateLogger) LogFilters(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		next.ServeHTTP(response, request)
 
-		val := request.Context().Value(gateKey)
-		fmt.Printf("Middleware Checking key: %+v, nil?: %b", val, val == nil)
-		gl.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "context", "context details", request.Context())
 		if gate, ok := request.Context().Value(gateKey).(Interface); ok {
 			if filtersJSON, err := json.Marshal(gate); err == nil {
 				response.Header().Set("Content-Type", "application/json")
@@ -109,6 +110,7 @@ func (gl GateLogger) Then(next http.Handler) http.Handler {
 
 }
 
+// check that a message body is can be read and unmarshalled
 func validateRequestBody(request *http.Request) (FilterRequest, error) {
 	var message FilterRequest
 	msgBytes, err := ioutil.ReadAll(request.Body)
@@ -126,6 +128,7 @@ func validateRequestBody(request *http.Request) (FilterRequest, error) {
 
 }
 
+// validate content of request body
 func checkRequestDetails(f FilterRequest, gate Interface, checkFilterValues bool) (bool, error) {
 	if len(f.Key) == 0 {
 		return false, errors.New("missing filter key")
