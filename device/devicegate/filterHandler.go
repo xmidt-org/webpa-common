@@ -57,7 +57,7 @@ func (fh *FilterHandler) UpdateFilters(response http.ResponseWriter, request *ht
 	}
 
 	newCtx := context.WithValue(request.Context(), gateKey, fh.Gate)
-	request = request.Clone(newCtx)
+	*request = *request.WithContext(newCtx)
 	val := request.Context().Value(gateKey)
 	fmt.Printf("Checking key: %+v, nil?: %b", val, val == nil)
 }
@@ -83,7 +83,7 @@ func (fh *FilterHandler) DeleteFilter(response http.ResponseWriter, request *htt
 	response.WriteHeader(http.StatusOK)
 
 	newCtx := context.WithValue(request.Context(), gateKey, fh.Gate)
-	request = request.Clone(newCtx)
+	*request = *request.WithContext(newCtx)
 }
 
 func (gl GateLogger) Then(next http.Handler) http.Handler {
