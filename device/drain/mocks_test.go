@@ -76,6 +76,11 @@ func (sm *stubManager) DisconnectAll(device.CloseReason) int {
 	return -1
 }
 
+func (sm *stubManager) GetFilter() device.Filter {
+	sm.assert.Fail("GetFilter is not supported")
+	return nil
+}
+
 func (sm *stubManager) Len() int {
 	return len(sm.devices)
 }

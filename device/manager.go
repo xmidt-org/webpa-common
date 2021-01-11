@@ -52,6 +52,9 @@ type Connector interface {
 	// DisconnectAll disconnects all devices from this instance, and returns the count of
 	// devices disconnected.
 	DisconnectAll(CloseReason) int
+
+	// GetFilter returns the Filter interface used for filtering connection requests
+	GetFilter() Filter
 }
 
 // Router handles dispatching messages to devices.
@@ -78,6 +81,21 @@ type Registry interface {
 	VisitAll(func(Interface) bool) int
 }
 
+type Filter interface {
+	AllowConnection(d Interface) (bool, MatchResult)
+}
+
+type MatchResult struct {
+	Location string
+	Key      string
+}
+
+type FilterFunc func(d Interface) (bool, MatchResult)
+
+func (filter FilterFunc) AllowConnection(d Interface) (bool, MatchResult) {
+	return filter(d)
+}
+
 // Manager supplies a hub for connecting and disconnecting devices as well as
 // an access point for obtaining device metadata.
 type Manager interface {
@@ -85,6 +103,9 @@ type Manager interface {
 	Router
 	Registry
 }
+
+// ManagerOption is a configuration option for a manager
+type ManagerOption func(*manager)
 
 // NewManager constructs a Manager from a set of options.  A ConnectionFactory will be
 // created from the options if one is not supplied.
@@ -127,7 +148,9 @@ func NewManager(o *Options) Manager {
 		listeners:             o.listeners(),
 		measures:              measures,
 		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
+		filter:                o.filter(),
 	}
+
 }
 
 // manager is the internal Manager implementation.
@@ -150,6 +173,8 @@ type manager struct {
 	listeners             []Listener
 	measures              Measures
 	enforceWRPSourceCheck bool
+
+	filter Filter
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
@@ -180,6 +205,11 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Metadata:   metadata,
 		Logger:     m.logger,
 	})
+
+	if allow, matchResults := m.filter.AllowConnection(d); !allow {
+		d.infoLog.Log("filter", "filter match found,", "location", matchResults.Location, "key", matchResults.Key)
+		return nil, ErrorDeviceFilteredOut
+	}
 
 	if len(metadata.Claims()) < 1 {
 		d.errorLog.Log(logging.MessageKey(), "missing security information")
@@ -534,6 +564,16 @@ func (m *manager) DisconnectIf(filter func(ID) (CloseReason, bool)) int {
 
 func (m *manager) DisconnectAll(reason CloseReason) int {
 	return m.devices.removeAll(reason)
+}
+
+func (m *manager) GetFilter() Filter {
+	return m.filter
+}
+
+func defaultFilterFunc() FilterFunc {
+	return func(d Interface) (bool, MatchResult) {
+		return true, MatchResult{}
+	}
 }
 
 func (m *manager) Len() int {

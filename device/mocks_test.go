@@ -212,3 +212,13 @@ func TestMockConnector(t *testing.T) {
 
 	c.AssertExpectations(t)
 }
+
+type mockFilter struct {
+	mock.Mock
+}
+
+func (m *mockFilter) AllowConnection(d Interface) (bool, MatchResult) {
+	args := m.Called(d)
+	result, _ := args.Get(1).(MatchResult)
+	return args.Bool(0), result
+}
