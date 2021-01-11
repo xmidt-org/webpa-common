@@ -155,7 +155,13 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 }
 
 func (s *FilterSet) Has(key interface{}) bool {
-	return s.Set[key]
+	if s.Set != nil {
+		s.lock.RLock()
+		defer s.lock.RUnlock()
+		return s.Set[key]
+	}
+
+	return false
 }
 
 func (s *FilterSet) VisitAll(f func(interface{})) {

@@ -2,6 +2,7 @@ package devicegate
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,36 +20,36 @@ func TestFilterGateAllowConnection(t *testing.T) {
 
 	tests := []struct {
 		description string
-		filters     map[string]Set
+		filters     map[string]map[interface{}]bool
 		canPass     bool
 	}{
 		{
 			description: "Allow",
 			canPass:     true,
-			filters: map[string]Set{
-				"partner-id": FilterSet(map[interface{}]bool{
+			filters: map[string]map[interface{}]bool{
+				"partner-id": map[interface{}]bool{
 					"comcast": true,
-				}),
+				},
 			},
 		},
 		{
 			description: "Deny-Filter Match in Claims",
 			canPass:     false,
-			filters: map[string]Set{
-				"partner-id": FilterSet(map[interface{}]bool{
+			filters: map[string]map[interface{}]bool{
+				"partner-id": map[interface{}]bool{
 					"comcast":        true,
 					"random-partner": true,
-				}),
+				},
 			},
 		},
 		{
 			description: "Deny-Filter Match in Metadata Store",
 			canPass:     false,
-			filters: map[string]Set{
-				"random-key": FilterSet(map[interface{}]bool{
+			filters: map[string]map[interface{}]bool{
+				"random-key": map[interface{}]bool{
 					"abc":    true,
 					"random": true,
-				}),
+				},
 			},
 		},
 	}
@@ -59,8 +60,18 @@ func TestFilterGateAllowConnection(t *testing.T) {
 
 			mockDevice.On("Metadata").Return(metadata)
 
+			filterStore := make(FilterStore)
+
+			for key, values := range tc.filters {
+				fs := FilterSet{
+					Set: values,
+				}
+
+				filterStore[key] = &fs
+			}
+
 			fg := FilterGate{
-				FilterStore: FilterStore(tc.filters),
+				FilterStore: filterStore,
 			}
 
 			canPass, matchResult := fg.AllowConnection(mockDevice)
@@ -94,7 +105,7 @@ func TestGetSetFilter(t *testing.T) {
 			keyToSet:      "test",
 			valuesToSet:   []interface{}{"test", "test1"},
 			keyToGet:      "test",
-			expectedSet:   FilterSet(map[interface{}]bool{"test": true, "test1": true}),
+			expectedSet:   &FilterSet{Set: map[interface{}]bool{"test": true, "test1": true}},
 			expectedFound: true,
 		},
 		{
@@ -102,7 +113,7 @@ func TestGetSetFilter(t *testing.T) {
 			keyToSet:      "test",
 			valuesToSet:   []interface{}{"random-value"},
 			keyToGet:      "test",
-			expectedSet:   FilterSet(map[interface{}]bool{"random-value": true}),
+			expectedSet:   &FilterSet{Set: map[interface{}]bool{"random-value": true}},
 			expectedFound: true,
 		},
 		{
@@ -167,20 +178,20 @@ func TestGetAllowedFilters(t *testing.T) {
 
 	tests := []struct {
 		description    string
-		allowedFilters FilterSet
+		allowedFilters *FilterSet
 		setExists      bool
 	}{
 		{
 			description: "Non-empty allowed filters set",
-			allowedFilters: FilterSet(map[interface{}]bool{
+			allowedFilters: &FilterSet{Set: map[interface{}]bool{
 				"test":          true,
 				"random-filter": true,
-			}),
+			}},
 			setExists: true,
 		},
 		{
 			description:    "Empty allowed filters set",
-			allowedFilters: FilterSet(map[interface{}]bool{}),
+			allowedFilters: &FilterSet{Set: map[interface{}]bool{}},
 			setExists:      true,
 		},
 		{
@@ -229,10 +240,10 @@ func TestMetadataMatch(t *testing.T) {
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: FilterSet(map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[interface{}]bool{
 				"test1": true,
 				"test2": true,
-			}),
+			}},
 			expectedMatch:       true,
 			expectedMatchResult: device.MatchResult{Location: claimsLocation, Key: "test"},
 		},
@@ -243,10 +254,10 @@ func TestMetadataMatch(t *testing.T) {
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: FilterSet(map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[interface{}]bool{
 				"test1": true,
 				"test2": true,
-			}),
+			}},
 			expectedMatch:       true,
 			expectedMatchResult: device.MatchResult{Location: metadataMapLocation, Key: "test"},
 		},
@@ -257,10 +268,10 @@ func TestMetadataMatch(t *testing.T) {
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: FilterSet(map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[interface{}]bool{
 				"test1": true,
 				"test2": true,
-			}),
+			}},
 			expectedMatch:       true,
 			expectedMatchResult: device.MatchResult{Location: claimsLocation, Key: "test"},
 		},
@@ -275,10 +286,10 @@ func TestMetadataMatch(t *testing.T) {
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: FilterSet(map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[interface{}]bool{
 				"comcast": true,
 				"sky":     true,
-			}),
+			}},
 		},
 		{
 			description: "no key match",
@@ -291,10 +302,10 @@ func TestMetadataMatch(t *testing.T) {
 				"test2": "random-value",
 			},
 			filterKey: "random-key",
-			filterValues: FilterSet(map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[interface{}]bool{
 				"test1":  true,
 				"random": true,
-			}),
+			}},
 		},
 	}
 
@@ -323,41 +334,42 @@ func TestMarshalJSON(t *testing.T) {
 	assert := assert.New(t)
 	tests := []struct {
 		description    string
-		filterSet      FilterSet
+		filterSet      *FilterSet
 		expectedOutput []byte
 	}{
 		{
 			description: "Successful String Unmarshal",
-			filterSet: FilterSet(map[interface{}]bool{
+			filterSet: &FilterSet{Set: map[interface{}]bool{
 				"test1": true,
 				"test2": true,
-			}),
+			}},
 			expectedOutput: []byte(`["test1","test2"]`),
 		},
 		{
 			description: "Successful Int Unmarshal",
-			filterSet: FilterSet(map[interface{}]bool{
+			filterSet: &FilterSet{Set: map[interface{}]bool{
 				1: true,
 				2: true,
 				3: true,
-			}),
+			}},
 			expectedOutput: []byte(`[1,2,3]`),
 		},
 		{
 			description:    "Empty Set",
-			filterSet:      FilterSet(map[interface{}]bool{}),
+			filterSet:      &FilterSet{Set: map[interface{}]bool{}},
 			expectedOutput: []byte(`[]`),
 		},
 		{
 			description:    "Nil Set",
 			filterSet:      nil,
-			expectedOutput: []byte(`[]`),
+			expectedOutput: []byte(`null`),
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
 			JSON, err := json.Marshal(tc.filterSet)
+			fmt.Println(string(JSON))
 			assert.ElementsMatch(tc.expectedOutput, JSON)
 			assert.Nil(err)
 		})
