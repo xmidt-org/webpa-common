@@ -38,10 +38,10 @@ func TestStatus(t *testing.T) {
 		df = &drainFilter{
 			filter: &devicegate.FilterGate{
 				FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-					"test": devicegate.FilterSet(map[interface{}]bool{
+					"test": &devicegate.FilterSet{Set: map[interface{}]bool{
 						"test1": true,
 						"test2": true,
-					}),
+					}},
 				}),
 			},
 			filterRequest: devicegate.FilterRequest{

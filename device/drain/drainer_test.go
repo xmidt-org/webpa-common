@@ -22,10 +22,10 @@ func testJobNormalize(t *testing.T) {
 	testDrainFilter := &drainFilter{
 		filter: &devicegate.FilterGate{
 			FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-				"test": devicegate.FilterSet(map[interface{}]bool{
+				"test": &devicegate.FilterSet{Set: map[interface{}]bool{
 					"testValue":  true,
 					"testValue2": true,
-				}),
+				}},
 			}),
 		},
 		filterRequest: devicegate.FilterRequest{
@@ -930,9 +930,9 @@ func TestDrainerWithFilter(t *testing.T) {
 		df          = drainFilter{
 			filter: &devicegate.FilterGate{
 				FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-					filterKey: devicegate.FilterSet(map[interface{}]bool{
+					filterKey: &devicegate.FilterSet{Set: map[interface{}]bool{
 						filterValue: true,
-					}),
+					}},
 				}),
 			},
 			filterRequest: devicegate.FilterRequest{
