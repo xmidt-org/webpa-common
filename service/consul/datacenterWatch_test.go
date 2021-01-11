@@ -264,24 +264,21 @@ func TestUpdateInactiveDatacenters(t *testing.T) {
 			description: "Non-Empty Database Results",
 			items: []model.Item{
 				{
-					UUID:       "random-id",
-					Identifier: "datacenters",
+					ID: "random-id",
 					Data: map[string]interface{}{
 						"name":     "testDC1",
 						"inactive": true,
 					},
 				},
 				{
-					UUID:       "random-id2",
-					Identifier: "datacenters",
+					ID: "random-id2",
 					Data: map[string]interface{}{
 						"name":     "testDC2",
 						"inactive": false,
 					},
 				},
 				{
-					UUID:       "random-id3",
-					Identifier: "datacenters",
+					ID: "random-id3",
 					Data: map[string]interface{}{
 						"name":     "testDC3",
 						"inactive": true,

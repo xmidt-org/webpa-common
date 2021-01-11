@@ -84,10 +84,9 @@ func webhookToItem(w *Webhook) (*model.Item, error) {
 	TTLSeconds := int64(w.Duration.Seconds())
 
 	return &model.Item{
-		Identifier: w.Config.URL,
-		Data:       data,
-		UUID:       base64.RawURLEncoding.EncodeToString(checkSumURL[:]),
-		TTL:        &TTLSeconds,
+		Data: data,
+		ID:   base64.RawURLEncoding.EncodeToString(checkSumURL[:]),
+		TTL:  &TTLSeconds,
 	}, nil
 }
 

@@ -30,7 +30,7 @@ func TestServeHTTPGet(t *testing.T) {
 
 	mockDeviceGate.On("VisitAll", mock.Anything).Return(0)
 	mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil).Once()
-	f.ServeHTTP(response, request.WithContext(ctx))
+	f.GetFilters(response, request.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
 	assert.NotEmpty(response.Body)
 
@@ -77,7 +77,7 @@ func TestBadRequest(t *testing.T) {
 		},
 	}
 
-	mockDeviceGate.On("GetAllowedFilters").Return(make(FilterSet), true)
+	mockDeviceGate.On("GetAllowedFilters").Return(&FilterSet{}, true)
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestBadRequest(t *testing.T) {
 			response := httptest.NewRecorder()
 
 			for _, req := range requests {
-				f.ServeHTTP(response, req.WithContext(ctx))
+				f.UpdateFilters(response, req.WithContext(ctx))
 				assert.Equal(tc.expectedStatusCode, response.Code)
 			}
 
@@ -114,7 +114,7 @@ func TestSuccessfulAdd(t *testing.T) {
 		request            *http.Request
 		newKey             bool
 		expectedStatusCode int
-		allowedFilters     FilterSet
+		allowedFilters     *FilterSet
 		allowedFiltersSet  bool
 	}{
 		{
@@ -144,7 +144,7 @@ func TestSuccessfulAdd(t *testing.T) {
 			request:            httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte(`{"key": "test", "values": ["test1", "test2"]}`))).WithContext(ctx),
 			newKey:             true,
 			expectedStatusCode: http.StatusCreated,
-			allowedFilters:     FilterSet(map[interface{}]bool{"test": true}),
+			allowedFilters:     &FilterSet{Set: map[interface{}]bool{"test": true}},
 			allowedFiltersSet:  true,
 		},
 	}
@@ -163,9 +163,9 @@ func TestSuccessfulAdd(t *testing.T) {
 			mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
 
 			response := httptest.NewRecorder()
-			f.ServeHTTP(response, tc.request)
+			f.UpdateFilters(response, tc.request)
 			assert.Equal(tc.expectedStatusCode, response.Code)
-			assert.NotEmpty(response.Body)
+
 		})
 	}
 
@@ -189,6 +189,63 @@ func TestDelete(t *testing.T) {
 	mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil).Once()
 
 	req := httptest.NewRequest("DELETE", "/", bytes.NewBuffer([]byte(`{"key": "test"}`)))
-	f.ServeHTTP(response, req.WithContext(ctx))
+	f.DeleteFilter(response, req.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
+}
+
+func TestGateLogger(t *testing.T) {
+
+	var (
+		logger = logging.NewTestLogger(nil, t)
+		gate   = &FilterGate{
+			FilterStore: FilterStore(map[string]Set{
+				"partner-id": &FilterSet{
+					Set: map[interface{}]bool{"comcast": true},
+				},
+			}),
+		}
+
+		gl = GateLogger{
+			Logger: logger,
+		}
+
+		assert = assert.New(t)
+	)
+
+	tests := []struct {
+		description   string
+		next          http.Handler
+		expectedEmpty bool
+	}{
+		{
+			description: "Success",
+			next: http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				response.WriteHeader(201)
+				newCtx := context.WithValue(request.Context(), gateKey, gate)
+				*request = *request.WithContext(newCtx)
+			}),
+		},
+		{
+			description: "No gate set in context",
+			next: http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				response.WriteHeader(201)
+			}),
+			expectedEmpty: true,
+		},
+	}
+
+	for _, tc := range tests {
+		response := httptest.NewRecorder()
+		req := httptest.NewRequest("GET", "/", nil)
+		handler := gl.LogFilters(tc.next)
+		handler.ServeHTTP(response, req)
+
+		if tc.expectedEmpty {
+			assert.Empty(response.Body)
+		} else {
+			assert.NotEmpty(response.Body)
+		}
+
+	}
+
 }

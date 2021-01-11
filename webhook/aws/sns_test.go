@@ -152,7 +152,8 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 	}
 
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, "", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	awsMetrics := ApplyMetricsData(registry)
+	ss.Initialize(nil, selfUrl, "", nil, nil, awsMetrics, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)
@@ -172,7 +173,8 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 	}
 
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, "", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	awsMetrics := ApplyMetricsData(registry)
+	ss.Initialize(nil, selfUrl, "", nil, nil, awsMetrics, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	require.NotNil(ss.errorLog)
 	require.NotNil(ss.debugLog)
@@ -206,7 +208,8 @@ func TestDnsReadyFail(t *testing.T) {
 		Host:   "host:10000",
 	}
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, "localhost:5079", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	awsMetrics := ApplyMetricsData(registry)
+	ss.Initialize(nil, selfUrl, "localhost:5079", nil, nil, awsMetrics, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	err = ss.DnsReady()
 
@@ -259,7 +262,8 @@ func TestDnsReadyNoSOASuccess(t *testing.T) {
 		Host:   "host:10000",
 	}
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
-	ss.Initialize(nil, selfUrl, "", nil, nil, registry, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
+	awsMetrics := ApplyMetricsData(registry)
+	ss.Initialize(nil, selfUrl, "", nil, nil, awsMetrics, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
 	err = ss.DnsReady()
 
