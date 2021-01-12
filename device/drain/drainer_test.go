@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xmidt-org/webpa-common/device"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/device/devicegate"
@@ -984,4 +986,13 @@ func TestDrainerWithFilter(t *testing.T) {
 			})
 		})
 	}
+}
+
+func TestDrainFilterNilFilter(t *testing.T) {
+	assert := assert.New(t)
+	mockDevice := new(device.MockDevice)
+
+	df := drainFilter{}
+	allow, _ := df.AllowConnection(mockDevice)
+	assert.False(allow)
 }
