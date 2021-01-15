@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/webpa-common/device/devicegate"
 )
 
 func testStatus(t *testing.T, active bool, j Job, p Progress, expectedJSON string) {
@@ -34,6 +35,21 @@ func TestStatus(t *testing.T) {
 		zeroTime = time.Time{}.Format(time.RFC3339Nano)
 		now      = time.Now()
 
+		df = &drainFilter{
+			filter: &devicegate.FilterGate{
+				FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
+					"test": &devicegate.FilterSet{Set: map[interface{}]bool{
+						"test1": true,
+						"test2": true,
+					}},
+				}),
+			},
+			filterRequest: devicegate.FilterRequest{
+				Key:    "test",
+				Values: []interface{}{"test1", "test2"},
+			},
+		}
+
 		testData = []struct {
 			active       bool
 			j            Job
@@ -53,6 +69,12 @@ func TestStatus(t *testing.T) {
 				Job{Count: 67283, Percent: 97, Rate: 127, Tick: 17 * time.Second},
 				Progress{Visited: 12, Drained: 4, Started: now, Finished: &now},
 				fmt.Sprintf(`{"active": true, "job": {"count": 67283, "percent": 97, "rate": 127, "tick": "17s"}, "progress": {"visited": 12, "drained": 4, "started": "%s", "finished": "%s"}}`, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)),
+			},
+			{
+				true,
+				Job{Count: 67283, Percent: 97, Rate: 127, Tick: 17 * time.Second, DrainFilter: df},
+				Progress{Visited: 12, Drained: 4, Started: now, Finished: &now},
+				fmt.Sprintf(`{"active": true, "job": {"count": 67283, "percent": 97, "rate": 127, "tick": "17s", "filter": {"key":"test", "values":["test1", "test2"]}}, "progress": {"visited": 12, "drained": 4, "started": "%s", "finished": "%s"}}`, now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano)),
 			},
 		}
 	)

@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Update code to use the latest Argus changes. [#557](https://github.com/xmidt-org/webpa-common/pull/557)
+- Add ability to drain devices by specific parameters. [#554](https://github.com/xmidt-org/webpa-common/pull/554)
+- Add filtering capability to gate device connections. [#547](https://github.com/xmidt-org/webpa-common/pull/547)
 
 ## [v1.11.4]
 - Fixed string slice casting issue in basculechecks package. [#548](https://github.com/xmidt-org/webpa-common/pull/548)

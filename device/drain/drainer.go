@@ -11,6 +11,7 @@ import (
 	"github.com/go-kit/kit/metrics/discard"
 
 	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/device/devicegate"
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 )
@@ -97,6 +98,12 @@ func WithDrainCounter(a xmetrics.Adder) Option {
 	}
 }
 
+// DrainFilter contains the filter information for a drain job
+type DrainFilter interface {
+	device.Filter
+	GetFilterRequest() devicegate.FilterRequest
+}
+
 type Job struct {
 	// Count is the total number of devices to disconnect.  If this field is nonpositive and percent is unset,
 	// the count of connected devices at the start of job execution is used.  If Percent is set, this field's
@@ -115,6 +122,9 @@ type Job struct {
 	// Tick is the time unit for the Rate field.  If Rate is set but this field is not set,
 	// a tick of 1 second is used as the default.
 	Tick time.Duration `json:"tick,omitempty" schema:"tick"`
+
+	// DrainFilter holds the filter to drain devices by. If this is set for the job, only devices that match the filter will be drained
+	DrainFilter DrainFilter `json:"filter,omitempty" schema:"filter"`
 }
 
 // ToMap returns a map representation of this Job appropriate for marshaling to formats like JSON.
@@ -134,6 +144,10 @@ func (j Job) ToMap() map[string]interface{} {
 
 	if j.Tick > 0 {
 		m["tick"] = j.Tick.String()
+	}
+
+	if j.DrainFilter != nil {
+		m["filter"] = j.DrainFilter.GetFilterRequest()
 	}
 
 	return m
@@ -243,19 +257,45 @@ type drainer struct {
 	current     atomic.Value
 }
 
+// drainFilter is a concrete implementation of the DrainFilter interface
+type drainFilter struct {
+	filter        device.Filter
+	filterRequest devicegate.FilterRequest
+}
+
+func (d *drainFilter) GetFilterRequest() devicegate.FilterRequest {
+	return d.filterRequest
+}
+
+func (df *drainFilter) AllowConnection(d device.Interface) (bool, device.MatchResult) {
+	if df.filter == nil {
+		return false, device.MatchResult{}
+	}
+	return df.filter.AllowConnection(d)
+}
+
 // nextBatch grabs a batch of devices, bounded by the size of the supplied batch channel, and attempts
-// to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If cancelled, or if
+// to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If canceled, or if
 // no more devices are available, this method returns false.
-func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int) {
+func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int, skipped int) {
 	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
 
 	more = true
+	skipped = 0
 	dr.registry.VisitAll(func(d device.Interface) bool {
+		// if drain filter set, see if device should be drained
+		if jc.j.DrainFilter != nil {
+			if allow, _ := jc.j.DrainFilter.AllowConnection(d); allow {
+				skipped++
+				return true
+			}
+		}
+
 		select {
 		case batch <- d.ID():
 			return true
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
 			more = false
 			return false
 		default:
@@ -278,7 +318,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 					drained++
 				}
 			case <-jc.cancel:
-				jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+				jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
 				more = false
 			default:
 				finished = true
@@ -328,6 +368,7 @@ func (dr *drainer) drain(jc jobContext) {
 	var (
 		remaining = jc.j.Count
 		visited   = 0
+		skipped   = 0
 		more      = true
 		batch     = make(chan device.ID, jc.j.Rate)
 	)
@@ -339,10 +380,16 @@ func (dr *drainer) drain(jc jobContext) {
 
 		select {
 		case <-jc.ticker:
-			more, visited = dr.nextBatch(jc, batch)
+			more, visited, skipped = dr.nextBatch(jc, batch)
 			remaining -= visited
+
+			// If the number skipped is the number remaining in the registry,
+			// then there are no more devices that need to be disconnected.
+			if skipped == dr.registry.Len() {
+				more = false
+			}
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job cancelled")
+			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
 			more = false
 		}
 	}
@@ -365,7 +412,7 @@ func (dr *drainer) disconnect(jc jobContext) {
 			batch = make(chan device.ID, remaining)
 		}
 
-		more, visited = dr.nextBatch(jc, batch)
+		more, visited, _ = dr.nextBatch(jc, batch)
 		remaining -= visited
 	}
 }
