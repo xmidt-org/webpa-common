@@ -1,9 +1,14 @@
 package basculemetrics
 
 import (
+	"fmt"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/themis/xlog"
 	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
 	"github.com/xmidt-org/webpa-common/xmetrics"
 	"go.uber.org/fx"
@@ -19,10 +24,11 @@ const (
 // labels
 const (
 	OutcomeLabel = "outcome"
-	ServerLabel = "server"
+	ServerLabel  = "server"
 )
 
-// Metrics returns the Metrics relevant to this package
+// Metrics returns the Metrics relevant to this package targetting our older non uber/fx applications.
+// To initialize the metrics, use NewAuthValidationMeasures().
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		{
@@ -32,22 +38,24 @@ func Metrics() []xmetrics.Metric {
 			LabelNames: []string{ServerLabel, OutcomeLabel},
 		},
 		{
-			Name:    NBFHistogram,
-			Type:    xmetrics.HistogramType,
-			Help:    "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
-			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
+			Name:       NBFHistogram,
+			Type:       xmetrics.HistogramType,
+			Help:       "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
+			Buckets:    []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
 			LabelNames: []string{ServerLabel},
 		},
 		{
-			Name:    EXPHistogram,
-			Type:    xmetrics.HistogramType,
-			Help:    "Difference (in seconds) between time of JWT validation and exp (including leeway)",
-			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
+			Name:       EXPHistogram,
+			Type:       xmetrics.HistogramType,
+			Help:       "Difference (in seconds) between time of JWT validation and exp (including leeway)",
+			Buckets:    []float64{-61, -11, -2, -1, 0, 9, 60},
 			LabelNames: []string{ServerLabel},
 		},
 	}
 }
 
+// ProvideMetrics provides the metrics relevant to this package as uber/fx options.
+// This is now deprecated in favor of ProvideMetricsVec.
 func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		themisXmetrics.ProvideCounter(prometheus.CounterOpts{
@@ -68,6 +76,8 @@ func ProvideMetrics() fx.Option {
 	)
 }
 
+// ProvideMetricsVec provides the metrics relevant to this package as uber/fx options.
+// The provided metrics are prometheus vectors which gives access to more advanced operations such as CurryWith(labels).
 func ProvideMetricsVec() fx.Option {
 	return fx.Provide(
 		themisXmetrics.ProvideCounterVec(prometheus.CounterOpts{
@@ -92,16 +102,65 @@ func ProvideMetricsVec() fx.Option {
 type AuthValidationMeasures struct {
 	fx.In
 
-	NBFHistogram      metrics.Histogram `name:"auth_from_nbf_seconds"`
-	ExpHistogram      metrics.Histogram `name:"auth_from_exp_seconds"`
-	ValidationOutcome metrics.Counter   `name:"auth_validation"`
+	NBFHistogram      metrics.Histogram
+	ExpHistogram      metrics.Histogram
+	ValidationOutcome metrics.Counter
 }
 
-// NewAuthValidationMeasures realizes desired metrics
+// NewAuthValidationMeasures realizes desired metrics. It's intended to be used alongside Metrics() for
+// our older non uber/fx applications.
 func NewAuthValidationMeasures(r xmetrics.Registry) *AuthValidationMeasures {
 	return &AuthValidationMeasures{
 		NBFHistogram:      gokitprometheus.NewHistogram(r.NewHistogramVec(NBFHistogram)),
 		ExpHistogram:      gokitprometheus.NewHistogram(r.NewHistogramVec(EXPHistogram)),
 		ValidationOutcome: r.NewCounter(AuthValidationOutcome),
+	}
+}
+
+// BaseMeasuresIn is an uber/fx parameter with base metrics ready to be curried into child metrics based on
+// custom labels.
+type BaseMeasuresIn struct {
+	fx.In
+	Logger log.Logger
+
+	NBFHistogram      *prometheus.HistogramVec `name:"auth_from_nbf_seconds"`
+	ExpHistogram      *prometheus.HistogramVec `name:"auth_from_exp_seconds"`
+	ValidationOutcome *prometheus.CounterVec   `name:"auth_validation"`
+}
+
+// MeasuresFactory facilitates the creation of child metrics based on server labels.
+type MeasuresFactory struct {
+	ServerName string
+}
+
+// NewMeasures builds the metric listener from the provided raw metrics.
+func (m MeasuresFactory) NewMeasures(in BaseMeasuresIn) (*MetricListener, error) {
+	in.Logger.Log(level.Key(), level.DebugValue(), xlog.MessageKey(), "building auth validation measures", ServerLabel, m.ServerName)
+	nbfHistogramVec, err := in.NBFHistogram.CurryWith(prometheus.Labels{ServerLabel: m.ServerName})
+	if err != nil {
+		return nil, err
+	}
+	expHistogramVec, err := in.ExpHistogram.CurryWith(prometheus.Labels{ServerLabel: m.ServerName})
+	if err != nil {
+		return nil, err
+	}
+	validationOutcomeCounterVec, err := in.ValidationOutcome.CurryWith(prometheus.Labels{ServerLabel: m.ServerName})
+	if err != nil {
+		return nil, err
+	}
+
+	validationMeasures := &AuthValidationMeasures{
+		NBFHistogram:      gokitprometheus.NewHistogram(nbfHistogramVec.(*prometheus.HistogramVec)),
+		ExpHistogram:      gokitprometheus.NewHistogram(expHistogramVec.(*prometheus.HistogramVec)),
+		ValidationOutcome: gokitprometheus.NewCounter(validationOutcomeCounterVec),
+	}
+	return NewMetricListener(validationMeasures), nil
+}
+
+// Annotated provides the measures as an annotated component with the name "[SERVER]_bascule_metric_listener"
+func (m MeasuresFactory) Annotated() fx.Annotated {
+	return fx.Annotated{
+		Name:   fmt.Sprintf("%s_bascule_metric_listener", m.ServerName),
+		Target: m.NewMeasures,
 	}
 }
