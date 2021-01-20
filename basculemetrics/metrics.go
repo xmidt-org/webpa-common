@@ -42,21 +42,19 @@ func Metrics() []xmetrics.Metric {
 			Name:       AuthValidationOutcome,
 			Type:       xmetrics.CounterType,
 			Help:       authValidationOutcomeHelpMsg,
-			LabelNames: []string{ServerLabel, OutcomeLabel},
+			LabelNames: []string{OutcomeLabel},
 		},
 		{
-			Name:       NBFHistogram,
-			Type:       xmetrics.HistogramType,
-			Help:       nbfHelpMsg,
-			Buckets:    []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
-			LabelNames: []string{ServerLabel},
+			Name:    NBFHistogram,
+			Type:    xmetrics.HistogramType,
+			Help:    nbfHelpMsg,
+			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
 		},
 		{
-			Name:       EXPHistogram,
-			Type:       xmetrics.HistogramType,
-			Help:       expHelpMsg,
-			Buckets:    []float64{-61, -11, -2, -1, 0, 9, 60},
-			LabelNames: []string{ServerLabel},
+			Name:    EXPHistogram,
+			Type:    xmetrics.HistogramType,
+			Help:    expHelpMsg,
+			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
 		},
 	}
 }
