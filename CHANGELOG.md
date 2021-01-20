@@ -5,7 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Update uber/fx measures setup-code for basculechecks and basculemetrics. [#558](https://github.com/xmidt-org/webpa-common/pull/558)
 - Update code to use the latest Argus changes. [#557](https://github.com/xmidt-org/webpa-common/pull/557)
+
+### Added
 - Add ability to drain devices by specific parameters. [#554](https://github.com/xmidt-org/webpa-common/pull/554)
 - Add filtering capability to gate device connections. [#547](https://github.com/xmidt-org/webpa-common/pull/547)
 
