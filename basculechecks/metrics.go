@@ -65,9 +65,7 @@ const (
 
 // help messages
 const (
-	capabilityCheckHelpMsg =       "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
-
-
+	capabilityCheckHelpMsg = "Counter for the capability checker, providing outcome information by client, partner, and endpoint"
 )
 
 // Metrics returns the Metrics relevant to this package targeting our older non uber/fx applications.
