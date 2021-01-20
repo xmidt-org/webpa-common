@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Update code to use the latest Argus changes. [#557](https://github.com/xmidt-org/webpa-common/pull/557)
 - Update item ID format for Argus. [#560](https://github.com/xmidt-org/webpa-common/pull/560)
 
+### Fixed
+- Keep old metrics unchanged for basculemetrics for backward compatibility. [#560](https://github.com/xmidt-org/webpa-common/pull/560)
+
 ### Added
 - Add ability to drain devices by specific parameters. [#554](https://github.com/xmidt-org/webpa-common/pull/554)
 - Add filtering capability to gate device connections. [#547](https://github.com/xmidt-org/webpa-common/pull/547)
