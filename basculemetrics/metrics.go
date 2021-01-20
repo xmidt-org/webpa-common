@@ -27,6 +27,13 @@ const (
 	ServerLabel  = "server"
 )
 
+// help messages
+const (
+	authValidationOutcomeHelpMsg = "Counter for success and failure reason results through bascule"
+	nbfHelpMsg                   = "Difference (in seconds) between time of JWT validation and nbf (including leeway)"
+	expHelpMsg                   = "Difference (in seconds) between time of JWT validation and exp (including leeway)"
+)
+
 // Metrics returns the Metrics relevant to this package targeting our older non uber/fx applications.
 // To initialize the metrics, use NewAuthValidationMeasures().
 func Metrics() []xmetrics.Metric {
@@ -34,20 +41,20 @@ func Metrics() []xmetrics.Metric {
 		{
 			Name:       AuthValidationOutcome,
 			Type:       xmetrics.CounterType,
-			Help:       "Counter for success and failure reason results through bascule",
+			Help:       authValidationOutcomeHelpMsg,
 			LabelNames: []string{ServerLabel, OutcomeLabel},
 		},
 		{
 			Name:       NBFHistogram,
 			Type:       xmetrics.HistogramType,
-			Help:       "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
+			Help:       nbfHelpMsg,
 			Buckets:    []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
 			LabelNames: []string{ServerLabel},
 		},
 		{
 			Name:       EXPHistogram,
 			Type:       xmetrics.HistogramType,
-			Help:       "Difference (in seconds) between time of JWT validation and exp (including leeway)",
+			Help:       expHelpMsg,
 			Buckets:    []float64{-61, -11, -2, -1, 0, 9, 60},
 			LabelNames: []string{ServerLabel},
 		},
@@ -60,17 +67,18 @@ func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		themisXmetrics.ProvideCounter(prometheus.CounterOpts{
 			Name:        AuthValidationOutcome,
-			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			Help:        authValidationOutcomeHelpMsg,
 			ConstLabels: nil,
 		}, OutcomeLabel),
 		themisXmetrics.ProvideHistogram(prometheus.HistogramOpts{
-			Name:    NBFHistogram,
-			Help:    "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
+			Name: NBFHistogram,
+
+			Help:    nbfHelpMsg,
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
 		}),
 		themisXmetrics.ProvideHistogram(prometheus.HistogramOpts{
 			Name:    EXPHistogram,
-			Help:    "Difference (in seconds) between time of JWT validation and exp (including leeway)",
+			Help:    expHelpMsg,
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
 		}),
 	)
@@ -82,17 +90,17 @@ func ProvideMetricsVec() fx.Option {
 	return fx.Provide(
 		themisXmetrics.ProvideCounterVec(prometheus.CounterOpts{
 			Name:        AuthValidationOutcome,
-			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			Help:        authValidationOutcomeHelpMsg,
 			ConstLabels: nil,
 		}, ServerLabel, OutcomeLabel),
 		themisXmetrics.ProvideHistogramVec(prometheus.HistogramOpts{
 			Name:    NBFHistogram,
-			Help:    "Difference (in seconds) between time of JWT validation and nbf (including leeway)",
+			Help:    nbfHelpMsg,
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60}, // defines the upper inclusive (<=) bounds
 		}, ServerLabel),
 		themisXmetrics.ProvideHistogramVec(prometheus.HistogramOpts{
 			Name:    EXPHistogram,
-			Help:    "Difference (in seconds) between time of JWT validation and exp (including leeway)",
+			Help:    expHelpMsg,
 			Buckets: []float64{-61, -11, -2, -1, 0, 9, 60},
 		}, ServerLabel),
 	)

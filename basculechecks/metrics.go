@@ -63,6 +63,13 @@ const (
 	EmptyParsedURL           = "empty_parsed_URL"
 )
 
+// help messages
+const (
+	capabilityCheckHelpMsg =       "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+
+
+)
+
 // Metrics returns the Metrics relevant to this package targeting our older non uber/fx applications.
 // To initialize the metrics, use NewAuthCapabilityCheckMeasures().
 func Metrics() []xmetrics.Metric {
@@ -70,7 +77,7 @@ func Metrics() []xmetrics.Metric {
 		{
 			Name:       AuthCapabilityCheckOutcome,
 			Type:       xmetrics.CounterType,
-			Help:       "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			Help:       capabilityCheckHelpMsg,
 			LabelNames: []string{OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel},
 		},
 	}
@@ -82,7 +89,7 @@ func ProvideMetrics() fx.Option {
 	return fx.Provide(
 		themisXmetrics.ProvideCounter(prometheus.CounterOpts{
 			Name:        AuthCapabilityCheckOutcome,
-			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			Help:        capabilityCheckHelpMsg,
 			ConstLabels: nil,
 		}, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel),
 	)
@@ -94,7 +101,7 @@ func ProvideMetricsVec() fx.Option {
 	return fx.Provide(
 		themisXmetrics.ProvideCounterVec(prometheus.CounterOpts{
 			Name:        AuthCapabilityCheckOutcome,
-			Help:        "Counter for the capability checker, providing outcome information by client, partner, and endpoint",
+			Help:        capabilityCheckHelpMsg,
 			ConstLabels: nil,
 		}, ServerLabel, OutcomeLabel, ReasonLabel, ClientIDLabel, PartnerIDLabel, EndpointLabel),
 	)
