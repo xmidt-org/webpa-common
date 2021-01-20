@@ -27,7 +27,7 @@ const (
 	ServerLabel  = "server"
 )
 
-// Metrics returns the Metrics relevant to this package targetting our older non uber/fx applications.
+// Metrics returns the Metrics relevant to this package targeting our older non uber/fx applications.
 // To initialize the metrics, use NewAuthValidationMeasures().
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
