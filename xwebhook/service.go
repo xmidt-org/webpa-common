@@ -3,9 +3,9 @@ package xwebhook
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -80,12 +80,12 @@ func webhookToItem(w *Webhook) (*model.Item, error) {
 		return nil, err
 	}
 
-	checkSumURL := sha256.Sum256([]byte(w.Config.URL))
+	URLChecksum := sha256.Sum256([]byte(w.Config.URL))
 	TTLSeconds := int64(w.Duration.Seconds())
 
 	return &model.Item{
 		Data: data,
-		ID:   base64.RawURLEncoding.EncodeToString(checkSumURL[:]),
+		ID:   fmt.Sprintf("%x", URLChecksum),
 		TTL:  &TTLSeconds,
 	}, nil
 }
