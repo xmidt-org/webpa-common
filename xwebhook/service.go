@@ -2,16 +2,15 @@ package xwebhook
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/argus/store"
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -80,12 +79,11 @@ func webhookToItem(w *Webhook) (*model.Item, error) {
 		return nil, err
 	}
 
-	URLChecksum := sha256.Sum256([]byte(w.Config.URL))
 	TTLSeconds := int64(w.Duration.Seconds())
 
 	return &model.Item{
 		Data: data,
-		ID:   fmt.Sprintf("%x", URLChecksum),
+		ID:   store.Sha256HexDigest(w.Config.URL),
 		TTL:  &TTLSeconds,
 	}, nil
 }

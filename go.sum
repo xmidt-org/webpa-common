@@ -613,6 +613,8 @@ github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764 h1:hGZmkySP1yIY
 github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
 github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498 h1:Hs6xX7RLCB1YHdwVSfutQw/xxfawOf/C1Mi93Cjo3dk=
 github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
+github.com/xmidt-org/argus v0.3.10-0.20210113223155-84589f380414 h1:tz7ZvfVGi6Gga1VpG/LjgqKSSSQeUTj5RMDmBEuopXA=
+github.com/xmidt-org/argus v0.3.10-0.20210113223155-84589f380414/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
 github.com/xmidt-org/arrange v0.1.9 h1:MgMCRH7uMg+LZWvuo3c+63UmEV73LRMyrYmm267E8oM=
 github.com/xmidt-org/arrange v0.1.9/go.mod h1:PRA8iEZ11L93NsEkDP56x1mZyfDcWxzDULgHj56TaEk=
 github.com/xmidt-org/bascule v0.8.0/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
