@@ -143,10 +143,10 @@ func (m MeasuresFactory) NewMeasures(in BaseMeasuresIn) (*AuthCapabilityCheckMea
 	}, nil
 }
 
-// Annotated provides the measures as an annotated component with the name "[SERVER]_capability_measures"
+// Annotated provides the measures as an annotated component with the name "[SERVER]_bascule_capability_measures"
 func (m MeasuresFactory) Annotated() fx.Annotated {
 	return fx.Annotated{
-		Name:   fmt.Sprintf("%s_capability_measures", m.ServerName),
+		Name:   fmt.Sprintf("%s_bascule_capability_measures", m.ServerName),
 		Target: m.NewMeasures,
 	}
 }

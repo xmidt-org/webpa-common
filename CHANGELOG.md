@@ -63,6 +63,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add configurable check for the source of inbound (device => cloud service) WRP messages. [#507](https://github.com/xmidt-org/webpa-common/pull/507)
 - Populate empty inbound WRP.content_type field with `application/octet-stream`. [#508](https://github.com/xmidt-org/webpa-common/pull/508)
 - Update inbound WRP source check logic. [#511](https://github.com/xmidt-org/webpa-common/pull/511)
+- Standardize bascule measure factories. [#562](https://github.com/xmidt-org/webpa-common/pull/562)
 
 
 ## [v1.10.6]
