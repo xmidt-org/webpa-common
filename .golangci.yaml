@@ -24,3 +24,8 @@ issues:
       linters:
         - dupl
         - funlen
+
+linters-settings:
+  errorlint:
+    # Report non-wrapping error creation using fmt.Errorf
+    errorf: false
