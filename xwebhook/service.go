@@ -39,7 +39,7 @@ func (s *service) Add(owner string, w *Webhook) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.argus.Push(*item, owner, false)
+	result, err := s.argus.PushItem(owner, *item)
 	if err != nil {
 		return err
 	}
@@ -52,12 +52,13 @@ func (s *service) Add(owner string, w *Webhook) error {
 
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	s.loggers.Debug.Log("msg", "AllWebhooks called", "owner", owner)
-	items, err := s.argus.GetItems(owner, true)
+	items, err := s.argus.GetItems(owner)
 	if err != nil {
 		return nil, err
 	}
 	webhooks := []Webhook{}
-	for _, item := range items {
+	for i := range items {
+		item := items[i]
 		webhook, err := itemToWebhook(&item)
 		if err != nil {
 			continue
@@ -118,11 +119,11 @@ func newLoggerGroup(root log.Logger) *loggerGroup {
 func Initialize(cfg *Config, watches ...Watch) (Service, func(), error) {
 	validateConfig(cfg)
 
-	watches = append(watches, webhookListSizeWatch(cfg.Argus.MetricsProvider.NewGauge(WebhookListSizeGauge)))
+	watches = append(watches, webhookListSizeWatch(cfg.Argus.Listen.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
-	cfg.Argus.Listener = createArgusListener(watches...)
+	cfg.Argus.Listen.Listener = createArgusListener(watches...)
 
-	argus, err := chrysom.CreateClient(cfg.Argus)
+	argus, err := chrysom.NewClient(cfg.Argus)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -141,7 +142,7 @@ func createArgusListener(watches ...Watch) chrysom.Listener {
 	if len(watches) < 1 {
 		return nil
 	}
-	return chrysom.ListenerFunc(func(items []model.Item) {
+	return chrysom.ListenerFunc(func(items chrysom.Items) {
 		webhooks := itemsToWebhooks(items)
 		for _, watch := range watches {
 			watch.Update(webhooks)
