@@ -28,10 +28,11 @@ func TestNewDatacenterWatcher(t *testing.T) {
 	noProviderEnv.On("Provider").Return(nil, false)
 
 	validChrysomConfig := chrysom.ClientConfig{
-		Bucket:       "random-bucket",
-		PullInterval: 10 * time.Second,
-		Address:      "http://argus:6600",
-		AdminToken:   "admin-token",
+		Bucket: "random-bucket",
+		Listen: chrysom.ListenerConfig{
+			PullInterval: 10 * time.Second,
+		},
+		Address: "http://argus:6600",
 		Auth: chrysom.Auth{
 			Basic: "Basic auth",
 		},
@@ -199,9 +200,11 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			},
 			options: Options{
 				ChrysomConfig: chrysom.ClientConfig{
-					Bucket:       "random-bucket",
-					PullInterval: 0,
-					Address:      "http://argus:6600",
+					Bucket: "random-bucket",
+					Listen: chrysom.ListenerConfig{
+						PullInterval: 0,
+					},
+					Address: "http://argus:6600",
 					Auth: chrysom.Auth{
 						Basic: "Basic auth",
 					},

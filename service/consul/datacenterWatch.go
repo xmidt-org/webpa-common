@@ -56,7 +56,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 	}
 
 	if len(options.ChrysomConfig.Bucket) > 0 {
-		if options.ChrysomConfig.PullInterval <= 0 {
+		if options.ChrysomConfig.Listen.PullInterval <= 0 {
 			return nil, errors.New("chrysom pull interval cannot be 0")
 		}
 
@@ -65,16 +65,16 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 			return nil, errors.New("must pass in a metrics provider")
 		}
 
-		options.ChrysomConfig.MetricsProvider = environment.Provider()
+		options.ChrysomConfig.Listen.MetricsProvider = environment.Provider()
 
-		var datacenterListenerFunc chrysom.ListenerFunc = func(items []model.Item) {
+		var datacenterListenerFunc chrysom.ListenerFunc = func(items chrysom.Items) {
 			updateInactiveDatacenters(items, datacenterWatcher.inactiveDatacenters, &datacenterWatcher.lock, logger)
 		}
 
-		options.ChrysomConfig.Listener = datacenterListenerFunc
+		options.ChrysomConfig.Listen.Listener = datacenterListenerFunc
 
 		options.ChrysomConfig.Logger = logger
-		chrysomClient, err := chrysom.CreateClient(options.ChrysomConfig)
+		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig)
 
 		if err != nil {
 			return nil, err
