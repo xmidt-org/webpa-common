@@ -609,14 +609,10 @@ github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
 github.com/vmware/govmomi v0.18.0/go.mod h1:URlwyTFZX72RmxtxuaFL2Uj3fD1JTvZdx59bHWk6aFU=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xmidt-org/argus v0.3.9/go.mod h1:mDFS44R704gl9Fif3gkfAyvnZa53SvMepmXjYWABPvk=
-github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764 h1:hGZmkySP1yIYBSSwsCaxPpA+l46sRomuqvtodUeNscc=
-github.com/xmidt-org/argus v0.3.10-0.20201105190057-402fede05764/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
 github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498 h1:Hs6xX7RLCB1YHdwVSfutQw/xxfawOf/C1Mi93Cjo3dk=
 github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
-github.com/xmidt-org/argus v0.3.10-0.20210113223155-84589f380414 h1:tz7ZvfVGi6Gga1VpG/LjgqKSSSQeUTj5RMDmBEuopXA=
-github.com/xmidt-org/argus v0.3.10-0.20210113223155-84589f380414/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
-github.com/xmidt-org/argus v0.3.10-0.20210120221042-bffa41d6f5c9 h1:psnH2jphJg1ClVFgJ38uOr4dFVrd9jcov1vCWjDAOC8=
-github.com/xmidt-org/argus v0.3.10-0.20210120221042-bffa41d6f5c9/go.mod h1:8hg7zvFS/217+zY2yNxKIvfPs5+qzAPLfeJN0aWjF84=
+github.com/xmidt-org/argus v0.3.12 h1:U51WL5+1VVmiiXNtKdGputhoeWHAhQQnAwYisZErj9w=
+github.com/xmidt-org/argus v0.3.12/go.mod h1:T0oHbqQ1SAjE616Q9f1p+7nsmuvmHNoC0zAIUpUiFuE=
 github.com/xmidt-org/arrange v0.1.9 h1:MgMCRH7uMg+LZWvuo3c+63UmEV73LRMyrYmm267E8oM=
 github.com/xmidt-org/arrange v0.1.9/go.mod h1:PRA8iEZ11L93NsEkDP56x1mZyfDcWxzDULgHj56TaEk=
 github.com/xmidt-org/bascule v0.8.0/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
