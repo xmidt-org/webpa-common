@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Update code to use the latest Argus changes. [#557](https://github.com/xmidt-org/webpa-common/pull/557)
 - Update item ID format for Argus. [#560](https://github.com/xmidt-org/webpa-common/pull/560)
 - Add deprecation warning to xwebhook. [#564](https://github.com/xmidt-org/webpa-commmon/pull/564)
+- Update Argus version to v0.3.12. [#567](https://github.com/xmidt-org/webpa-commmon/pull/567)
 
 ### Fixed
 - Keep old metrics unchanged for basculemetrics for backward compatibility. [#560](https://github.com/xmidt-org/webpa-common/pull/560)
