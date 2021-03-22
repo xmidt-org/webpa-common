@@ -178,8 +178,13 @@ type manager struct {
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
-	m.debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
 	ctx := request.Context()
+	debugLog := m.debugLog
+	if logging.GetLogger(ctx) != logging.DefaultLogger() {
+		m.logger = logging.GetLogger(ctx)
+		debugLog = logging.Debug(m.logger)
+	}
+	debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
 	id, ok := GetID(ctx)
 	if !ok {
 		xhttp.WriteError(
