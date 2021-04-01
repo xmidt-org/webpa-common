@@ -24,10 +24,10 @@ require (
 	github.com/segmentio/ksuid v1.0.2
 	github.com/spf13/cast v1.3.1
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.7.0
-	github.com/stretchr/testify v1.5.1
+	github.com/spf13/viper v1.7.1
+	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.1.7
-	github.com/xmidt-org/argus v0.3.12
+	github.com/xmidt-org/argus v0.3.13-0.20210316210241-3e1828f83502
 	github.com/xmidt-org/bascule v0.9.0
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/wrp-go/v3 v3.0.1
