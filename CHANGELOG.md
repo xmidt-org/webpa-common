@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Update webpa-common to use updated Argus client. [#573](https://github.com/xmidt-org/webpa-common/pull/573) thanks to @utsavbatra5
+- Use updated Argus client with OpenTelemetry integration. [#573](https://github.com/xmidt-org/webpa-common/pull/573) thanks to @utsavbatra5
 
 ## [v1.11.5]
 ### Changed
