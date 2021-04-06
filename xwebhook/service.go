@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/xmidt-org/webpa-common/logging"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -39,7 +40,8 @@ func (s *service) Add(owner string, w *Webhook) error {
 	if err != nil {
 		return err
 	}
-	result, err := s.argus.PushItem(owner, *item)
+	ctx := logging.WithLogger(context.Background(), s.loggers.Debug)
+	result, err := s.argus.PushItem(ctx, owner, *item)
 	if err != nil {
 		return err
 	}
@@ -52,7 +54,8 @@ func (s *service) Add(owner string, w *Webhook) error {
 
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	s.loggers.Debug.Log("msg", "AllWebhooks called", "owner", owner)
-	items, err := s.argus.GetItems(owner)
+	ctx := logging.WithLogger(context.Background(), s.loggers.Debug)
+	items, err := s.argus.GetItems(ctx, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +126,7 @@ func Initialize(cfg *Config, watches ...Watch) (Service, func(), error) {
 
 	cfg.Argus.Listen.Listener = createArgusListener(watches...)
 
-	argus, err := chrysom.NewClient(cfg.Argus)
+	argus, err := chrysom.NewClient(cfg.Argus, nil)
 	if err != nil {
 		return nil, nil, err
 	}

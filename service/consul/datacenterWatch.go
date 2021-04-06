@@ -74,7 +74,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		options.ChrysomConfig.Listen.Listener = datacenterListenerFunc
 
 		options.ChrysomConfig.Logger = logger
-		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig)
+		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig, nil)
 
 		if err != nil {
 			return nil, err
