@@ -6,9 +6,11 @@ import (
 
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/justinas/alice"
+	"github.com/xmidt-org/candlelight"
 	"github.com/xmidt-org/webpa-common/xhttp"
 	"github.com/xmidt-org/webpa-common/xhttp/xcontext"
 	"github.com/xmidt-org/webpa-common/xhttp/xtimeout"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const (
@@ -43,6 +45,10 @@ type Configuration struct {
 
 	// RedirectExcludeHeaders are the headers that will *not* be copied on a redirect
 	RedirectExcludeHeaders []string `json:"redirectExcludeHeaders,omitempty"`
+
+	// Tracing contains information to setup OpenTelemetry tracing on the fanout
+	// HTTP client.
+	Tracing candlelight.Tracing
 }
 
 func (c *Configuration) endpoints() []string {
@@ -77,11 +83,16 @@ func (c *Configuration) clientTimeout() time.Duration {
 	return DefaultClientTimeout
 }
 
-func (c *Configuration) transport() *http.Transport {
-	transport := new(http.Transport)
-
+func (c *Configuration) transport() http.RoundTripper {
+	var transport http.RoundTripper = new(http.Transport)
 	if c != nil {
-		*transport = c.Transport
+		transport = &c.Transport
+		if c.Tracing.Propagator != nil && c.Tracing.TracerProvider != nil {
+			transport = otelhttp.NewTransport(transport,
+				otelhttp.WithPropagators(c.Tracing.Propagator),
+				otelhttp.WithTracerProvider(c.Tracing.TracerProvider),
+			)
+		}
 	}
 
 	return transport

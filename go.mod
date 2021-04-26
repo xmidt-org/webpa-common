@@ -27,10 +27,12 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.1.7
-	github.com/xmidt-org/argus v0.3.13-0.20210316210241-3e1828f83502
+	github.com/xmidt-org/argus v0.3.14-0.20210422192541-6e8e55508611
 	github.com/xmidt-org/bascule v0.9.0
+	github.com/xmidt-org/candlelight v0.0.4-0.20210422190626-7d7f2517a9a3
 	github.com/xmidt-org/themis v0.4.4
 	github.com/xmidt-org/wrp-go/v3 v3.0.1
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.19.0
 	go.uber.org/fx v1.13.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
