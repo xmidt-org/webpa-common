@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Use updated Argus client with OpenTelemetry integration. [#573](https://github.com/xmidt-org/webpa-common/pull/573) thanks to @utsavbatra5
+- Add tracing to fanout client used by Scytale. [#576](https://github.com/xmidt-org/webpa-common/pull/576)
 
 ## [v1.11.5]
 ### Changed
