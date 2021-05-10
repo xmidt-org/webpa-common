@@ -134,13 +134,13 @@ type BaseMeasuresIn struct {
 	ValidationOutcome *prometheus.CounterVec   `name:"auth_validation"`
 }
 
-// MeasuresFactory facilitates the creation of child metrics based on server labels.
-type MeasuresFactory struct {
+// ListenerFactory facilitates the creation of a server-aware metric listener.
+type ListenerFactory struct {
 	ServerName string
 }
 
-// NewMeasures builds the metric listener from the provided raw metrics.
-func (m MeasuresFactory) NewMeasures(in BaseMeasuresIn) (*AuthValidationMeasures, error) {
+// New builds the metric listener from the provided metrics.
+func (m ListenerFactory) New(in BaseMeasuresIn) (*MetricListener, error) {
 	in.Logger.Log(level.Key(), level.DebugValue(), xlog.MessageKey(), "building auth validation measures", ServerLabel, m.ServerName)
 	nbfHistogramVec, err := in.NBFHistogram.CurryWith(prometheus.Labels{ServerLabel: m.ServerName})
 	if err != nil {
@@ -155,17 +155,18 @@ func (m MeasuresFactory) NewMeasures(in BaseMeasuresIn) (*AuthValidationMeasures
 		return nil, err
 	}
 
-	return &AuthValidationMeasures{
+	measures := &AuthValidationMeasures{
 		NBFHistogram:      gokitprometheus.NewHistogram(nbfHistogramVec.(*prometheus.HistogramVec)),
 		ExpHistogram:      gokitprometheus.NewHistogram(expHistogramVec.(*prometheus.HistogramVec)),
 		ValidationOutcome: gokitprometheus.NewCounter(validationOutcomeCounterVec),
-	}, nil
+	}
+	return NewMetricListener(measures), nil
 }
 
-// Annotated provides the measures as an annotated component with the name "[SERVER]_bascule_validation_measures"
-func (m MeasuresFactory) Annotated() fx.Annotated {
+// Annotated provides the listener as an annotated component with the name "[SERVER]_bascule_metric_listener"
+func (m ListenerFactory) Annotated() fx.Annotated {
 	return fx.Annotated{
-		Name:   fmt.Sprintf("%s_bascule_validation_measures", m.ServerName),
-		Target: m.NewMeasures,
+		Name:   fmt.Sprintf("%s_bascule_metric_listener", m.ServerName),
+		Target: m.New,
 	}
 }
