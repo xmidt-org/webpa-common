@@ -86,15 +86,11 @@ func (c *Configuration) clientTimeout() time.Duration {
 func (c *Configuration) transport() http.RoundTripper {
 	var transport http.RoundTripper = new(http.Transport)
 	if c != nil {
-		transport = &c.Transport
-		if c.Tracing.Propagator != nil && c.Tracing.TracerProvider != nil {
-			transport = otelhttp.NewTransport(transport,
-				otelhttp.WithPropagators(c.Tracing.Propagator),
-				otelhttp.WithTracerProvider(c.Tracing.TracerProvider),
-			)
-		}
+		transport = otelhttp.NewTransport(transport,
+			otelhttp.WithPropagators(c.Tracing.Propagator()),
+			otelhttp.WithTracerProvider(c.Tracing.TracerProvider()),
+		)
 	}
-
 	return transport
 }
 
