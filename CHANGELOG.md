@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Deprecate basculechecks and basculemetrics packages. [#578](https://github.com/xmidt-org/webpa-common/pull/578)
+- Fix bug around metric listener creation in basculemetrics. [#579](https://github.com/xmidt-org/webpa-common/pull/579)
 
 ## [v1.11.6]
 - Use updated Argus client with OpenTelemetry integration. [#573](https://github.com/xmidt-org/webpa-common/pull/573) thanks to @utsavbatra5
