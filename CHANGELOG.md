@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v1.11.8]
+- Bumped bascule and argus versions. []()
 
 ## [v1.11.7]
 - Deprecate basculechecks and basculemetrics packages. [#578](https://github.com/xmidt-org/webpa-common/pull/578)
@@ -204,7 +206,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.7...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.8...HEAD
+[v1.11.8]: https://github.com/xmidt-org/webpa-common/compare/v1.11.7...v1.11.8
 [v1.11.7]: https://github.com/xmidt-org/webpa-common/compare/v1.11.6...v1.11.7
 [v1.11.6]: https://github.com/xmidt-org/webpa-common/compare/v1.11.5...v1.11.6
 [v1.11.5]: https://github.com/xmidt-org/webpa-common/compare/v1.11.4...v1.11.5
