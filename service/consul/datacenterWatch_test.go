@@ -9,19 +9,21 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/service"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 func TestNewDatacenterWatcher(t *testing.T) {
 	logger := log.NewNopLogger()
-	p := xmetricstest.NewProvider(nil, chrysom.Metrics)
+	r, err := xmetrics.NewRegistry(nil, Metrics)
+	require.Nil(t, err)
 	envShutdownChan := make(<-chan struct{})
 
 	mockServiceEnvironment := new(service.MockEnvironment)
-	mockServiceEnvironment.On("Provider").Return(p, true)
+	mockServiceEnvironment.On("Provider").Return(r, true)
 	mockServiceEnvironment.On("Closed").Return(envShutdownChan)
 
 	noProviderEnv := new(service.MockEnvironment)

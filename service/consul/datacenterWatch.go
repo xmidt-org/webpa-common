@@ -65,16 +65,17 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 			return nil, errors.New("must pass in a metrics provider")
 		}
 
-		options.ChrysomConfig.Listen.MetricsProvider = environment.Provider()
-
 		var datacenterListenerFunc chrysom.ListenerFunc = func(items chrysom.Items) {
 			updateInactiveDatacenters(items, datacenterWatcher.inactiveDatacenters, &datacenterWatcher.lock, logger)
 		}
 
 		options.ChrysomConfig.Listen.Listener = datacenterListenerFunc
-
 		options.ChrysomConfig.Logger = logger
-		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig, nil)
+
+		m := &chrysom.Measures{
+			Polls: environment.Provider().NewCounterVec(chrysom.PollCounter),
+		}
+		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig, m, nil, nil)
 
 		if err != nil {
 			return nil, err
