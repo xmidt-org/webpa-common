@@ -75,7 +75,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		m := &chrysom.Measures{
 			Polls: environment.Provider().NewCounterVec(chrysom.PollCounter),
 		}
-		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig, m, nil, nil)
+		chrysomClient, err := chrysom.NewClient(options.ChrysomConfig, m, getLogger, logging.WithLogger)
 
 		if err != nil {
 			return nil, err
@@ -206,4 +206,9 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 
 	// create new instancer and add it to the map of instancers to add
 	instancersToAdd.Set(key, newInstancer(dw.logger, dw.environment.Client(), w))
+}
+
+func getLogger(ctx context.Context) log.Logger {
+	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	return logger
 }
