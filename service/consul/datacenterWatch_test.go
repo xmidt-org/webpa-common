@@ -79,7 +79,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: chrysom.ClientConfig{
+				Chrysom: chrysom.ClientConfig{
 					Bucket: "",
 				},
 			},
@@ -102,7 +102,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: validChrysomConfig,
+				Chrysom: validChrysomConfig,
 			},
 			expectedWatcher: &datacenterWatcher{
 				logger: logger,
@@ -111,7 +111,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				},
 				options: Options{
 					DatacenterWatchInterval: defaultWatchInterval,
-					ChrysomConfig:           validChrysomConfig,
+					Chrysom:                 validChrysomConfig,
 				},
 				consulWatchInterval: defaultWatchInterval,
 				inactiveDatacenters: make(map[string]bool),
@@ -126,7 +126,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			},
 			options: Options{
 				DatacenterWatchInterval: 10 * time.Second,
-				ChrysomConfig:           validChrysomConfig,
+				Chrysom:                 validChrysomConfig,
 			},
 			expectedWatcher: &datacenterWatcher{
 				logger: logger,
@@ -135,7 +135,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				},
 				options: Options{
 					DatacenterWatchInterval: 10 * time.Second,
-					ChrysomConfig:           validChrysomConfig,
+					Chrysom:                 validChrysomConfig,
 				},
 				inactiveDatacenters: make(map[string]bool),
 				consulWatchInterval: 10 * time.Second,
@@ -190,7 +190,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				noProviderEnv, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: validChrysomConfig,
+				Chrysom: validChrysomConfig,
 			},
 			expectedErr: errors.New("must pass in a metrics provider"),
 		},
@@ -201,7 +201,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				ChrysomConfig: chrysom.ClientConfig{
+				Chrysom: chrysom.ClientConfig{
 					Bucket: "random-bucket",
 					Listen: chrysom.ListenerConfig{
 						PullInterval: 0,
