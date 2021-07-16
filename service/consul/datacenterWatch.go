@@ -84,11 +84,13 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		//create chrysom client and start it
 		datacenterWatcher.chrysomClient = chrysomClient
 		datacenterWatcher.chrysomClient.Start(context.Background())
+		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "started chrysom, argus client")
 	}
 
 	//start consul watch
 	ticker := time.NewTicker(datacenterWatcher.consulWatchInterval)
 	go datacenterWatcher.watchDatacenters(ticker)
+	logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "started consul datacenter watch")
 
 	return datacenterWatcher, nil
 
