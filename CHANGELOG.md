@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v1.11.9]
 - Bumped argus version, removed dependency that couldn't be found.  Updated argus client-related metrics. [#582](https://github.com/xmidt-org/webpa-common/pull/582)
 
 ## [v1.11.8]
@@ -207,7 +209,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.8...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v1.11.9...HEAD
+[v1.11.9]: https://github.com/xmidt-org/webpa-common/compare/v1.11.8...v1.11.9
 [v1.11.8]: https://github.com/xmidt-org/webpa-common/compare/v1.11.7...v1.11.8
 [v1.11.7]: https://github.com/xmidt-org/webpa-common/compare/v1.11.6...v1.11.7
 [v1.11.6]: https://github.com/xmidt-org/webpa-common/compare/v1.11.5...v1.11.6
