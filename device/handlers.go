@@ -2,7 +2,6 @@ package device
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -20,18 +19,6 @@ const (
 	DefaultMessageTimeout time.Duration = 2 * time.Minute
 	DefaultListRefresh    time.Duration = 10 * time.Second
 )
-
-// Timeout returns an Alice-style constructor which enforces a timeout for all device request contexts.
-func Timeout(o *Options) func(http.Handler) http.Handler {
-	timeout := o.requestTimeout()
-	return func(delegate http.Handler) http.Handler {
-		return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-			ctx, cancel := context.WithTimeout(request.Context(), timeout)
-			defer cancel()
-			delegate.ServeHTTP(response, request.WithContext(ctx))
-		})
-	}
-}
 
 // IDFromRequest is a strategy type for extracting the device identifier from an HTTP request
 type IDFromRequest func(*http.Request) (ID, error)
