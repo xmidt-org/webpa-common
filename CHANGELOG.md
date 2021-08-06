@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Remove device manager option that's no longer used. [#583](https://github.com/xmidt-org/webpa-common/pull/583)
+- Delete deprecated packages no longer used in across the XMiDT org. [#584](https://github.com/xmidt-org/webpa-common/pull/584)
+
 
 ## [v1.11.9]
 - Bumped argus version, removed dependency that couldn't be found.  Updated argus client-related metrics. [#582](https://github.com/xmidt-org/webpa-common/pull/582)
