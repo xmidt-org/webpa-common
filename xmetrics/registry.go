@@ -9,7 +9,7 @@ import (
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 // PrometheusProvider is a Prometheus-specific version of go-kit's metrics.Provider.  Use this interface

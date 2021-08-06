@@ -3,7 +3,7 @@ package monitor
 import (
 	"sort"
 
-	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
 // Filter represents a preprocessing strategy for discovered service instances

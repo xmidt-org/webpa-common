@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/clock"
+	"github.com/xmidt-org/webpa-common/v2/clock"
 )
 
 // Mock is a stretchr mock for a clock.  In addition to implementing clock.Interface and supplying

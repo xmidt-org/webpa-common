@@ -1,4 +1,4 @@
-module github.com/xmidt-org/webpa-common
+module github.com/xmidt-org/webpa-common/v2
 
 go 1.13
 
@@ -19,7 +19,6 @@ require (
 	github.com/miekg/dns v1.1.26
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/prometheus/client_golang v1.10.0
-	github.com/rubyist/circuitbreaker v2.2.0+incompatible
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da
 	github.com/segmentio/ksuid v1.0.2
 	github.com/spf13/cast v1.3.1

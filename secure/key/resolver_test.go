@@ -3,10 +3,11 @@ package key
 import (
 	"errors"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/resource"
-	"testing"
+	"github.com/xmidt-org/webpa-common/v2/resource"
 )
 
 func TestSingleResolver(t *testing.T) {

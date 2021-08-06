@@ -8,10 +8,10 @@ import (
 
 	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/schema"
-	"github.com/xmidt-org/webpa-common/device/devicegate"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/webpa-common/xhttp/converter"
+	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/xhttp/converter"
 )
 
 type Start struct {

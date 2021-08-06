@@ -6,7 +6,7 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func testNewContextualInstancerEmpty(t *testing.T, m map[string]interface{}) {

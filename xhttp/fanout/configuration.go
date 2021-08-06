@@ -7,9 +7,9 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/justinas/alice"
 	"github.com/xmidt-org/candlelight"
-	"github.com/xmidt-org/webpa-common/xhttp"
-	"github.com/xmidt-org/webpa-common/xhttp/xcontext"
-	"github.com/xmidt-org/webpa-common/xhttp/xtimeout"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/xhttp/xcontext"
+	"github.com/xmidt-org/webpa-common/v2/xhttp/xtimeout"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 

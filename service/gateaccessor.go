@@ -2,7 +2,8 @@ package service
 
 import (
 	"errors"
-	"github.com/xmidt-org/webpa-common/xhttp/gate"
+
+	"github.com/xmidt-org/webpa-common/v2/xhttp/gate"
 )
 
 var errGateClosed = errors.New("gate is closed")

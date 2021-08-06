@@ -7,8 +7,8 @@ import (
 
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/gorilla/mux"
-	"github.com/xmidt-org/webpa-common/service"
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
 
 // KeyFromHeader produces a go-kit decoder which expects an HTTP header to contain the service key.

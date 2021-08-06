@@ -3,9 +3,9 @@ package conveymetric
 import (
 	"testing"
 
-	"github.com/xmidt-org/webpa-common/convey"
-	"github.com/xmidt-org/webpa-common/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics/xmetricstest"
+	"github.com/xmidt-org/webpa-common/v2/convey"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 
 	"github.com/stretchr/testify/assert"
 )

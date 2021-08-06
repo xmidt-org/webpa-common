@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/xmidt-org/webpa-common/device"
+	"github.com/xmidt-org/webpa-common/v2/device"
 )
 
 const (

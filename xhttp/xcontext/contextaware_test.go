@@ -2,13 +2,14 @@ package xcontext
 
 import (
 	"context"
-	"github.com/justinas/alice"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/logging"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/justinas/alice"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func TestSetContext(t *testing.T) {

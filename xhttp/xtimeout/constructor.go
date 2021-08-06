@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
 
 // defaultTimedOut is the default http.Handler used for timeout responses

@@ -3,13 +3,14 @@ package consul
 import (
 	"context"
 	"errors"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/service/monitor"
-	"github.com/xmidt-org/webpa-common/xresolver"
 	"net/url"
 	"regexp"
+
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/service/monitor"
+	"github.com/xmidt-org/webpa-common/v2/xresolver"
 )
 
 var find = regexp.MustCompile("(.*)" + regexp.QuoteMeta("[") + "(.*)" + regexp.QuoteMeta("]") + regexp.QuoteMeta("{") + "(.*)" + regexp.QuoteMeta("}"))

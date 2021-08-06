@@ -7,7 +7,7 @@ import (
 	"time"
 
 	gokithttp "github.com/go-kit/kit/transport/http"
-	"github.com/xmidt-org/webpa-common/tracing"
+	"github.com/xmidt-org/webpa-common/v2/tracing"
 )
 
 const (

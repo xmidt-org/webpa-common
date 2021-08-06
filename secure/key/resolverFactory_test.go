@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/v2/resource"
 )
 
 func ExampleSingleKeyConfiguration() {

@@ -2,7 +2,7 @@ package conveymetric
 
 import (
 	"github.com/go-kit/kit/metrics"
-	"github.com/xmidt-org/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/v2/convey"
 )
 
 // UnknownLabelValue is a constant for when key/tag can not be found in the C JSON.
