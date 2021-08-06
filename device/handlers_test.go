@@ -2,7 +2,6 @@ package device
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -19,57 +18,6 @@ import (
 	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
-
-func testTimeout(o *Options, t *testing.T) {
-	var (
-		assert         = assert.New(t)
-		require        = require.New(t)
-		request        = httptest.NewRequest("GET", "/", nil)
-		response       = httptest.NewRecorder()
-		ctx            context.Context
-		delegateCalled bool
-
-		handler = alice.New(Timeout(o)).Then(
-			http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-				delegateCalled = true
-				ctx = request.Context()
-				assert.NotEqual(context.Background(), ctx)
-
-				deadline, ok := ctx.Deadline()
-				assert.False(deadline.IsZero())
-				assert.True(deadline.Sub(time.Now()) <= o.requestTimeout())
-				assert.True(ok)
-			}),
-		)
-	)
-
-	handler.ServeHTTP(response, request)
-	require.True(delegateCalled)
-
-	select {
-	case <-ctx.Done():
-		// pass
-	default:
-		assert.Fail("The context should have been cancelled after ServeHTTP exits")
-	}
-}
-
-func TestTimeout(t *testing.T) {
-	t.Run(
-		"NilOptions",
-		func(t *testing.T) { testTimeout(nil, t) },
-	)
-
-	t.Run(
-		"DefaultOptions",
-		func(t *testing.T) { testTimeout(new(Options), t) },
-	)
-
-	t.Run(
-		"CustomOptions",
-		func(t *testing.T) { testTimeout(&Options{RequestTimeout: 17 * time.Second}, t) },
-	)
-}
 
 func testUseIDFNilStrategy(t *testing.T) {
 	var (

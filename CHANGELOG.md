@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Remove device manager option that's no longer used. [#583](https://github.com/xmidt-org/webpa-common/pull/583)
 
 ## [v1.11.9]
 - Bumped argus version, removed dependency that couldn't be found.  Updated argus client-related metrics. [#582](https://github.com/xmidt-org/webpa-common/pull/582)

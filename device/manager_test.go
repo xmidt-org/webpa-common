@@ -38,7 +38,7 @@ func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
 	var (
 		manager = NewManager(o)
 		server  = httptest.NewServer(
-			alice.New(Timeout(o), UseID.FromHeader).Then(
+			alice.New(UseID.FromHeader).Then(
 				&ConnectHandler{
 					Logger:    o.logger(),
 					Connector: manager,

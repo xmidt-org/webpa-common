@@ -62,9 +62,6 @@ type Options struct {
 	// with no traffic coming from the device.  If not supplied, DefaultIdlePeriod is used.
 	IdlePeriod time.Duration
 
-	// RequestTimeout is the timeout for all inbound HTTP requests
-	RequestTimeout time.Duration
-
 	// WriteTimeout is the write timeout for each device's websocket.  If not supplied,
 	// DefaultWriteTimeout is used.
 	WriteTimeout time.Duration
@@ -134,14 +131,6 @@ func (o *Options) pingPeriod() time.Duration {
 	}
 
 	return DefaultPingPeriod
-}
-
-func (o *Options) requestTimeout() time.Duration {
-	if o != nil && o.RequestTimeout > 0 {
-		return o.RequestTimeout
-	}
-
-	return DefaultRequestTimeout
 }
 
 func (o *Options) writeTimeout() time.Duration {
