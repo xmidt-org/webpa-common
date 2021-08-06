@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/capacitor/capacitortest"
+	"github.com/xmidt-org/webpa-common/v2/capacitor/capacitortest"
 )
 
 func TestDelayedListener(t *testing.T) {

@@ -7,9 +7,9 @@ import (
 	"github.com/SermoDigital/jose/jws"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/secure"
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/secure"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
 
 const (

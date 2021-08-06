@@ -1,9 +1,9 @@
 package servicecfg
 
 import (
-	"github.com/xmidt-org/webpa-common/service"
-	"github.com/xmidt-org/webpa-common/service/consul"
-	"github.com/xmidt-org/webpa-common/service/zk"
+	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/consul"
+	"github.com/xmidt-org/webpa-common/v2/service/zk"
 )
 
 // Options contains the superset of all necessary options for initializing service discovery.

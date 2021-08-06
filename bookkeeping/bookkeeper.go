@@ -2,10 +2,11 @@ package bookkeeping
 
 import (
 	"bytes"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xhttp/xcontext"
 	"net/http"
 	"time"
+
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/xhttp/xcontext"
 )
 
 type CapturedResponse struct {

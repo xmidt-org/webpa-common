@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/webpa-common/device/devicegate"
+	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
 )
 
 func testStatus(t *testing.T, active bool, j Job, p Progress, expectedJSON string) {

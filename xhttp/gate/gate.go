@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics/discard"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 const (

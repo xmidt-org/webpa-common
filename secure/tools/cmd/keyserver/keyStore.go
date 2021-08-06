@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/xmidt-org/webpa-common/secure/key"
+	"github.com/xmidt-org/webpa-common/v2/secure/key"
 )
 
 // KeyStore provides a single access point for a set of keys, keyed by their key identifiers

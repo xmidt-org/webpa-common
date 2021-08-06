@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/v2/convey"
 )
 
 type MockConnector struct {

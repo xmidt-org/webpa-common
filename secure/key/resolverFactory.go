@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/concurrent"
-	"github.com/xmidt-org/webpa-common/resource"
+	"github.com/xmidt-org/webpa-common/v2/concurrent"
+	"github.com/xmidt-org/webpa-common/v2/resource"
 )
 
 const (

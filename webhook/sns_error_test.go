@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	AWS "github.com/xmidt-org/webpa-common/webhook/aws"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	AWS "github.com/xmidt-org/webpa-common/v2/webhook/aws"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 const TEST_UNIX_TIME = 1503357402

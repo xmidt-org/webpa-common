@@ -11,11 +11,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/service"
-	"github.com/xmidt-org/webpa-common/service/consul"
-	"github.com/xmidt-org/webpa-common/service/zk"
-	"github.com/xmidt-org/webpa-common/xviper"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/consul"
+	"github.com/xmidt-org/webpa-common/v2/service/zk"
+	"github.com/xmidt-org/webpa-common/v2/xviper"
 )
 
 func testNewEnvironmentEmpty(t *testing.T) {

@@ -9,14 +9,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/convey"
-	"github.com/xmidt-org/webpa-common/convey/conveymetric"
+	"github.com/xmidt-org/webpa-common/v2/convey"
+	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
 
 	"github.com/go-kit/kit/log"
 	"github.com/gorilla/websocket"
-	"github.com/xmidt-org/webpa-common/convey/conveyhttp"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/convey/conveyhttp"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 

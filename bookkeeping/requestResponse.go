@@ -1,11 +1,12 @@
 package bookkeeping
 
 import (
-	"github.com/xmidt-org/webpa-common/xhttp"
 	"io/ioutil"
 	"net/http"
 	"net/textproto"
 	"strings"
+
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
 
 func Code(response CapturedResponse) []interface{} {

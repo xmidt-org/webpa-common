@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 var errDeviceLimitReached = errors.New("Device limit reached")

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/convey"
+	"github.com/xmidt-org/webpa-common/v2/convey"
 )
 
 func testHeaderTranslatorFromHeader(t *testing.T, actualHeaderName, expectedHeaderName string, actualTranslator, expectedTranslator convey.Translator) {

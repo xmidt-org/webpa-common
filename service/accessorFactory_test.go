@@ -2,8 +2,9 @@ package service
 
 import (
 	"fmt"
-	"github.com/xmidt-org/webpa-common/xhttp/gate"
 	"testing"
+
+	"github.com/xmidt-org/webpa-common/v2/xhttp/gate"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

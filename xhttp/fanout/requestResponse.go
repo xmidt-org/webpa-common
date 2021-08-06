@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/xmidt-org/webpa-common/xhttp"
+	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
 
 // FanoutRequestFunc is invoked to build a fanout request.  It can transfer information from the original request,

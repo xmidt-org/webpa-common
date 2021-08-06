@@ -9,7 +9,7 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func testRedirectNoRequestURI(t *testing.T, expectedRedirectCode, actualRedirectCode int) {

@@ -10,7 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/themis/xlog"
 	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/fx"
 )
 

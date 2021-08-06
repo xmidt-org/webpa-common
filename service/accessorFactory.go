@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/billhathaway/consistentHash"
-	"github.com/xmidt-org/webpa-common/xhttp/gate"
+	"github.com/xmidt-org/webpa-common/v2/xhttp/gate"
 )
 
 const DefaultVnodeCount = 211

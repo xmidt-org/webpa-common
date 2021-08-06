@@ -11,7 +11,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func testNewServerLogger(t *testing.T, logger log.Logger) {
@@ -180,7 +180,7 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 			httpServer := new(mockHTTPServer)
 
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
-			httpServer.On("ListenAndServe", ).Return(expectedError).Once()
+			httpServer.On("ListenAndServe").Return(expectedError).Once()
 			o.CertificateFile = []string{expectedCertificateFile}
 			o.KeyFile = []string{expectedKeyFile}
 

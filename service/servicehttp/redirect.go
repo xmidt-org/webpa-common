@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-kit/kit/log/level"
 	gokithttp "github.com/go-kit/kit/transport/http"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 // Redirect returns a go-kit EncodeResponseFunc that redirects to the instance hashed by the accessor.

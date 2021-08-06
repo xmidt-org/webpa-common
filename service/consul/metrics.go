@@ -19,7 +19,7 @@ package consul
 
 import (
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 // Metrics returns the Metrics relevant to this package

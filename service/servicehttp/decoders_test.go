@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/service"
+	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
 func testKeyFromHeaderBlankHeader(t *testing.T) {

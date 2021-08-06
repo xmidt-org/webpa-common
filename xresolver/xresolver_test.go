@@ -3,13 +3,14 @@ package xresolver
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/logging"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func TestClient(t *testing.T) {

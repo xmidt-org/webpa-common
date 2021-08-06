@@ -7,11 +7,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/xmidt-org/webpa-common/convey"
-	"github.com/xmidt-org/webpa-common/convey/conveymetric"
+	"github.com/xmidt-org/webpa-common/v2/convey"
+	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
 
 	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 const (

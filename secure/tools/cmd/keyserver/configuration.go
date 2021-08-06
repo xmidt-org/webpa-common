@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/xmidt-org/webpa-common/resource"
 	"io/ioutil"
 	"strings"
+
+	"github.com/xmidt-org/webpa-common/v2/resource"
 )
 
 const (

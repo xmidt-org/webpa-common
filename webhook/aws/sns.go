@@ -16,7 +16,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/miekg/dns"
 	"github.com/spf13/viper"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"

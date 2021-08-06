@@ -3,7 +3,7 @@ package service
 import (
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 // MockAccessor is a mocked Accessor

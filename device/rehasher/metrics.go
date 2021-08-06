@@ -1,8 +1,8 @@
 package rehasher
 
 import (
-	"github.com/xmidt-org/webpa-common/service"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 const (

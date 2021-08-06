@@ -12,7 +12,7 @@ import (
 	"github.com/SermoDigital/jose/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/secure/key"
+	"github.com/xmidt-org/webpa-common/v2/secure/key"
 )
 
 func ExampleSimpleJWSValidator(t *testing.T) {

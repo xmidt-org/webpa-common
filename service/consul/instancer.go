@@ -13,7 +13,7 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/webpa-common/logging"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 var (
