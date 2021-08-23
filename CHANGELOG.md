@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
+- Avoid service discovery events for index underflow or retryable errors [#](https://github.com/xmidt-org/webpa-common/pull/)
 
 ## [v2.0.0]
 - Remove device manager option that's no longer used. [#583](https://github.com/xmidt-org/webpa-common/pull/583)
