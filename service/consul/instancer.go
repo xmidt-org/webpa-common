@@ -17,7 +17,9 @@ import (
 )
 
 var (
-	errStopped = errors.New("Instancer stopped")
+	errStopped        = errors.New("Instancer stopped")
+	errIndexZero      = errors.New("Index was zero")
+	errIndexUnderflow = errors.New("Index went backwards")
 )
 
 type InstancerOptions struct {
@@ -108,14 +110,21 @@ func (i *instancer) loop(lastIndex uint64) {
 	for {
 		instances, lastIndex, err = i.getInstances(lastIndex, i.stop)
 		switch {
-		case err == errStopped:
+		case errors.Is(err, errStopped):
 			return
 
 		case err != nil:
 			i.logger.Log(logging.ErrorKey(), err)
+
+			// TODO: this is not recommended, but it was a port of go-kit
+			// Put in a token bucket here with a wait, instead of time.Sleep
 			time.Sleep(d)
 			d = conn.Exponential(d)
-			i.update(sd.Event{Err: err})
+
+			if !api.IsRetryableError(err) && !errors.Is(err, errIndexUnderflow) && !errors.Is(err, errIndexZero) {
+				// this is a true error that should command the attention of application code
+				i.update(sd.Event{Err: err})
+			}
 
 		default:
 			i.update(sd.Event{Instances: instances})
@@ -136,29 +145,32 @@ func (i *instancer) getInstances(lastIndex uint64, stop <-chan struct{}) ([]stri
 	result := make(chan response, 1)
 
 	go func() {
-		var queryOptions api.QueryOptions = i.queryOptions
+		var (
+			queryOptions api.QueryOptions = i.queryOptions
+			entries      []*api.ServiceEntry
+			meta         *api.QueryMeta
+			resp         response
+		)
+
 		queryOptions.WaitIndex = lastIndex
-		entries, meta, err := i.client.Service(i.service, i.tag, i.passingOnly, &queryOptions)
-		if err != nil {
-			result <- response{err: err}
-			return
+		entries, meta, resp.err = i.client.Service(i.service, i.tag, i.passingOnly, &queryOptions)
+		if resp.err == nil {
+			// see: https://www.consul.io/api-docs/features/blocking#implementation-details
+			if meta == nil || meta.LastIndex < lastIndex {
+				resp.err = errIndexUnderflow
+			} else if meta.LastIndex == 0 {
+				resp.err = errIndexZero
+			} else {
+				if len(i.filterTags) > 0 {
+					entries = filterEntries(entries, i.filterTags)
+				}
+
+				resp.instances = makeInstances(entries)
+				resp.index = meta.LastIndex
+			}
 		}
 
-		if len(i.filterTags) > 0 {
-			entries = filterEntries(entries, i.filterTags)
-		}
-
-		// see: https://www.consul.io/api-docs/features/blocking#implementation-details
-		if meta == nil || meta.LastIndex < lastIndex {
-			lastIndex = 0
-		} else {
-			lastIndex = meta.LastIndex
-		}
-
-		result <- response{
-			instances: makeInstances(entries),
-			index:     lastIndex,
-		}
+		result <- resp
 	}()
 
 	select {
