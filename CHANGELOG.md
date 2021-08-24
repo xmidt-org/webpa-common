@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v2.0.1]
 - Avoid service discovery events for index underflow or retryable errors [#586](https://github.com/xmidt-org/webpa-common/pull/586)
 
 ## [v2.0.0]
@@ -215,7 +217,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.1...HEAD
+[v2.0.1]: https://github.com/xmidt-org/webpa-common/compare/v2.0.0...v2.0.1
 [v2.0.0]: https://github.com/xmidt-org/webpa-common/compare/v1.11.9...v2.0.0
 [v1.11.9]: https://github.com/xmidt-org/webpa-common/compare/v1.11.8...v1.11.9
 [v1.11.8]: https://github.com/xmidt-org/webpa-common/compare/v1.11.7...v1.11.8
