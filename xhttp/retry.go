@@ -1,6 +1,8 @@
 package xhttp
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -145,4 +147,34 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 
 		return response, err
 	}
+}
+
+func IsTemporary(err error) bool {
+	type temporary interface {
+		Temporary() bool
+	}
+	var te temporary
+	if errors.As(err, &te) {
+		return te.Temporary()
+	}
+	return false
+}
+
+func ShouldRetry(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	return IsTemporary(err)
+}
+
+func ShouldRetryStatus(i int) bool {
+	switch i {
+	case http.StatusRequestTimeout:
+		return true
+	case http.StatusTooManyRequests:
+		return true
+	case http.StatusGatewayTimeout:
+		return true
+	}
+	return false
 }
