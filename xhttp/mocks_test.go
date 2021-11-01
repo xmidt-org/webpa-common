@@ -56,3 +56,11 @@ func (m *mockListener) Close() error {
 func (m *mockListener) Addr() net.Addr {
 	return m.Called().Get(0).(net.Addr)
 }
+
+type mockTempError string
+
+func (m mockTempError) Temporary() bool { return true }
+
+func (m mockTempError) Timeout() bool { return true }
+
+func (m mockTempError) Error() string { return "mock temp error" }

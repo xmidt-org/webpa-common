@@ -18,6 +18,7 @@
 package xhttp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -323,6 +324,38 @@ func TestRetryCodes(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
 			res := RetryCodes(tc.httpCode)
+			assert.Equal(res, tc.expectedResult)
+		})
+	}
+}
+
+func TestShouldRetry(t *testing.T) {
+	var mockTempErr mockTempError
+	tcs := []struct {
+		desc           string
+		errCase        error
+		expectedResult bool
+	}{
+		{
+			desc:           "DeadlineExceeded Case",
+			errCase:        context.DeadlineExceeded,
+			expectedResult: false,
+		},
+		{
+			desc:           "False Temporary Error Case",
+			errCase:        errors.New("not temp"),
+			expectedResult: false,
+		},
+		{
+			desc:           "True Temporary Error Case",
+			errCase:        mockTempErr,
+			expectedResult: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			res := ShouldRetry(tc.errCase)
 			assert.Equal(res, tc.expectedResult)
 		})
 	}
