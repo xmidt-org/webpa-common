@@ -57,7 +57,7 @@ func (m *mockListener) Addr() net.Addr {
 	return m.Called().Get(0).(net.Addr)
 }
 
-type mockTempError string
+type mockTempError struct{}
 
 func (m mockTempError) Temporary() bool { return true }
 
