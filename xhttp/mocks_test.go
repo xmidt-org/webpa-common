@@ -61,6 +61,4 @@ type mockTempError struct{}
 
 func (m mockTempError) Temporary() bool { return true }
 
-func (m mockTempError) Timeout() bool { return true }
-
 func (m mockTempError) Error() string { return "mock temp error" }
