@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v2.0.2]
 - Added logic to xhttp for retrying on http errors.[#588](https://github.com/xmidt-org/webpa-common/pull/588)
 
 ## [v2.0.1]
@@ -218,7 +220,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.2...HEAD
+[v2.0.2]: https://github.com/xmidt-org/webpa-common/compare/v2.0.1...v2.0.2
 [v2.0.1]: https://github.com/xmidt-org/webpa-common/compare/v2.0.0...v2.0.1
 [v2.0.0]: https://github.com/xmidt-org/webpa-common/compare/v1.11.9...v2.0.0
 [v1.11.9]: https://github.com/xmidt-org/webpa-common/compare/v1.11.8...v1.11.9
