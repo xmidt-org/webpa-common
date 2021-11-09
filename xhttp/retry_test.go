@@ -1,6 +1,24 @@
+/**
+ * Copyright 2021 Comcast Cable Communications Management, LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
 package xhttp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -272,4 +290,73 @@ func TestRetryTransactor(t *testing.T) {
 	t.Run("NotRewindable", testRetryTransactorNotRewindable)
 	t.Run("RewindError", testRetryTransactorRewindError)
 	t.Run("StatusRetry", testRetryTransactorStatus)
+}
+
+func TestRetryCodes(t *testing.T) {
+	tcs := []struct {
+		desc           string
+		httpCode       int
+		expectedResult bool
+	}{
+		{
+			desc:           "StatusRequestTimeout",
+			httpCode:       408,
+			expectedResult: true,
+		},
+		{
+			desc:           "StatusTooManyRequests",
+			httpCode:       429,
+			expectedResult: true,
+		},
+		{
+			desc:           "StatusGatewayTimeout",
+			httpCode:       504,
+			expectedResult: true,
+		},
+		{
+			desc:           "Random Code Failure",
+			httpCode:       400,
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			res := RetryCodes(tc.httpCode)
+			assert.Equal(res, tc.expectedResult)
+		})
+	}
+}
+
+func TestShouldRetry(t *testing.T) {
+	var mockTempErr mockTempError
+	tcs := []struct {
+		desc           string
+		errCase        error
+		expectedResult bool
+	}{
+		{
+			desc:           "DeadlineExceeded Case",
+			errCase:        context.DeadlineExceeded,
+			expectedResult: false,
+		},
+		{
+			desc:           "False Temporary Error Case",
+			errCase:        errors.New("not temp"),
+			expectedResult: false,
+		},
+		{
+			desc:           "True Temporary Error Case",
+			errCase:        mockTempErr,
+			expectedResult: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			res := ShouldRetry(tc.errCase)
+			assert.Equal(res, tc.expectedResult)
+		})
+	}
 }
