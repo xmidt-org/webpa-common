@@ -29,17 +29,21 @@ func TestNewDatacenterWatcher(t *testing.T) {
 	noProviderEnv := new(service.MockEnvironment)
 	noProviderEnv.On("Provider").Return(nil, false)
 
-	validChrysomConfig := chrysom.ClientConfig{
-		Bucket: "random-bucket",
-		Listen: chrysom.ListenerConfig{
+	validChrysomConfig := ChrysomConfig{
+		BasicClientConfig: chrysom.BasicClientConfig{
+			Bucket:  "random-bucket",
+			Address: "http://argus:6600",
+			Auth: chrysom.Auth{
+				Basic: "Basic auth",
+			},
+			Logger: logger,
+		},
+		Listen: chrysom.ListenerClientConfig{
 			PullInterval: 10 * time.Second,
 		},
-		Address: "http://argus:6600",
-		Auth: chrysom.Auth{
-			Basic: "Basic auth",
-		},
-		Logger: logger,
 	}
+
+	nopStop := func(_ context.Context) error { return nil }
 
 	tests := []struct {
 		description     string
@@ -79,8 +83,10 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				Chrysom: chrysom.ClientConfig{
-					Bucket: "",
+				Chrysom: ChrysomConfig{
+					BasicClientConfig: chrysom.BasicClientConfig{
+						Bucket: "",
+					},
 				},
 			},
 			expectedWatcher: &datacenterWatcher{
@@ -115,7 +121,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				},
 				consulWatchInterval: defaultWatchInterval,
 				inactiveDatacenters: make(map[string]bool),
-				chrysomClient:       &chrysom.Client{},
+				stopListener:        nopStop,
 			},
 		},
 		{
@@ -139,7 +145,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				},
 				inactiveDatacenters: make(map[string]bool),
 				consulWatchInterval: 10 * time.Second,
-				chrysomClient:       &chrysom.Client{},
+				stopListener:        nopStop,
 			},
 		},
 		{
@@ -201,16 +207,18 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				mockServiceEnvironment, new(mockClient),
 			},
 			options: Options{
-				Chrysom: chrysom.ClientConfig{
-					Bucket: "random-bucket",
-					Listen: chrysom.ListenerConfig{
+				Chrysom: ChrysomConfig{
+					BasicClientConfig: chrysom.BasicClientConfig{
+						Bucket:  "random-bucket",
+						Address: "http://argus:6600",
+						Auth: chrysom.Auth{
+							Basic: "Basic auth",
+						},
+						Logger: logger,
+					},
+					Listen: chrysom.ListenerClientConfig{
 						PullInterval: 0,
 					},
-					Address: "http://argus:6600",
-					Auth: chrysom.Auth{
-						Basic: "Basic auth",
-					},
-					Logger: logger,
 				},
 			},
 			expectedErr: errors.New("chrysom pull interval cannot be 0"),
@@ -226,9 +234,9 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				assert.NotNil(w.inactiveDatacenters)
 				assert.Equal(testCase.expectedWatcher.consulWatchInterval, w.consulWatchInterval)
 
-				if testCase.expectedWatcher.chrysomClient != nil {
-					assert.NotNil(w.chrysomClient)
-					testCase.expectedWatcher.chrysomClient = w.chrysomClient
+				if testCase.expectedWatcher.stopListener != nil {
+					assert.NotNil(w.stopListener)
+					testCase.expectedWatcher.stopListener = w.stopListener
 				}
 
 				assert.Equal(testCase.expectedWatcher, w)

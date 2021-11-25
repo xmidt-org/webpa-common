@@ -3,6 +3,7 @@ package consul
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ type datacenterWatcher struct {
 	environment         Environment
 	options             Options
 	inactiveDatacenters map[string]bool
-	chrysomClient       *chrysom.Client
+	stopListener        func(context.Context) error
 	consulWatchInterval time.Duration
 	lock                sync.RWMutex
 }
@@ -75,15 +76,18 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		m := &chrysom.Measures{
 			Polls: environment.Provider().NewCounterVec(chrysom.PollCounter),
 		}
-		chrysomClient, err := chrysom.NewClient(options.Chrysom, m, getLogger, logging.WithLogger)
-
+		basic, err := chrysom.NewBasicClient(options.Chrysom.BasicClientConfig, getLogger, logging.WithLogger)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
+		}
+		listener, err := chrysom.NewListenerClient(options.Chrysom.Listen, logging.WithLogger, m, basic)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 		}
 
 		//create chrysom client and start it
-		datacenterWatcher.chrysomClient = chrysomClient
-		datacenterWatcher.chrysomClient.Start(context.Background())
+		datacenterWatcher.stopListener = listener.Stop
+		listener.Start(context.Background())
 		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "started chrysom, argus client")
 	}
 
@@ -97,8 +101,8 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 }
 
 func (d *datacenterWatcher) stop() {
-	if d.chrysomClient != nil {
-		d.chrysomClient.Stop(context.Background())
+	if d.stopListener != nil {
+		d.stopListener(context.Background())
 	}
 }
 
