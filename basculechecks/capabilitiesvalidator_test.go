@@ -230,6 +230,7 @@ func TestCheckCapabilities(t *testing.T) {
 }
 
 func TestGetCapabilities(t *testing.T) {
+	type testType int
 	goodKeyVal := []string{"cap1", "cap2"}
 	emptyVal := []string{}
 	getCapabilitiesErr := errors.New("couldn't get capabilities using key")
@@ -280,7 +281,7 @@ func TestGetCapabilities(t *testing.T) {
 		},
 		{
 			description:    "Non String List Capabilities Error",
-			keyValue:       []int{0, 1, 2},
+			keyValue:       []testType{0, 1, 2},
 			expectedVals:   emptyVal,
 			expectedReason: UndeterminedCapabilities,
 			expectedErr:    badCapabilitiesErr,
