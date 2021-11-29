@@ -147,6 +147,7 @@ func TestMetricValidatorFunc(t *testing.T) {
 }
 
 func TestPrepMetrics(t *testing.T) {
+	type testType int
 	var (
 		goodURL        = "/asnkfn/aefkijeoij/aiogj"
 		matchingURL    = "/fnvvdsjkfji/mac:12345544322345334/geigosj"
@@ -221,7 +222,7 @@ func TestPrepMetrics(t *testing.T) {
 		},
 		{
 			description:       "Non String Slice Partner ID Error",
-			partnerIDs:        []int{0, 1, 2},
+			partnerIDs:        []testType{0, 1, 2},
 			url:               goodURL,
 			includeToken:      true,
 			includeAttributes: true,

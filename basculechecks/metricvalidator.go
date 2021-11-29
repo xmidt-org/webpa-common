@@ -22,12 +22,9 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/go-kit/kit/log"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/bascule"
 )
-
-var defaultLogger = log.NewNopLogger()
 
 // CapabilitiesChecker is an object that can determine if a request is
 // authorized given a bascule.Authentication object.  If it's not authorized, a
