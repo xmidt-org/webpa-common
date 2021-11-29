@@ -225,23 +225,22 @@ func TestNewDatacenterWatcher(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range tests {
-		t.Run(testCase.description, func(t *testing.T) {
+	for _, tc := range tests {
+		t.Run(tc.description, func(t *testing.T) {
 			assert := assert.New(t)
-			w, err := newDatacenterWatcher(testCase.logger, testCase.environment, testCase.options)
+			w, err := newDatacenterWatcher(tc.logger, tc.environment, tc.options)
 
-			if testCase.expectedErr == nil {
+			if tc.expectedErr == nil {
 				assert.NotNil(w.inactiveDatacenters)
-				assert.Equal(testCase.expectedWatcher.consulWatchInterval, w.consulWatchInterval)
-
-				if testCase.expectedWatcher.stopListener != nil {
+				assert.Equal(tc.expectedWatcher.consulWatchInterval, w.consulWatchInterval)
+				assert.Equal(tc.expectedWatcher.logger, w.logger)
+				assert.Equal(tc.expectedWatcher.environment, w.environment)
+				assert.Equal(tc.expectedWatcher.options, w.options)
+				if tc.expectedWatcher.stopListener != nil {
 					assert.NotNil(w.stopListener)
-					testCase.expectedWatcher.stopListener = w.stopListener
 				}
-
-				assert.Equal(testCase.expectedWatcher, w)
 			} else {
-				assert.Equal(testCase.expectedErr, err)
+				assert.Equal(tc.expectedErr, err)
 			}
 
 		})
