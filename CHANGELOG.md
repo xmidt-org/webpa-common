@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Enforce cipher suites for TLS versions less than 1.3 that are not vulnerable to SWEET32
 
 ## [v2.0.3]
 - Bumped argus to v0.6.0 and fixed related datacenter watch code. [#589](https://github.com/xmidt-org/webpa-common/pull/589)
