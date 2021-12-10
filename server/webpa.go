@@ -45,8 +45,8 @@ var (
 	// ErrorNoPrimaryAddress is the error returned when no primary address is specified in a WebPA instance
 	ErrorNoPrimaryAddress = errors.New("No primary address configured")
 
-	// safeCipherSuites are the tls.CipherSuite values that are safe for TLS versions less than 1.3
-	safeCipherSuites = []uint16{
+	// strongCipherSuites are the tls.CipherSuite values that are safe for TLS versions less than 1.3
+	strongCipherSuites = []uint16{
 		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
 		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 	}
@@ -287,7 +287,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 			MaxVersion:   b.maxVersion(),
 
 			// ensure strong ciphers when the TLS version is 1.2 or less
-			CipherSuites: safeCipherSuites,
+			CipherSuites: strongCipherSuites,
 		}
 
 		if len(b.ClientCACertFile) > 0 {
