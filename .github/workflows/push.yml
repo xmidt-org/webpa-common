@@ -19,7 +19,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '1.15.x' # The Go version to download (if necessary) and use.
+          go-version: '1.18.x' # The Go version to download (if necessary) and use.
 
       # Run build of the application
       - name: Run build
@@ -40,7 +40,7 @@ jobs:
   lint:
     strategy:
       matrix:
-        go-version: [ 1.15.x ]
+        go-version: [ 1.18.x ]
         os: [ ubuntu-latest ]
     name: Lint
     runs-on: ${{ matrix.os }}
@@ -50,7 +50,7 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           # Required: the version of golangci-lint is required and must be specified without patch version: we always use the latest patch version.
-          version: v1.33
+          version: v1.45
           # Optional: working directory, useful for monorepos
           # working-directory: somedir
 
