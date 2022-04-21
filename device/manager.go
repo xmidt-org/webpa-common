@@ -453,7 +453,6 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 
 	var (
 		envelope   *envelope
-		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
 
 		pingTicker = time.NewTicker(m.pingPeriod)
@@ -518,9 +517,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			} else {
 				// if the request was in a format other than Msgpack, or if the caller did not pass
 				// Contents, then do the encoding here.
-				encoder.ResetBytes(&frameContents)
-				writeError = encoder.Encode(envelope.request.Message)
-				encoder.ResetBytes(nil)
+				writeError = wrp.NewEncoderBytes(&frameContents, wrp.Msgpack).Encode(envelope.request.Message)
 			}
 
 			if writeError == nil {
