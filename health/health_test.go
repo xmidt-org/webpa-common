@@ -140,7 +140,6 @@ func TestHealthRequestTracker(t *testing.T) {
 			expectedStats      Stats
 		}{
 			// success codes
-			{0, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
 			{100, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
 			{200, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
 			{201, Stats{TotalRequestsReceived: 1, TotalRequestsSuccessfullyServiced: 1, TotalRequestsDenied: 0}},
