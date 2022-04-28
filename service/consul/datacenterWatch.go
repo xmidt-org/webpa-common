@@ -76,7 +76,7 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		m := &chrysom.Measures{
 			Polls: environment.Provider().NewCounterVec(chrysom.PollCounter),
 		}
-		basic, err := chrysom.NewBasicClient(options.Chrysom.BasicClientConfig, getLogger, logging.WithLogger)
+		basic, err := chrysom.NewBasicClient(options.Chrysom.BasicClientConfig, getLogger)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 		}

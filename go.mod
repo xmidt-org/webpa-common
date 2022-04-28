@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
-	github.com/aws/aws-sdk-go v1.31.6
+	github.com/aws/aws-sdk-go v1.43.35
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20151025191153-19cb9f127a9c
 	github.com/davecgh/go-spew v1.1.1
@@ -26,7 +26,7 @@ require (
 	github.com/spf13/viper v1.9.0
 	github.com/stretchr/testify v1.7.0
 	github.com/ugorji/go/codec v1.1.7
-	github.com/xmidt-org/argus v0.6.0
+	github.com/xmidt-org/argus v0.9.0
 	github.com/xmidt-org/bascule v0.10.2
 	github.com/xmidt-org/candlelight v0.0.5
 	github.com/xmidt-org/themis v0.4.7
