@@ -140,7 +140,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 
 		logger   = logging.NewTestLogger(nil, t)
 		ctx      = logging.WithLogger(context.Background(), logger)
-		original = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
+		original = httptest.NewRequest("GET", "/api/v3/something", nil).WithContext(ctx)
 		response = httptest.NewRecorder()
 
 		fanoutAfterCalled = false
@@ -179,6 +179,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 
 		handler = New(endpoints,
 			WithTransactor(transactor.Do),
+			WithFanoutBefore(UsePath("/api/v2/something")),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
@@ -222,7 +223,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		logger              = logging.NewTestLogger(nil, t)
 		ctx                 = logging.WithLogger(context.Background(), logger)
 		expectedRequestBody = "posted body"
-		original            = httptest.NewRequest("POST", "/api/v2/something", strings.NewReader(expectedRequestBody)).WithContext(ctx)
+		original            = httptest.NewRequest("POST", "/api/v3/something", strings.NewReader(expectedRequestBody)).WithContext(ctx)
 		response            = httptest.NewRecorder()
 
 		fanoutAfterCalled = false
@@ -259,7 +260,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		complete   = make(chan struct{}, len(expectedResponses))
 		handler    = New(endpoints,
 			WithTransactor(transactor.Do),
-			WithFanoutBefore(ForwardBody(true)),
+			WithFanoutBefore(ForwardBody(true), UsePath("/api/v2/something")),
 			WithClientBefore(gokithttp.SetRequestHeader("X-Test", "foobar")),
 			WithFanoutAfter(fanoutAfter),
 			WithClientAfter(clientAfter),
