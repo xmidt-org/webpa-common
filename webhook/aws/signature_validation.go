@@ -118,7 +118,8 @@ func NewSNSValidator() SNSValidator {
 	return NewValidator(nil)
 }
 
-// Validator validates an Amazon SNS message signature
+// Validator validates an Amazon SNS message signature. NOTE: This will not work
+// with go 1.18+, which no longer allows SHA1.
 func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 	var decodedSignature []byte
 	if decodedSignature, err = base64Decode(msg); err != nil {
@@ -140,6 +141,7 @@ func (v *Validator) Validate(msg *SNSMessage) (ok bool, err error) {
 		return
 	}
 
+	// NOTE: This will not work with go 1.18+, which no longer allows SHA1.
 	if err = cert.CheckSignature(x509.SHA1WithRSA, []byte(formatedSignature), decodedSignature); err != nil {
 		// signature verification failed
 		return
