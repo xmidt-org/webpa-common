@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"math/big"
 	"net/http"
@@ -19,6 +18,8 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func testSNSMessage(scURL string) (*SNSMessage, *SNSMessage) {
@@ -271,35 +272,4 @@ func Test_formatSignature(t *testing.T) {
 
 	assert.NotNil(fs1)
 	assert.NotNil(fs2)
-}
-
-func Test_Validate(t *testing.T) {
-	assert := assert.New(t)
-
-	pemkey, server, snsMsg, err := testCreateEnv()
-	if server != nil {
-		defer server.Close()
-	}
-	assert.Nil(err)
-
-	client, err := testClient(server.URL, pemkey)
-	assert.Nil(err)
-
-	v := NewValidator(client)
-
-	okGood, errGood := v.Validate(snsMsg["noti-good"])
-	okBad, errBad := v.Validate(snsMsg["noti-bad"])
-
-	assert.True(okGood)
-	assert.Nil(errGood)
-	assert.False(okBad)
-	assert.NotNil(errBad)
-
-	okGood, errGood = v.Validate(snsMsg["conf-good"])
-	okBad, errBad = v.Validate(snsMsg["conf-bad"])
-
-	assert.True(okGood)
-	assert.Nil(errGood)
-	assert.False(okBad)
-	assert.NotNil(errBad)
 }
