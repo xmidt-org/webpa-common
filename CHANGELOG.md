@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Patch for manager writePump panic. [#595](https://github.com/xmidt-org/webpa-common/pull/595)
 
 ## [v2.0.5]
 - Deprecated webhook/aws package, which also won't work with go 1.18+. [#596](https://github.com/xmidt-org/webpa-common/pull/596)
