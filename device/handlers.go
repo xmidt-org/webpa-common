@@ -80,7 +80,7 @@ func useID(f IDFromRequest) func(http.Handler) http.Handler {
 				xhttp.WriteErrorf(
 					response,
 					http.StatusBadRequest,
-					"Could extract device id: %s",
+					"failed to extract device ID: %s",
 					err,
 				)
 
