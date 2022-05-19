@@ -90,6 +90,11 @@ func DecodeRequest(source io.Reader, format wrp.Format) (*Request, error) {
 		return nil, err
 	}
 
+	err = wrp.UTF8(message)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Request{
 		Message:  message,
 		Format:   format,
