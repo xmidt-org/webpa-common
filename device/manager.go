@@ -397,6 +397,12 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
+		err = wrp.UTF8(message)
+		if err != nil {
+			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
+			continue
+		}
+
 		if !m.wrpSourceIsValid(message, d) {
 			d.errorLog.Log(logging.MessageKey(), "skipping WRP message with invalid source")
 			continue
