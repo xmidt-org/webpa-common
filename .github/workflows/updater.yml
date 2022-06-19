@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
+# SPDX-License-Identifier: Apache-2.0
+---
+name: Dependency Updater
+
+on:
+  schedule:
+    # Run every week 9:05 AM UTC (Monday at 1:00 AM PT)
+    - cron: '05 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: xmidt-org/.github/.github/workflows/go-updater.yml@go-updater-v1
+    secrets: inherit
