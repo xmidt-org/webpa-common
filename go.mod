@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.8.1 // indirect
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/armon/go-metrics v0.4.0 // indirect
-	github.com/aws/aws-sdk-go v1.44.42
+	github.com/aws/aws-sdk-go v1.44.43
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/davecgh/go-spew v1.1.1
@@ -46,13 +46,11 @@ require (
 	github.com/xmidt-org/touchstone v0.1.1 // indirect
 	github.com/xmidt-org/webpa-common v1.11.9 // indirect
 	github.com/xmidt-org/wrp-go/v3 v3.1.3
-	go.opentelemetry.io/contrib v1.7.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.32.0
-	go.opentelemetry.io/otel/exporters/stdout v0.20.0 // indirect
 	go.uber.org/fx v1.17.1
 	golang.org/x/net v0.0.0-20220624214902-1bab6f366d9e // indirect
 	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220624220833-87e55d714810 // indirect
+	golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b // indirect
 	golang.org/x/tools v0.1.11 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
