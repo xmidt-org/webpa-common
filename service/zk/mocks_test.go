@@ -1,9 +1,11 @@
 package zk
 
 import (
+	"fmt"
+
 	"github.com/go-kit/kit/log"
 	gokitzk "github.com/go-kit/kit/sd/zk"
-	zkclient "github.com/samuel/go-zookeeper/zk"
+	zkclient "github.com/go-zookeeper/zk"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -28,8 +30,13 @@ type mockClientFactory struct {
 func (m *mockClientFactory) NewClient(servers []string, logger log.Logger, options ...gokitzk.Option) (gokitzk.Client, error) {
 	arguments := m.Called(servers, logger, options)
 
-	first, _ := arguments.Get(0).(gokitzk.Client)
-	return first, arguments.Error(1)
+	err := arguments.Error(1)
+	first, ok := arguments.Get(0).(gokitzk.Client)
+	if !ok && err == nil {
+		return nil, fmt.Errorf("%T interface conversion to gokitzk.Client failed", arguments.Get(0))
+	}
+
+	return first, err
 }
 
 type mockClient struct {
