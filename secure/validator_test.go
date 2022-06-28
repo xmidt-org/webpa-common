@@ -80,7 +80,7 @@ func TestValidators(t *testing.T) {
 
 		for index, success := range record {
 			mockValidator := &MockValidator{}
-			mocks = append(mocks, mockValidator.Mock)
+			mocks = append(mocks, mockValidator)
 			validators = append(validators, mockValidator)
 
 			if !expectedValid {

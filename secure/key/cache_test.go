@@ -3,11 +3,12 @@ package key
 import (
 	"errors"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func makeExpectedPairs(count int) (expectedKeyIDs []string, expectedPairs map[string]Pair) {
@@ -24,7 +25,7 @@ func makeExpectedPairs(count int) (expectedKeyIDs []string, expectedPairs map[st
 func assertExpectationsForPairs(t *testing.T, pairs map[string]Pair) {
 	for _, pair := range pairs {
 		if mockPair, ok := pair.(*MockPair); ok {
-			mock.AssertExpectationsForObjects(t, mockPair.Mock)
+			mock.AssertExpectationsForObjects(t, mockPair)
 		}
 	}
 }
@@ -69,8 +70,8 @@ func TestSingleCacheResolveKey(t *testing.T) {
 	close(barrier)
 	waitGroup.Wait()
 
-	mock.AssertExpectationsForObjects(t, expectedPair.Mock)
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, expectedPair)
+	mock.AssertExpectationsForObjects(t, resolver)
 	assert.Equal(expectedPair, cache.load())
 }
 
@@ -105,7 +106,7 @@ func TestSingleCacheResolveKeyError(t *testing.T) {
 	close(barrier)
 	waitGroup.Wait()
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 	assert.Nil(cache.load())
 }
 
@@ -123,8 +124,8 @@ func TestSingleCacheUpdateKeys(t *testing.T) {
 	}
 
 	count, errors := cache.UpdateKeys()
-	mock.AssertExpectationsForObjects(t, expectedPair.Mock)
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, expectedPair)
+	mock.AssertExpectationsForObjects(t, resolver)
 	assert.Equal(1, count)
 	assert.Nil(errors)
 }
@@ -143,11 +144,11 @@ func TestSingleCacheUpdateKeysError(t *testing.T) {
 	}
 
 	count, errors := cache.UpdateKeys()
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 	assert.Equal(1, count)
 	assert.Equal([]error{expectedError}, errors)
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 }
 
 func TestSingleCacheUpdateKeysSequence(t *testing.T) {
@@ -191,7 +192,7 @@ func TestSingleCacheUpdateKeysSequence(t *testing.T) {
 	assert.Equal(newPair, secondPair)
 	assert.Nil(err)
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 }
 
 func TestMultiCacheResolveKey(t *testing.T) {
@@ -232,7 +233,7 @@ func TestMultiCacheResolveKey(t *testing.T) {
 	close(barrier)
 	waitGroup.Wait()
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 	assertExpectationsForPairs(t, expectedPairs)
 }
 
@@ -274,7 +275,7 @@ func TestMultiCacheResolveKeyError(t *testing.T) {
 	close(barrier)
 	waitGroup.Wait()
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 }
 
 func TestMultiCacheUpdateKeys(t *testing.T) {
@@ -308,7 +309,7 @@ func TestMultiCacheUpdateKeys(t *testing.T) {
 	assert.Equal(len(expectedKeyIDs), count)
 	assert.Len(errors, 0)
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 	assertExpectationsForPairs(t, expectedPairs)
 }
 
@@ -344,7 +345,7 @@ func TestMultiCacheUpdateKeysError(t *testing.T) {
 	assert.Equal(0, count)
 	assert.Len(errors, 0)
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock)
+	mock.AssertExpectationsForObjects(t, resolver)
 }
 
 func TestMultiCacheUpdateKeysSequence(t *testing.T) {
@@ -390,7 +391,7 @@ func TestMultiCacheUpdateKeysSequence(t *testing.T) {
 	assert.Equal(newPair, pair)
 	assert.Nil(err)
 
-	mock.AssertExpectationsForObjects(t, resolver.Mock, oldPair.Mock, newPair.Mock)
+	mock.AssertExpectationsForObjects(t, resolver, oldPair, newPair)
 }
 
 func TestNewUpdaterNoRunnable(t *testing.T) {
@@ -422,7 +423,7 @@ func TestNewUpdaterNoRunnable(t *testing.T) {
 		assert.Nil(updater)
 	}
 
-	mock.AssertExpectationsForObjects(t, keyCache.Mock)
+	mock.AssertExpectationsForObjects(t, keyCache)
 }
 
 func TestNewUpdater(t *testing.T) {
