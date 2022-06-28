@@ -160,7 +160,7 @@ func TestResolverFactoryDefaultParser(t *testing.T) {
 	}
 
 	assert.Equal(DefaultParser, resolverFactory.parser())
-	mock.AssertExpectationsForObjects(t, parser.Mock)
+	mock.AssertExpectationsForObjects(t, parser)
 }
 
 func TestResolverFactoryCustomParser(t *testing.T) {
@@ -175,5 +175,5 @@ func TestResolverFactoryCustomParser(t *testing.T) {
 	}
 
 	assert.Equal(parser, resolverFactory.parser())
-	mock.AssertExpectationsForObjects(t, parser.Mock)
+	mock.AssertExpectationsForObjects(t, parser)
 }
