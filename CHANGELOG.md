@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v2.0.7-dev]
 - Update dependencies. [603](https://github.com/xmidt-org/webpa-common/pull/603)
   - [github.com/prometheus/client_golang v1.12.2 CVE-2022-21698 no patch available](https://github.com/advisories/GHSA-cg3q-j54f-5p7p)
   - [github.com/prometheus/client_golang v1.12.2 CVE-2022-21698 no patch available](https://github.com/prometheus/client_golang/security/advisories/GHSA-cg3q-j54f-5p7p)
