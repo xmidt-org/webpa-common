@@ -25,6 +25,9 @@ const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 // DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
 const DefaultWRPContentType = "application/octet-stream"
 
+// emptyBuffer is solely used as an address of a global empty buffer.
+// This sentinel value will reset pointers of the writePump's encoder
+// such that the gc can clean things up.
 var emptyBuffer = []byte{}
 
 // Connector is a strategy interface for managing device connections to a server.
