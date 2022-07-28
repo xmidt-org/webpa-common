@@ -525,6 +525,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 				// Contents, then do the encoding here.
 				encoder.ResetBytes(&frameContents)
 				writeError = encoder.Encode(envelope.request.Message)
+				encoder.ResetBytes(&[]byte{})
 			}
 
 			if writeError == nil {
