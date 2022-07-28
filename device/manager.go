@@ -25,6 +25,8 @@ const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 // DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
 const DefaultWRPContentType = "application/octet-stream"
 
+var emptyBuffer = []byte{}
+
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
 // for explicit disconnection.
@@ -525,7 +527,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 				// Contents, then do the encoding here.
 				encoder.ResetBytes(&frameContents)
 				writeError = encoder.Encode(envelope.request.Message)
-				encoder.ResetBytes(&[]byte{})
+				encoder.ResetBytes(&emptyBuffer)
 			}
 
 			if writeError == nil {
