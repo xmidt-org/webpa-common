@@ -6,7 +6,7 @@ require (
 	emperror.dev/errors v0.8.1 // indirect
 	github.com/SermoDigital/jose v0.9.2-0.20161205224733-f6df55f235c2
 	github.com/armon/go-metrics v0.4.0 // indirect
-	github.com/aws/aws-sdk-go v1.44.61
+	github.com/aws/aws-sdk-go v1.44.66
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/davecgh/go-spew v1.1.1
@@ -18,7 +18,7 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/hashicorp/consul/api v1.13.1
-	github.com/hashicorp/go-hclog v1.2.1 // indirect
+	github.com/hashicorp/go-hclog v1.2.2 // indirect
 	github.com/hashicorp/serf v0.9.8 // indirect
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c // indirect
 	github.com/jtacoma/uritemplates v1.0.0
@@ -28,6 +28,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.2 // indirect
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.37.0 // indirect
+	github.com/prometheus/procfs v0.8.0 // indirect
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
@@ -51,10 +52,10 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.8.0 // indirect
 	go.opentelemetry.io/otel/exporters/zipkin v1.8.0 // indirect
 	go.uber.org/fx v1.17.1
-	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
-	golang.org/x/sync v0.0.0-20220601150217-0de741cfad7f // indirect
-	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
-	golang.org/x/tools v0.1.11 // indirect
+	golang.org/x/net v0.0.0-20220728211354-c7608f3a8462 // indirect
+	golang.org/x/sys v0.0.0-20220731174439-a90be440212d // indirect
+	golang.org/x/tools v0.1.12 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
