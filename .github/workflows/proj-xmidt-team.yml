@@ -1,0 +1,15 @@
+---
+name: 'PROJ: xmidt-team'
+
+on:
+  issues:
+    types:
+      - opened
+  pull_request:
+    types:
+      - opened
+
+jobs:
+  package:
+    uses: xmidt-org/.github/.github/workflows/proj-template.yml@proj-v1
+    secrets: inherit
