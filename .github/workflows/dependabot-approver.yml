@@ -1,0 +1,13 @@
+---
+name: 'Dependabot auto approval'
+
+on:
+  pull_request_target
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  package:
+    uses: xmidt-org/.github/.github/workflows/dependabot-approver-template.yml@main
+    secrets: inherit
