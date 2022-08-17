@@ -5,10 +5,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v2.0.7-dev.2]
+- Pre-release
+- Bumped github.com/xmidt-org/bascule to
 - Dependency update, note vulnerabilities
   - Introduces new vuln https://www.mend.io/vulnerability-database/CVE-2022-29526
 
 ## [v2.0.7-dev.1]
+- Pre-release
 - Update dependencies. [603](https://github.com/xmidt-org/webpa-common/pull/603)
   - [github.com/prometheus/client_golang v1.12.2 CVE-2022-21698 no patch available](https://github.com/advisories/GHSA-cg3q-j54f-5p7p)
   - [github.com/prometheus/client_golang v1.12.2 CVE-2022-21698 no patch available](https://github.com/prometheus/client_golang/security/advisories/GHSA-cg3q-j54f-5p7p)
@@ -244,7 +249,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.1...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.2...HEAD
+[v2.0.7-dev.2]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.1...v2.0.7-dev.2
 [v2.0.7-dev.1]: https://github.com/xmidt-org/webpa-common/compare/v2.0.6...v2.0.7-dev.1
 [v2.0.6]: https://github.com/xmidt-org/webpa-common/compare/v2.0.5...v2.0.6
 [v2.0.5]: https://github.com/xmidt-org/webpa-common/compare/v2.0.4...v2.0.5
