@@ -5,8 +5,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-- Dependency update, note vulnerabilities
-  - Introduces new vuln https://www.mend.io/vulnerability-database/CVE-2022-29526
 
 ## [v2.0.7-dev.1]
 - Update dependencies. [603](https://github.com/xmidt-org/webpa-common/pull/603)
@@ -16,7 +14,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   - guardrails says github.com/gorilla/websocket v1.5.0 has a high vulnerability but no vulnerabilities have been filed atm
   - [github.com/gorilla/sessions v1.2.1 CWE-613 no patch available](https://cwe.mitre.org/data/definitions/613.html)
 - Fixed error string sent in response when device ID can't be parsed. [#599](https://github.com/xmidt-org/webpa-common/pull/599)
-
+- Update Argus & Bascule for jwk migration
+- Dependency update, note vulnerabilities
+  - Introduces new vuln https://www.mend.io/vulnerability-database/CVE-2022-29526
+  
 ## [v2.0.6]
 - Patch for manager writePump panic. [#595](https://github.com/xmidt-org/webpa-common/pull/595)
 
@@ -244,7 +245,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.1...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.2...HEAD
+[v2.0.7-dev.2]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.1...v2.0.7-dev.2
 [v2.0.7-dev.1]: https://github.com/xmidt-org/webpa-common/compare/v2.0.6...v2.0.7-dev.1
 [v2.0.6]: https://github.com/xmidt-org/webpa-common/compare/v2.0.5...v2.0.6
 [v2.0.5]: https://github.com/xmidt-org/webpa-common/compare/v2.0.4...v2.0.5
