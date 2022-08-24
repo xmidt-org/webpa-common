@@ -24,7 +24,6 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/miekg/dns v1.1.50
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/pelletier/go-toml/v2 v2.0.3 // indirect
 	github.com/prometheus/client_golang v1.13.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -36,9 +35,7 @@ require (
 	github.com/xmidt-org/argus v0.9.1
 	github.com/xmidt-org/bascule v0.11.0
 	github.com/xmidt-org/candlelight v0.0.10
-	github.com/xmidt-org/clortho v0.0.4 // indirect
 	github.com/xmidt-org/themis v0.4.8
-	github.com/xmidt-org/webpa-common v1.11.9 // indirect
 	github.com/xmidt-org/wrp-go/v3 v3.1.3
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
 	go.uber.org/fx v1.18.1
