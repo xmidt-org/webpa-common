@@ -33,15 +33,16 @@ require (
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
 	github.com/ugorji/go/codec v1.2.7
-	github.com/xmidt-org/argus v0.9.1-0.20220812042123-4c30a05bad02
+	github.com/xmidt-org/argus v0.9.1
 	github.com/xmidt-org/bascule v0.11.0
 	github.com/xmidt-org/candlelight v0.0.10
 	github.com/xmidt-org/clortho v0.0.4 // indirect
 	github.com/xmidt-org/themis v0.4.8
+	github.com/xmidt-org/webpa-common v1.11.9 // indirect
 	github.com/xmidt-org/wrp-go/v3 v3.1.3
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.34.0
 	go.uber.org/fx v1.18.1
-	golang.org/x/net v0.0.0-20220812174116-3211cb980234 // indirect
+	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
