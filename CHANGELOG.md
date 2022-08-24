@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
-## [v2.0.7-dev.1]
+## [v2.0.7]
 - Update dependencies. [603](https://github.com/xmidt-org/webpa-common/pull/603)
   - [github.com/prometheus/client_golang v1.12.2 CVE-2022-21698 no patch available](https://github.com/advisories/GHSA-cg3q-j54f-5p7p)
   - [github.com/prometheus/client_golang v1.12.2 CVE-2022-21698 no patch available](https://github.com/prometheus/client_golang/security/advisories/GHSA-cg3q-j54f-5p7p)
@@ -245,9 +245,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.2...HEAD
-[v2.0.7-dev.2]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7-dev.1...v2.0.7-dev.2
-[v2.0.7-dev.1]: https://github.com/xmidt-org/webpa-common/compare/v2.0.6...v2.0.7-dev.1
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7...HEAD
+[v2.0.7]: https://github.com/xmidt-org/webpa-common/compare/v2.0.6...v2.0.7
 [v2.0.6]: https://github.com/xmidt-org/webpa-common/compare/v2.0.5...v2.0.6
 [v2.0.5]: https://github.com/xmidt-org/webpa-common/compare/v2.0.4...v2.0.5
 [v2.0.4]: https://github.com/xmidt-org/webpa-common/compare/v2.0.3...v2.0.4
