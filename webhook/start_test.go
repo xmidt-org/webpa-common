@@ -186,7 +186,7 @@ func TestMakeRequestAuthorizationHeader(t *testing.T) {
 		sc.AuthHeader = "TheAuthHeader"
 		resp, err := sc.makeRequest()
 		require := require.New(t)
-		require.Errorf(err, "error return while performing request")
+		require.NoErrorf(err, "error return while performing request")
 		require.NotNil(resp)
 		require.Equalf("Basic TheAuthHeader", resp.Request.Header.Get("Authorization"), "authorization header was not \"Basic TheAuthHeader\"")
 	})
@@ -197,7 +197,7 @@ func TestMakeRequestAuthorizationHeader(t *testing.T) {
 		sc.AuthHeader = "TheAuthHeader"
 		resp, err := sc.makeRequest()
 		require := require.New(t)
-		require.Errorf(err, "error return while performing request")
+		require.NoErrorf(err, "error return while performing request")
 		require.NotNil(resp)
 		require.Equalf("Bearer TheBearerToken", resp.Request.Header.Get("Authorization"), "authorization header was not \"Bearer TheBearerToken\"")
 	})

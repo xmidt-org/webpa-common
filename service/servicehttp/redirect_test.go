@@ -31,7 +31,7 @@ func testRedirectNoRequestURI(t *testing.T, expectedRedirectCode, actualRedirect
 
 	assert.NoError(err)
 	assert.Equal(expectedRedirectCode, httpResponse.Code)
-	assert.Equal("http://somewhere.com:8080", httpresponse.Header().Get("Location"))
+	assert.Equal("http://somewhere.com:8080", httpResponse.Header().Get("Location"))
 }
 
 func testRedirectWithRequestURI(t *testing.T, expectedRedirectCode, actualRedirectCode int) {
@@ -57,7 +57,7 @@ func testRedirectWithRequestURI(t *testing.T, expectedRedirectCode, actualRedire
 
 	assert.NoError(err)
 	assert.Equal(expectedRedirectCode, httpResponse.Code)
-	assert.Equal("http://somewhere.com:8080/api/v2/device", httpresponse.Header().Get("Location"))
+	assert.Equal("http://somewhere.com:8080/api/v2/device", httpResponse.Header().Get("Location"))
 }
 
 func TestRedirect(t *testing.T) {
