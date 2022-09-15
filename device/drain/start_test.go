@@ -12,6 +12,7 @@ import (
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
 
 	"github.com/stretchr/testify/assert"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 

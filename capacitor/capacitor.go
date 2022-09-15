@@ -91,7 +91,7 @@ func (d *delayer) execute() {
 }
 
 // run is called as a goroutine and will exit when either the timer channel
-// is signalled or the terminate channel receives a value.
+// is signaled or the terminate channel receives a value.
 func (d *delayer) run() {
 	defer d.cleanup()
 

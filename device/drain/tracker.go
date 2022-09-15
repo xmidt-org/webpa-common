@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 

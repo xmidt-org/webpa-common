@@ -7,10 +7,13 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/metrics/discard"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -145,11 +148,14 @@ func (l *listener) Accept() (net.Conn, error) {
 		c, err := l.Listener.Accept()
 		if err != nil {
 			sysValue := ""
+
+			// nolint:errorlint
 			if errno, ok := err.(syscall.Errno); ok {
 				sysValue = "0x" + strconv.FormatInt(int64(errno), 16)
 			}
 
 			l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to accept connection", logging.ErrorKey(), err, "sysValue", sysValue)
+			// nolint:errorlint
 			if err == syscall.ENFILE {
 				l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "ENFILE received.  translating to EMFILE")
 				return nil, syscall.EMFILE

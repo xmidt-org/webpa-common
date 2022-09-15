@@ -53,6 +53,7 @@ func testPopulate(t *testing.T, funcCount int) {
 		funcs[i] = func(ctx context.Context, actual *http.Request) context.Context {
 			funcCalled[i] = true
 			assert.Equal(request, actual)
+			// nolint:staticcheck
 			return context.WithValue(ctx, fmt.Sprintf("key-%d", i), fmt.Sprintf("value-%d", i))
 		}
 	}

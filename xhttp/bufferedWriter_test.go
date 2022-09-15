@@ -42,7 +42,7 @@ func testBufferedWriterWriteToEmpty(t *testing.T) {
 	assert.Zero(c)
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, response.Code)
-	assert.Empty(response.HeaderMap)
+	assert.Empty(response.Header())
 	assert.Empty(response.Body)
 	assert.False(response.Flushed)
 
@@ -81,7 +81,7 @@ func testBufferedWriterWriteToWithContent(t *testing.T) {
 			"X-Value":        {"1", "2"},
 			"Content-Length": {strconv.Itoa(len(text))},
 		},
-		response.HeaderMap,
+		response.Header(),
 	)
 	assert.Equal(text, response.Body.String())
 	assert.False(response.Flushed)
@@ -123,7 +123,7 @@ func testBufferedWriterWriteToCustomResponseCode(t *testing.T) {
 			"X-Value":        {"1", "2"},
 			"Content-Length": {strconv.Itoa(len(text))},
 		},
-		response.HeaderMap,
+		response.Header(),
 	)
 	assert.Equal(text, response.Body.String())
 	assert.False(response.Flushed)

@@ -10,7 +10,8 @@ import (
 	"github.com/xmidt-org/webpa-common/v2/convey"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
 
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
@@ -51,7 +52,7 @@ type Interface interface {
 	fmt.Stringer
 	json.Marshaler
 
-	// ID returns the canonicalized identifer for this device.  Note that
+	// ID returns the canonicalized identifier for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
 	// with the same ID to be connected.  This typically occurs due to fraud,
 	// but we don't want to turn away duped devices.
@@ -213,7 +214,7 @@ func (d *device) Closed() bool {
 // servicing this device.  This method honors the request context's cancellation semantics.
 //
 // This function returns when either (1) the write pump has attempted to send the message to
-// the device, or (2) the request's context has been cancelled, which includes timing out.
+// the device, or (2) the request's context has been canceled, which includes timing out.
 func (d *device) sendRequest(request *Request) error {
 	var (
 		done     = request.Context().Done()
@@ -233,7 +234,7 @@ func (d *device) sendRequest(request *Request) error {
 	case d.messages <- envelope:
 	}
 
-	// once enqueued, wait until the context is cancelled
+	// once enqueued, wait until the context is canceled
 	// or there's a result
 	select {
 	case <-done:
@@ -256,7 +257,7 @@ func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Resp
 		return nil, ErrorDeviceClosed
 	case response := <-result:
 		if response == nil {
-			return nil, ErrorTransactionCancelled
+			return nil, ErrorTransactioncanceled
 		}
 
 		return response, nil

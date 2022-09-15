@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/textproto"
 	"net/url"
@@ -150,13 +150,13 @@ func MatchBody(expected []byte) func(*http.Request) bool {
 			return len(expected) == 0
 		}
 
-		actual, err := ioutil.ReadAll(r.Body)
+		actual, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(fmt.Errorf("Error while read request body for matching: %s", err))
 		}
 
 		// replace the body so other test code can reread it
-		r.Body = ioutil.NopCloser(bytes.NewReader(actual))
+		r.Body = io.NopCloser(bytes.NewReader(actual))
 
 		if len(actual) != len(expected) {
 			return false

@@ -23,17 +23,20 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/discard"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 const DefaultRetryInterval = time.Second
 
 // temporaryError is the expected interface for a (possibly) temporary error.
-// Several of the error types in the net package implicitely implement this interface,
+// Several of the error types in the net package implicitly implement this interface,
 // for example net.DNSError.
 type temporaryError interface {
 	Temporary() bool
@@ -51,6 +54,7 @@ type ShouldRetryStatusFunc func(int) bool
 // method and that method returns true.  That means, for example, that for a net.DNSError with the temporary flag set to true
 // this predicate also returns true.
 func DefaultShouldRetry(err error) bool {
+	// nolint:errorlint
 	if temp, ok := err.(temporaryError); ok {
 		return temp.Temporary()
 	}

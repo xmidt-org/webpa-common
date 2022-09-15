@@ -24,7 +24,9 @@ func testBusyBadMaxClients(t *testing.T, maxClients int64) {
 
 func testBusyClientCounter(t *testing.T, maxClients int64, busyError error) {
 	var (
-		assert      = assert.New(t)
+		assert = assert.New(t)
+
+		// nolint:staticcheck
 		expectedCtx = context.WithValue(context.Background(), "foo", "bar")
 
 		endpointGate     = make(chan struct{})

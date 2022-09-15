@@ -19,7 +19,7 @@ package xhttp
 
 import (
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -56,7 +56,7 @@ func testErrorDefaultEncoding(t *testing.T) {
 
 	gokithttp.DefaultErrorEncoder(context.Background(), httpError, response)
 	assert.Equal(503, httpError.Code)
-	assert.Equal("Bar", response.HeaderMap.Get("Foo"))
+	assert.Equal("Bar", response.Header().Get("Foo"))
 	assert.JSONEq(
 		`{"code": 503, "text": "fubar"}`,
 		response.Body.String(),
@@ -105,9 +105,9 @@ func TestWriteErrorf(t *testing.T) {
 		assert.True(count > 0)
 		assert.NoError(err)
 		assert.Equal(record.code, response.Code)
-		assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+		assert.Equal("application/json", response.Header().Get("Content-Type"))
 
-		actualJSON, err := ioutil.ReadAll(response.Body)
+		actualJSON, err := io.ReadAll(response.Body)
 		require.NoError(err)
 
 		assert.JSONEq(record.expectedJSON, string(actualJSON))
@@ -148,9 +148,9 @@ func TestWriteError(t *testing.T) {
 		assert.True(count > 0)
 		assert.NoError(err)
 		assert.Equal(record.code, response.Code)
-		assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+		assert.Equal("application/json", response.Header().Get("Content-Type"))
 
-		actualJSON, err := ioutil.ReadAll(response.Body)
+		actualJSON, err := io.ReadAll(response.Body)
 		require.NoError(err)
 
 		assert.JSONEq(record.expectedJSON, string(actualJSON))

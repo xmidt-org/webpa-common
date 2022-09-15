@@ -3,13 +3,15 @@ package xresolver
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
@@ -27,9 +29,11 @@ func TestClient(t *testing.T) {
 		},
 	}
 
+	// nolint:bodyclose
 	req, err := http.NewRequest("GET", ts.URL, nil)
 	assert.NoError(err)
 
+	// nolint:bodyclose
 	res, err := client.Do(req)
 	assert.NoError(err)
 	assert.Equal(200, res.StatusCode)
@@ -73,12 +77,14 @@ func TestClientWithResolver(t *testing.T) {
 		},
 	}
 
+	// nolint:bodyclose
 	req, err := http.NewRequest("GET", "http://"+customhost+":"+customport, nil)
 	assert.NoError(err)
 
+	// nolint:bodyclose
 	res, err := client.Do(req)
 	if assert.NoError(err) {
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 
@@ -91,9 +97,11 @@ func TestClientWithResolver(t *testing.T) {
 	err = r.Remove(fakeLookUp)
 	assert.NoError(err)
 
+	// nolint:bodyclose
 	req, err = http.NewRequest("GET", "http://"+customhost+":"+customport, nil)
 	assert.NoError(err)
 
-	res, err = client.Do(req)
+	// nolint:bodyclose
+	_, err = client.Do(req)
 	assert.Error(err)
 }

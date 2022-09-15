@@ -84,6 +84,7 @@ func convertOldHooksToNewHooks(body []byte) (hooks []W, err error) {
 
 	for _, oldHook := range oldHooks {
 		var old *W
+		// nolint gosec
 		old, err = oldToNewHookConversion(&oldHook)
 		if nil != err {
 			hooks = nil

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/xcontext"
 )

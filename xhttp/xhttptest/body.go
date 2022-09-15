@@ -10,7 +10,7 @@ type MockBody struct {
 }
 
 // OnReadError sets an expectation for a call to Read, with any byte slice, that returns the given error (and 0 for bytes read).
-// If the given error is nil, wierd behavior can occur as the mocked Read will return (0, nil).
+// If the given error is nil, weird behavior can occur as the mocked Read will return (0, nil).
 func (mb *MockBody) OnReadError(err error) *mock.Call {
 	return mb.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, err)
 }

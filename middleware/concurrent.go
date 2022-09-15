@@ -8,7 +8,7 @@ import (
 
 // Concurrent produces a middleware that allows only a set number of concurrent calls via
 // a semaphore implemented as a buffered channel.  The context is used for cancellation,
-// and if the context is cancelled then timeoutError is returned if it is not nil, ctx.Err() otherwise.
+// and if the context is canceled then timeoutError is returned if it is not nil, ctx.Err() otherwise.
 func Concurrent(concurrency int, timeoutError error) endpoint.Middleware {
 	return func(next endpoint.Endpoint) endpoint.Endpoint {
 		semaphore := make(chan struct{}, concurrency)

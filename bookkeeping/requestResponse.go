@@ -1,7 +1,7 @@
 package bookkeeping
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -18,7 +18,7 @@ func RequestBody(request *http.Request) []interface{} {
 	if err != nil {
 		return []interface{}{}
 	}
-	data, err := ioutil.ReadAll(request.Body)
+	data, err := io.ReadAll(request.Body)
 	request.Body.Close()
 	if err != nil {
 		return []interface{}{}

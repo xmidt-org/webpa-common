@@ -37,12 +37,13 @@ func TestExtraHeaders(t *testing.T) {
 		t.Logf("%#v", record)
 
 		var (
-			rf      = ExtraHeaders(record.actual)
+			rf = ExtraHeaders(record.actual)
+			// nolint:staticcheck
 			ctx     = context.WithValue(context.Background(), "foo", "bar")
 			request = httptest.NewRequest("GET", "/", nil)
 		)
 
-		for name, _ := range record.expected {
+		for name := range record.expected {
 			request.Header[name] = []string{"SHOULD BE OVERWRITTEN"}
 		}
 

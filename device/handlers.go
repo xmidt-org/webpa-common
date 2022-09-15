@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/gorilla/mux"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/wrp-go/v3"
@@ -156,6 +158,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 	// deviceRequest carries the context through the routing infrastructure
 	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
 		code := http.StatusGatewayTimeout
+		// nolint:errorlint
 		switch err {
 		case ErrorInvalidDeviceName:
 			code = http.StatusBadRequest

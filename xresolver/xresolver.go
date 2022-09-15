@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 
 	"net"
@@ -106,8 +108,8 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 }
 
 func (resolve *resolver) createConnection(routes []Route, network, port string) (net.Conn, Route, error) {
+	var portUsed string
 	for _, route := range routes {
-		portUsed := port
 		if route.Port != 0 {
 			portUsed = strconv.Itoa(route.Port)
 		} else {
@@ -125,5 +127,6 @@ func (resolve *resolver) createConnection(routes []Route, network, port string) 
 			return con, route, err
 		}
 	}
+
 	return nil, Route{}, errors.New("failed to create connection from routes")
 }

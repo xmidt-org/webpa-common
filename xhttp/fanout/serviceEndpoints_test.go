@@ -12,7 +12,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/v2/device"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 )
 
@@ -166,12 +169,11 @@ func testNewServiceEndpointsCustom(t *testing.T) {
 
 func TestNewServiceEndpoints(t *testing.T) {
 	t.Run("KeyFuncError", testNewServiceEndpointsKeyFuncError)
-
+	t.Run("HashError", testNewServiceEndpointsHashError)
 	t.Run("Default", func(t *testing.T) {
 		testNewServiceEndpointsDefault(t, NewServiceEndpoints())
 		testNewServiceEndpointsDefault(t, NewServiceEndpoints(WithAccessorFactory(nil), WithKeyFunc(nil)))
 	})
-
 	t.Run("Custom", testNewServiceEndpointsCustom)
 }
 

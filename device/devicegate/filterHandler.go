@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
@@ -113,7 +115,7 @@ func (gl GateLogger) LogFilters(next http.Handler) http.Handler {
 // check that a message body is can be read and unmarshalled
 func validateRequestBody(request *http.Request) (FilterRequest, error) {
 	var message FilterRequest
-	msgBytes, err := ioutil.ReadAll(request.Body)
+	msgBytes, err := io.ReadAll(request.Body)
 	request.Body.Close()
 
 	if err != nil {

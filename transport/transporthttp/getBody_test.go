@@ -3,13 +3,15 @@ package transporthttp
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
@@ -18,6 +20,7 @@ func testGetBody(t *testing.T, expected []byte) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint:staticcheck
 		ctx     = context.WithValue(context.Background(), "foo", "bar")
 		getBody = GetBody(logging.NewTestLogger(nil, t))
 		request = httptest.NewRequest("GET", "/", bytes.NewReader(expected))
@@ -27,10 +30,10 @@ func testGetBody(t *testing.T, expected []byte) {
 	assert.Equal(ctx, getBody(ctx, request))
 
 	require.NotNil(request.Body)
-	reread, err := ioutil.ReadAll(request.Body)
+	reread, err := io.ReadAll(request.Body)
 	require.NoError(err)
 	assert.Equal(expected, reread)
-	reread, err = ioutil.ReadAll(request.Body)
+	reread, err = io.ReadAll(request.Body)
 	require.NoError(err)
 	assert.Empty(reread)
 
@@ -39,7 +42,7 @@ func testGetBody(t *testing.T, expected []byte) {
 		reader, err := request.GetBody()
 		require.NotNil(reader)
 		require.NoError(err)
-		data, err := ioutil.ReadAll(reader)
+		data, err := io.ReadAll(reader)
 		require.NoError(err)
 		assert.Equal(expected, data)
 	}

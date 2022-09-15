@@ -8,7 +8,10 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging/logginghttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/xcontext"
 )

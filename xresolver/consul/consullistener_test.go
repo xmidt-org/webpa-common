@@ -2,13 +2,14 @@ package consul
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 	"github.com/xmidt-org/webpa-common/v2/xresolver"
@@ -59,7 +60,7 @@ func TestConsulWatcher(t *testing.T) {
 	res, err := client.Do(req)
 	if assert.NoError(err) {
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 
@@ -73,7 +74,7 @@ func TestConsulWatcher(t *testing.T) {
 	res, err = client.Do(req)
 	if assert.NoError(err) {
 
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 

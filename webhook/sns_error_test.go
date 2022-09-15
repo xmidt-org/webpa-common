@@ -2,7 +2,7 @@ package webhook
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -13,7 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	// nolint:staticcheck
 	AWS "github.com/xmidt-org/webpa-common/v2/webhook/aws"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -56,12 +59,14 @@ func TestSubArnError(t *testing.T) {
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	errMsg := new(AWS.ErrResp)
-	errResp, _ := ioutil.ReadAll(res.Body)
+	errResp, _ := io.ReadAll(res.Body)
+	// nolint:unconvert
 	json.Unmarshal([]byte(errResp), errMsg)
 
 	assert.Equal(http.StatusInternalServerError, errMsg.Code)
@@ -96,13 +101,15 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(http.StatusInternalServerError, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
-	errResp, _ := ioutil.ReadAll(res.Body)
+	errResp, _ := io.ReadAll(res.Body)
+	// nolint:unconvert
 	json.Unmarshal([]byte(errResp), errMsg)
 
 	assert.Equal(http.StatusInternalServerError, errMsg.Code)

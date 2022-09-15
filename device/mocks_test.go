@@ -119,42 +119,11 @@ func (s deviceSet) managerCapture() func(Interface) bool {
 	}
 }
 
-// registryCapture returns a low-level visitor for registry testing
-func (s deviceSet) registryCapture() func(*device) {
-	return func(d *device) {
-		s[d] = true
-	}
-}
-
-func (s deviceSet) assertSameID(assert *assert.Assertions, expected ID) {
-	for d := range s {
-		assert.Equal(expected, d.ID())
-	}
-}
-
-func (s deviceSet) assertDistributionOfIDs(assert *assert.Assertions, expected map[ID]int) {
-	actual := make(map[ID]int, len(expected))
-	for d := range s {
-		actual[d.ID()] += 1
-	}
-
-	assert.Equal(expected, actual)
-}
-
 // drain copies whatever is available on the given channel into this device set
 func (s deviceSet) drain(source <-chan Interface) {
 	for d := range source {
 		s.add(d)
 	}
-}
-
-func expectsDevices(devices ...*device) deviceSet {
-	result := make(deviceSet, len(devices))
-	for _, d := range devices {
-		result[d] = true
-	}
-
-	return result
 }
 
 type mockRouter struct {

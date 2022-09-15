@@ -9,6 +9,8 @@ import (
 	"github.com/go-kit/kit/metrics/generic"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
@@ -110,6 +112,7 @@ func testNewTLSCustom(t *testing.T) {
 		return expectedNext, nil
 	}
 
+	// nolint:gosec
 	l, err := New(Options{
 		Logger:         logging.NewTestLogger(nil, t),
 		Rejected:       expectedRejected,

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,13 +20,13 @@ func testForwardBodyNoBody(t *testing.T, originalBody []byte) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-
+		// nolint:staticcheck
 		ctx      = context.WithValue(context.Background(), "foo", "bar")
 		original = httptest.NewRequest("GET", "/", nil)
 		fanout   = &http.Request{
 			Header:        http.Header{"Content-Type": []string{"foo"}},
 			ContentLength: 123,
-			Body:          ioutil.NopCloser(new(bytes.Reader)),
+			Body:          io.NopCloser(new(bytes.Reader)),
 			GetBody: func() (io.ReadCloser, error) {
 				assert.Fail("GetBody should not be called")
 				return nil, nil
@@ -53,13 +52,13 @@ func testForwardBodyFollowRedirects(t *testing.T) {
 		require = require.New(t)
 
 		originalBody = "here is a lovely HTTP entity"
-
+		// nolint:staticcheck
 		ctx      = context.WithValue(context.Background(), "foo", "bar")
 		original = httptest.NewRequest("GET", "/", nil)
 		fanout   = &http.Request{
 			Header:        http.Header{"Content-Type": []string{"foo"}},
 			ContentLength: 123,
-			Body:          ioutil.NopCloser(new(bytes.Reader)),
+			Body:          io.NopCloser(new(bytes.Reader)),
 			GetBody: func() (io.ReadCloser, error) {
 				assert.Fail("GetBody should have been updated")
 				return nil, nil
@@ -78,7 +77,7 @@ func testForwardBodyFollowRedirects(t *testing.T) {
 	assert.Equal(int64(len(originalBody)), fanout.ContentLength)
 
 	require.NotNil(fanout.Body)
-	actualBody, err := ioutil.ReadAll(fanout.Body)
+	actualBody, err := io.ReadAll(fanout.Body)
 	require.NoError(err)
 	assert.Equal(originalBody, string(actualBody))
 
@@ -86,7 +85,7 @@ func testForwardBodyFollowRedirects(t *testing.T) {
 	newBody, err := fanout.GetBody()
 	require.NoError(err)
 	require.NotNil(newBody)
-	actualBody, err = ioutil.ReadAll(newBody)
+	actualBody, err = io.ReadAll(newBody)
 	require.NoError(err)
 	assert.Equal(originalBody, string(actualBody))
 }
@@ -98,12 +97,13 @@ func testForwardBodyNoFollowRedirects(t *testing.T) {
 
 		originalBody = "here is a lovely HTTP entity"
 
+		// nolint:staticcheck
 		ctx      = context.WithValue(context.Background(), "foo", "bar")
 		original = httptest.NewRequest("GET", "/", nil)
 		fanout   = &http.Request{
 			Header:        http.Header{"Content-Type": []string{"foo"}},
 			ContentLength: 123,
-			Body:          ioutil.NopCloser(new(bytes.Reader)),
+			Body:          io.NopCloser(new(bytes.Reader)),
 			GetBody: func() (io.ReadCloser, error) {
 				assert.Fail("GetBody should have been updated")
 				return nil, nil
@@ -122,7 +122,7 @@ func testForwardBodyNoFollowRedirects(t *testing.T) {
 	assert.Equal(int64(len(originalBody)), fanout.ContentLength)
 
 	require.NotNil(fanout.Body)
-	actualBody, err := ioutil.ReadAll(fanout.Body)
+	actualBody, err := io.ReadAll(fanout.Body)
 	require.NoError(err)
 	assert.Equal(originalBody, string(actualBody))
 
@@ -140,7 +140,8 @@ func testForwardHeaders(t *testing.T, originalHeader http.Header, headersToCopy 
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		ctx     = context.WithValue(context.Background(), "foo", "bar")
+		// nolint:staticcheck
+		ctx = context.WithValue(context.Background(), "foo", "bar")
 
 		original = &http.Request{
 			Header: originalHeader,
@@ -272,6 +273,7 @@ func testForwardVariableAsHeaderMissing(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint:staticcheck
 		ctx      = context.WithValue(context.Background(), "foo", "bar")
 		original = httptest.NewRequest("GET", "/", nil)
 		fanout   = httptest.NewRequest("GET", "/", nil)
@@ -290,6 +292,7 @@ func testForwardVariableAsHeaderValue(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint:staticcheck
 		ctx       = context.WithValue(context.Background(), "foo", "bar")
 		variables = map[string]string{
 			"test": "foobar",
@@ -320,7 +323,8 @@ func testReturnHeaders(t *testing.T, fanoutResponse *http.Response, headersToCop
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		ctx     = context.WithValue(context.Background(), "foo", "bar")
+		// nolint:staticcheck
+		ctx = context.WithValue(context.Background(), "foo", "bar")
 
 		response = httptest.NewRecorder()
 		rf       = ReturnHeaders(headersToCopy...)
@@ -401,7 +405,8 @@ func testReturnHeadersWithPrefix(t *testing.T, fanoutResponse *http.Response, he
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		ctx     = context.WithValue(context.Background(), "foo", "bar")
+		// nolint:staticcheck
+		ctx = context.WithValue(context.Background(), "foo", "bar")
 
 		response = httptest.NewRecorder()
 		rf       = ReturnHeadersWithPrefix(headerPrefixToCopy...)

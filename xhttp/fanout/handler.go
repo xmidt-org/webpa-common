@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	gokithttp "github.com/go-kit/kit/transport/http"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/tracing"
 	"github.com/xmidt-org/webpa-common/v2/tracing/tracinghttp"
@@ -128,7 +130,9 @@ func WithClientFailure(failure ...gokithttp.ClientResponseFunc) Option {
 
 // WithConfiguration uses a set of (typically injected) fanout configuration options to configure a Handler.
 // Use of this option will not override the configured Endpoints instance.
+// nolint:govet
 func WithConfiguration(c Configuration) Option {
+	// nolint:bodyclose
 	return func(h *Handler) {
 		WithTransactor(NewTransactor(c))(h)
 
@@ -178,7 +182,7 @@ func New(e Endpoints, options ...Option) *Handler {
 // FanoutRequestFunc options are used to build each request.  This method returns an error if no endpoints were returned
 // by the strategy or if an error reading the original request body occurred.
 func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Request) ([]*http.Request, error) {
-	body, err := ioutil.ReadAll(original.Body)
+	body, err := io.ReadAll(original.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +231,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		}
 	)
 
+	// nolint:bodyclose
 	result.Response, result.Err = h.transactor(request)
 	switch {
 	case result.Response != nil:
@@ -234,7 +239,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		result.ContentType = result.Response.Header.Get("Content-Type")
 
 		var err error
-		if result.Body, err = ioutil.ReadAll(result.Response.Body); err != nil {
+		if result.Body, err = io.ReadAll(result.Response.Body); err != nil {
 			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error reading fanout response body", logging.ErrorKey(), err)
 		}
 
@@ -246,11 +251,13 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 		result.Body = []byte(fmt.Sprintf("%s", result.Err))
 		result.ContentType = "text/plain"
 
+		// nolint:errorlint
 		if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
 			// unwrap the URL error
 			result.Err = ue.Err
 		}
 
+		// nolint:errorlint
 		if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
 			result.StatusCode = http.StatusGatewayTimeout
 		} else {

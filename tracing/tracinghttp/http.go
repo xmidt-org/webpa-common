@@ -30,6 +30,7 @@ func HeadersForSpans(timeLayout string, h http.Header, spans ...tracing.Span) {
 
 		if err := s.Error(); err != nil {
 			output.Reset()
+			// nolint:errorlint
 			if coder, ok := err.(gokithttp.StatusCoder); ok {
 				fmt.Fprintf(output, `"%s",%d,"%s"`, s.Name(), coder.StatusCode(), err.Error())
 			} else {

@@ -10,16 +10,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"github.com/go-kit/log"
 
 	"github.com/xmidt-org/webpa-common/v2/convey"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -62,6 +65,7 @@ func connectTestDevices(t *testing.T, dialer Dialer, connectURL string) map[ID]C
 	devices := make(map[ID]Connection, len(testDeviceIDs))
 
 	for _, id := range testDeviceIDs {
+		// nolint:bodyclose
 		deviceConnection, _, err := dialer.DialDevice(string(id), connectURL, nil)
 		if err != nil {
 			t.Fatalf("Unable to dial test device: %s", err)
@@ -360,6 +364,7 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 		"X-Webpa-Convey": {"eyAgDQogICAiaHctc2VyaWFsLW51bWJlciI6MTIzNDU2Nzg5LA0KICAgIndlYnBhLXByb3RvY29sIjoiV2ViUEEtMS42Ig0KfQ=="},
 	}
 
+	// nolint:bodyclose
 	deviceConnection, _, err := dialer.DialDevice(string(testDeviceIDs[0]), connectURL, *header)
 	require.NotNil(deviceConnection)
 	require.NoError(err)
@@ -429,9 +434,9 @@ func TestWRPSourceIsValid(t *testing.T) {
 		BaseLabelPairs map[string]string
 	}{
 		{
-			Name:    "EmptySource",
-			IsValid: false,
-			Source: "   	",
+			Name:           "EmptySource",
+			IsValid:        false,
+			Source:         "   	",
 			BaseLabelPairs: map[string]string{"reason": "empty"},
 		},
 

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
+	// nolint:staticcheck
 	AWS "github.com/xmidt-org/webpa-common/v2/webhook/aws"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )

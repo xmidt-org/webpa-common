@@ -7,6 +7,8 @@ import (
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 

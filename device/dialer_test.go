@@ -44,6 +44,7 @@ func testDialerDialDevice(t *testing.T, deviceName, expectedURL, deviceHeader st
 		Return(expectedConn, expectedResponse, nil).
 		Once()
 
+	// nolint:bodyclose
 	actualConn, actualResponse, actualErr := dialer.DialDevice(deviceName, expectedURL, extra)
 	assert.True(expectedConn == actualConn)
 	assert.True(expectedResponse == actualResponse)
@@ -80,6 +81,7 @@ func testMustDialDeviceSuccess(t *testing.T, deviceName, url string, extra http.
 		Once()
 
 	assert.NotPanics(func() {
+		// nolint:bodyclose
 		actualConn, actualResponse := MustDialDevice(dialer, deviceName, url, extra)
 		assert.True(expectedConn == actualConn)
 		assert.True(expectedResponse == actualResponse)
@@ -101,6 +103,8 @@ func testMustDialDeviceFailure(t *testing.T, deviceName, url string, extra http.
 		Once()
 
 	assert.Panics(func() {
+
+		// nolint:bodyclose
 		MustDialDevice(dialer, deviceName, url, extra)
 	})
 

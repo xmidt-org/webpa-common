@@ -1,14 +1,10 @@
 ---
-linters-settings:
-  misspell:
-    locale: US
-
 linters:
   enable:
     - bodyclose
     - dupl
     - errorlint
-    - funlen
+    # - funlen
     - goconst
     - gosec
     - misspell
@@ -18,14 +14,32 @@ linters:
     - errcheck
     - ineffassign
 
+run:
+  skip-dirs:
+    - basculechecks/*
+    - basculemetrics/*
+    - concurrent/*
+    - health/*
+    - logging/*
+    - server/*
+    - secure/*
+    - service/*
+    - webhook/aws/*
+    - metrics/*
+    - xviper/*
+  skip-files:
+  - tracing/mocks_test.go
+
 issues:
   exclude-rules:
     - path: _test.go
       linters:
         - dupl
-        - funlen
+        # - funlen
 
 linters-settings:
   errorlint:
     # Report non-wrapping error creation using fmt.Errorf
     errorf: false
+  misspell:
+    locale: US

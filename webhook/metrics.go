@@ -4,6 +4,8 @@ import (
 	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/fx"
 )

@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +36,7 @@ func testTranslatorWriteTo(t *testing.T, translatorEncoding, expectedEncoding *b
 	require.NoError(translator.WriteTo(&output, source))
 
 	decoder := base64.NewDecoder(expectedEncoding, &output)
-	actual, err := ioutil.ReadAll(decoder)
+	actual, err := io.ReadAll(decoder)
 	require.NoError(err)
 	assert.NotEmpty(actual)
 	assert.JSONEq(expected, string(actual))
@@ -117,7 +116,7 @@ func TestReadString(t *testing.T) {
 		Return(C{"key": "value"}, expectedError).
 		Run(func(arguments mock.Arguments) {
 			reader := arguments.Get(0).(io.Reader)
-			actual, err := ioutil.ReadAll(reader)
+			actual, err := io.ReadAll(reader)
 			assert.Equal("expected", string(actual))
 			assert.NoError(err)
 		}).
@@ -142,7 +141,7 @@ func TestReadBytes(t *testing.T) {
 		Return(C{"key": "value"}, expectedError).
 		Run(func(arguments mock.Arguments) {
 			reader := arguments.Get(0).(io.Reader)
-			actual, err := ioutil.ReadAll(reader)
+			actual, err := io.ReadAll(reader)
 			assert.Equal("expected", string(actual))
 			assert.NoError(err)
 		}).

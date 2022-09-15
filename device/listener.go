@@ -39,11 +39,6 @@ const (
 	InvalidEventString string = "!!INVALID DEVICE EVENT TYPE!!"
 )
 
-var (
-	// blankEvent is an Event in its initial state.  Useful for quick state reset.
-	blankEvent Event
-)
-
 func (et EventType) String() string {
 	switch et {
 	case Connect:

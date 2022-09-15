@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 )
@@ -40,7 +39,7 @@ func UseClient(loader Loader, HTTPClient httpClient) {
 	}
 }
 
-// ReadAll is an analog to ioutil.ReadAll: it reads the entire
+// ReadAll is an analog to io.ReadAll: it reads the entire
 // resource into a single byte slice, returning any error that occurred.
 func ReadAll(loader Loader) ([]byte, error) {
 	reader, err := loader.Open()
@@ -49,7 +48,7 @@ func ReadAll(loader Loader) ([]byte, error) {
 	}
 
 	defer reader.Close()
-	return ioutil.ReadAll(reader)
+	return io.ReadAll(reader)
 }
 
 // HTTP is a Loader which obtains resources via HTTP.
@@ -131,14 +130,13 @@ func (loader *File) Location() string {
 	return loader.Path
 }
 
-func (loader *File) Open() (reader io.ReadCloser, err error) {
-	reader, err = os.Open(loader.Path)
-	if err != nil && reader != nil {
+func (loader *File) Open() (io.ReadCloser, error) {
+	reader, err := os.Open(loader.Path)
+	if err != nil {
 		reader.Close()
-		reader = nil
 	}
 
-	return
+	return reader, err
 }
 
 // Data is an in-memory resource.  It is a Loader which simple reads from
@@ -156,5 +154,5 @@ func (loader *Data) Location() string {
 }
 
 func (loader *Data) Open() (io.ReadCloser, error) {
-	return ioutil.NopCloser(bytes.NewReader(loader.Source)), nil
+	return io.NopCloser(bytes.NewReader(loader.Source)), nil
 }

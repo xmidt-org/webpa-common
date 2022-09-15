@@ -83,7 +83,7 @@ func testRedirectHandlerSuccess(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(handler.RedirectCode, response.Code)
-	assert.Equal(expectedInstance, response.HeaderMap.Get("Location"))
+	assert.Equal(expectedInstance, response.Header().Get("Location"))
 	accessor.AssertExpectations(t)
 }
 
@@ -115,7 +115,7 @@ func testRedirectHandlerSuccessWithPath(t *testing.T) {
 	handler.ServeHTTP(response, request)
 
 	assert.Equal(handler.RedirectCode, response.Code)
-	assert.Equal(expectedRedirectURL, response.HeaderMap.Get("Location"))
+	assert.Equal(expectedRedirectURL, response.Header().Get("Location"))
 	accessor.AssertExpectations(t)
 }
 

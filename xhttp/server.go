@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
@@ -103,7 +105,9 @@ func NewStarter(o StartOptions, s httpServer) func() error {
 	return func() error {
 		o.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting server")
 		err := starter()
+		// nolint:errorlint
 		if err == http.ErrServerClosed {
+			// nolint:errorlint
 			o.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "server closed")
 		} else {
 			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "server exited", logging.ErrorKey(), err)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics/discard"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 

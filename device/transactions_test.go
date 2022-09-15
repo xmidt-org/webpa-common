@@ -28,9 +28,11 @@ func testRequestContext(t *testing.T) {
 
 	assert.Equal(context.Background(), request.Context())
 	assert.Panics(func() {
+		// nolint:staticcheck
 		request.WithContext(nil)
 	})
 
+	// nolint:staticcheck
 	newContext := context.WithValue(context.Background(), "foo", "bar")
 	assert.True(request == request.WithContext(newContext))
 	assert.Equal(newContext, request.Context())
@@ -120,7 +122,7 @@ func TestDecodeRequest(t *testing.T) {
 		t.Run(format.String(), func(t *testing.T) {
 			testDecodeRequest(
 				t,
-				&wrp.SimpleEvent{
+				&wrp.Message{
 					Source:      "app.comcast.com:9999",
 					Destination: "uuid:1234/service",
 					ContentType: "text/plain",
@@ -131,7 +133,7 @@ func TestDecodeRequest(t *testing.T) {
 
 			testDecodeRequest(
 				t,
-				&wrp.SimpleRequestResponse{
+				&wrp.Message{
 					Source:          "app.comcast.com:9999",
 					Destination:     "uuid:1234/service",
 					TransactionUUID: "this-is-a-transaction-id",

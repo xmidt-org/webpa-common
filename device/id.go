@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-// ID represents a normalized identifer for a device.
+// ID represents a normalized identifier for a device.
 type ID string
 
 // Bytes is a convenience function to obtain the []byte representation of an ID.

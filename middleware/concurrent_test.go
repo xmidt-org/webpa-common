@@ -72,7 +72,7 @@ func testConcurrentCancel(t *testing.T, concurrency int, timeoutError error) {
 	nextWaiting.Wait()
 	cancel()
 
-	// because the context is cancelled, subsequent calls should complete immediately
+	// because the context is canceled, subsequent calls should complete immediately
 	actualResponse, err := endpoint(expectedCtx, "request")
 	assert.Nil(actualResponse)
 	assert.NotNil(err)

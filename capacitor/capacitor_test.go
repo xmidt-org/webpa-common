@@ -1,8 +1,6 @@
 package capacitor
 
 import (
-	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,29 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/v2/clock/clocktest"
 )
-
-func ExampleBasicUsage() {
-	var (
-		c = New()
-		w = new(sync.WaitGroup)
-	)
-
-	w.Add(1)
-
-	// this may or may not be executed, depending on timing of the machine where this is run
-	c.Submit(func() {})
-
-	// we'll wait until this is executed
-	c.Submit(func() {
-		fmt.Println("Discharged")
-		w.Done()
-	})
-
-	w.Wait()
-
-	// Output:
-	// Discharged
-}
 
 func testWithDelayDefault(t *testing.T) {
 	var (

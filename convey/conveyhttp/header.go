@@ -48,6 +48,8 @@ func NewHeaderTranslator(headerName string, translator convey.Translator) Header
 func (ht *headerTranslator) FromHeader(h http.Header) (convey.C, error) {
 	v := h.Get(ht.headerName)
 	if len(v) == 0 {
+
+		// nolint:govet
 		return nil, convey.Error{ErrMissingHeader, convey.Missing}
 	}
 

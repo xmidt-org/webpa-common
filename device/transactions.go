@@ -3,7 +3,6 @@ package device
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sync"
 
@@ -80,7 +79,7 @@ func (r *Request) ID() (i ID, err error) {
 //
 // The returned request will not be associated with any context.
 func DecodeRequest(source io.Reader, format wrp.Format) (*Request, error) {
-	contents, err := ioutil.ReadAll(source)
+	contents, err := io.ReadAll(source)
 	if err != nil {
 		return nil, err
 	}

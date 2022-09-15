@@ -83,6 +83,7 @@ func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) 
 //
 // This function allows an application-layer Endpoints, returned by alternate, to be used when injected
 // endpoints are not present.
+// nolint:govet
 func NewEndpoints(c Configuration, alternate func() (Endpoints, error)) (Endpoints, error) {
 	if endpoints := c.endpoints(); len(endpoints) > 0 {
 		return ParseURLs(endpoints...)
@@ -96,7 +97,9 @@ func NewEndpoints(c Configuration, alternate func() (Endpoints, error)) (Endpoin
 }
 
 // MustNewEndpoints is like NewEndpoints, save that it panics upon any error.
+// nolint:govet
 func MustNewEndpoints(c Configuration, alternate func() (Endpoints, error)) Endpoints {
+	// nolint:govet
 	e, err := NewEndpoints(c, alternate)
 	if err != nil {
 		panic(err)

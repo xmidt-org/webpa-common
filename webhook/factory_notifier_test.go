@@ -3,7 +3,7 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -15,12 +15,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	// nolint:staticcheck
 	AWS "github.com/xmidt-org/webpa-common/v2/webhook/aws"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *mux.Router, f *Factory) (*httptest.Server, Registry) {
 	assert := assert.New(t)
+	// nolint:goconst
 	expectedSubArn := "pending confirmation"
 	confSubArn := "testSubscriptionArn"
 
@@ -58,6 +62,7 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	assert.Equal(subValid, false)
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -94,6 +99,7 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	f, _ := NewFactory(nil)
 	f.Notifier = n
 
+	// nolint:goconst
 	expectedSubArn := "pending confirmation"
 	confSubArn := "testSubscriptionArn"
 
@@ -124,13 +130,15 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	assert.Equal(false, subValid)
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(http.StatusBadRequest, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
-	errResp, _ := ioutil.ReadAll(res.Body)
+	errResp, _ := io.ReadAll(res.Body)
+	// nolint:unconvert
 	json.Unmarshal([]byte(errResp), errMsg)
 
 	assert.Equal(http.StatusBadRequest, errMsg.Code)
@@ -168,6 +176,7 @@ func TestNotifierPublishFlow(t *testing.T) {
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil)
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -215,13 +224,16 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil)
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(http.StatusBadRequest, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
-	errResp, _ := ioutil.ReadAll(res.Body)
+	errResp, _ := io.ReadAll(res.Body)
+
+	// nolint:unconvert
 	json.Unmarshal([]byte(errResp), errMsg)
 
 	assert.Equal(http.StatusBadRequest, errMsg.Code)
@@ -260,13 +272,15 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 		fmt.Errorf("%s", AWS.SNS_VALIDATION_ERR))
 
 	req.RequestURI = ""
+	// nolint:bodyclose
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	assert.Equal(http.StatusBadRequest, res.StatusCode)
 	errMsg := new(AWS.ErrResp)
-	errResp, _ := ioutil.ReadAll(res.Body)
+	errResp, _ := io.ReadAll(res.Body)
+	// nolint:unconvert
 	json.Unmarshal([]byte(errResp), errMsg)
 
 	assert.Equal(http.StatusBadRequest, errMsg.Code)

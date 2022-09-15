@@ -2,13 +2,16 @@ package drain
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log/level"
+
 	"github.com/gorilla/schema"
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
+
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/converter"
@@ -39,7 +42,7 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	msgBytes, e := ioutil.ReadAll(request.Body)
+	msgBytes, e := io.ReadAll(request.Body)
 	defer request.Body.Close()
 
 	if e != nil {
