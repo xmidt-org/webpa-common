@@ -25,6 +25,11 @@ const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 // DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
 const DefaultWRPContentType = "application/octet-stream"
 
+// emptyBuffer is solely used as an address of a global empty buffer.
+// This sentinel value will reset pointers of the writePump's encoder
+// such that the gc can clean things up.
+var emptyBuffer = []byte{}
+
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
 // for explicit disconnection.
@@ -150,7 +155,6 @@ func NewManager(o *Options) Manager {
 		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
 		filter:                o.filter(),
 	}
-
 }
 
 // manager is the internal Manager implementation.
@@ -459,6 +463,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 
 	var (
 		envelope   *envelope
+		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
 
 		pingTicker = time.NewTicker(m.pingPeriod)
@@ -523,7 +528,9 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			} else {
 				// if the request was in a format other than Msgpack, or if the caller did not pass
 				// Contents, then do the encoding here.
-				writeError = wrp.NewEncoderBytes(&frameContents, wrp.Msgpack).Encode(envelope.request.Message)
+				encoder.ResetBytes(&frameContents)
+				writeError = encoder.Encode(envelope.request.Message)
+				encoder.ResetBytes(&emptyBuffer)
 			}
 
 			if writeError == nil {
