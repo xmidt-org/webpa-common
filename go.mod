@@ -35,7 +35,7 @@ require (
 	github.com/xmidt-org/argus v0.9.1
 	github.com/xmidt-org/bascule v0.11.0
 	github.com/xmidt-org/candlelight v0.0.11
-	github.com/xmidt-org/themis v0.4.8
+	github.com/xmidt-org/themis v0.4.9
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.1
 	go.uber.org/fx v1.18.2
