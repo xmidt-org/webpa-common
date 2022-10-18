@@ -9,3 +9,4 @@ report.json
 .idea
 server/cpuprofile
 server/memprofile
+*.code-workspace
