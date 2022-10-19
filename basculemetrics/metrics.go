@@ -3,15 +3,13 @@ package basculemetrics
 import (
 	"fmt"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xlog"
 	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 // Names for our metrics
@@ -127,7 +125,7 @@ func NewAuthValidationMeasures(r xmetrics.Registry) *AuthValidationMeasures {
 // custom labels.
 type BaseMeasuresIn struct {
 	fx.In
-	Logger log.Logger
+	Logger *zap.Logger
 
 	NBFHistogram      *prometheus.HistogramVec `name:"auth_from_nbf_seconds"`
 	ExpHistogram      *prometheus.HistogramVec `name:"auth_from_exp_seconds"`
@@ -141,7 +139,7 @@ type ListenerFactory struct {
 
 // New builds the metric listener from the provided metrics.
 func (m ListenerFactory) New(in BaseMeasuresIn) (*MetricListener, error) {
-	in.Logger.Log(level.Key(), level.DebugValue(), xlog.MessageKey(), "building auth validation measures", ServerLabel, m.ServerName)
+	in.Logger.Debug("building auth validation measures", zap.String(ServerLabel, m.ServerName))
 	nbfHistogramVec, err := in.NBFHistogram.CurryWith(prometheus.Labels{ServerLabel: m.ServerName})
 	if err != nil {
 		return nil, err

@@ -7,12 +7,13 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/webpa-common/v2/logging"
+	"go.uber.org/zap"
 )
 
 // NewErrorLog creates a new logging.Logger appropriate for http.Server.ErrorLog
-func NewErrorLog(serverName string, logger log.Logger) *stdlibLog.Logger {
+func NewErrorLog(serverName string, logger *zap.Logger) *stdlibLog.Logger {
 	return stdlibLog.New(
-		log.NewStdlibAdapter(logger),
+		zap.NewStdLog(logger).Writer(),
 		serverName,
 		stdlibLog.LstdFlags|stdlibLog.LUTC,
 	)

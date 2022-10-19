@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 // KeyHandler handles key-related requests
@@ -27,7 +28,7 @@ func (handler *KeyHandler) GetKey(response http.ResponseWriter, request *http.Re
 		response.Write(key)
 	} else {
 		message := fmt.Sprintf("No such key: %s", keyID)
-		handler.errorLogger.Println(message)
+		handler.logger.Println(message)
 
 		response.Header().Set("Content-Type", "application/json;charset=UTF-8")
 		response.WriteHeader(http.StatusNotFound)

@@ -39,17 +39,17 @@ func (ks *KeyStore) PublicKey(keyID string) (data []byte, ok bool) {
 }
 
 // NewKeyStore exchanges a Configuration for a KeyStore.
-func NewKeyStore(infoLogger *log.Logger, c *Configuration) (*KeyStore, error) {
+func NewKeyStore(logger *log.Logger, c *Configuration) (*KeyStore, error) {
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
 
 	privateKeys := make(map[string]*rsa.PrivateKey, len(c.Keys)+len(c.Generate))
-	if err := resolveKeys(infoLogger, c, privateKeys); err != nil {
+	if err := resolveKeys(logger, c, privateKeys); err != nil {
 		return nil, err
 	}
 
-	if err := generateKeys(infoLogger, c, privateKeys); err != nil {
+	if err := generateKeys(logger, c, privateKeys); err != nil {
 		return nil, err
 	}
 
@@ -70,9 +70,9 @@ func NewKeyStore(infoLogger *log.Logger, c *Configuration) (*KeyStore, error) {
 	}, nil
 }
 
-func resolveKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
+func resolveKeys(logger *log.Logger, c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
 	for keyID, resourceFactory := range c.Keys {
-		infoLogger.Printf("Key [%s]: loading from resource %#v\n", keyID, resourceFactory)
+		logger.Printf("Key [%s]: loading from resource %#v\n", keyID, resourceFactory)
 
 		keyResolver, err := (&key.ResolverFactory{
 			Factory: *resourceFactory,
@@ -98,14 +98,14 @@ func resolveKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[strin
 	return nil
 }
 
-func generateKeys(infoLogger *log.Logger, c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
+func generateKeys(logger *log.Logger, c *Configuration, privateKeys map[string]*rsa.PrivateKey) error {
 	bits := c.Bits
 	if bits < 1 {
 		bits = DefaultBits
 	}
 
 	for _, keyID := range c.Generate {
-		infoLogger.Printf("Key [%s]: generating ...", keyID)
+		logger.Printf("Key [%s]: generating ...", keyID)
 
 		if generatedKey, err := rsa.GenerateKey(rand.Reader, bits); err == nil {
 			privateKeys[keyID] = generatedKey

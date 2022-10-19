@@ -58,7 +58,7 @@ func TestBookkeeper(t *testing.T) {
 	require.NotNil(bookkeeper)
 	req := httptest.NewRequest("GET", "/", nil)
 
-	req = req.WithContext(logging.WithLogger(req.Context(), logger))
+	req = req.WithContext(zap.WithLogger(req.Context(), logger))
 
 	rr := httptest.NewRecorder()
 

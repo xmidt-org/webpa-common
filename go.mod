@@ -35,11 +35,15 @@ require (
 	github.com/xmidt-org/argus v0.9.2
 	github.com/xmidt-org/bascule v0.11.0
 	github.com/xmidt-org/candlelight v0.0.11
+	github.com/xmidt-org/sallust v0.1.6
 	github.com/xmidt-org/themis v0.4.9
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.3
 	go.uber.org/fx v1.18.2
+	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
+
+replace github.com/xmidt-org/sallust => github.com/xmidt-org/sallust v0.1.7-0.20221019165444-b7de762f6db4

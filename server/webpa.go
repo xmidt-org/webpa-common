@@ -25,6 +25,7 @@ import (
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/webpa-common/v2/xlistener"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap"
 )
 
 const (
@@ -64,9 +65,9 @@ type executor interface {
 	Shutdown(ctx context.Context) error
 }
 
-func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
+func RestartableFunc(logger *zap.Logger, f func() error, errs ...error) error {
 	var err error
-	logging.Debug(logger).Log(logging.MessageKey(), "starting restartable func", "errors", errs)
+	logger.Info("starting restartable func", zap.Errors("errors", errs))
 	breakErrors := make(map[error]bool)
 	for _, elem := range errs {
 		breakErrors[elem] = true
@@ -76,44 +77,34 @@ func RestartableFunc(logger log.Logger, f func() error, errs ...error) error {
 		if breakErrors[err] {
 			break
 		}
-		logging.Debug(logger).Log(logging.MessageKey(), "restartable func making a loop", logging.ErrorKey(), err)
+		logger.Debug("restartable func making a loop", zap.Error(err))
 	}
-	logging.Debug(logger).Log(logging.MessageKey(), "restartable func exiting", logging.ErrorKey(), err)
+	logger.Info("restartable func exiting", zap.Error(err))
 	return err
 }
 
 // Serve is like ListenAndServe, but accepts a custom net.Listener
-func Serve(logger log.Logger, l net.Listener, e executor, finalizer func()) {
+func Serve(logger *zap.Logger, l net.Listener, e executor, finalizer func()) {
 	go func() {
 		defer finalizer()
-		logger.Log(
-			level.Key(), level.ErrorValue(),
-			logging.MessageKey(), "starting server",
-		)
+		logger.Error("starting server")
 		// the assumption is tlsConfig has already been set
 		// Note: the tlsConfig should have the certs and goodness
-		logger.Log(
-			level.Key(), level.ErrorValue(),
-			logging.MessageKey(), "server exited",
-			logging.ErrorKey(), RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed),
+		logger.Error("server exited",
+			zap.Error(RestartableFunc(logger, func() error { return e.Serve(l) }, http.ErrServerClosed)),
 		)
 	}()
 }
 
 // ListenAndServe invokes the server method
-func ListenAndServe(logger log.Logger, e executor, finalizer func()) {
+func ListenAndServe(logger *zap.Logger, e executor, finalizer func()) {
 	go func() {
 		defer finalizer()
-		logger.Log(
-			level.Key(), level.ErrorValue(),
-			logging.MessageKey(), "starting server",
-		)
+		logger.Error("starting server")
 		// the assumption is tlsConfig has already been set
 		// Note: the tlsConfig should have the certs and goodness
-		logger.Log(
-			level.Key(), level.ErrorValue(),
-			logging.MessageKey(), "server exited",
-			logging.ErrorKey(), RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed),
+		logger.Error("server exited",
+			zap.Error(RestartableFunc(logger, e.ListenAndServe, http.ErrServerClosed)),
 		)
 	}()
 }
@@ -392,7 +383,7 @@ type Health struct {
 
 // NewHealth creates a Health instance from this instance's configuration.  If the Address
 // field is not supplied, this method returns nil.
-func (h *Health) NewHealth(logger log.Logger, options ...health.Option) *health.Health {
+func (h *Health) NewHealth(logger *zap.Logger, options ...health.Option) *health.Health {
 	if len(h.Address) == 0 {
 		return nil
 	}
@@ -414,7 +405,7 @@ func (h *Health) NewHealth(logger log.Logger, options ...health.Option) *health.
 //
 // If the Address option is not supplied, the health module is considered to be disabled.  In that
 // case, this method simply returns the health parameter as the monitor and a nil server instance.
-func (h *Health) New(logger log.Logger, chain alice.Chain, health *health.Health) (*health.Health, *http.Server) {
+func (h *Health) New(logger *zap.Logger, chain alice.Chain, health *health.Health) (*health.Health, *http.Server) {
 	if len(h.Address) == 0 {
 		// health is disabled
 		return nil, nil
@@ -668,7 +659,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 	}), done
 }
 
-//decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
+// decorateWithBasicMetrics wraps a WebPA server handler with basic instrumentation metrics
 func (w *WebPA) decorateWithBasicMetrics(p xmetrics.PrometheusProvider, next http.Handler) http.Handler {
 	var (
 		requestCounter    = p.NewCounterVec(APIRequestsTotal)

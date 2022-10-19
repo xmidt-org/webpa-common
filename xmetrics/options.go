@@ -1,9 +1,8 @@
 package xmetrics
 
 import (
-	"github.com/go-kit/kit/log"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"go.uber.org/zap"
 )
 
 const (
@@ -14,7 +13,7 @@ const (
 // Options is the configurable options for creating a Prometheus registry
 type Options struct {
 	// Logger is the go-kit logger to use for metrics output.  If unset, logging.DefaultLogger() is used.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// Namespace is the global default namespace for metrics which don't define a namespace (or for ad hoc metrics).
 	// If not supplied, DefaultNamespace is used.
@@ -47,12 +46,17 @@ type Options struct {
 	Metrics []Metric
 }
 
-func (o *Options) logger() log.Logger {
+func (o *Options) logger() *zap.Logger {
 	if o != nil && o.Logger != nil {
 		return o.Logger
 	}
 
-	return logging.DefaultLogger()
+	l, err := zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
+
+	return l
 }
 
 func (o *Options) namespace() string {

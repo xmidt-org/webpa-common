@@ -1,8 +1,8 @@
 package device
 
 import (
-	"github.com/go-kit/kit/log"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 
 // NewOptions unmarshals a device.Options from a Viper environment.  Listeners
 // must be configured separately.
-func NewOptions(logger log.Logger, v *viper.Viper) (o *Options, err error) {
+func NewOptions(logger *zap.Logger, v *viper.Viper) (o *Options, err error) {
 	o = new(Options)
 	if v != nil {
 		err = v.Unmarshal(o)

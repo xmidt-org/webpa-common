@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
+	"go.uber.org/zap"
 
 	"github.com/xmidt-org/webpa-common/v2/convey"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
@@ -20,7 +20,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -84,7 +83,7 @@ func testManagerConnectFilterDeny(t *testing.T) {
 	assert := assert.New(t)
 	mockFilter := new(mockFilter)
 	options := &Options{
-		Logger: log.NewNopLogger(),
+		Logger: zap.NewNop(),
 		Filter: mockFilter,
 	}
 
@@ -103,7 +102,7 @@ func testManagerConnectFilterDeny(t *testing.T) {
 func testManagerConnectMissingDeviceContext(t *testing.T) {
 	assert := assert.New(t)
 	options := &Options{
-		Logger: log.NewNopLogger(),
+		Logger: zap.NewNop(),
 	}
 
 	manager := NewManager(options)
@@ -120,7 +119,7 @@ func testManagerConnectUpgradeError(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		options = &Options{
-			Logger: log.NewNopLogger(),
+			Logger: zap.NewNop(),
 			Listeners: []Listener{
 				func(e *Event) {
 					assert.Fail("The listener should not have been called")
@@ -146,7 +145,7 @@ func testManagerConnectVisit(t *testing.T) {
 		connections = make(chan Interface, len(testDeviceIDs))
 
 		options = &Options{
-			Logger: log.NewNopLogger(),
+			Logger: zap.NewNop(),
 			Listeners: []Listener{
 				func(event *Event) {
 					if event.Type == Connect {
@@ -195,7 +194,7 @@ func testManagerDisconnect(t *testing.T) {
 	disconnections := make(chan Interface, len(testDeviceIDs))
 
 	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
+		Logger: zap.NewNop(),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {
@@ -238,7 +237,7 @@ func testManagerDisconnectIf(t *testing.T) {
 	disconnections := make(chan Interface, len(testDeviceIDs))
 
 	options := &Options{
-		Logger: logging.NewTestLogger(nil, t),
+		Logger: zap.NewNop(),
 		Listeners: []Listener{
 			func(event *Event) {
 				switch event.Type {
@@ -325,7 +324,7 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 		contents    = make(chan []byte, 1)
 
 		options = &Options{
-			Logger: log.NewNopLogger(),
+			Logger: zap.NewNop(),
 			Listeners: []Listener{
 				func(event *Event) {
 					if event.Type == Connect {
@@ -429,9 +428,9 @@ func TestWRPSourceIsValid(t *testing.T) {
 		BaseLabelPairs map[string]string
 	}{
 		{
-			Name:    "EmptySource",
-			IsValid: false,
-			Source: "   	",
+			Name:           "EmptySource",
+			IsValid:        false,
+			Source:         "   	",
 			BaseLabelPairs: map[string]string{"reason": "empty"},
 		},
 
@@ -461,7 +460,7 @@ func TestWRPSourceIsValid(t *testing.T) {
 
 			d := new(device)
 			d.id = canonicalID
-			d.errorLog = log.WithPrefix(logging.NewTestLogger(nil, t), "id", canonicalID)
+			d.logger = zap.NewNop().With(zap.String("id", string(canonicalID)))
 			d.metadata = new(Metadata)
 
 			// strict mode

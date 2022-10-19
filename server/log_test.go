@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/internal/bufferpool"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 )
 
 func newTestLogger() (verify *bytes.Buffer, logger log.Logger) {
-	verify = new(bytes.Buffer)
+	verify = (*bytes.Buffer)(bufferpool.Get())
 	logger = log.NewLogfmtLogger(log.NewSyncWriter(verify))
 	return
 }

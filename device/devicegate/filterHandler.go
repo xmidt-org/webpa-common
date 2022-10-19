@@ -8,10 +8,9 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
+	"go.uber.org/zap"
 )
 
 // ContextKey is a custom type for setting keys in a request's context
@@ -26,7 +25,7 @@ type FilterHandler struct {
 
 // GateLogger is used to log extra details about the gate
 type GateLogger struct {
-	Logger log.Logger
+	Logger *zap.Logger
 }
 
 // GetFilters is a handler function that gets all of the filters set on a gate
@@ -38,18 +37,18 @@ func (fh *FilterHandler) GetFilters(response http.ResponseWriter, request *http.
 
 // UpdateFilters is a handler function that updates the filters stored in a gate
 func (fh *FilterHandler) UpdateFilters(response http.ResponseWriter, request *http.Request) {
-	logger := logging.GetLogger(request.Context())
+	logger := sallust.Get(request.Context())
 
 	message, err := validateRequestBody(request)
 
 	if err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error with request body", logging.ErrorKey(), err)
+		logger.Error("error with request body", zap.Error(err))
 		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
 
 	if allow, err := checkRequestDetails(message, fh.Gate, true); !allow {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), err)
+		logger.Error(err.Error(), zap.Error(err))
 		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
@@ -66,18 +65,18 @@ func (fh *FilterHandler) UpdateFilters(response http.ResponseWriter, request *ht
 
 // DeleteFilter is a handler function used to delete a particular filter stored in the gate
 func (fh *FilterHandler) DeleteFilter(response http.ResponseWriter, request *http.Request) {
-	logger := logging.GetLogger(request.Context())
+	logger := sallust.Get(request.Context())
 
 	message, err := validateRequestBody(request)
 
 	if err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error with request body", logging.ErrorKey(), err)
+		logger.Error("error with request body", zap.Error(err))
 		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
 
 	if allow, err := checkRequestDetails(message, fh.Gate, false); !allow {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), err)
+		logger.Error(err.Error(), zap.Error(err))
 		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
@@ -98,12 +97,12 @@ func (gl GateLogger) LogFilters(next http.Handler) http.Handler {
 			if filtersJSON, err := json.Marshal(gate); err == nil {
 				response.Header().Set("Content-Type", "application/json")
 				fmt.Fprintf(response, `%s`, filtersJSON)
-				gl.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate filters updated", "filters", string(filtersJSON))
+				gl.Logger.Info("gate filters updated", zap.String("filters", string(filtersJSON)))
 			} else {
-				gl.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error with unmarshalling gate", logging.ErrorKey(), err)
+				gl.Logger.Error("error with unmarshalling gate", zap.Error(err))
 			}
 		} else {
-			gl.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "gate not found in request context")
+			gl.Logger.Info("gate not found in request context")
 		}
 
 	})

@@ -155,8 +155,7 @@ func TestInitialize_SNSUrlPathWithTimestamp(t *testing.T) {
 	awsMetrics := ApplyMetricsData(registry)
 	ss.Initialize(nil, selfUrl, "", nil, nil, awsMetrics, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
-	require.NotNil(ss.errorLog)
-	require.NotNil(ss.debugLog)
+	require.NotNil(ss.logger)
 	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, "/", TEST_UNIX_TIME), selfUrl.Path)
 	assert.Equal("http://host-test:10000/api/v2/aws/sns/1503357402", ss.SelfUrl.String())
 }
@@ -176,8 +175,7 @@ func TestInitialize_SNSUrlPathWithSlash(t *testing.T) {
 	awsMetrics := ApplyMetricsData(registry)
 	ss.Initialize(nil, selfUrl, "", nil, nil, awsMetrics, func() time.Time { return time.Unix(TEST_UNIX_TIME, 0) })
 
-	require.NotNil(ss.errorLog)
-	require.NotNil(ss.debugLog)
+	require.NotNil(ss.logger)
 	assert.Equal(fmt.Sprint(ss.Config.Sns.UrlPath, TEST_UNIX_TIME), selfUrl.Path)
 	assert.Equal("http://host-test:10000/sns/1503357402", ss.SelfUrl.String())
 }

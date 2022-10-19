@@ -5,11 +5,10 @@ import (
 	"net/http"
 
 	"github.com/SermoDigital/jose/jws"
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/secure"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
+	"go.uber.org/zap"
 )
 
 const (
@@ -33,7 +32,7 @@ type AuthorizationHandler struct {
 	HeaderName          string
 	ForbiddenStatusCode int
 	Validator           secure.Validator
-	Logger              log.Logger
+	Logger              *zap.Logger
 	measures            *secure.JWTValidationMeasures
 }
 
@@ -57,12 +56,12 @@ func (a AuthorizationHandler) forbiddenStatusCode() int {
 	return http.StatusForbidden
 }
 
-func (a AuthorizationHandler) logger() log.Logger {
+func (a AuthorizationHandler) logger() *zap.Logger {
 	if a.Logger != nil {
 		return a.Logger
 	}
 
-	return logging.DefaultLogger()
+	return sallust.Default()
 }
 
 // Decorate provides an Alice-compatible constructor that validates requests
@@ -77,13 +76,12 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		headerName          = a.headerName()
 		forbiddenStatusCode = a.forbiddenStatusCode()
 		logger              = a.logger()
-		errorLog            = logging.Error(logger)
 	)
 
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		headerValue := request.Header.Get(headerName)
 		if len(headerValue) == 0 {
-			errorLog.Log(logging.MessageKey(), "missing header", "name", headerName)
+			logger.Info("missing header", zap.String("name", headerName))
 			xhttp.WriteErrorf(response, forbiddenStatusCode, "missing header: %s", headerName)
 
 			if a.measures != nil {
@@ -94,7 +92,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 
 		token, err := secure.ParseAuthorization(headerValue)
 		if err != nil {
-			errorLog.Log(logging.MessageKey(), "invalid authorization header", "name", headerName, logging.ErrorKey(), err)
+			logger.Error("invalid authorization header", zap.String("name", headerName), zap.Error(err))
 			xhttp.WriteErrorf(response, forbiddenStatusCode, "Invalid authorization header [%s]: %s", headerName, err.Error())
 
 			if a.measures != nil {
@@ -114,7 +112,7 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 		valid, err := a.Validator.Validate(sharedContext, token)
 		if err == nil && valid {
 			if err := populateContextValues(token, contextValues); err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to populate context", logging.ErrorKey(), err)
+				logger.Error("unable to populate context", zap.Error(err))
 			}
 
 			// this is absolutely horrible, but it's the only way we can do it for now.
@@ -124,23 +122,23 @@ func (a AuthorizationHandler) Decorate(delegate http.Handler) http.Handler {
 			return
 		}
 
-		errorLog.Log(
-			logging.MessageKey(), "request denied",
-			"validator-response", valid,
-			"validator-error", err,
-			"sat-client-id", contextValues.SatClientID,
-			"method", request.Method,
-			"url", request.URL,
-			"user-agent", request.Header.Get("User-Agent"),
-			"content-length", request.ContentLength,
-			"remoteAddress", request.RemoteAddr,
+		logger.Info(
+			"request denied",
+			zap.Bool("validator-response", valid),
+			zap.NamedError("validator-error", err),
+			zap.String("sat-client-id", contextValues.SatClientID),
+			zap.String("method", request.Method),
+			zap.Any("url", request.URL),
+			zap.String("user-agent", request.Header.Get("User-Agent")),
+			zap.Int64("content-length", request.ContentLength),
+			zap.String("remoteAddress", request.RemoteAddr),
 		)
 
 		xhttp.WriteError(response, forbiddenStatusCode, "request denied")
 	})
 }
 
-//DefineMeasures facilitates clients to define authHandler metrics tools
+// DefineMeasures facilitates clients to define authHandler metrics tools
 func (a *AuthorizationHandler) DefineMeasures(m *secure.JWTValidationMeasures) {
 	a.measures = m
 }

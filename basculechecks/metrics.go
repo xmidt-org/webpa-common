@@ -20,17 +20,15 @@ package basculechecks
 import (
 	"fmt"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/themis/xlog"
 	themisXmetrics "github.com/xmidt-org/themis/xmetrics"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 // Names for our metrics
@@ -122,7 +120,7 @@ func NewAuthCapabilityCheckMeasures(p provider.Provider) *AuthCapabilityCheckMea
 // custom labels.
 type BaseMeasuresIn struct {
 	fx.In
-	Logger                 log.Logger
+	Logger                 *zap.Logger
 	CapabilityCheckOutcome *prometheus.CounterVec `name:"auth_capability_check"`
 }
 
@@ -137,7 +135,7 @@ func (m MeasuresFactory) NewMeasures(in BaseMeasuresIn) (*AuthCapabilityCheckMea
 	if err != nil {
 		return nil, err
 	}
-	in.Logger.Log(level.Key(), level.DebugValue(), xlog.MessageKey(), "building auth capability measures", ServerLabel, m.ServerName)
+	in.Logger.Debug("building auth capability measures", zap.String(ServerLabel, m.ServerName))
 	return &AuthCapabilityCheckMeasures{
 		CapabilityCheckOutcome: gokitprometheus.NewCounter(capabilityCheckOutcomeCounterVec),
 	}, nil

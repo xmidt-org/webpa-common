@@ -51,8 +51,7 @@ type SNSServer struct {
 	channelSize          int64
 	channelClientTimeout time.Duration
 
-	errorLog                    log.Logger
-	debugLog                    log.Logger
+	logger                      log.Logger
 	metrics                     AWSMetrics
 	snsNotificationReceivedChan chan int
 	waitForDns                  time.Duration
@@ -168,13 +167,12 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider s
 		logger = logging.DefaultLogger()
 	}
 
-	ss.errorLog = log.WithPrefix(logger, level.Key(), level.ErrorValue())
-	ss.debugLog = log.WithPrefix(logger, level.Key(), level.DebugValue())
+	ss.logger = log.WithPrefix(logger, level.Key(), level.ErrorValue())
 
 	ss.metrics = metrics
 	ss.snsNotificationReceivedChan = ss.SNSNotificationReceivedInit()
 
-	ss.debugLog.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
+	ss.logger.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
 
 	// Set various SNS POST routes
 	ss.SetSNSRoutes(urlPath, rtr, handler)
@@ -190,9 +188,9 @@ func (ss *SNSServer) PrepareAndStart() {
 	ss.Subscribe()
 }
 
-//DnsReady blocks until the primary server's DNS is up and running or
-//until the timeout is reached
-//if timeout value is 0s it will try forever
+// DnsReady blocks until the primary server's DNS is up and running or
+// until the timeout is reached
+// if timeout value is 0s it will try forever
 func (ss *SNSServer) DnsReady() (e error) {
 
 	// if an SOA provider isn't given, we're done
@@ -245,7 +243,7 @@ func (ss *SNSServer) DnsReady() (e error) {
 				}
 				// otherwise, we keep trying
 				ss.metrics.DnsReadyQueryCount.Add(1.0)
-				ss.debugLog.Log(logging.MessageKey(), "checking if server's DNS is ready",
+				ss.logger.Log(logging.MessageKey(), "checking if server's DNS is ready",
 					"endpoint", strings.SplitN(ss.SelfUrl.Host, ":", 2)[0]+".", logging.ErrorKey(), err, "response", response)
 				time.Sleep(time.Second)
 			}
@@ -267,12 +265,12 @@ func (ss *SNSServer) DnsReady() (e error) {
 func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 
 	if ss.subscriptionArn.Load() == nil {
-		ss.errorLog.Log(logging.MessageKey(), "SNS subscriptionArn is nil")
+		ss.logger.Log(logging.MessageKey(), "SNS subscriptionArn is nil")
 		return false
 	} else if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {
 		return true
 	} else {
-		ss.errorLog.Log(
+		ss.logger.Log(
 			logging.MessageKey(), "SNS Invalid subscription",
 			"reqSubscriptionArn", reqSubscriptionArn,
 			"cfg", ss.subscriptionArn.Load().(string),
