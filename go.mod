@@ -37,7 +37,7 @@ require (
 	github.com/xmidt-org/candlelight v0.0.12
 	github.com/xmidt-org/themis v0.4.9
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.3
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.4
 	go.uber.org/fx v1.18.2
 	golang.org/x/net v0.0.0-20220822230855-b0a4917ee28c // indirect
 	golang.org/x/tools v0.1.12 // indirect
