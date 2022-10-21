@@ -7,7 +7,7 @@ import (
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestOptionsDefault(t *testing.T) {
@@ -31,7 +31,7 @@ func TestOptionsDefault(t *testing.T) {
 func TestOptions(t *testing.T) {
 	var (
 		assert                  = assert.New(t)
-		expectedLogger          = logging.DefaultLogger()
+		expectedLogger          = sallust.Default()
 		expectedMetricsProvider = provider.NewPrometheusProvider("test", "test")
 
 		o = Options{

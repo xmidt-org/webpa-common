@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -52,7 +52,7 @@ func TestDevice(t *testing.T) {
 				ID:          record.expectedID,
 				QueueSize:   record.expectedQueueSize,
 				ConnectedAt: expectedConnectedAt,
-				Logger:      logging.NewTestLogger(nil, t),
+				Logger:      sallust.Default(),
 				Metadata:    new(Metadata),
 			})
 		)

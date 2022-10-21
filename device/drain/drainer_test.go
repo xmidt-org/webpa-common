@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 )
 
@@ -81,7 +81,7 @@ func testWithLoggerDefault(t *testing.T) {
 func testWithLoggerCustom(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 		d      = new(drainer)
 	)
 
@@ -247,7 +247,7 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		manager = generateManager(assert, uint64(deviceCount))
 
@@ -366,7 +366,7 @@ func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		manager = generateManager(assert, uint64(deviceCount))
 
@@ -461,7 +461,7 @@ func testDrainerVisitCancel(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		manager = generateManager(assert, 100)
 
@@ -497,7 +497,7 @@ func testDrainerDisconnectCancel(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		manager = generateManager(assert, 100)
 
@@ -543,7 +543,7 @@ func testDrainerDrainCancel(t *testing.T) {
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		manager = generateManager(assert, 100)
 
@@ -634,7 +634,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		// generate manager with devices that have two different metadatas
 		manager = generateManagerWithDifferentDevices(assert, deviceTypeOne.claims, uint64(deviceTypeOne.count), deviceTypeTwo.claims, uint64(deviceTypeTwo.count))
@@ -791,7 +791,7 @@ func testDisconnectFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo 
 		assert   = assert.New(t)
 		require  = require.New(t)
 		provider = xmetricstest.NewProvider(nil)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 
 		// generate manager with devices that have two different metadatas
 		manager = generateManagerWithDifferentDevices(assert, deviceTypeOne.claims, uint64(deviceTypeOne.count), deviceTypeTwo.claims, uint64(deviceTypeTwo.count))
