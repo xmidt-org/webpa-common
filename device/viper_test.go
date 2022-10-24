@@ -7,14 +7,14 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestNewOptions(t *testing.T) {
 	var (
 		assert        = assert.New(t)
 		require       = require.New(t)
-		logger        = logging.DefaultLogger()
+		logger        = sallust.Default()
 		configuration = `{
 			"device": {
 				"manager": {
@@ -45,7 +45,7 @@ func TestNewOptionsUnmarshalError(t *testing.T) {
 	var (
 		assert        = assert.New(t)
 		require       = require.New(t)
-		logger        = logging.DefaultLogger()
+		logger        = sallust.Default()
 		configuration = `{
 			"device": {
 				"manager": {
@@ -71,7 +71,7 @@ func TestNewOptionsNilViper(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.DefaultLogger()
+		logger  = sallust.Default()
 	)
 
 	o, err := NewOptions(logger, nil)
