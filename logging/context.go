@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/log"
+	"go.uber.org/zap"
 )
 
 type contextKey uint32
@@ -11,7 +12,7 @@ type contextKey uint32
 const loggerKey contextKey = 1
 
 // WithLogger adds the given Logger to the context so that it can be retrieved with Logger
-func WithLogger(parent context.Context, logger log.Logger) context.Context {
+func WithLogger(parent context.Context, logger *zap.Logger) context.Context {
 	return context.WithValue(parent, loggerKey, logger)
 }
 
