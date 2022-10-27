@@ -188,12 +188,8 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 		return
 	}
 
-	logger := sallust.Enrich(
-		r.logger.With(
-			zap.Int(monitor.EventCountKey(), e.EventCount),
-		),
-		e.Instancer,
-	)
+	logger := r.logger.With(
+		zap.Int(monitor.EventCountKey(), e.EventCount), zap.Any(e.Service, e.Instancer))
 
 	switch {
 	case e.Err != nil:

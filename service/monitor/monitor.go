@@ -146,7 +146,7 @@ func (m *monitor) start() error {
 				svc = svcName
 			}
 		}
-		go m.dispatchEvents(k, svc, sallust.Enrich(m.logger, v), v)
+		go m.dispatchEvents(k, svc, m.logger.With(zap.Any(k, v)), v)
 	}
 
 	return nil
