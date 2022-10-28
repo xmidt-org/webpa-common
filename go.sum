@@ -1009,8 +1009,9 @@ github.com/xmidt-org/sallust v0.1.6 h1:MZAU0rD0flrGrKs6+Nx3mpjwKV6QsWJlEBegRfKVn
 github.com/xmidt-org/sallust v0.1.6/go.mod h1:c6J68AkKaSp0Nc6fSBTwkS1vgc3lVAC3AdofrD10ldA=
 github.com/xmidt-org/themis v0.4.4/go.mod h1:0qRYFvKdrQhwjxH/1nAiTgBGT4cegJR76gfEYF5P7so=
 github.com/xmidt-org/themis v0.4.7/go.mod h1:GlsC/hO9lpZKs6mJNZtbDOf/yDT8tS6NN0k3C+YsWFc=
-github.com/xmidt-org/themis v0.4.9 h1:SnQnyzGRC5H6Wpf8Z4YsdKYp5vjS5oSRKZQOlcqJaJk=
 github.com/xmidt-org/themis v0.4.9/go.mod h1:5cPRieMaJMiWSnDbmaVQQMsDXXO1+pdafSzihQOZltc=
+github.com/xmidt-org/themis v0.4.10 h1:ccNdlRCfF3SUogOyceYV8PBa12JKWh7lEj1UPYbINNw=
+github.com/xmidt-org/themis v0.4.10/go.mod h1:3rP6DWv5bnrKdbR5fBOITRpn0fZE4UcKWNJz3OVsEqo=
 github.com/xmidt-org/touchstone v0.0.3/go.mod h1:++4yF9lobCmQ6U5XOSFKysRtB0avwoXJ80MW+8Kl7ok=
 github.com/xmidt-org/touchstone v0.1.1/go.mod h1:7Rgqs44l1VndkvFUZewr8WpItzxfJSxMZuudCDop3pE=
 github.com/xmidt-org/touchstone v0.1.2 h1:XftgpxlRGvUd+ZSZMzFskgRHwTM7hDYwvCd6ExCNe2s=
