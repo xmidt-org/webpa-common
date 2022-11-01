@@ -8,12 +8,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 var (
@@ -24,7 +23,7 @@ var (
 
 type InstancerOptions struct {
 	Client       Client
-	Logger       log.Logger
+	Logger       *zap.Logger
 	Service      string
 	Tags         []string
 	PassingOnly  bool
@@ -33,12 +32,12 @@ type InstancerOptions struct {
 
 func NewInstancer(o InstancerOptions) sd.Instancer {
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = sallust.Default()
 	}
 
 	i := &instancer{
 		client:       o.Client,
-		logger:       log.With(o.Logger, "service", o.Service, "tags", fmt.Sprint(o.Tags), "passingOnly", o.PassingOnly, "datacenter", o.QueryOptions.Datacenter),
+		logger:       o.Logger.With(zap.String("service", o.Service), zap.Strings("tags", o.Tags), zap.Bool("passingOnly", o.PassingOnly), zap.String("datacenter", o.QueryOptions.Datacenter)),
 		service:      o.Service,
 		passingOnly:  o.PassingOnly,
 		queryOptions: o.QueryOptions,
@@ -56,9 +55,9 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 	// grab the initial set of instances
 	instances, index, err := i.getInstances(0, nil)
 	if err == nil {
-		i.logger.Log(level.Key(), level.InfoValue(), "instances", len(instances))
+		i.logger.Info("instances", zap.Int("instances", len(instances)))
 	} else {
-		i.logger.Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), err)
+		i.logger.Error(err.Error(), zap.Error(err))
 	}
 
 	i.update(sd.Event{Instances: instances, Err: err})
@@ -69,7 +68,7 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 
 type instancer struct {
 	client  Client
-	logger  log.Logger
+	logger  *zap.Logger
 	service string
 
 	tag        string
@@ -114,7 +113,7 @@ func (i *instancer) loop(lastIndex uint64) {
 			return
 
 		case err != nil:
-			i.logger.Log(logging.ErrorKey(), err)
+			i.logger.Error(err.Error(), zap.Error(err))
 
 			// TODO: this is not recommended, but it was a port of go-kit
 			// Put in a token bucket here with a wait, instead of time.Sleep

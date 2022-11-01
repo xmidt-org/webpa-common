@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -61,7 +61,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = sallust.Default()
 		clientFactory = prepareMockClientFactory()
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)

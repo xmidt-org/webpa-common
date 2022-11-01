@@ -7,17 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap"
 )
 
 func TestNewDatacenterWatcher(t *testing.T) {
-	logger := log.NewNopLogger()
+	logger := sallust.Default()
 	r, err := xmetrics.NewRegistry(nil, Metrics)
 	require.Nil(t, err)
 	envShutdownChan := make(<-chan struct{})
@@ -47,7 +48,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 
 	tests := []struct {
 		description     string
-		logger          log.Logger
+		logger          *zap.Logger
 		environment     Environment
 		options         Options
 		ctx             context.Context
@@ -157,7 +158,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				DatacenterWatchInterval: 10 * time.Second,
 			},
 			expectedWatcher: &datacenterWatcher{
-				logger: defaultLogger,
+				logger: sallust.Default(),
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
 				},
@@ -249,7 +250,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 }
 
 func TestUpdateInactiveDatacenters(t *testing.T) {
-	logger := log.NewNopLogger()
+	logger := sallust.Default()
 
 	tests := []struct {
 		description                 string
