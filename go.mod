@@ -32,7 +32,7 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.1
 	github.com/ugorji/go/codec v1.2.7
-	github.com/xmidt-org/argus v0.9.3
+	github.com/xmidt-org/argus v0.9.4
 	github.com/xmidt-org/bascule v0.11.0
 	github.com/xmidt-org/candlelight v0.0.12
 	github.com/xmidt-org/themis v0.4.10
