@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 const (
@@ -145,7 +144,7 @@ func NewCollector(m Metric) (prometheus.Collector, error) {
 // namespace and subsystem to each metric.  This type implements a Fluent Interface which tracks the first
 // error encountered.
 type Merger struct {
-	logger           log.Logger
+	logger           *zap.Logger
 	defaultNamespace string
 	defaultSubsystem string
 	namer            func(string, string, string) string
@@ -156,7 +155,7 @@ type Merger struct {
 // NewMerger creates a merging strategy with useful defaults.
 func NewMerger() *Merger {
 	return &Merger{
-		logger:           logging.DefaultLogger(),
+		logger:           sallust.Default(),
 		defaultNamespace: DefaultNamespace,
 		defaultSubsystem: DefaultSubsystem,
 		namer:            prometheus.BuildFQName,
@@ -165,11 +164,11 @@ func NewMerger() *Merger {
 }
 
 // Logger sets a go-kit logger to use for merging output
-func (mr *Merger) Logger(logger log.Logger) *Merger {
+func (mr *Merger) Logger(logger *zap.Logger) *Merger {
 	if logger != nil {
 		mr.logger = logger
 	} else {
-		mr.logger = logging.DefaultLogger()
+		mr.logger = sallust.Default()
 	}
 
 	return mr
@@ -232,14 +231,13 @@ func (mr *Merger) tryAdd(allowOverride bool, m Metric) bool {
 
 	defer func() {
 		if mr.err != nil {
-			mr.logger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "failed to merge metrics",
-				logging.ErrorKey(), mr.err,
-				"name", m.Name,
-				"namespace", m.Namespace,
-				"subsystem", m.Subsystem,
-				"type", m.Type,
+			mr.logger.Error(
+				"failed to merge metrics",
+				zap.Error(mr.err),
+				zap.String("name", m.Name),
+				zap.String("namespace", m.Namespace),
+				zap.String("subsystem", m.Subsystem),
+				zap.String("type", m.Type),
 			)
 		}
 	}()
@@ -258,14 +256,13 @@ func (mr *Merger) tryAdd(allowOverride bool, m Metric) bool {
 	}
 
 	fqn := mr.namer(m.Namespace, m.Subsystem, m.Name)
-	mr.logger.Log(
-		level.Key(), level.DebugValue(),
-		logging.MessageKey(), "merging metric",
-		"name", m.Name,
-		"namespace", m.Namespace,
-		"subsystem", m.Subsystem,
-		"fqn", fqn,
-		"type", m.Type,
+	mr.logger.Debug(
+		"merging metric",
+		zap.String("name", m.Name),
+		zap.String("namespace", m.Namespace),
+		zap.String("subsystem", m.Subsystem),
+		zap.String("fqn", fqn),
+		zap.String("type", m.Type),
 	)
 
 	if existing, ok := mr.merged[fqn]; ok {

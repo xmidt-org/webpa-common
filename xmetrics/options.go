@@ -12,7 +12,7 @@ const (
 
 // Options is the configurable options for creating a Prometheus registry
 type Options struct {
-	// Logger is the go-kit logger to use for metrics output.  If unset, logging.DefaultLogger() is used.
+	// Logger is the go-kit logger to use for metrics output.  If unset, sallust.Default() is used.
 	Logger *zap.Logger
 
 	// Namespace is the global default namespace for metrics which don't define a namespace (or for ad hoc metrics).
