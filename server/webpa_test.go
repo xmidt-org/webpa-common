@@ -1,8 +1,11 @@
 package server
 
 import (
+	"bytes"
 	"crypto/tls"
 	"errors"
+	"log"
+	"net"
 	"net/http"
 	"sync"
 	"testing"
@@ -12,8 +15,39 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap/zapcore"
 )
+
+func assertBufferContains(assert *assert.Assertions, verify *bytes.Buffer, values ...string) {
+	text := verify.String()
+	for _, value := range values {
+		assert.Contains(text, value)
+	}
+}
+
+func assertErrorLog(assert *assert.Assertions, verify *bytes.Buffer, serverName string, errorLog *log.Logger) {
+	if assert.NotNil(errorLog) {
+		errorLog.Print("howdy!")
+		assertBufferContains(assert, verify, serverName, "howdy!")
+	}
+}
+
+func assertConnState(assert *assert.Assertions, verify *bytes.Buffer, connState func(net.Conn, http.ConnState)) {
+	if assert.NotNil(connState) {
+		conn1, conn2 := net.Pipe()
+		defer conn1.Close()
+		defer conn2.Close()
+
+		assert.NotPanics(func() {
+			connState(conn1, http.StateNew)
+		})
+		if verify != nil {
+			assertBufferContains(assert, verify, conn1.LocalAddr().String(), http.StateNew.String())
+		}
+	}
+}
 
 func TestListenAndServeNonSecure(t *testing.T) {
 	var (
@@ -37,7 +71,7 @@ func TestListenAndServeNonSecure(t *testing.T) {
 		var (
 			assert = assert.New(t)
 
-			_, logger      = newTestLogger()
+			_, logger      = sallust.NewTestLogger(zapcore.InfoLevel)
 			executorCalled = make(chan struct{}, 1)
 			mockExecutor   = new(mockExecutor)
 
@@ -88,7 +122,7 @@ func TestListenAndServeSecure(t *testing.T) {
 		var (
 			assert = assert.New(t)
 
-			_, logger      = newTestLogger()
+			_, logger      = sallust.NewTestLogger(zapcore.InfoLevel)
 			executorCalled = make(chan struct{}, 1)
 			mockExecutor   = new(mockExecutor)
 
@@ -230,7 +264,7 @@ func TestBasicNew(t *testing.T) {
 	for _, record := range testData {
 		t.Run(record.description, func(t *testing.T) {
 			var (
-				verify, logger = newTestLogger()
+				verify, logger = sallust.NewTestLogger(zapcore.DebugLevel)
 				basic          = Basic{
 					Name:               expectedName,
 					Address:            record.address,
@@ -324,7 +358,7 @@ func TestHealthNew(t *testing.T) {
 		t.Logf("%#v", record)
 
 		var (
-			verify, logger = newTestLogger()
+			verify, logger = sallust.NewTestLogger(zapcore.DebugLevel)
 			health         = Health{
 				Name:               expectedName,
 				Address:            record.address,
@@ -369,7 +403,7 @@ func TestWebPANoPrimaryAddress(t *testing.T) {
 		handler = new(mockHandler)
 		webPA   = WebPA{}
 
-		_, logger               = newTestLogger()
+		_, logger               = sallust.NewTestLogger(zapcore.InfoLevel)
 		monitor, runnable, done = webPA.Prepare(logger, nil, xmetrics.MustNewRegistry(nil), handler)
 	)
 
@@ -428,7 +462,7 @@ func TestWebPA(t *testing.T) {
 			},
 		}
 
-		_, logger               = newTestLogger()
+		_, logger               = sallust.NewTestLogger(zapcore.InfoLevel)
 		monitor, runnable, done = webPA.Prepare(logger, nil, xmetrics.MustNewRegistry(nil), handler)
 	)
 

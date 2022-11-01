@@ -13,15 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/justinas/alice"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/sallust/sallusthttp"
 	"github.com/xmidt-org/webpa-common/v2/concurrent"
 	"github.com/xmidt-org/webpa-common/v2/health"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/webpa-common/v2/xlistener"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
@@ -211,7 +210,7 @@ func (b *Basic) SetPeerVerifyCallback(vp PeerVerifyCallback) {
 }
 
 // NewListener creates a decorated TCPListener appropriate for this server's configuration.
-func (b *Basic) NewListener(logger log.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder, config *tls.Config) (net.Listener, error) {
+func (b *Basic) NewListener(logger *zap.Logger, activeConnections metrics.Gauge, rejectedCounter xmetrics.Adder, config *tls.Config) (net.Listener, error) {
 	return xlistener.New(xlistener.Options{
 		Logger:         logger,
 		Address:        b.Address,
@@ -245,7 +244,7 @@ func loadCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, er
 	for i := 0; i < len(certificateFiles); i++ {
 		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
 		if err != nil {
-			logging.Error(logging.DefaultLogger()).Log(logging.MessageKey(), "Failed to LoadX509KeyPair", "cert", certificateFiles[i], "key", keyFiles[i], logging.ErrorKey(), err)
+			sallust.Default().Error("Failed to LoadX509KeyPair", zap.String("cert", certificateFiles[i]), zap.String("key", keyFiles[i]), zap.Error(err))
 			return []tls.Certificate{}, err
 		}
 	}
@@ -259,7 +258,7 @@ func loadCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, er
 //
 // This method returns nil if the configured address is empty or if any config errors occur, effectively disabling
 // this server from startup.
-func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
+func (b *Basic) New(logger *zap.Logger, handler http.Handler) *http.Server {
 	if len(b.Address) == 0 {
 		return nil
 	}
@@ -268,7 +267,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 	if len(b.CertificateFile) > 0 && len(b.KeyFile) > 0 {
 		certs, err := loadCerts(b.CertificateFile, b.KeyFile)
 		if err != nil {
-			logging.Error(logger).Log(logging.MessageKey(), "Error loading cert and key file to configure TLS", logging.ErrorKey(), err)
+			logger.Error("Error loading cert and key file to configure TLS", zap.Error(err))
 			return nil
 		}
 
@@ -285,7 +284,7 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 			caCert, err := ioutil.ReadFile(b.ClientCACertFile)
 
 			if err != nil {
-				logging.Error(logger).Log(logging.MessageKey(), "Error loading clientCACert file to configure mTLS", logging.ErrorKey(), err)
+				logger.Error("Error loading clientCACert file to configure mTLS", zap.Error(err))
 				return nil
 			}
 
@@ -304,13 +303,13 @@ func (b *Basic) New(logger log.Logger, handler http.Handler) *http.Server {
 		WriteTimeout:      b.writeTimeout(),
 		IdleTimeout:       b.idleTimeout(),
 		MaxHeaderBytes:    b.maxHeaderBytes(),
-		ErrorLog:          NewErrorLog(b.Name, logger),
+		ErrorLog:          sallust.NewServerLogger(b.Name, logger),
 		TLSConfig:         tlsConfig,
 		TLSNextProto:      map[string]func(*http.Server, *tls.Conn, http.Handler){}, // disable HTTP/2
 	}
 
 	if b.LogConnectionState {
-		server.ConnState = NewConnectionStateLogger(b.Name, logger)
+		server.ConnState = sallusthttp.NewConnStateLogger(logger, zap.DebugLevel, zap.String("serverName", b.Name))
 	}
 
 	if b.DisableKeepAlives {
@@ -337,7 +336,7 @@ func (m *Metric) NewRegistry(modules ...xmetrics.Module) (xmetrics.Registry, err
 	return xmetrics.NewRegistry(&m.MetricsOptions, modules...)
 }
 
-func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheus.Gatherer) *http.Server {
+func (m *Metric) New(logger *zap.Logger, chain alice.Chain, gatherer stdprometheus.Gatherer) *http.Server {
 	if len(m.Address) == 0 {
 		return nil
 	}
@@ -355,11 +354,11 @@ func (m *Metric) New(logger log.Logger, chain alice.Chain, gatherer stdprometheu
 		WriteTimeout:      DefaultWriteTimeout,
 		IdleTimeout:       DefaultIdleTimeout,
 		MaxHeaderBytes:    DefaultMaxHeaderBytes,
-		ErrorLog:          NewErrorLog(m.Name, logger),
+		ErrorLog:          sallust.NewServerLogger(m.Name, logger),
 	}
 
 	if m.LogConnectionState {
-		server.ConnState = NewConnectionStateLogger(m.Name, logger)
+		server.ConnState = sallusthttp.NewConnStateLogger(logger, zap.DebugLevel, zap.String("serverName", m.Name))
 	}
 
 	server.SetKeepAlivesEnabled(false)
@@ -429,11 +428,11 @@ func (h *Health) New(logger *zap.Logger, chain alice.Chain, health *health.Healt
 		WriteTimeout:      DefaultWriteTimeout,
 		IdleTimeout:       DefaultIdleTimeout,
 		MaxHeaderBytes:    DefaultMaxHeaderBytes,
-		ErrorLog:          NewErrorLog(h.Name, logger),
+		ErrorLog:          sallust.NewServerLogger(h.Name, logger),
 	}
 
 	if h.LogConnectionState {
-		server.ConnState = NewConnectionStateLogger(h.Name, logger)
+		server.ConnState = sallusthttp.NewConnStateLogger(logger, zap.DebugLevel, zap.String("serverName", h.Name))
 	}
 
 	server.SetKeepAlivesEnabled(false)
@@ -479,7 +478,7 @@ type WebPA struct {
 	Flavor string
 
 	// Log is the logging configuration for this application.
-	Log *logging.Options
+	Log *[]zap.Field
 }
 
 // build returns the injected build string if available, DefaultBuild otherwise
@@ -532,7 +531,7 @@ func (w *WebPA) flavor() string {
 // it will also be used for that server.  The health server uses an internally create handler, while pprof and metrics
 // servers use http.DefaultServeMux.  The health Monitor created from configuration is returned so that other
 // infrastructure can make use of it.
-func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable, <-chan struct{}) {
+func (w *WebPA) Prepare(logger *zap.Logger, health *health.Health, registry xmetrics.Registry, primaryHandler http.Handler) (health.Monitor, concurrent.Runnable, <-chan struct{}) {
 	// allow the health instance to be non-nil, in which case it will be used in favor of
 	// the WebPA-configured instance.
 	var (
@@ -557,7 +556,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 			finalizeOnce.Do(func() {
 				defer close(done)
 				for _, s := range servers {
-					logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "finalizing server", logging.ErrorKey(), s.Close())
+					logger.Error("finalizing server", zap.Error(s.Close()))
 				}
 			})
 		}
@@ -596,7 +595,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		// create any necessary listeners first, so that we return early if errors occur
 
-		primaryLogger := log.With(logger, "serverName", w.Primary.Name, "bindAddress", w.Primary.Address)
+		primaryLogger := logger.With(zap.String("serverName", w.Primary.Name), zap.String("bindAddress", w.Primary.Address))
 		primaryListener, err := w.Primary.NewListener(
 			primaryLogger,
 			activeConnections.With("server", "primary"),
@@ -613,7 +612,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		// start the alternate server first, so we can short-circuit in the case of errors
 		if alternateServer != nil {
-			alternateLogger := log.With(logger, "serverName", w.Alternate.Name, "bindAddress", w.Alternate.Address)
+			alternateLogger := logger.With(zap.String("serverName", w.Alternate.Name), zap.String("bindAddress", w.Alternate.Address))
 			alternateListener, err := w.Alternate.NewListener(
 				alternateLogger,
 				activeConnections.With("server", "alternate"),
@@ -632,13 +631,13 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 		Serve(primaryLogger, primaryListener, primaryServer, finalizer)
 
 		if healthHandler != nil && healthServer != nil {
-			ListenAndServe(log.With(logger, "serverName", w.Health.Name, "bindAddress", w.Health.Address), healthServer, finalizer)
+			ListenAndServe(logger.With(zap.String("serverName", w.Health.Name), zap.String("bindAddress", w.Health.Address)), healthServer, finalizer)
 			healthHandler.Run(waitGroup, shutdown)
 		}
 
 		if pprofServer != nil {
 			ListenAndServe(
-				log.With(logger, "serverName", w.Pprof.Name, "bindAddress", w.Pprof.Address),
+				logger.With(zap.String("serverName", w.Pprof.Name), zap.String("bindAddress", w.Pprof.Address)),
 				pprofServer,
 				finalizer,
 			)
@@ -646,7 +645,7 @@ func (w *WebPA) Prepare(logger log.Logger, health *health.Health, registry xmetr
 
 		if metricsServer != nil {
 			ListenAndServe(
-				log.With(logger, "serverName", w.Metric.Name, "bindAddress", w.Metric.Address),
+				logger.With(zap.String("serverName", w.Metric.Name), zap.String("bindAddress", w.Metric.Address)),
 				metricsServer,
 				finalizer,
 			)
