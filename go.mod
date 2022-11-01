@@ -44,7 +44,6 @@ require github.com/go-kit/log v0.2.1
 require (
 	emperror.dev/emperror v0.33.0 // indirect
 	emperror.dev/errors v0.8.1 // indirect
-	github.com/GaryBoone/GoStats v0.0.0-20130122001700-1993eafbef57 // indirect
 	github.com/VividCortex/gohistogram v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
