@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestClient(t *testing.T) {
@@ -23,7 +23,7 @@ func TestClient(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: NewResolver(DefaultDialer, logging.NewTestLogger(nil, t)).DialContext,
+			DialContext: NewResolver(DefaultDialer, sallust.Default()).DialContext,
 		},
 	}
 
@@ -64,7 +64,7 @@ func TestClientWithResolver(t *testing.T) {
 
 	fakeLookUp := new(mockLookUp)
 	fakeLookUp.On("LookupRoutes", mock.Anything, customhost).Return([]Route{route}, nil)
-	r := NewResolver(DefaultDialer, logging.NewTestLogger(nil, t), fakeLookUp)
+	r := NewResolver(DefaultDialer, sallust.Default(), fakeLookUp)
 
 	client := &http.Client{
 		Transport: &http.Transport{
