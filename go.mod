@@ -116,7 +116,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/xmidt-org/sallust => /Users/odc/Documents/GitHub/xmidt-org/sallust
-
-replace github.com/xmidt-org/argus => /Users/odc/Documents/GitHub/xmidt-org/argus
