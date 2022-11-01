@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -129,7 +129,7 @@ func testNewHashFilterAllow(t *testing.T) {
 
 		id               = device.IntToMAC(47283)
 		expectedInstance = "instance"
-		ctx              = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx              = sallust.With(context.Background(), sallust.Default())
 
 		selfCalled = false
 		self       = func(actualInstance string) bool {
@@ -160,7 +160,7 @@ func testNewHashFilterReject(t *testing.T) {
 
 		id               = device.IntToMAC(93723)
 		expectedInstance = "instance"
-		ctx              = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx              = sallust.With(context.Background(), sallust.Default())
 
 		selfCalled = false
 		self       = func(actualInstance string) bool {

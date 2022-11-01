@@ -3,11 +3,11 @@ package servicehttp
 import (
 	"net/http"
 
-	"github.com/go-kit/kit/log/level"
+	"github.com/xmidt-org/sallust/sallusthttp"
 	"github.com/xmidt-org/webpa-common/v2/device"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/xfilter"
+	"go.uber.org/zap"
 )
 
 // NewHashFilter constructs an xfilter that enforces device hashing to an instance that represents this server process.
@@ -39,7 +39,7 @@ func NewHashFilter(a service.Accessor, reject error, self func(string) bool) xfi
 		}
 
 		if !self(i) {
-			logging.GetLogger(r.Context()).Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "device does not hash to this instance", "hashKey", string(key), logging.ErrorKey(), reject, "instance", i)
+			sallusthttp.Get(r).Error("device does not hash to this instance", zap.String("hashKey", string(key)), zap.Error(reject), zap.String("instance", i))
 			return reject
 		}
 

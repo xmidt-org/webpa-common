@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/hashicorp/consul/api"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"github.com/xmidt-org/webpa-common/v2/service/consul"
 	"github.com/xmidt-org/webpa-common/v2/service/zk"
 	"github.com/xmidt-org/webpa-common/v2/xviper"
+	"go.uber.org/zap"
 )
 
 func testNewEnvironmentEmpty(t *testing.T) {
@@ -46,7 +46,7 @@ func testNewEnvironmentFixed(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 		v      = viper.New()
 
 		configuration = strings.NewReader(`
@@ -77,7 +77,7 @@ func testNewEnvironmentZookeeper(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 		v      = viper.New()
 
 		expectedEnvironment = service.NewEnvironment()
@@ -99,7 +99,7 @@ func testNewEnvironmentZookeeper(t *testing.T) {
 	v.SetConfigType("json")
 	require.NoError(v.ReadConfig(configuration))
 
-	zookeeperEnvironmentFactory = func(l log.Logger, zo zk.Options, eo ...service.Option) (service.Environment, error) {
+	zookeeperEnvironmentFactory = func(l *zap.Logger, zo zk.Options, eo ...service.Option) (service.Environment, error) {
 		assert.Equal(logger, l)
 		assert.Equal(
 			zk.Options{
@@ -131,7 +131,7 @@ func testNewEnvironmentConsul(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 		v      = viper.New()
 
 		expectedEnvironment = service.NewEnvironment()
@@ -175,7 +175,7 @@ func testNewEnvironmentConsul(t *testing.T) {
 	v.SetConfigType("json")
 	require.NoError(v.ReadConfig(configuration))
 
-	consulEnvironmentFactory = func(l log.Logger, registrationScheme string, co consul.Options, eo ...service.Option) (service.Environment, error) {
+	consulEnvironmentFactory = func(l *zap.Logger, registrationScheme string, co consul.Options, eo ...service.Option) (service.Environment, error) {
 		assert.Equal(logger, l)
 		assert.Equal(
 			consul.Options{
