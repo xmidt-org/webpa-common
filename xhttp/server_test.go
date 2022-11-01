@@ -3,62 +3,15 @@ package xhttp
 import (
 	"crypto/tls"
 	"errors"
-	"net"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
-
-func testNewServerLogger(t *testing.T, logger log.Logger) {
-	var (
-		assert       = assert.New(t)
-		require      = require.New(t)
-		serverLogger = NewServerLogger(logger)
-	)
-
-	require.NotNil(serverLogger)
-	assert.NotPanics(func() {
-		serverLogger.Println("this is a message")
-	})
-}
-
-func TestNewServerLogger(t *testing.T) {
-	t.Run("NilLogger", func(t *testing.T) {
-		testNewServerLogger(t, nil)
-	})
-
-	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
-	})
-}
-
-func testNewServerConnStateLogger(t *testing.T, logger log.Logger) {
-	var (
-		assert    = assert.New(t)
-		require   = require.New(t)
-		connState = NewServerConnStateLogger(logger)
-	)
-
-	require.NotNil(connState)
-	assert.NotPanics(func() {
-		connState(new(net.IPConn), http.StateNew)
-	})
-}
-
-func TestNewServerConnStateLogger(t *testing.T) {
-	t.Run("NilLogger", func(t *testing.T) {
-		testNewServerConnStateLogger(t, nil)
-	})
-
-	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerConnStateLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
-	})
-}
 
 const (
 	expectedCertificateFile = "certificateFile"
@@ -70,7 +23,7 @@ const (
 func startOptions(t *testing.T) []StartOptions {
 	var o []StartOptions
 
-	for _, logger := range []log.Logger{nil, logging.NewTestLogger(nil, t)} {
+	for _, logger := range []*zap.Logger{nil, sallust.Default()} {
 		for _, disableKeepAlives := range []bool{false, true} {
 			o = append(o, StartOptions{
 				Logger:            logger,
@@ -240,7 +193,7 @@ func TestNewStarter(t *testing.T) {
 func TestServerOptions(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 		listener = new(mockListener)
 
 		o = ServerOptions{
@@ -265,7 +218,7 @@ func TestNewServer(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		require  = require.New(t)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 		listener = new(mockListener)
 
 		o = ServerOptions{

@@ -3,9 +3,9 @@ package xhttp
 import (
 	"net/http"
 
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
+	"go.uber.org/zap"
 )
 
 // Busy creates an Alice-style constructor that limits the number of HTTP transactions handled by decorated
@@ -18,7 +18,7 @@ func Busy(maxTransactions int) func(http.Handler) http.Handler {
 			ctx := request.Context()
 
 			if err := s.AcquireCtx(ctx); err != nil {
-				logging.GetLogger(ctx).Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "server busy", logging.ErrorKey(), request.Context().Err())
+				sallust.Get(ctx).Error("server busy", zap.Error(request.Context().Err()))
 				response.WriteHeader(http.StatusServiceUnavailable)
 				return
 			}
