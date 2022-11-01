@@ -8,12 +8,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	gokithttp "github.com/go-kit/kit/transport/http"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/tracing"
 	"github.com/xmidt-org/webpa-common/v2/tracing/tracinghttp"
+	"go.uber.org/zap"
 )
 
 var (
@@ -219,7 +218,7 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 
 // execute performs a single fanout HTTP transaction and sends the result on a channel.  This method is invoked
 // as a goroutine.  It takes care of draining the fanout's response prior to returning.
-func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results chan<- Result, request *http.Request) {
+func (h *Handler) execute(logger *zap.Logger, spanner tracing.Spanner, results chan<- Result, request *http.Request) {
 	var (
 		finisher = spanner.Start(request.URL.String())
 		result   = Result{
@@ -235,11 +234,11 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 		var err error
 		if result.Body, err = ioutil.ReadAll(result.Response.Body); err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error reading fanout response body", logging.ErrorKey(), err)
+			logger.Error("error reading fanout response body", zap.Error(err))
 		}
 
 		if err = result.Response.Body.Close(); err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error closing fanout response body", logging.ErrorKey(), err)
+			logger.Error("error closing fanout response body", zap.Error(err))
 		}
 
 	case result.Err != nil:
@@ -271,7 +270,7 @@ func (h *Handler) execute(logger log.Logger, spanner tracing.Spanner, results ch
 
 // finish takes a terminating fanout result and writes the appropriate information to the top-level response.  This method
 // is only invoked when a particular fanout response terminates the fanout, i.e. is considered successful.
-func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result Result, after []FanoutResponseFunc) {
+func (h *Handler) finish(logger *zap.Logger, response http.ResponseWriter, result Result, after []FanoutResponseFunc) {
 	ctx := result.Request.Context()
 	for _, rf := range after {
 		// NOTE: we don't use the context for anything here,
@@ -289,12 +288,12 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 		response.WriteHeader(result.StatusCode)
 		count, err := response.Write(result.Body)
 		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "wrote fanout response", "bytes", count, logging.ErrorKey(), err)
+			logger.Error("wrote fanout response", zap.Int("bytes", count), zap.Error(err))
 		} else {
-			logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "bytes", count)
+			logger.Debug("wrote fanout response", zap.Int("bytes", count))
 		}
 	} else {
-		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "wrote fanout response", "statusCode", result.StatusCode)
+		logger.Debug("wrote fanout response", zap.Int("statusCode", result.StatusCode))
 		response.WriteHeader(result.StatusCode)
 	}
 }
@@ -302,12 +301,12 @@ func (h *Handler) finish(logger log.Logger, response http.ResponseWriter, result
 func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request) {
 	var (
 		fanoutCtx     = original.Context()
-		logger        = logging.GetLogger(fanoutCtx)
+		logger        = sallust.Get(fanoutCtx)
 		requests, err = h.newFanoutRequests(fanoutCtx, original)
 	)
 
 	if err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to create fanout", logging.ErrorKey(), err)
+		logger.Error("unable to create fanout", zap.Error(err))
 		h.errorEncoder(fanoutCtx, err, response)
 		return
 	}
@@ -326,16 +325,16 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 	for i := 0; i < len(requests); i++ {
 		select {
 		case <-fanoutCtx.Done():
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout operation canceled or timed out", "statusCode", http.StatusGatewayTimeout, "url", original.URL, logging.ErrorKey(), fanoutCtx.Err())
+			logger.Error("fanout operation canceled or timed out", zap.Int("statusCode", http.StatusGatewayTimeout), zap.Any("url", original.URL), zap.Error(fanoutCtx.Err()))
 			response.WriteHeader(http.StatusGatewayTimeout)
 			return
 
 		case r := <-results:
 			tracinghttp.HeadersForSpans("", response.Header(), r.Span)
 			if r.Err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL, logging.ErrorKey(), r.Err)
+				logger.Error("fanout request complete", zap.Int("statusCode", r.StatusCode), zap.Any("url", r.Request.URL), zap.Error(r.Err))
 			} else {
-				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "fanout request complete", "statusCode", r.StatusCode, "url", r.Request.URL)
+				logger.Debug("fanout request complete", zap.Int("statusCode", r.StatusCode), zap.Any("url", r.Request.URL))
 			}
 
 			if h.shouldTerminate(r) {
@@ -351,6 +350,6 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 		}
 	}
 
-	logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "all fanout requests failed", "statusCode", statusCode, "url", original.URL)
+	logger.Error("all fanout requests failed", zap.Int("statusCode", statusCode), zap.Any("url", original.URL))
 	h.finish(logger, response, latestResponse, h.failure)
 }
