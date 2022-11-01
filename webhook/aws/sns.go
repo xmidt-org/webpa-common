@@ -11,12 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/mux"
 	"github.com/miekg/dns"
 	"github.com/spf13/viper"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -51,7 +50,7 @@ type SNSServer struct {
 	channelSize          int64
 	channelClientTimeout time.Duration
 
-	logger                      log.Logger
+	logger                      *zap.Logger
 	metrics                     AWSMetrics
 	snsNotificationReceivedChan chan int
 	waitForDns                  time.Duration
@@ -60,7 +59,7 @@ type SNSServer struct {
 // Notifier interface implements the various notification server functionalities
 // like Subscribe, Unsubscribe, Publish, NotificationHandler
 type Notifier interface {
-	Initialize(*mux.Router, *url.URL, string, http.Handler, log.Logger, AWSMetrics, func() time.Time)
+	Initialize(*mux.Router, *url.URL, string, http.Handler, *zap.Logger, AWSMetrics, func() time.Time)
 	PrepareAndStart()
 	Subscribe()
 	PublishMessage(string) error
@@ -126,7 +125,7 @@ func NewNotifier(v *viper.Viper) (Notifier, error) {
 // handler is the webhook handler to update webhooks @monitor
 // SNS POST Notification handler will directly update webhooks list
 func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider string,
-	handler http.Handler, logger log.Logger, metrics AWSMetrics, now func() time.Time) {
+	handler http.Handler, logger *zap.Logger, metrics AWSMetrics, now func() time.Time) {
 
 	if rtr == nil {
 		//creating new mux router
@@ -164,15 +163,15 @@ func (ss *SNSServer) Initialize(rtr *mux.Router, selfUrl *url.URL, soaProvider s
 
 	// set up logger
 	if logger == nil {
-		logger = logging.DefaultLogger()
+		logger = sallust.Default()
 	}
 
-	ss.logger = log.WithPrefix(logger, level.Key(), level.ErrorValue())
+	ss.logger = logger
 
 	ss.metrics = metrics
 	ss.snsNotificationReceivedChan = ss.SNSNotificationReceivedInit()
 
-	ss.logger.Log("selfURL", ss.SelfUrl.String(), "protocol", ss.SelfUrl.Scheme)
+	ss.logger.Info("self url", zap.String("selfURL", ss.SelfUrl.String()), zap.String("protocol", ss.SelfUrl.Scheme))
 
 	// Set various SNS POST routes
 	ss.SetSNSRoutes(urlPath, rtr, handler)
@@ -243,8 +242,8 @@ func (ss *SNSServer) DnsReady() (e error) {
 				}
 				// otherwise, we keep trying
 				ss.metrics.DnsReadyQueryCount.Add(1.0)
-				ss.logger.Log(logging.MessageKey(), "checking if server's DNS is ready",
-					"endpoint", strings.SplitN(ss.SelfUrl.Host, ":", 2)[0]+".", logging.ErrorKey(), err, "response", response)
+				ss.logger.Info("checking if server's DNS is ready",
+					zap.String("endpoint", strings.SplitN(ss.SelfUrl.Host, ":", 2)[0]+"."), zap.Error(err), zap.Any("response", response))
 				time.Sleep(time.Second)
 			}
 		}(channel)
@@ -265,15 +264,15 @@ func (ss *SNSServer) DnsReady() (e error) {
 func (ss *SNSServer) ValidateSubscriptionArn(reqSubscriptionArn string) bool {
 
 	if ss.subscriptionArn.Load() == nil {
-		ss.logger.Log(logging.MessageKey(), "SNS subscriptionArn is nil")
+		ss.logger.Info("SNS subscriptionArn is nil")
 		return false
 	} else if strings.EqualFold(reqSubscriptionArn, ss.subscriptionArn.Load().(string)) {
 		return true
 	} else {
-		ss.logger.Log(
-			logging.MessageKey(), "SNS Invalid subscription",
-			"reqSubscriptionArn", reqSubscriptionArn,
-			"cfg", ss.subscriptionArn.Load().(string),
+		ss.logger.Info(
+			"SNS Invalid subscription",
+			zap.String("reqSubscriptionArn", reqSubscriptionArn),
+			zap.String("cfg", ss.subscriptionArn.Load().(string)),
 		)
 		return false
 	}
