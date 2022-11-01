@@ -1,12 +1,12 @@
 package zk
 
 import (
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	gokitzk "github.com/go-kit/kit/sd/zk"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/sallust/sallustkit"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"go.uber.org/zap"
 )
 
 func newService(r Registration) (string, gokitzk.Service) {
@@ -27,18 +27,18 @@ func newService(r Registration) (string, gokitzk.Service) {
 // Tests can change this for mocked behavior.
 var clientFactory = gokitzk.NewClient
 
-func newClient(l log.Logger, zo Options) (gokitzk.Client, error) {
+func newClient(l *zap.Logger, zo Options) (gokitzk.Client, error) {
 	client := zo.client()
 	return clientFactory(
 		client.servers(),
-		l,
+		sallustkit.Logger{Zap: l},
 		gokitzk.ConnectTimeout(client.connectTimeout()),
 		gokitzk.SessionTimeout(client.sessionTimeout()),
 	)
 }
 
-func newInstancer(l log.Logger, c gokitzk.Client, path string) (i sd.Instancer, err error) {
-	i, err = gokitzk.NewInstancer(c, path, l)
+func newInstancer(l *zap.Logger, c gokitzk.Client, path string) (i sd.Instancer, err error) {
+	i, err = gokitzk.NewInstancer(c, path, sallustkit.Logger{Zap: l})
 	if err == nil {
 		i = service.NewContextualInstancer(i, map[string]interface{}{"path": path})
 	}
@@ -46,10 +46,10 @@ func newInstancer(l log.Logger, c gokitzk.Client, path string) (i sd.Instancer, 
 	return
 }
 
-func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
+func newInstancers(l *zap.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
 	for _, path := range zo.watches() {
 		if i.Has(path) {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "path", path)
+			l.Warn("skipping duplicate watch", zap.String("path", path))
 			continue
 		}
 
@@ -67,15 +67,15 @@ func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instan
 	return
 }
 
-func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Registrars) {
+func newRegistrars(base *zap.Logger, c gokitzk.Client, zo Options) (r service.Registrars) {
 	for _, registration := range zo.registrations() {
 		instance, s := newService(registration)
 		if r.Has(instance) {
-			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "instance", instance)
+			base.Warn("skipping duplicate registration", zap.String("instance", instance))
 			continue
 		}
 
-		r.Add(instance, gokitzk.NewRegistrar(c, s, log.With(base, "instance", instance)))
+		r.Add(instance, gokitzk.NewRegistrar(c, s, sallustkit.Logger{Zap: base.With(zap.String("instance", instance))}))
 	}
 
 	return
@@ -83,9 +83,9 @@ func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Reg
 
 // NewEnvironment constructs a Zookeeper-based service.Environment using both a zookeeper Options (typically unmarshaled
 // from configuration) and an optional extra set of environment options.
-func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Environment, error) {
+func NewEnvironment(l *zap.Logger, zo Options, eo ...service.Option) (service.Environment, error) {
 	if l == nil {
-		l = logging.DefaultLogger()
+		l = sallust.Default()
 	}
 
 	if len(zo.Watches) == 0 && len(zo.Registrations) == 0 {
