@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aws/aws-sdk-go v1.44.128
+	github.com/aws/aws-sdk-go v1.44.129
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/go-kit/kit v0.12.0
@@ -20,7 +20,7 @@ require (
 	github.com/justinas/alice v1.2.0
 	github.com/miekg/dns v1.1.50
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/prometheus/client_golang v1.13.0
+	github.com/prometheus/client_golang v1.13.1
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cast v1.5.0
 	github.com/spf13/pflag v1.0.5
@@ -30,7 +30,7 @@ require (
 	github.com/xmidt-org/argus v0.9.4
 	github.com/xmidt-org/bascule v0.11.0 // indirect
 	github.com/xmidt-org/candlelight v0.0.12
-	github.com/xmidt-org/sallust v0.1.6
+	github.com/xmidt-org/sallust v0.2.0
 	github.com/xmidt-org/themis v0.4.11
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.36.4
