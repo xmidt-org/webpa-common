@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [v2.1.0]
 - Patch writePump performance hit [#613](https://github.com/xmidt-org/webpa-common/pull/613)
-- [Remove go-kit/kit/log & go-kit/log #686](https://github.com/xmidt-org/webpa-common/issues/686)
+- [Remove `logging` package and replace go-kit/kit/log & go-kit/log with `zap` #686](https://github.com/xmidt-org/webpa-common/issues/686)
 - [Fix bookkeeping package tests #465](https://github.com/xmidt-org/webpa-common/issues/465)
 - removed packages not currently
 
