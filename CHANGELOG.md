@@ -6,7 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Patch writePump performance hit [#613](https://github.com/xmidt-org/webpa-common/pull/613)
-
+- [Remove go-kit/kit/log & go-kit/log #686](https://github.com/xmidt-org/webpa-common/issues/686)
+- [Fix bookkeeping package tests #465](https://github.com/xmidt-org/webpa-common/issues/465)
+- removed packages not currently
 ## [v2.0.7]
 - Dependency update, note vulnerabilities
   - Introduces new vuln https://www.mend.io/vulnerability-database/CVE-2022-29526
