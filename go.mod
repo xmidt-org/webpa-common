@@ -19,7 +19,6 @@ require (
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c // indirect
 	github.com/jtacoma/uritemplates v1.0.0
 	github.com/justinas/alice v1.2.0
-	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/miekg/dns v1.1.50
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/prometheus/client_golang v1.14.0
@@ -31,7 +30,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/ugorji/go/codec v1.2.7
 	github.com/xmidt-org/argus v0.9.4
-	github.com/xmidt-org/bascule v0.11.1
+	github.com/xmidt-org/bascule v0.11.2
 	github.com/xmidt-org/candlelight v0.0.12
 	github.com/xmidt-org/themis v0.4.11
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
