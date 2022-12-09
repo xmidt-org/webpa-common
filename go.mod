@@ -31,7 +31,7 @@ require (
 	github.com/ugorji/go/codec v1.2.7
 	github.com/xmidt-org/argus v0.9.4
 	github.com/xmidt-org/bascule v0.11.2
-	github.com/xmidt-org/candlelight v0.0.12
+	github.com/xmidt-org/candlelight v0.0.13
 	github.com/xmidt-org/themis v0.4.11
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0
