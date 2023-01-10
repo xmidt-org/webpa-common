@@ -35,6 +35,6 @@ require (
 	github.com/xmidt-org/themis v0.4.11
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0
-	go.uber.org/fx v1.18.2
+	go.uber.org/fx v1.19.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
