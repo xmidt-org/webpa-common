@@ -291,7 +291,7 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	closeError := c.Close()
 
 	d.logger.Error("Closed device connection",
-		zap.String("closeError", closeError.Error()), zap.String("reasonError", reason.Err.Error()), zap.String("reason", reason.Text),
+		zap.NamedError("closeError", closeError), zap.String("reasonError", reason.String()), zap.String("reason", reason.Text),
 		zap.String("finalStatistics", d.Statistics().String()))
 
 	m.dispatch(
