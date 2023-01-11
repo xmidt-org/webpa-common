@@ -8,7 +8,6 @@ import (
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/sallust/sallustkit"
 	"go.uber.org/zap"
 )
 
@@ -152,7 +151,7 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 		}
 	}
 
-	var registrar sd.Registrar = gokitconsul.NewRegistrar(c, r, sallustkit.Logger{Zap: logger})
+	var registrar sd.Registrar = gokitconsul.NewRegistrar(c, r, logger.)
 
 	// decorate the given registrar if we have any TTL checks
 	if len(ttlChecks) > 0 {

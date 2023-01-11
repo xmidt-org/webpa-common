@@ -69,7 +69,6 @@ func newDatacenterWatcher(logger *zap.Logger, environment Environment, options O
 		}
 
 		options.Chrysom.Listen.Listener = datacenterListenerFunc
-		options.Chrysom.Logger = logger
 
 		m := &chrysom.Measures{
 			Polls: environment.Provider().NewCounterVec(chrysom.PollCounter),

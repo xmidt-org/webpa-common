@@ -37,7 +37,6 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			Auth: chrysom.Auth{
 				Basic: "Basic auth",
 			},
-			Logger: logger,
 		},
 		Listen: chrysom.ListenerClientConfig{
 			PullInterval: 10 * time.Second,
@@ -215,7 +214,6 @@ func TestNewDatacenterWatcher(t *testing.T) {
 						Auth: chrysom.Auth{
 							Basic: "Basic auth",
 						},
-						Logger: logger,
 					},
 					Listen: chrysom.ListenerClientConfig{
 						PullInterval: 0,

@@ -10,8 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/sallust"
-	"github.com/xmidt-org/sallust/sallustkit"
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -106,7 +104,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger        = sallustkit.Logger{Zap: sallust.Default()}
+		logger        = log.NewNopLogger()
 		clientFactory = prepareMockClientFactory()
 		client        = new(mockClient)
 		zkEvents      = make(chan zk.Event, 5)
@@ -160,7 +158,7 @@ func testNewEnvironmentFull(t *testing.T) {
 
 	client.On("Stop").Once()
 
-	e, err := NewEnvironment(logger.Zap, zo)
+	e, err := NewEnvironment(logger, zo)
 	require.NoError(err)
 	require.NotNil(e)
 
