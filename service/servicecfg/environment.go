@@ -2,14 +2,15 @@ package servicecfg
 
 import (
 	"errors"
+	"os"
 
 	"github.com/go-kit/kit/sd"
-	"github.com/xmidt-org/sallust"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"github.com/xmidt-org/webpa-common/v2/service/consul"
 	"github.com/xmidt-org/webpa-common/v2/service/zk"
 	"github.com/xmidt-org/webpa-common/v2/xviper"
-	"go.uber.org/zap"
 )
 
 var (
@@ -19,9 +20,9 @@ var (
 	errNoServiceDiscovery = errors.New("No service discovery configured")
 )
 
-func NewEnvironment(l *zap.Logger, u xviper.Unmarshaler, options ...service.Option) (service.Environment, error) {
+func NewEnvironment(l log.Logger, u xviper.Unmarshaler, options ...service.Option) (service.Environment, error) {
 	if l == nil {
-		l = sallust.Default()
+		l = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 	}
 
 	o := new(Options)
@@ -39,7 +40,7 @@ func NewEnvironment(l *zap.Logger, u xviper.Unmarshaler, options ...service.Opti
 	eo = append(eo, options...)
 
 	if len(o.Fixed) > 0 {
-		l.Info("using a fixed set of instances for service discovery", zap.Strings("instances", o.Fixed))
+		l.Log(level.Key(), level.InfoValue(), "msg", "using a fixed set of instances for service discovery", "instances", o.Fixed)
 		return service.NewEnvironment(
 			append(eo,
 				service.WithInstancers(
@@ -55,12 +56,12 @@ func NewEnvironment(l *zap.Logger, u xviper.Unmarshaler, options ...service.Opti
 	}
 
 	if o.Zookeeper != nil {
-		l.Info("using zookeeper for service discovery")
+		l.Log(level.Key(), level.InfoValue(), "msg", "using zookeeper for service discovery")
 		return zookeeperEnvironmentFactory(l, *o.Zookeeper, eo...)
 	}
 
 	if o.Consul != nil {
-		l.Info("using consul for service discovery")
+		l.Log(level.Key(), level.InfoValue(), "msg", "using consul for service discovery")
 		return consulEnvironmentFactory(l, o.DefaultScheme, *o.Consul, eo...)
 	}
 
