@@ -33,7 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testShouldRetry(t *testing.T, shouldRetry ShouldRetryFunc, candidate error, expected bool) {
@@ -144,7 +144,7 @@ func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configure
 		slept = 0
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:   logging.NewTestLogger(nil, t),
+				Logger:   sallust.Default(),
 				Retries:  retryCount,
 				Counter:  counter,
 				Interval: configuredInterval,
@@ -191,7 +191,7 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:  logging.NewTestLogger(nil, t),
+				Logger:  sallust.Default(),
 				Retries: retryCount,
 				Counter: counter,
 				Sleep: func(d time.Duration) {
@@ -219,7 +219,7 @@ func testRetryTransactorNotRewindable(t *testing.T) {
 
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:  logging.NewTestLogger(nil, t),
+				Logger:  sallust.Default(),
 				Retries: 2,
 			},
 			func(*http.Request) (*http.Response, error) {
@@ -246,7 +246,7 @@ func testRetryTransactorRewindError(t *testing.T) {
 
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:  logging.NewTestLogger(nil, t),
+				Logger:  sallust.Default(),
 				Retries: 2,
 				Sleep:   func(time.Duration) {},
 			},

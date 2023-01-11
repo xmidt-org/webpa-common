@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testSignalWaitBasic(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = sallust.Default()
 		signals = make(chan os.Signal)
 
 		started  = new(sync.WaitGroup)
@@ -49,7 +49,7 @@ func testSignalWaitBasic(t *testing.T) {
 func testSignalWaitForever(t *testing.T) {
 	var (
 		assert  = assert.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = sallust.Default()
 		signals = make(chan os.Signal)
 
 		started  = new(sync.WaitGroup)

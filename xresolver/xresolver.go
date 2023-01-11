@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 
 	"net"
 	"strconv"
@@ -21,17 +20,17 @@ type resolver struct {
 	resolvers map[Lookup]bool
 	lock      sync.RWMutex
 	dialer    net.Dialer
-	logger    log.Logger
+	logger    *zap.Logger
 }
 
-func NewResolver(dialer net.Dialer, logger log.Logger, lookups ...Lookup) Resolver {
+func NewResolver(dialer net.Dialer, logger *zap.Logger, lookups ...Lookup) Resolver {
 	if logger == nil {
-		logger = logging.DefaultLogger()
+		logger = sallust.Default()
 	}
 	r := &resolver{
 		resolvers: make(map[Lookup]bool),
 		dialer:    dialer,
-		logger:    log.WithPrefix(logger, "component", "xresolver"),
+		logger:    logger.With(zap.String("component", "xresolver")),
 	}
 
 	for _, lookup := range lookups {
@@ -96,11 +95,11 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 	// generate Conn or err from records
 	con, route, err := resolve.createConnection(routes, network, port)
 	if err == nil {
-		log.WithPrefix(resolve.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "successfully created connection using xresolver", "new-route", route.String(), "addr", addr)
+		resolve.logger.Debug("successfully created connection using xresolver", zap.String("new-route", route.String()), zap.String("addr", addr))
 		return con, err
 	}
 
-	log.WithPrefix(resolve.logger, level.Key(), level.DebugValue()).Log(logging.MessageKey(), "failed to create connection with other routes using original address", "addr", addr, logging.ErrorKey(), err)
+	resolve.logger.Debug("failed to create connection with other routes using original address", zap.String("addr", addr), zap.Error(err))
 	// if no connection, create using the default dialer
 	return resolve.dialer.DialContext(ctx, network, addr)
 }
@@ -116,7 +115,7 @@ func (resolve *resolver) createConnection(routes []Route, network, port string) 
 			} else if route.Scheme == "https" {
 				portUsed = "443"
 			} else {
-				log.WithPrefix(resolve.logger, level.Key(), level.ErrorValue()).Log(logging.MessageKey(), "unknown default port", "scheme", route.Scheme, "host", route.Host)
+				resolve.logger.Error("unknown default port", zap.String("scheme", route.Scheme), zap.String("host", route.Host))
 				continue
 			}
 		}

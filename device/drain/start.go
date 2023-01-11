@@ -6,12 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/log/level"
 	"github.com/gorilla/schema"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/converter"
+	"go.uber.org/zap"
 )
 
 type Start struct {
@@ -19,9 +19,9 @@ type Start struct {
 }
 
 func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	logger := logging.GetLogger(request.Context())
+	logger := sallust.Get(request.Context())
 	if err := request.ParseForm(); err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to parse form", logging.ErrorKey(), err)
+		logger.Error("unable to parse form", zap.Error(err))
 		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
@@ -34,23 +34,23 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 
 	decoder.RegisterConverter(time.Duration(0), converter.Duration)
 	if err := decoder.Decode(&input, request.Form); err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to decode request", logging.ErrorKey(), err)
+		logger.Error("unable to decode request", zap.Error(err))
 		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
 
-	msgBytes, e := ioutil.ReadAll(request.Body)
+	msgBytes, err := ioutil.ReadAll(request.Body)
 	defer request.Body.Close()
 
-	if e != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to read request body", logging.ErrorKey(), e)
-		xhttp.WriteError(response, http.StatusBadRequest, e)
+	if err != nil {
+		logger.Error("unable to read request body", zap.Error(err))
+		xhttp.WriteError(response, http.StatusBadRequest, err)
 		return
 	}
 
 	if len(msgBytes) > 0 {
 		if err := json.Unmarshal(msgBytes, &reqBody); err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to unmarshal request body", logging.ErrorKey(), err)
+			logger.Error("unable to unmarshal request body", zap.Error(err))
 			xhttp.WriteError(response, http.StatusBadRequest, err)
 			return
 		}
@@ -68,13 +68,13 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 
 	_, output, err := s.Drainer.Start(input)
 	if err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to start drain job", logging.ErrorKey(), err)
+		logger.Error("unable to start drain job", zap.Error(err))
 		xhttp.WriteError(response, http.StatusConflict, err)
 		return
 	}
 
 	if message, err := json.Marshal(output.ToMap()); err != nil {
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to marshal response", logging.ErrorKey(), err)
+		logger.Error("unable to marshal response", zap.Error(err))
 	} else {
 		response.Header().Set("Content-Type", "application/json")
 		response.Write(message)

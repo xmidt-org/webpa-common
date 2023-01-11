@@ -8,12 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap"
 )
 
 const (
@@ -89,7 +88,7 @@ func ConfigureFlagSet(applicationName string, f *pflag.FlagSet) {
 // create CPUProfileFiles creates a cpu profile of the server, its triggered by the optional flag cpuprofile
 //
 // the CPU profile is created on the server's start
-func CreateCPUProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
+func CreateCPUProfileFile(v *viper.Viper, fp *pflag.FlagSet, l *zap.Logger) {
 	if fp == nil {
 		return
 	}
@@ -101,12 +100,12 @@ func CreateCPUProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
 
 	f, err := os.Create(flag.Value.String())
 	if err != nil {
-		l.Log("could not create CPU profile: ", err)
+		l.Info(fmt.Sprintf("could not create CPU profile: %v", err))
 	}
 	defer f.Close()
 
 	if err := pprof.StartCPUProfile(f); err != nil {
-		l.Log("could not start CPU profile: ", err)
+		l.Info(fmt.Sprintf("could not start CPU profile: %v", err))
 	}
 
 	defer pprof.StopCPUProfile()
@@ -116,7 +115,7 @@ func CreateCPUProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
 //
 // the memory profile is created on the server's exit.
 // this function should be used within the application.
-func CreateMemoryProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
+func CreateMemoryProfileFile(_ *viper.Viper, fp *pflag.FlagSet, l *zap.Logger) {
 	if fp == nil {
 		return
 	}
@@ -128,13 +127,13 @@ func CreateMemoryProfileFile(v *viper.Viper, fp *pflag.FlagSet, l log.Logger) {
 
 	f, err := os.Create(flag.Value.String())
 	if err != nil {
-		l.Log("could not create memory profile: ", err)
+		l.Info(fmt.Sprintf("could not create memory profile: %v", err))
 	}
 
 	defer f.Close()
 	runtime.GC()
 	if err := pprof.WriteHeapProfile(f); err != nil {
-		l.Log("could not write memory profile: ", err)
+		l.Info(fmt.Sprintf("could not write memory profile: %v", err))
 	}
 }
 
@@ -191,20 +190,20 @@ func ConfigureViper(applicationName string, f *pflag.FlagSet, v *viper.Viper) (e
 Configure is a one-stop shopping function for preparing WebPA configuration.  This function
 does not itself read in configuration from the Viper environment.  Typical usage is:
 
-    var (
-      f = pflag.NewFlagSet()
-      v = viper.New()
-    )
+	var (
+	  f = pflag.NewFlagSet()
+	  v = viper.New()
+	)
 
-    if err := server.Configure("petasos", os.Args, f, v); err != nil {
-      // deal with the error, possibly just exiting
-    }
+	if err := server.Configure("petasos", os.Args, f, v); err != nil {
+	  // deal with the error, possibly just exiting
+	}
 
-    // further customizations to the Viper instance can be done here
+	// further customizations to the Viper instance can be done here
 
-    if err := v.ReadInConfig(); err != nil {
-      // more error handling
-    }
+	if err := v.ReadInConfig(); err != nil {
+	  // more error handling
+	}
 
 Usage of this function is only necessary if custom configuration is needed.  Normally,
 using New will suffice.
@@ -227,17 +226,17 @@ Initialize handles the bootstrapping of the server code for a WebPA node.  It co
 reads configuration, and unmarshals the appropriate objects.  This function is typically all that's
 needed to fully instantiate a WebPA server.  Typical usage:
 
-    var (
-      f = pflag.NewFlagSet()
-      v = viper.New()
+	var (
+	  f = pflag.NewFlagSet()
+	  v = viper.New()
 
-      // can customize both the FlagSet and the Viper before invoking New
-      logger, registry, webPA, err = server.Initialize("petasos", os.Args, f, v)
-    )
+	  // can customize both the FlagSet and the Viper before invoking New
+	  logger, registry, webPA, err = server.Initialize("petasos", os.Args, f, v)
+	)
 
-    if err != nil {
-      // deal with the error, possibly just exiting
-    }
+	if err != nil {
+	  // deal with the error, possibly just exiting
+	}
 
 Note that the FlagSet is optional but highly encouraged.  If not supplied, then no command-line binding
 is done for the unmarshalled configuration.
@@ -246,7 +245,7 @@ This function always returns a logger, regardless of any errors.  This allows cl
 logger when reporting errors.  This function falls back to a logger that writes to os.Stdout if it cannot
 create a logger from the Viper environment.
 */
-func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper, modules ...xmetrics.Module) (logger log.Logger, registry xmetrics.Registry, webPA *WebPA, err error) {
+func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v *viper.Viper, modules ...xmetrics.Module) (logger *zap.Logger, registry xmetrics.Registry, webPA *WebPA, err error) {
 	defer func() {
 		if err != nil {
 			// never return a WebPA in the presence of an error, to
@@ -254,7 +253,7 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 			webPA = nil
 
 			// Make sure there's at least a default logger for the caller to use
-			logger = logging.DefaultLogger()
+			logger = zap.Must(zap.NewProductionConfig().Build())
 		}
 	}()
 
@@ -275,8 +274,14 @@ func Initialize(applicationName string, arguments []string, f *pflag.FlagSet, v 
 		return
 	}
 
-	logger = logging.New(webPA.Log)
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "initialized Viper environment", "configurationFile", v.ConfigFileUsed())
+	var (
+		zConfig sallust.Config
+	)
+	// Get touchstone & zap configurations
+	v.UnmarshalKey("zap", &zConfig)
+	logger = zap.Must(zConfig.Build())
+
+	logger.Info("initialized Viper environment", zap.String("configurationFile", v.ConfigFileUsed()))
 
 	if len(webPA.Metric.MetricsOptions.Namespace) == 0 {
 		webPA.Metric.MetricsOptions.Namespace = applicationName

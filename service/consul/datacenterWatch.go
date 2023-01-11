@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -33,14 +33,13 @@ type datacenterFilter struct {
 }
 
 var (
-	defaultLogger        = log.NewNopLogger()
 	defaultWatchInterval = 5 * time.Minute
 )
 
 func newDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
 
 	if logger == nil {
-		logger = defaultLogger
+		logger = log.NewNopLogger()
 	}
 
 	if options.DatacenterWatchInterval <= 0 {
@@ -71,16 +70,15 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		}
 
 		options.Chrysom.Listen.Listener = datacenterListenerFunc
-		options.Chrysom.Logger = logger
 
 		m := &chrysom.Measures{
 			Polls: environment.Provider().NewCounterVec(chrysom.PollCounter),
 		}
-		basic, err := chrysom.NewBasicClient(options.Chrysom.BasicClientConfig, getLogger)
+		basic, err := chrysom.NewBasicClient(options.Chrysom.BasicClientConfig, sallust.Get)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 		}
-		listener, err := chrysom.NewListenerClient(options.Chrysom.Listen, logging.WithLogger, m, basic)
+		listener, err := chrysom.NewListenerClient(options.Chrysom.Listen, sallust.With, m, basic)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 		}
@@ -88,14 +86,13 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		//create chrysom client and start it
 		datacenterWatcher.stopListener = listener.Stop
 		listener.Start(context.Background())
-		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "started chrysom, argus client")
+		logger.Log(level.Key(), level.DebugValue(), "msg", "started chrysom, argus client")
 	}
 
 	//start consul watch
 	ticker := time.NewTicker(datacenterWatcher.consulWatchInterval)
 	go datacenterWatcher.watchDatacenters(ticker)
-	logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "started consul datacenter watch")
-
+	logger.Log(level.Key(), level.DebugValue(), "msg", "started consul datacenter watch")
 	return datacenterWatcher, nil
 
 }
@@ -157,7 +154,7 @@ func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[strin
 		err := mapstructure.Decode(item.Data, &df)
 
 		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to decode database results into datacenter filter struct")
+			logger.Log(level.Key(), level.ErrorValue(), "msg", "failed to decode database results into datacenter filter struct")
 			continue
 		}
 
@@ -189,7 +186,7 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 	dw.lock.RUnlock()
 
 	if found {
-		dw.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "datacenter set as inactive", "datacenter name: ", datacenter)
+		dw.logger.Log(level.Key(), level.InfoValue(), "msg", "datacenter set as inactive", "datacenter name: ", datacenter)
 		return
 	}
 
@@ -206,15 +203,10 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 
 	// don't create new instancer if it was already created and added to the new instancers map
 	if instancersToAdd.Has(key) {
-		dw.logger.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+		dw.logger.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
 		return
 	}
 
 	// create new instancer and add it to the map of instancers to add
 	instancersToAdd.Set(key, newInstancer(dw.logger, dw.environment.Client(), w))
-}
-
-func getLogger(ctx context.Context) log.Logger {
-	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
-	return logger
 }

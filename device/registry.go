@@ -4,14 +4,14 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/go-kit/kit/log"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap"
 )
 
 var errDeviceLimitReached = errors.New("Device limit reached")
 
 type registryOptions struct {
-	Logger          log.Logger
+	Logger          *zap.Logger
 	Limit           int
 	InitialCapacity int
 	Measures        Measures
@@ -20,7 +20,7 @@ type registryOptions struct {
 // registry is the internal lookup map for devices.  it is bounded by an optional maximum number
 // of connected devices.
 type registry struct {
-	logger          log.Logger
+	logger          *zap.Logger
 	lock            sync.RWMutex
 	limit           int
 	initialCapacity int

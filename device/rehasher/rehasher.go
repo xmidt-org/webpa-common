@@ -3,13 +3,12 @@ package rehasher
 import (
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/provider"
+	"go.uber.org/zap"
 
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 )
@@ -27,10 +26,10 @@ const (
 type Option func(*rehasher)
 
 // WithLogger configures a rehasher with a logger, using the default logger if l is nil.
-func WithLogger(l log.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(r *rehasher) {
 		if l == nil {
-			r.logger = logging.DefaultLogger()
+			r.logger = sallust.Default()
 		} else {
 			r.logger = l
 		}
@@ -94,7 +93,7 @@ func New(connector device.Connector, services []string, options ...Option) monit
 		defaultProvider = provider.NewDiscardProvider()
 
 		r = &rehasher{
-			logger:          logging.DefaultLogger(),
+			logger:          sallust.Default(),
 			accessorFactory: service.DefaultAccessorFactory,
 			connector:       connector,
 			now:             time.Now,
@@ -126,7 +125,7 @@ func New(connector device.Connector, services []string, options ...Option) monit
 // rehasher implements monitor.Listener and (1) disconnects all devices when any service discovery error occurs,
 // and (2) rehashes devices in response to updated instances.
 type rehasher struct {
-	logger          log.Logger
+	logger          *zap.Logger
 	services        map[string]bool
 	accessorFactory service.AccessorFactory
 	isRegistered    func(string) bool
@@ -140,8 +139,8 @@ type rehasher struct {
 	duration             metrics.Gauge
 }
 
-func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Accessor) {
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash starting")
+func (r *rehasher) rehash(svc string, logger *zap.Logger, accessor service.Accessor) {
+	logger.Info("rehash starting")
 
 	start := r.now()
 	r.timestamp.With(service.ServiceLabel, svc).Set(float64(start.UTC().Unix()))
@@ -153,25 +152,23 @@ func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Access
 			instance, err := accessor.Get(candidate.Bytes())
 			switch {
 			case err != nil:
-				logger.Log(level.Key(), level.ErrorValue(),
-					logging.MessageKey(), "disconnecting device: error during rehash",
-					logging.ErrorKey(), err,
-					"id", candidate,
+				logger.Error("disconnecting device: error during rehash",
+					zap.Error(err),
+					zap.String("id", string(candidate)),
 				)
 
 				return device.CloseReason{Err: err, Text: RehashError}, true
 
 			case !r.isRegistered(instance):
-				logger.Log(level.Key(), level.InfoValue(),
-					logging.MessageKey(), "disconnecting device: rehashed to another instance",
-					"instance", instance,
-					"id", candidate,
+				logger.Info("disconnecting device: rehashed to another instance",
+					zap.String("instance", instance),
+					zap.String("id", string(candidate)),
 				)
 
 				return device.CloseReason{Text: RehashOtherInstance}, true
 
 			default:
-				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "device hashed to this instance", "id", candidate)
+				logger.Debug("device hashed to this instance", zap.String("id", string(candidate)))
 				keepCount++
 				return device.CloseReason{}, false
 			}
@@ -183,7 +180,7 @@ func (r *rehasher) rehash(svc string, logger log.Logger, accessor service.Access
 	r.keep.With(service.ServiceLabel, svc).Set(float64(keepCount))
 	r.disconnect.With(service.ServiceLabel, svc).Set(float64(disconnectCount))
 	r.duration.With(service.ServiceLabel, svc).Set(float64(duration / time.Millisecond))
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "rehash complete", "disconnectCount", disconnectCount, "duration", duration)
+	logger.Info("rehash complete", zap.Int("disconnectCount", disconnectCount), zap.Duration("duration", duration))
 }
 
 func (r *rehasher) MonitorEvent(e monitor.Event) {
@@ -191,33 +188,28 @@ func (r *rehasher) MonitorEvent(e monitor.Event) {
 		return
 	}
 
-	logger := logging.Enrich(
-		log.With(
-			r.logger,
-			monitor.EventCountKey(), e.EventCount,
-		),
-		e.Instancer,
-	)
+	logger := r.logger.With(
+		zap.Int(monitor.EventCountKey(), e.EventCount), zap.Any(e.Service, e.Instancer))
 
 	switch {
 	case e.Err != nil:
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery error", logging.ErrorKey(), e.Err)
+		logger.Error("disconnecting all devices: service discovery error", zap.Error(e.Err))
 		r.connector.DisconnectAll(device.CloseReason{Err: e.Err, Text: ServiceDiscoveryError})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryError).Add(1.0)
 
 	case e.Stopped:
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery monitor being stopped")
+		logger.Error("disconnecting all devices: service discovery monitor being stopped")
 		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryStopped})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryStopped).Add(1.0)
 
 	case e.EventCount == 1:
-		logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "ignoring initial instances")
+		logger.Info("ignoring initial instances")
 
 	case len(e.Instances) > 0:
 		r.rehash(e.Service, logger, r.accessorFactory(e.Instances))
 
 	default:
-		logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "disconnecting all devices: service discovery updated with no instances")
+		logger.Error("disconnecting all devices: service discovery updated with no instances")
 		r.connector.DisconnectAll(device.CloseReason{Text: ServiceDiscoveryNoInstances})
 		r.disconnectAllCounter.With(service.ServiceLabel, e.Service, ReasonLabel, DisconnectAllServiceDiscoveryNoInstances).Add(1.0)
 	}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testRedirectPolicyDefault(t *testing.T) {
@@ -28,7 +28,7 @@ func testRedirectPolicyCustom(t *testing.T) {
 	var (
 		assert         = assert.New(t)
 		require        = require.New(t)
-		expectedLogger = logging.NewTestLogger(nil, t)
+		expectedLogger = sallust.Default()
 
 		p = RedirectPolicy{
 			Logger:         expectedLogger,
@@ -74,7 +74,7 @@ func testCheckRedirectCopyHeaders(t *testing.T) {
 		assert = assert.New(t)
 
 		checkRedirect = CheckRedirect(RedirectPolicy{
-			Logger:         logging.NewTestLogger(nil, t),
+			Logger:         sallust.Default(),
 			ExcludeHeaders: []string{"content-type", "X-Supar-Sekrit"},
 		})
 

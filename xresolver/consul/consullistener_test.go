@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 	"github.com/xmidt-org/webpa-common/v2/xresolver"
 )
@@ -47,7 +47,7 @@ func TestConsulWatcher(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: xresolver.NewResolver(xresolver.DefaultDialer, logging.NewTestLogger(nil, t), watcher).DialContext,
+			DialContext: xresolver.NewResolver(xresolver.DefaultDialer, sallust.Default(), watcher).DialContext,
 			// note: DisableKeepAlives is required so when we do the request again we don't reuse the same connection.
 			DisableKeepAlives: true,
 		},

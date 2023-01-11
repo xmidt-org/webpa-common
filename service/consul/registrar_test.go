@@ -2,14 +2,15 @@ package consul
 
 import (
 	"errors"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/go-kit/log"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func TestDefaultTickerFactory(t *testing.T) {
@@ -34,7 +35,7 @@ func testNewRegistrarNoChecks(t *testing.T) {
 	var (
 		require = require.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
@@ -76,7 +77,7 @@ func testNewRegistrarNoTTL(t *testing.T) {
 	var (
 		require = require.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
@@ -128,7 +129,7 @@ func testNewRegistrarCheckMalformedTTL(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
@@ -159,7 +160,7 @@ func testNewRegistrarCheckTTLTooSmall(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
@@ -190,7 +191,7 @@ func testNewRegistrarChecksMalformedTTL(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
@@ -223,7 +224,7 @@ func testNewRegistrarChecksTTLTooSmall(t *testing.T) {
 	var (
 		assert = assert.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
@@ -257,7 +258,7 @@ func testNewRegistrarTTL(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()

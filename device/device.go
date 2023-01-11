@@ -7,11 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/convey"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
-
-	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"go.uber.org/zap"
 )
 
 const (
@@ -103,9 +102,7 @@ type Interface interface {
 type device struct {
 	id ID
 
-	errorLog log.Logger
-	infoLog  log.Logger
-	debugLog log.Logger
+	logger *zap.Logger
 
 	statistics Statistics
 
@@ -130,7 +127,7 @@ type deviceOptions struct {
 	Compliance  convey.Compliance
 	QueueSize   int
 	ConnectedAt time.Time
-	Logger      log.Logger
+	Logger      *zap.Logger
 	Metadata    *Metadata
 }
 
@@ -141,7 +138,7 @@ func newDevice(o deviceOptions) *device {
 	}
 
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = sallust.Default()
 	}
 
 	if o.QueueSize < 1 {
@@ -150,9 +147,7 @@ func newDevice(o deviceOptions) *device {
 
 	return &device{
 		id:           o.ID,
-		errorLog:     logging.Error(o.Logger, "id", o.ID),
-		infoLog:      logging.Info(o.Logger, "id", o.ID),
-		debugLog:     logging.Debug(o.Logger, "id", o.ID),
+		logger:       o.Logger.With(zap.String("id", string(o.ID))),
 		statistics:   NewStatistics(nil, o.ConnectedAt),
 		c:            o.C,
 		compliance:   o.Compliance,

@@ -5,55 +5,7 @@ import (
 
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 )
-
-func testNewContextualInstancerEmpty(t *testing.T, m map[string]interface{}) {
-	var (
-		assert = assert.New(t)
-		next   = new(MockInstancer)
-	)
-
-	i := NewContextualInstancer(next, m)
-	assert.Equal(next, i)
-	_, ok := i.(logging.Contextual)
-	assert.False(ok)
-
-	next.AssertExpectations(t)
-}
-
-func testNewContextualInstancerWithMetadata(t *testing.T) {
-	var (
-		assert  = assert.New(t)
-		require = require.New(t)
-
-		next = new(MockInstancer)
-		m    = map[string]interface{}{"key": "value"}
-	)
-
-	i := NewContextualInstancer(next, m)
-	require.NotNil(i)
-	assert.NotEqual(next, i)
-
-	c, ok := i.(logging.Contextual)
-	require.True(ok)
-	require.NotNil(c)
-
-	assert.Equal(m, c.Metadata())
-}
-
-func TestNewContextualInstancer(t *testing.T) {
-	t.Run("Empty", func(t *testing.T) {
-		testNewContextualInstancerEmpty(t, map[string]interface{}{})
-	})
-
-	t.Run("Nil", func(t *testing.T) {
-		testNewContextualInstancerEmpty(t, nil)
-	})
-
-	t.Run("WithMetadata", testNewContextualInstancerWithMetadata)
-}
 
 func testInstancers(t *testing.T, is Instancers) {
 	assert := assert.New(t)

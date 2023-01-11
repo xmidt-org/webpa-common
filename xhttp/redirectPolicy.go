@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"net/textproto"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust/sallusthttp"
+	"go.uber.org/zap"
 )
 
 const (
@@ -17,7 +16,7 @@ const (
 // RedirectPolicy is the configurable policy for handling redirects
 type RedirectPolicy struct {
 	// Logger is the go-kit Logger used for logging.  If unset, the request context's logger is used.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// MaxRedirects is the maximum number of redirects to follow.  If unset, DefaultMaxRedirects is used.
 	MaxRedirects int
@@ -63,12 +62,12 @@ func CheckRedirect(p RedirectPolicy) func(*http.Request, []*http.Request) error 
 	return func(r *http.Request, via []*http.Request) error {
 		logger := p.Logger
 		if logger == nil {
-			logger = logging.GetLogger(r.Context())
+			logger = sallusthttp.Get(r)
 		}
 
 		if len(via) >= maxRedirects {
 			err := fmt.Errorf("stopped after %d redirect(s)", maxRedirects)
-			logger.Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), err)
+			logger.Error("Check", zap.Error(err))
 			return err
 		}
 
@@ -76,7 +75,7 @@ func CheckRedirect(p RedirectPolicy) func(*http.Request, []*http.Request) error 
 			if headerFilter(k) {
 				r.Header[k] = v
 			} else {
-				logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "excluding header on redirect", "header", k)
+				logger.Debug("excluding header on redirect", zap.String("header", k))
 			}
 		}
 

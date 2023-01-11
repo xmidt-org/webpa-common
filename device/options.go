@@ -3,10 +3,10 @@ package device
 import (
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/gorilla/websocket"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 // Check types for the WRP Source check
@@ -71,7 +71,7 @@ type Options struct {
 
 	// Logger is the output sink for log messages.  If not supplied, log output
 	// is sent to a NOP logger.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// MetricsProvider is the go-kit factory for metrics
 	MetricsProvider provider.Provider
@@ -141,12 +141,12 @@ func (o *Options) writeTimeout() time.Duration {
 	return DefaultWriteTimeout
 }
 
-func (o *Options) logger() log.Logger {
+func (o *Options) logger() *zap.Logger {
 	if o != nil && o.Logger != nil {
 		return o.Logger
 	}
 
-	return logging.DefaultLogger()
+	return sallust.Default()
 }
 
 func (o *Options) listeners() []Listener {

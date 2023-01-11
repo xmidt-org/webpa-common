@@ -7,8 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"go.uber.org/zap"
 )
 
 // StatsListener receives Stats on regular intervals.
@@ -46,8 +45,7 @@ type Health struct {
 	lock             sync.Mutex
 	stats            Stats
 	statDumpInterval time.Duration
-	errorLog         log.Logger
-	debugLog         log.Logger
+	logger           *zap.Logger
 	statsListeners   []StatsListener
 	memInfoReader    *MemInfoReader
 	once             sync.Once
@@ -64,7 +62,7 @@ func (h *Health) RequestTracker(delegate http.Handler) http.Handler {
 
 		defer func() {
 			if r := recover(); r != nil {
-				h.errorLog.Log(logging.MessageKey(), "Delegate handler panicked", logging.ErrorKey(), r)
+				h.logger.Error("Delegate handler panicked", zap.Any("error", r))
 
 				// TODO: Probably need an error stat instead of just "denied"
 				h.SendEvent(Inc(TotalRequestsDenied, 1))
@@ -101,14 +99,13 @@ func (h *Health) SendEvent(healthFunc HealthFunc) {
 }
 
 // New creates a Health object with the given statistics.
-func New(interval time.Duration, logger log.Logger, options ...Option) *Health {
+func New(interval time.Duration, logger *zap.Logger, options ...Option) *Health {
 	initialStats := NewStats(options)
 
 	return &Health{
 		stats:            initialStats,
 		statDumpInterval: interval,
-		errorLog:         logging.Error(logger),
-		debugLog:         logging.Debug(logger),
+		logger:           logger,
 		memInfoReader:    &MemInfoReader{},
 	}
 }
@@ -117,14 +114,14 @@ func New(interval time.Duration, logger log.Logger, options ...Option) *Health {
 // Health object is Run, it cannot be Run again.
 func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 	h.once.Do(func() {
-		h.debugLog.Log(logging.MessageKey(), "Health Monitor Started")
+		h.logger.Info("Health Monitor Started")
 
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
 			ticker := time.NewTicker(h.statDumpInterval)
 			defer ticker.Stop()
-			defer h.debugLog.Log(logging.MessageKey(), "Health Monitor Stopped")
+			defer h.logger.Info("Health Monitor Stopped")
 
 			for {
 				select {
@@ -160,7 +157,7 @@ func (h *Health) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 
 	response.Header().Set("Content-Type", "application/json")
 	if err != nil {
-		h.errorLog.Log(logging.MessageKey(), "Could not marshal stats", logging.ErrorKey(), err)
+		h.logger.Error("Could not marshal stats", zap.Error(err))
 		response.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(response, `{"message": "%s"}\n`, err.Error())
 	} else {

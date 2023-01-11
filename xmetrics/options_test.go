@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testOptionsDefault(o *Options, t *testing.T) {
@@ -25,7 +25,7 @@ func testOptionsDefault(o *Options, t *testing.T) {
 func testOptionsCustom(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 		o      = Options{
 			Logger:                  logger,
 			Namespace:               "custom namespace",

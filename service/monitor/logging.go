@@ -1,10 +1,10 @@
 package monitor
 
 var (
-	eventCountKey interface{} = "eventCount"
+	eventCountKey string = "eventCount"
 )
 
 // EventCountKey returns the contextual logging key for the event count
-func EventCountKey() interface{} {
+func EventCountKey() string {
 	return eventCountKey
 }

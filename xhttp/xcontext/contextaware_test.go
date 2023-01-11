@@ -9,7 +9,7 @@ import (
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestSetContext(t *testing.T) {
@@ -31,7 +31,7 @@ func TestSetContext(t *testing.T) {
 
 	r, err := http.NewRequest("GET", server.URL, nil)
 	assert.NoError(err)
-	r = r.WithContext(logging.WithLogger(r.Context(), logging.New(nil)))
+	r = r.WithContext(sallust.With(r.Context(), sallust.Default()))
 	response, err := (&http.Client{}).Do(r)
 	assert.NoError(err)
 	assert.NotNil(response)
@@ -54,7 +54,7 @@ func TestSingleHandler(t *testing.T) {
 
 	r, err := http.NewRequest("GET", server.URL, nil)
 	assert.NoError(err)
-	r = r.WithContext(logging.WithLogger(r.Context(), logging.New(nil)))
+	r = r.WithContext(sallust.With(r.Context(), sallust.Default()))
 	response, err := (&http.Client{}).Do(r)
 	assert.NoError(err)
 	assert.NotNil(response)
@@ -100,7 +100,7 @@ func TestChain(t *testing.T) {
 
 	r, err := http.NewRequest("GET", server.URL, nil)
 	assert.NoError(err)
-	r = r.WithContext(logging.WithLogger(r.Context(), logging.New(nil)))
+	r = r.WithContext(sallust.With(r.Context(), sallust.Default()))
 	response, err := (&http.Client{}).Do(r)
 	assert.NoError(err)
 	assert.NotNil(response)

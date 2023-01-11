@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 func testStartServeHTTPDefaultLogger(t *testing.T) {
@@ -75,7 +75,7 @@ func testStartServeHTTPValid(t *testing.T) {
 				done  <-chan struct{} = make(chan struct{})
 				start                 = Start{d}
 
-				ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+				ctx      = sallust.With(context.Background(), sallust.Default())
 				response = httptest.NewRecorder()
 				request  = httptest.NewRequest("POST", record.uri, nil).WithContext(ctx)
 			)
@@ -164,7 +164,7 @@ func testStartServeHTTPWithBody(t *testing.T) {
 				done  <-chan struct{} = make(chan struct{})
 				start                 = Start{d}
 
-				ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+				ctx      = sallust.With(context.Background(), sallust.Default())
 				response = httptest.NewRecorder()
 				request  = httptest.NewRequest("POST", "/foo?count=22&rate=10&tick=20s", bytes.NewBuffer(record.body)).WithContext(ctx)
 			)
@@ -199,7 +199,7 @@ func testStartServeHTTPParseFormError(t *testing.T) {
 		d     = new(mockDrainer)
 		start = Start{d}
 
-		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx      = sallust.With(context.Background(), sallust.Default())
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?%TT*&&", nil).WithContext(ctx)
 	)
@@ -216,7 +216,7 @@ func testStartServeHTTPInvalidQuery(t *testing.T) {
 		d     = new(mockDrainer)
 		start = Start{d}
 
-		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx      = sallust.With(context.Background(), sallust.Default())
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?count=asdf", nil).WithContext(ctx)
 	)
@@ -235,7 +235,7 @@ func testStartServeHTTPStartError(t *testing.T) {
 		start         = Start{d}
 		expectedError = errors.New("expected")
 
-		ctx      = logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t))
+		ctx      = sallust.With(context.Background(), sallust.Default())
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?count=100", nil).WithContext(ctx)
 	)

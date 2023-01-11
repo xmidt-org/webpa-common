@@ -5,12 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 // passFormat returns a closure that produces the output for a passing TTL, given the current system time
@@ -54,11 +53,11 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 	defer stop()
 	defer func() {
 		if err := updater.UpdateTTL(tc.checkID, tc.failFormat(time.Now()), "fail"); err != nil {
-			tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to critical", logging.ErrorKey(), err)
+			tc.logger.Log(level.Key(), level.ErrorValue(), "msg", "error while updating TTL to critical", "error", err)
 		}
 	}()
 
-	tc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting TTL updater")
+	tc.logger.Log(level.Key(), level.InfoValue(), "msg", "starting TTL updater")
 
 	// we log an error only on the first error, and then an info message if and when the update recovers.
 	// this avoids filling up the server's logs with what are almost certainly just duplicate errors over and over.
@@ -70,15 +69,15 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 			if err := updater.UpdateTTL(tc.checkID, tc.passFormat(t), "pass"); err != nil {
 				successiveErrorCount++
 				if successiveErrorCount == 1 {
-					tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "error while updating TTL to passing", logging.ErrorKey(), err)
+					tc.logger.Log(level.Key(), level.ErrorValue(), "msg", "error while updating TTL to passing", "error", err)
 				}
 			} else if successiveErrorCount > 0 {
-				tc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "update TTL success", "previousErrorCount", successiveErrorCount)
+				tc.logger.Log(level.Key(), level.InfoValue(), "msg", "update TTL success", "previousErrorCount", successiveErrorCount)
 				successiveErrorCount = 0
 			}
 
 		case <-shutdown:
-			tc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "TTL updater shutdown")
+			tc.logger.Log(level.Key(), level.ErrorValue(), "msg", "TTL updater shutdown")
 			return
 		}
 	}
