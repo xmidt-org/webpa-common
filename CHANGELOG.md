@@ -5,10 +5,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v2.1.0]
 - Patch writePump performance hit [#613](https://github.com/xmidt-org/webpa-common/pull/613)
-- [Remove go-kit/kit/log & go-kit/log #686](https://github.com/xmidt-org/webpa-common/issues/686)
+- [Remove `logging` package and replace go-kit/kit/log & go-kit/log with `zap` #686](https://github.com/xmidt-org/webpa-common/issues/686)
 - [Fix bookkeeping package tests #465](https://github.com/xmidt-org/webpa-common/issues/465)
 - removed packages not currently
+
 ## [v2.0.7]
 - Dependency update, note vulnerabilities
   - Introduces new vuln https://www.mend.io/vulnerability-database/CVE-2022-29526
@@ -250,7 +253,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.1.0...HEAD
+[v2.1.0]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7...v2.1.0
 [v2.0.7]: https://github.com/xmidt-org/webpa-common/compare/v2.0.6...v2.0.7
 [v2.0.6]: https://github.com/xmidt-org/webpa-common/compare/v2.0.5...v2.0.6
 [v2.0.5]: https://github.com/xmidt-org/webpa-common/compare/v2.0.4...v2.0.5
