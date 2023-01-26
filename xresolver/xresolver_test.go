@@ -3,16 +3,14 @@ package xresolver
 import (
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestClient(t *testing.T) {
@@ -25,15 +23,13 @@ func TestClient(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: NewResolver(DefaultDialer, logging.NewTestLogger(nil, t)).DialContext,
+			DialContext: NewResolver(DefaultDialer, sallust.Default()).DialContext,
 		},
 	}
 
-	// nolint:bodyclose
 	req, err := http.NewRequest("GET", ts.URL, nil)
 	assert.NoError(err)
 
-	// nolint:bodyclose
 	res, err := client.Do(req)
 	assert.NoError(err)
 	assert.Equal(200, res.StatusCode)
@@ -68,7 +64,7 @@ func TestClientWithResolver(t *testing.T) {
 
 	fakeLookUp := new(mockLookUp)
 	fakeLookUp.On("LookupRoutes", mock.Anything, customhost).Return([]Route{route}, nil)
-	r := NewResolver(DefaultDialer, logging.NewTestLogger(nil, t), fakeLookUp)
+	r := NewResolver(DefaultDialer, sallust.Default(), fakeLookUp)
 
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -77,14 +73,12 @@ func TestClientWithResolver(t *testing.T) {
 		},
 	}
 
-	// nolint:bodyclose
 	req, err := http.NewRequest("GET", "http://"+customhost+":"+customport, nil)
 	assert.NoError(err)
 
-	// nolint:bodyclose
 	res, err := client.Do(req)
 	if assert.NoError(err) {
-		body, err := io.ReadAll(res.Body)
+		body, err := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 
@@ -97,11 +91,9 @@ func TestClientWithResolver(t *testing.T) {
 	err = r.Remove(fakeLookUp)
 	assert.NoError(err)
 
-	// nolint:bodyclose
 	req, err = http.NewRequest("GET", "http://"+customhost+":"+customport, nil)
 	assert.NoError(err)
 
-	// nolint:bodyclose
-	_, err = client.Do(req)
+	res, err = client.Do(req)
 	assert.Error(err)
 }

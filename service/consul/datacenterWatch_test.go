@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
@@ -36,7 +36,6 @@ func TestNewDatacenterWatcher(t *testing.T) {
 			Auth: chrysom.Auth{
 				Basic: "Basic auth",
 			},
-			Logger: logger,
 		},
 		Listen: chrysom.ListenerClientConfig{
 			PullInterval: 10 * time.Second,
@@ -157,7 +156,7 @@ func TestNewDatacenterWatcher(t *testing.T) {
 				DatacenterWatchInterval: 10 * time.Second,
 			},
 			expectedWatcher: &datacenterWatcher{
-				logger: defaultLogger,
+				logger: log.NewNopLogger(),
 				environment: environment{
 					mockServiceEnvironment, new(mockClient),
 				},
@@ -214,7 +213,6 @@ func TestNewDatacenterWatcher(t *testing.T) {
 						Auth: chrysom.Auth{
 							Basic: "Basic auth",
 						},
-						Logger: logger,
 					},
 					Listen: chrysom.ListenerClientConfig{
 						PullInterval: 0,

@@ -2,15 +2,14 @@ package consul
 
 import (
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 	"github.com/xmidt-org/webpa-common/v2/xresolver"
 )
@@ -48,7 +47,7 @@ func TestConsulWatcher(t *testing.T) {
 
 	client := &http.Client{
 		Transport: &http.Transport{
-			DialContext: xresolver.NewResolver(xresolver.DefaultDialer, logging.NewTestLogger(nil, t), watcher).DialContext,
+			DialContext: xresolver.NewResolver(xresolver.DefaultDialer, sallust.Default(), watcher).DialContext,
 			// note: DisableKeepAlives is required so when we do the request again we don't reuse the same connection.
 			DisableKeepAlives: true,
 		},
@@ -60,7 +59,7 @@ func TestConsulWatcher(t *testing.T) {
 	res, err := client.Do(req)
 	if assert.NoError(err) {
 
-		body, err := io.ReadAll(res.Body)
+		body, err := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 
@@ -74,7 +73,7 @@ func TestConsulWatcher(t *testing.T) {
 	res, err = client.Do(req)
 	if assert.NoError(err) {
 
-		body, err := io.ReadAll(res.Body)
+		body, err := ioutil.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 

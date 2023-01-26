@@ -7,14 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
 	"github.com/gorilla/mux"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/wrp-go/v3"
+	"go.uber.org/zap"
 )
 
 const (
@@ -99,18 +96,18 @@ func useID(f IDFromRequest) func(http.Handler) http.Handler {
 // to be sent to devices.
 type MessageHandler struct {
 	// Logger is the sink for logging output.  If not set, logging will be sent to a NOP logger
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// Router is the device message Router to use.  This field is required.
 	Router Router
 }
 
-func (mh *MessageHandler) logger() log.Logger {
+func (mh *MessageHandler) logger() *zap.Logger {
 	if mh.Logger != nil {
 		return mh.Logger
 	}
 
-	return logging.DefaultLogger()
+	return sallust.Default()
 }
 
 // decodeRequest transforms an HTTP request into a device request.
@@ -131,7 +128,7 @@ func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceReques
 func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpRequest *http.Request) {
 	deviceRequest, err := mh.decodeRequest(httpRequest)
 	if err != nil {
-		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to decode request", logging.ErrorKey(), err)
+		mh.logger().Error("Unable to decode request", zap.Error(err))
 		xhttp.WriteErrorf(
 			httpResponse,
 			http.StatusBadRequest,
@@ -144,7 +141,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 
 	responseFormat, err := wrp.FormatFromContentType(httpRequest.Header.Get("Accept"), deviceRequest.Format)
 	if err != nil {
-		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Unable to determine response WRP format", logging.ErrorKey(), err)
+		mh.logger().Error("Unable to determine response WRP format", zap.Error(err))
 		xhttp.WriteErrorf(
 			httpResponse,
 			http.StatusBadRequest,
@@ -158,7 +155,6 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 	// deviceRequest carries the context through the routing infrastructure
 	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
 		code := http.StatusGatewayTimeout
-		// nolint:errorlint
 		switch err {
 		case ErrorInvalidDeviceName:
 			code = http.StatusBadRequest
@@ -172,7 +168,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			code = http.StatusBadRequest
 		}
 
-		mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Could not process device request", logging.ErrorKey(), err, "code", code)
+		mh.logger().Error("Could not process device request", zap.Error(err), zap.Int("code", code))
 		httpResponse.Header().Set("X-Xmidt-Message-Error", err.Error())
 		xhttp.WriteErrorf(
 			httpResponse,
@@ -182,7 +178,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 		)
 	} else if deviceResponse != nil {
 		if err := EncodeResponse(httpResponse, deviceResponse, responseFormat); err != nil {
-			mh.logger().Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "Error while writing transaction response", logging.ErrorKey(), err)
+			mh.logger().Error("Error while writing transaction response", zap.Error(err))
 		}
 	}
 
@@ -193,30 +189,30 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 
 // ConnectHandler is used to initiate a concurrent connection between a Talaria and a device by upgrading a http connection to a websocket
 type ConnectHandler struct {
-	Logger         log.Logger
+	Logger         *zap.Logger
 	Connector      Connector
 	ResponseHeader http.Header
 }
 
-func (ch *ConnectHandler) logger() log.Logger {
+func (ch *ConnectHandler) logger() *zap.Logger {
 	if ch.Logger != nil {
 		return ch.Logger
 	}
 
-	return logging.DefaultLogger()
+	return sallust.Default()
 }
 
 func (ch *ConnectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	if device, err := ch.Connector.Connect(response, request, ch.ResponseHeader); err != nil {
-		logging.Error(ch.logger()).Log(logging.MessageKey(), "Failed to connect device", logging.ErrorKey(), err)
+		ch.logger().Error("Failed to connect device", zap.Error(err))
 	} else {
-		logging.Debug(ch.logger()).Log(logging.MessageKey(), "Connected device", "id", device.ID())
+		ch.logger().Debug("Connected device", zap.String("id", string(device.ID())))
 	}
 }
 
 // ListHandler is an HTTP handler which can take updated JSON device lists.
 type ListHandler struct {
-	Logger   log.Logger
+	Logger   *zap.Logger
 	Registry Registry
 	Refresh  time.Duration
 
@@ -288,7 +284,7 @@ func (lh *ListHandler) updateCache() []byte {
 }
 
 func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	lh.Logger.Log(level.Key(), level.DebugValue(), "handler", "ListHandler", logging.MessageKey(), "ServeHTTP")
+	lh.Logger.Debug("ServeHTTP", zap.String("handler", "ListHandler"))
 	response.Header().Set("Content-Type", "application/json")
 
 	if cacheBytes, expired := lh.tryCache(); expired {
@@ -301,30 +297,30 @@ func (lh *ListHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 // StatHandler is an http.Handler that returns device statistics.  The device name is specified
 // as a gorilla path variable.
 type StatHandler struct {
-	Logger   log.Logger
+	Logger   *zap.Logger
 	Registry Registry
 	Variable string
 }
 
 func (sh *StatHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
-	sh.Logger.Log(level.Key(), level.DebugValue(), "handler", "StatHandler", logging.MessageKey(), "ServeHTTP")
+	sh.Logger.Debug("ServeHTTP", zap.String("handler", "StatHandler"))
 	vars := mux.Vars(request)
 	if len(vars) == 0 {
-		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "no path variables present for request")
+		sh.Logger.Error("no path variables present for request")
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	name, ok := vars[sh.Variable]
 	if !ok {
-		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "missing path variable", "variable", sh.Variable)
+		sh.Logger.Error("missing path variable", zap.String("variable", sh.Variable))
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	id, err := ParseID(name)
 	if err != nil {
-		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to parse identifier", "deviceName", name, logging.ErrorKey(), err)
+		sh.Logger.Error("unable to parse identifier", zap.Error(err), zap.String("deviceName", name))
 		response.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -337,7 +333,7 @@ func (sh *StatHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 
 	data, err := d.MarshalJSON()
 	if err != nil {
-		sh.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to marshal device as JSON", "deviceName", name, logging.ErrorKey(), err)
+		sh.Logger.Error("unable to marshal device as JSON", zap.Error(err), zap.String("deviceName", name))
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	}

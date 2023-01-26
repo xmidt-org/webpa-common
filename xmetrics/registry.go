@@ -3,13 +3,11 @@ package xmetrics
 import (
 	"fmt"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics"
 	gokitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"go.uber.org/zap"
 )
 
 // PrometheusProvider is a Prometheus-specific version of go-kit's metrics.Provider.  Use this interface
@@ -251,36 +249,28 @@ func NewRegistry(o *Options, modules ...Module) (Registry, error) {
 
 	for name, metric := range merger.Merged() {
 		// merged metrics will have namespace and subsystem set appropriately
-		metricLogger := log.With(
-			logger,
-			"name", metric.Name,
-			"namespace", metric.Namespace,
-			"subsystem", metric.Subsystem,
-			"type", metric.Type,
-			"fqn", name,
+		metricLogger := logger.With(
+			zap.String("name", metric.Name),
+			zap.String("namespace", metric.Namespace),
+			zap.String("subsystem", metric.Subsystem),
+			zap.String("type", metric.Type),
+			zap.String("fqn", name),
 		)
 
-		metricLogger.Log(
-			level.Key(), level.DebugValue(),
-			logging.MessageKey(), "registering merged metric",
-		)
+		metricLogger.Debug("registering merged metric")
 
 		c, err := NewCollector(metric)
 		if err != nil {
-			metricLogger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "unable to create collector for metric",
-				logging.ErrorKey(), err,
+			metricLogger.Error("unable to create collector for metric",
+				zap.Error(err),
 			)
 
 			return nil, err
 		}
 
 		if err := pr.Register(c); err != nil {
-			metricLogger.Log(
-				level.Key(), level.ErrorValue(),
-				logging.MessageKey(), "unable to register collector for metric",
-				logging.ErrorKey(), err,
+			metricLogger.Error("unable to register collector for metric",
+				zap.Error(err),
 			)
 
 			return nil, err

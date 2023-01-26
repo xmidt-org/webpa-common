@@ -3,8 +3,8 @@ package zk
 import (
 	"fmt"
 
-	"github.com/go-kit/kit/log"
 	gokitzk "github.com/go-kit/kit/sd/zk"
+	"github.com/go-kit/log"
 	zkclient "github.com/go-zookeeper/zk"
 	"github.com/stretchr/testify/mock"
 )

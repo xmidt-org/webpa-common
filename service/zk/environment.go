@@ -1,11 +1,13 @@
 package zk
 
 import (
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
+	"os"
+
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
+
 	"github.com/go-kit/kit/sd"
 	gokitzk "github.com/go-kit/kit/sd/zk"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -49,7 +51,7 @@ func newInstancer(l log.Logger, c gokitzk.Client, path string) (i sd.Instancer, 
 func newInstancers(l log.Logger, c gokitzk.Client, zo Options) (i service.Instancers, err error) {
 	for _, path := range zo.watches() {
 		if i.Has(path) {
-			l.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate watch", "path", path)
+			l.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate watch", "path", path)
 			continue
 		}
 
@@ -71,7 +73,7 @@ func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Reg
 	for _, registration := range zo.registrations() {
 		instance, s := newService(registration)
 		if r.Has(instance) {
-			base.Log(level.Key(), level.WarnValue(), logging.MessageKey(), "skipping duplicate registration", "instance", instance)
+			base.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate registration", "instance", instance)
 			continue
 		}
 
@@ -85,7 +87,7 @@ func newRegistrars(base log.Logger, c gokitzk.Client, zo Options) (r service.Reg
 // from configuration) and an optional extra set of environment options.
 func NewEnvironment(l log.Logger, zo Options, eo ...service.Option) (service.Environment, error) {
 	if l == nil {
-		l = logging.DefaultLogger()
+		l = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 	}
 
 	if len(zo.Watches) == 0 && len(zo.Registrations) == 0 {

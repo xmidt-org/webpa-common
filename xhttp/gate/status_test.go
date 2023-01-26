@@ -9,15 +9,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testStatusServeHTTP(t *testing.T, state bool) {
 	var (
 		assert            = assert.New(t)
-		logger            = logging.NewTestLogger(nil, t)
-		ctx               = logging.WithLogger(context.Background(), logger)
+		logger            = sallust.Default()
+		ctx               = sallust.With(context.Background(), logger)
 		expectedTimestamp = time.Now()
 		expectedStatus    = fmt.Sprintf(`{"open": %t, "timestamp": "%s"}`, state, expectedTimestamp.UTC().Format(time.RFC3339))
 

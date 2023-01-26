@@ -9,7 +9,7 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testRedirectNoRequestURI(t *testing.T, expectedRedirectCode, actualRedirectCode int) {
@@ -24,7 +24,7 @@ func testRedirectNoRequestURI(t *testing.T, expectedRedirectCode, actualRedirect
 	require.NotNil(encoder)
 
 	err := encoder(
-		logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+		sallust.With(context.Background(), sallust.Default()),
 		httpResponse,
 		"http://somewhere.com:8080",
 	)
@@ -47,7 +47,7 @@ func testRedirectWithRequestURI(t *testing.T, expectedRedirectCode, actualRedire
 
 	err := encoder(
 		context.WithValue(
-			logging.WithLogger(context.Background(), logging.NewTestLogger(nil, t)),
+			sallust.With(context.Background(), sallust.Default()),
 			gokithttp.ContextKeyRequestURI,
 			"/api/v2/device",
 		),

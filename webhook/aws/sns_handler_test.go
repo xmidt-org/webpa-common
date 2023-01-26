@@ -7,7 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/spf13/viper"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -88,7 +88,7 @@ func SetUpTestSNSServerWithChannelSize(t *testing.T, channelSize int64) (*SNSSer
 	}
 
 	r := mux.NewRouter()
-	logger := logging.NewTestLogger(nil, t)
+	logger := sallust.Default()
 	registry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics)
 	awsMetrics := ApplyMetricsData(registry)
 	ss.Initialize(r, nil, "", nil, logger, awsMetrics, testNow)

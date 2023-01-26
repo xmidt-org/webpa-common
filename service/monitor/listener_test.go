@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
+	"go.uber.org/zap"
 )
 
 func TestListenerFunc(t *testing.T) {
@@ -222,7 +222,7 @@ func TestNewAccessorListener(t *testing.T) {
 func testNewRegistrarListenerNilRegistrar(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 	)
 
 	assert.Panics(func() {
@@ -234,7 +234,7 @@ func testNewRegistrarListenerNilRegistrar(t *testing.T) {
 	})
 }
 
-func testNewRegistrarListenerInitiallyDeregistered(t *testing.T, logger log.Logger) {
+func testNewRegistrarListenerInitiallyDeregistered(t *testing.T, logger *zap.Logger) {
 	var (
 		require   = require.New(t)
 		registrar = new(service.MockRegistrar)
@@ -285,7 +285,7 @@ func testNewRegistrarListenerInitiallyDeregistered(t *testing.T, logger log.Logg
 	registrar.AssertExpectations(t)
 }
 
-func testNewRegistrarListenerInitiallyRegistered(t *testing.T, logger log.Logger) {
+func testNewRegistrarListenerInitiallyRegistered(t *testing.T, logger *zap.Logger) {
 	var (
 		require   = require.New(t)
 		registrar = new(service.MockRegistrar)
@@ -341,7 +341,7 @@ func TestNewRegistrarListener(t *testing.T) {
 		})
 
 		t.Run("WithLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitiallyDeregistered(t, logging.NewTestLogger(nil, t))
+			testNewRegistrarListenerInitiallyDeregistered(t, sallust.Default())
 		})
 	})
 
@@ -351,7 +351,7 @@ func TestNewRegistrarListener(t *testing.T) {
 		})
 
 		t.Run("WithLogger", func(t *testing.T) {
-			testNewRegistrarListenerInitiallyRegistered(t, logging.NewTestLogger(nil, t))
+			testNewRegistrarListenerInitiallyRegistered(t, sallust.Default())
 		})
 	})
 }

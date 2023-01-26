@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,9 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
@@ -171,7 +169,7 @@ func TestUseID(t *testing.T) {
 func testMessageHandlerLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 
 		handler = MessageHandler{}
 	)
@@ -200,8 +198,8 @@ func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
-	assert.Equal("application/json", response.Header().Get("Content-Type"))
-	responseContents, err := io.ReadAll(response.Body)
+	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
@@ -246,8 +244,8 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(expectedCode, response.Code)
-	assert.Equal("application/json", response.Header().Get("Content-Type"))
-	responseContents, err := io.ReadAll(response.Body)
+	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
@@ -259,7 +257,7 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		event = &wrp.Message{
+		event = &wrp.SimpleEvent{
 			Source:      "test.com",
 			Destination: "mac:123412341234",
 			ContentType: "text/plain",
@@ -279,7 +277,7 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: sallust.Default(),
 			Router: router,
 		}
 
@@ -345,7 +343,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		router  = new(mockRouter)
 		device  = new(MockDevice)
 		handler = MessageHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: sallust.Default(),
 			Router: router,
 		}
 
@@ -373,7 +371,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
-	assert.Equal(responseFormat.ContentType(), response.Header().Get("Content-Type"))
+	assert.Equal(responseFormat.ContentType(), response.HeaderMap.Get("Content-Type"))
 	require.NotNil(actualDeviceRequest)
 	assert.NoError(wrp.NewDecoder(response.Body, responseFormat).Decode(new(wrp.Message)))
 
@@ -440,8 +438,8 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
-	assert.Equal("application/json", response.Header().Get("Content-Type"))
-	responseContents, err := io.ReadAll(response.Body)
+	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
@@ -484,7 +482,7 @@ func TestMessageHandler(t *testing.T) {
 func testConnectHandlerLogger(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 
 		handler = ConnectHandler{}
 	)
@@ -541,7 +539,7 @@ func testListHandlerRefresh(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		handler = ListHandler{
-			Logger: logging.NewTestLogger(nil, t),
+			Logger: sallust.Default(),
 		}
 	)
 
@@ -558,7 +556,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		expectedConnectedAt = time.Now().UTC()
 		expectedUpTime      = 47913 * time.Minute
 		registry            = new(MockRegistry)
-		logger              = logging.NewTestLogger(nil, t)
+		logger              = sallust.Default()
 
 		now = func() time.Time {
 			return expectedConnectedAt.Add(expectedUpTime)
@@ -568,7 +566,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		secondDevice = newDevice(deviceOptions{ID: ID("second"), QueueSize: 1, ConnectedAt: expectedConnectedAt, Logger: logger})
 
 		handler = ListHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 		}
 	)
@@ -596,12 +594,12 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err := io.ReadAll(response.Body)
+		data, err := ioutil.ReadAll(response.Body)
 		require.NoError(err)
 		assert.JSONEq(`{"devices":[]}`, string(data))
 
 		assert.False(handler.cacheExpiry.IsZero())
-		cacheDuration := time.Until(handler.cacheExpiry)
+		cacheDuration := handler.cacheExpiry.Sub(time.Now())
 		assert.True(cacheDuration > 0)
 		assert.True(cacheDuration <= handler.refresh(), "The cache duration %s should be less than the refresh interval %s", cacheDuration, handler.refresh())
 	}
@@ -629,12 +627,12 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err = io.ReadAll(response.Body)
+		data, err = ioutil.ReadAll(response.Body)
 		require.NoError(err)
 		assert.JSONEq(expectedJSON.String(), string(data))
 
 		assert.False(handler.cacheExpiry.IsZero())
-		cacheDuration := time.Until(handler.cacheExpiry)
+		cacheDuration := handler.cacheExpiry.Sub(time.Now())
 		assert.True(cacheDuration > 0)
 		assert.True(cacheDuration <= handler.refresh(), "The cache duration %s should be less than the refresh interval %s", cacheDuration, handler.refresh())
 	}
@@ -651,7 +649,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err := io.ReadAll(response.Body)
+		data, err := ioutil.ReadAll(response.Body)
 		require.NoError(err)
 		assert.JSONEq(expectedJSON.String(), string(data))
 		assert.Equal(lastCacheExpiry, handler.cacheExpiry)
@@ -671,7 +669,7 @@ func testStatHandlerNoPathVariables(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 		}
 
@@ -690,7 +688,7 @@ func testStatHandlerNoDeviceName(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -712,7 +710,7 @@ func testStatHandlerInvalidDeviceName(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -734,7 +732,7 @@ func testStatHandlerMissingDevice(t *testing.T) {
 		registry = new(MockRegistry)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -759,7 +757,7 @@ func testStatHandlerMarshalJSONFailed(t *testing.T) {
 		device   = new(MockDevice)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 			Variable: "deviceID",
 		}
@@ -786,7 +784,7 @@ func testStatHandlerSuccess(t *testing.T) {
 		device   = new(MockDevice)
 
 		handler = StatHandler{
-			Logger:   logging.NewTestLogger(nil, t),
+			Logger:   sallust.Default(),
 			Registry: registry,
 			Variable: "deviceID",
 		}

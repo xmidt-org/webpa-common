@@ -7,12 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/convey"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
-
-	"github.com/go-kit/log"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"go.uber.org/zap"
 )
 
 const (
@@ -52,7 +50,7 @@ type Interface interface {
 	fmt.Stringer
 	json.Marshaler
 
-	// ID returns the canonicalized identifier for this device.  Note that
+	// ID returns the canonicalized identifer for this device.  Note that
 	// this is NOT globally unique.  It is possible for multiple devices
 	// with the same ID to be connected.  This typically occurs due to fraud,
 	// but we don't want to turn away duped devices.
@@ -104,9 +102,7 @@ type Interface interface {
 type device struct {
 	id ID
 
-	errorLog log.Logger
-	infoLog  log.Logger
-	debugLog log.Logger
+	logger *zap.Logger
 
 	statistics Statistics
 
@@ -131,7 +127,7 @@ type deviceOptions struct {
 	Compliance  convey.Compliance
 	QueueSize   int
 	ConnectedAt time.Time
-	Logger      log.Logger
+	Logger      *zap.Logger
 	Metadata    *Metadata
 }
 
@@ -142,7 +138,7 @@ func newDevice(o deviceOptions) *device {
 	}
 
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = sallust.Default()
 	}
 
 	if o.QueueSize < 1 {
@@ -151,9 +147,7 @@ func newDevice(o deviceOptions) *device {
 
 	return &device{
 		id:           o.ID,
-		errorLog:     logging.Error(o.Logger, "id", o.ID),
-		infoLog:      logging.Info(o.Logger, "id", o.ID),
-		debugLog:     logging.Debug(o.Logger, "id", o.ID),
+		logger:       o.Logger.With(zap.String("id", string(o.ID))),
 		statistics:   NewStatistics(nil, o.ConnectedAt),
 		c:            o.C,
 		compliance:   o.Compliance,
@@ -214,7 +208,7 @@ func (d *device) Closed() bool {
 // servicing this device.  This method honors the request context's cancellation semantics.
 //
 // This function returns when either (1) the write pump has attempted to send the message to
-// the device, or (2) the request's context has been canceled, which includes timing out.
+// the device, or (2) the request's context has been cancelled, which includes timing out.
 func (d *device) sendRequest(request *Request) error {
 	var (
 		done     = request.Context().Done()
@@ -234,7 +228,7 @@ func (d *device) sendRequest(request *Request) error {
 	case d.messages <- envelope:
 	}
 
-	// once enqueued, wait until the context is canceled
+	// once enqueued, wait until the context is cancelled
 	// or there's a result
 	select {
 	case <-done:
@@ -257,7 +251,7 @@ func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Resp
 		return nil, ErrorDeviceClosed
 	case response := <-result:
 		if response == nil {
-			return nil, ErrorTransactioncanceled
+			return nil, ErrorTransactionCancelled
 		}
 
 		return response, nil

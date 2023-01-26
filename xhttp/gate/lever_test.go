@@ -8,15 +8,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testLeverServeHTTPBadForm(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		response = httptest.NewRecorder()
 		request  = &http.Request{
@@ -35,8 +34,8 @@ func testLeverServeHTTPBadForm(t *testing.T) {
 func testLeverServeHTTPNoParameter(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/", nil)
@@ -51,8 +50,8 @@ func testLeverServeHTTPNoParameter(t *testing.T) {
 func testLeverServeHTTPBadParameter(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("POST", "/foo?open=thisisnotabool", nil)
@@ -67,8 +66,8 @@ func testLeverServeHTTPBadParameter(t *testing.T) {
 func testLeverServeHTTPRaise(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		gate  = New(true)
 		lever = Lever{Gate: gate, Parameter: "open"}
@@ -122,8 +121,8 @@ func testLeverServeHTTPRaise(t *testing.T) {
 func testLeverServeHTTPLower(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		gate  = New(false)
 		lever = Lever{Gate: gate, Parameter: "open"}

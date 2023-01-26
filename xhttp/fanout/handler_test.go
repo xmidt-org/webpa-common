@@ -15,9 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/xhttptest"
 )
@@ -29,8 +27,8 @@ func testHandlerBodyError(t *testing.T) {
 
 		expectedError = &xhttp.Error{Code: 599, Text: "body read error"}
 		body          = new(xhttptest.MockBody)
-		logger        = logging.NewTestLogger(nil, t)
-		ctx           = logging.WithLogger(context.Background(), logger)
+		logger        = sallust.Default()
+		ctx           = sallust.With(context.Background(), logger)
 		original      = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response      = httptest.NewRecorder()
 
@@ -52,8 +50,8 @@ func testHandlerNoEndpoints(t *testing.T) {
 		require = require.New(t)
 
 		body     = new(xhttptest.MockBody)
-		logger   = logging.NewTestLogger(nil, t)
-		ctx      = logging.WithLogger(context.Background(), logger)
+		logger   = sallust.Default()
+		ctx      = sallust.With(context.Background(), logger)
 		original = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response = httptest.NewRecorder()
 
@@ -80,8 +78,8 @@ func testHandlerEndpointsError(t *testing.T) {
 		body          = new(xhttptest.MockBody)
 		endpoints     = new(mockEndpoints)
 
-		logger   = logging.NewTestLogger(nil, t)
-		ctx      = logging.WithLogger(context.Background(), logger)
+		logger   = sallust.Default()
+		ctx      = sallust.With(context.Background(), logger)
 		original = httptest.NewRequest("POST", "/something", body).WithContext(ctx)
 		response = httptest.NewRecorder()
 
@@ -105,8 +103,8 @@ func testHandlerBadTransactor(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger   = logging.NewTestLogger(nil, t)
-		ctx      = logging.WithLogger(context.Background(), logger)
+		logger   = sallust.Default()
+		ctx      = sallust.With(context.Background(), logger)
 		original = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
 		response = httptest.NewRecorder()
 
@@ -140,8 +138,8 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger   = logging.NewTestLogger(nil, t)
-		ctx      = logging.WithLogger(context.Background(), logger)
+		logger   = sallust.Default()
+		ctx      = sallust.With(context.Background(), logger)
 		original = httptest.NewRequest("GET", "/api/v3/something", nil).WithContext(ctx)
 		response = httptest.NewRecorder()
 
@@ -222,8 +220,8 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger              = logging.NewTestLogger(nil, t)
-		ctx                 = logging.WithLogger(context.Background(), logger)
+		logger              = sallust.Default()
+		ctx                 = sallust.With(context.Background(), logger)
 		expectedRequestBody = "posted body"
 		original            = httptest.NewRequest("POST", "/api/v3/something", strings.NewReader(expectedRequestBody)).WithContext(ctx)
 		response            = httptest.NewRecorder()
@@ -305,8 +303,8 @@ func testHandlerTimeout(t *testing.T, endpointCount int) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger      = logging.NewTestLogger(nil, t)
-		ctx, cancel = context.WithCancel(logging.WithLogger(context.Background(), logger))
+		logger      = sallust.Default()
+		ctx, cancel = context.WithCancel(sallust.With(context.Background(), logger))
 		original    = httptest.NewRequest("GET", "/api/v2/something", nil).WithContext(ctx)
 		response    = httptest.NewRecorder()
 

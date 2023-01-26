@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -32,9 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testShouldRetry(t *testing.T, shouldRetry ShouldRetryFunc, candidate error, expected bool) {
@@ -64,12 +63,10 @@ func testRetryTransactorDefaultLogger(t *testing.T) {
 			return nil, nil
 		}
 
-		// nolint:bodyclose
 		retry = RetryTransactor(RetryOptions{Retries: 1}, transactor)
 	)
 
 	require.NotNil(retry)
-	// nolint:bodyclose
 	retry(httptest.NewRequest("GET", "/", nil))
 	assert.True(transactorCalled)
 }
@@ -85,13 +82,10 @@ func testRetryTransactorNoRetries(t *testing.T) {
 			return nil, nil
 		}
 
-		// nolint:bodyclose
 		retry = RetryTransactor(RetryOptions{}, transactor)
 	)
 
 	require.NotNil(retry)
-
-	// nolint:bodyclose
 	retry(httptest.NewRequest("GET", "/", nil))
 	assert.True(transactorCalled)
 }
@@ -103,8 +97,7 @@ func testRetryTransactorStatus(t *testing.T) {
 
 		transactorCount = 0
 		statusCheck     = 0
-		// nolint:bodyclose
-		transactor = func(*http.Request) (*http.Response, error) {
+		transactor      = func(*http.Request) (*http.Response, error) {
 			response := http.Response{
 				StatusCode: 429 + transactorCount,
 			}
@@ -112,7 +105,6 @@ func testRetryTransactorStatus(t *testing.T) {
 			return &response, nil
 		}
 
-		// nolint:bodyclose
 		retry = RetryTransactor(RetryOptions{
 			Retries: 5,
 			ShouldRetryStatus: func(status int) bool {
@@ -123,7 +115,6 @@ func testRetryTransactorStatus(t *testing.T) {
 	)
 
 	require.NotNil(retry)
-	// nolint:bodyclose
 	retry(httptest.NewRequest("GET", "/", nil))
 	assert.Equal(2, transactorCount)
 	assert.Equal(2, statusCheck)
@@ -140,17 +131,20 @@ func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configure
 
 		transactorCount = 0
 		transactor      = func(actualRequest *http.Request) (*http.Response, error) {
-			urls[actualRequest.URL.Path]++
+			if _, ok := urls[actualRequest.URL.Path]; ok {
+				urls[actualRequest.URL.Path]++
+			} else {
+				urls[actualRequest.URL.Path] = 1
+			}
 			transactorCount++
 			assert.True(expectedRequest == actualRequest)
 			return nil, expectedError
 		}
 
 		slept = 0
-		// nolint:bodyclose
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:   logging.NewTestLogger(nil, t),
+				Logger:   sallust.Default(),
 				Retries:  retryCount,
 				Counter:  counter,
 				Interval: configuredInterval,
@@ -169,7 +163,6 @@ func testRetryTransactorAllRetriesFail(t *testing.T, expectedInterval, configure
 	)
 
 	require.NotNil(retry)
-	// nolint:bodyclose
 	actualResponse, actualError := retry(expectedRequest)
 	assert.Nil(actualResponse)
 	assert.Equal(expectedError, actualError)
@@ -196,10 +189,9 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 			return expectedResponse, nil
 		}
 
-		// nolint:bodyclose
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:  logging.NewTestLogger(nil, t),
+				Logger:  sallust.Default(),
 				Retries: retryCount,
 				Counter: counter,
 				Sleep: func(d time.Duration) {
@@ -211,7 +203,6 @@ func testRetryTransactorFirstSucceeds(t *testing.T, retryCount int) {
 	)
 
 	require.NotNil(retry)
-	// nolint:bodyclose
 	actualResponse, actualError := retry(expectedRequest)
 	assert.True(expectedResponse == actualResponse)
 	assert.NoError(actualError)
@@ -226,10 +217,9 @@ func testRetryTransactorNotRewindable(t *testing.T) {
 		body          = new(mockReader)
 		expectedError = errors.New("expected")
 
-		// nolint:bodyclose
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:  logging.NewTestLogger(nil, t),
+				Logger:  sallust.Default(),
 				Retries: 2,
 			},
 			func(*http.Request) (*http.Response, error) {
@@ -241,8 +231,7 @@ func testRetryTransactorNotRewindable(t *testing.T) {
 
 	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	require.NotNil(retry)
-	// nolint:bodyclose
-	response, actualError := retry(&http.Request{Body: io.NopCloser(body)})
+	response, actualError := retry(&http.Request{Body: ioutil.NopCloser(body)})
 	assert.Nil(response)
 	assert.Equal(expectedError, actualError)
 
@@ -255,10 +244,9 @@ func testRetryTransactorRewindError(t *testing.T) {
 		require       = require.New(t)
 		expectedError = errors.New("expected")
 
-		// nolint:bodyclose
 		retry = RetryTransactor(
 			RetryOptions{
-				Logger:  logging.NewTestLogger(nil, t),
+				Logger:  sallust.Default(),
 				Retries: 2,
 				Sleep:   func(time.Duration) {},
 			},
@@ -275,7 +263,6 @@ func testRetryTransactorRewindError(t *testing.T) {
 	}
 
 	require.NotNil(retry)
-	// nolint:bodyclose
 	response, actualError := retry(r)
 	assert.Nil(response)
 	assert.Equal(expectedError, actualError)

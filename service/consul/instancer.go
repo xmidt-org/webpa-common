@@ -3,17 +3,17 @@ package consul
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"sync"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/util/conn"
+	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 var (
@@ -33,7 +33,7 @@ type InstancerOptions struct {
 
 func NewInstancer(o InstancerOptions) sd.Instancer {
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 	}
 
 	i := &instancer{
@@ -58,7 +58,7 @@ func NewInstancer(o InstancerOptions) sd.Instancer {
 	if err == nil {
 		i.logger.Log(level.Key(), level.InfoValue(), "instances", len(instances))
 	} else {
-		i.logger.Log(level.Key(), level.ErrorValue(), logging.ErrorKey(), err)
+		i.logger.Log(level.Key(), level.ErrorValue(), "error", err)
 	}
 
 	i.update(sd.Event{Instances: instances, Err: err})
@@ -114,7 +114,7 @@ func (i *instancer) loop(lastIndex uint64) {
 			return
 
 		case err != nil:
-			i.logger.Log(logging.ErrorKey(), err)
+			i.logger.Log("error", err)
 
 			// TODO: this is not recommended, but it was a port of go-kit
 			// Put in a token bucket here with a wait, instead of time.Sleep

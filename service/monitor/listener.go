@@ -4,12 +4,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/go-kit/kit/sd"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"go.uber.org/zap"
 )
 
 // Event carries the same information as go-kit's sd.Event, but with the extra Key that identifies
@@ -24,8 +23,7 @@ type Event struct {
 	// This value is used by listeners to update metric labels.
 	Service string
 
-	// Instancer is the go-kit sd.Instancer which sent this event.  This instance can be used to enrich
-	// logging via logging.Enrich.
+	// Instancer is the go-kit sd.Instancer which sent this event.  This instance can be used to enrich logging
 	Instancer sd.Instancer
 
 	// EventCount is the postive, ascending integer identifying this event's sequence, e.g. 1 refers to the first
@@ -92,8 +90,9 @@ func NewMetricsListener(p provider.Provider) Listener {
 // If the AccessorFactory is nil, DefaultAccessorFactory is used.  If the next closure is nil, this function panics.
 //
 // An UpdatableAccessor may directly be used to receive events by passing Update as the next closure:
-//    ua := new(UpdatableAccessor)
-//    l := NewAccessorListener(f, ua.Update)
+//
+//	ua := new(UpdatableAccessor)
+//	l := NewAccessorListener(f, ua.Update)
 func NewAccessorListener(f service.AccessorFactory, next func(service.Accessor, error)) Listener {
 	if next == nil {
 		panic("A next closure is required to receive Accessors")
@@ -149,9 +148,9 @@ const (
 // Upon the first successful update, or on any successful update following one or more errors, the given
 // registrar is registered.  Any error that follows a successful update, or on the first error, results
 // in deregistration.
-func NewRegistrarListener(logger log.Logger, r sd.Registrar, initiallyRegistered bool) Listener {
+func NewRegistrarListener(logger *zap.Logger, r sd.Registrar, initiallyRegistered bool) Listener {
 	if logger == nil {
-		logger = logging.DefaultLogger()
+		logger = sallust.Default()
 	}
 
 	if r == nil {
@@ -171,7 +170,7 @@ func NewRegistrarListener(logger log.Logger, r sd.Registrar, initiallyRegistered
 			message = "deregistering due to monitor being stopped"
 		} else {
 			if atomic.CompareAndSwapUint32(&state, stateDeregistered, stateRegistered) {
-				logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "registering on service discovery update")
+				logger.Info("registering on service discovery update")
 				r.Register()
 			}
 
@@ -179,7 +178,7 @@ func NewRegistrarListener(logger log.Logger, r sd.Registrar, initiallyRegistered
 		}
 
 		if atomic.CompareAndSwapUint32(&state, stateRegistered, stateDeregistered) {
-			logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), message, logging.ErrorKey(), e.Err, "stopped", e.Stopped)
+			logger.Error(message, zap.Error(e.Err), zap.Bool("stopped", e.Stopped))
 			r.Deregister()
 		}
 	})

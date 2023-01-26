@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-kit/kit/log/level"
 	gokithttp "github.com/go-kit/kit/transport/http"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 // Redirect returns a go-kit EncodeResponseFunc that redirects to the instance hashed by the accessor.
@@ -20,7 +20,7 @@ func Redirect(redirectCode int) gokithttp.EncodeResponseFunc {
 
 	return func(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 		var (
-			logger        = logging.GetLogger(ctx)
+			logger        = sallust.Get(ctx)
 			instance      = response.(string)
 			requestURI, _ = ctx.Value(gokithttp.ContextKeyRequestURI).(string)
 		)
@@ -29,7 +29,7 @@ func Redirect(redirectCode int) gokithttp.EncodeResponseFunc {
 			instance = instance + strings.TrimRight(requestURI, "/")
 		}
 
-		logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
+		logger.Debug("redirecting", zap.String("instance", instance))
 		rw.Header().Set("Location", instance)
 		rw.WriteHeader(redirectCode)
 		return nil

@@ -5,10 +5,10 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/go-kit/kit/sd"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"go.uber.org/zap"
 )
 
 var errNoInstances = errors.New("No instances to monitor")
@@ -30,10 +30,10 @@ type Option func(*monitor)
 
 // WithLogger sets a go-kit Logger for this monitor.  This logger will be enriched with information
 // about each instancer, if available.  If nil, the default logger is used instead.
-func WithLogger(l log.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(m *monitor) {
 		if l == nil {
-			m.logger = logging.DefaultLogger()
+			m.logger = sallust.Default()
 		} else {
 			m.logger = l
 		}
@@ -94,7 +94,7 @@ func WithEnvironment(e service.Environment) Option {
 func New(options ...Option) (Interface, error) {
 	var (
 		m = &monitor{
-			logger:  logging.DefaultLogger(),
+			logger:  sallust.Default(),
 			stopped: make(chan struct{}),
 			filter:  DefaultFilter(),
 		}
@@ -114,7 +114,7 @@ func New(options ...Option) (Interface, error) {
 // monitor is the internal implementation of Monitor.  This type is a shared context
 // among all goroutines that monitor a (key, instancer) pair.
 type monitor struct {
-	logger     log.Logger
+	logger     *zap.Logger
 	instancers service.Instancers
 	filter     Filter
 	listeners  Listeners
@@ -146,7 +146,7 @@ func (m *monitor) start() error {
 				svc = svcName
 			}
 		}
-		go m.dispatchEvents(k, svc, logging.Enrich(m.logger, v), v)
+		go m.dispatchEvents(k, svc, m.logger.With(zap.Any(k, v)), v)
 	}
 
 	return nil
@@ -155,18 +155,18 @@ func (m *monitor) start() error {
 // dispatchEvents is a goroutine that consumes service discovery events from an sd.Instancer
 // and dispatches those events zero or more Listeners.  If configured, the filter is used to
 // preprocess the set of instances sent to the listener.
-func (m *monitor) dispatchEvents(key, service string, l log.Logger, i sd.Instancer) {
+func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instancer) {
 	var (
 		eventCount              = 0
 		eventCounter log.Valuer = func() interface{} {
 			return eventCount
 		}
 
-		logger = log.With(l, EventCountKey(), eventCounter)
+		logger = l.With(zap.Any(EventCountKey(), eventCounter))
 		events = make(chan sd.Event, 10)
 	)
 
-	logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor starting")
+	logger.Info("subscription monitor starting")
 
 	defer i.Deregister(events)
 	i.Register(events)
@@ -183,10 +183,10 @@ func (m *monitor) dispatchEvents(key, service string, l log.Logger, i sd.Instanc
 			}
 
 			if sdEvent.Err != nil {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery error", logging.ErrorKey(), sdEvent.Err)
+				logger.Error("service discovery error", zap.Error(sdEvent.Err))
 				event.Err = sdEvent.Err
 			} else {
-				logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "service discovery update", "instances", sdEvent.Instances)
+				logger.Error("service discovery update", zap.Strings("instances", sdEvent.Instances))
 				if len(sdEvent.Instances) > 0 {
 					event.Instances = m.filter(sdEvent.Instances)
 				}
@@ -195,12 +195,12 @@ func (m *monitor) dispatchEvents(key, service string, l log.Logger, i sd.Instanc
 			m.listeners.MonitorEvent(event)
 
 		case <-m.stopped:
-			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor was stopped")
+			logger.Info("subscription monitor was stopped")
 			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 
 		case <-m.closed:
-			logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "subscription monitor exiting due to external closure")
+			logger.Info("subscription monitor exiting due to external closure")
 			m.Stop() // ensure that the Stopped state is correct
 			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
 			return

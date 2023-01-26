@@ -1,65 +1,17 @@
 package xhttp
 
 import (
+	"crypto/tls"
 	"errors"
-	"net"
 	"net/http"
 	"testing"
 	"time"
 
-	"github.com/go-kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
-
-func testNewServerLogger(t *testing.T, logger log.Logger) {
-	var (
-		assert       = assert.New(t)
-		require      = require.New(t)
-		serverLogger = NewServerLogger(logger)
-	)
-
-	require.NotNil(serverLogger)
-	assert.NotPanics(func() {
-		serverLogger.Println("this is a message")
-	})
-}
-
-func TestNewServerLogger(t *testing.T) {
-	t.Run("NilLogger", func(t *testing.T) {
-		testNewServerLogger(t, nil)
-	})
-
-	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
-	})
-}
-
-func testNewServerConnStateLogger(t *testing.T, logger log.Logger) {
-	var (
-		assert    = assert.New(t)
-		require   = require.New(t)
-		connState = NewServerConnStateLogger(logger)
-	)
-
-	require.NotNil(connState)
-	assert.NotPanics(func() {
-		connState(new(net.IPConn), http.StateNew)
-	})
-}
-
-func TestNewServerConnStateLogger(t *testing.T) {
-	t.Run("NilLogger", func(t *testing.T) {
-		testNewServerConnStateLogger(t, nil)
-	})
-
-	t.Run("CustomLogger", func(t *testing.T) {
-		testNewServerConnStateLogger(t, log.With(logging.NewTestLogger(nil, t), ServerKey(), "test"))
-	})
-}
 
 const (
 	expectedCertificateFile = "certificateFile"
@@ -71,7 +23,7 @@ const (
 func startOptions(t *testing.T) []StartOptions {
 	var o []StartOptions
 
-	for _, logger := range []log.Logger{nil, logging.NewTestLogger(nil, t)} {
+	for _, logger := range []*zap.Logger{nil, sallust.Default()} {
 		for _, disableKeepAlives := range []bool{false, true} {
 			o = append(o, StartOptions{
 				Logger:            logger,
@@ -140,6 +92,32 @@ func testNewStarterServe(t *testing.T) {
 			httpServer.AssertExpectations(t)
 		}
 	}
+}
+
+func testloadconfig(certificatFiles, keyFiles []string) *tls.Config {
+	certPem := []byte(`-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`)
+	keyPem := []byte(`-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`)
+	cert, err := tls.X509KeyPair(certPem, keyPem)
+	if err != nil {
+		panic(err)
+	}
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+	cfg.BuildNameToCertificate()
+	return cfg
 }
 
 func testNewStarterListenAndServeTLS(t *testing.T) {
@@ -215,7 +193,7 @@ func TestNewStarter(t *testing.T) {
 func TestServerOptions(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 		listener = new(mockListener)
 
 		o = ServerOptions{
@@ -240,7 +218,7 @@ func TestNewServer(t *testing.T) {
 	var (
 		assert   = assert.New(t)
 		require  = require.New(t)
-		logger   = logging.NewTestLogger(nil, t)
+		logger   = sallust.Default()
 		listener = new(mockListener)
 
 		o = ServerOptions{

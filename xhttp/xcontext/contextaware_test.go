@@ -9,22 +9,18 @@ import (
 	"github.com/justinas/alice"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestSetContext(t *testing.T) {
 	assert := assert.New(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		writer, _ = WithContext(writer, request, request.Context())
+		writer, request = WithContext(writer, request, request.Context())
 
 		assert.Panics(func() {
 			SetContext(writer, nil)
 		})
-
-		// nolint:staticcheck
 		writer = SetContext(writer, context.WithValue(writer.(ContextAware).Context(), "key", "value"))
 		assert.Equal("value", writer.(ContextAware).Context().Value("key"))
 		writer.WriteHeader(200)
@@ -33,11 +29,9 @@ func TestSetContext(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// nolint:bodyclose
 	r, err := http.NewRequest("GET", server.URL, nil)
 	assert.NoError(err)
-	r = r.WithContext(logging.WithLogger(r.Context(), logging.New(nil)))
-	// nolint:bodyclose
+	r = r.WithContext(sallust.With(r.Context(), sallust.Default()))
 	response, err := (&http.Client{}).Do(r)
 	assert.NoError(err)
 	assert.NotNil(response)
@@ -58,11 +52,9 @@ func TestSingleHandler(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// nolint:bodyclose
 	r, err := http.NewRequest("GET", server.URL, nil)
 	assert.NoError(err)
-	r = r.WithContext(logging.WithLogger(r.Context(), logging.New(nil)))
-	// nolint:bodyclose
+	r = r.WithContext(sallust.With(r.Context(), sallust.Default()))
 	response, err := (&http.Client{}).Do(r)
 	assert.NoError(err)
 	assert.NotNil(response)
@@ -84,7 +76,6 @@ func TestChain(t *testing.T) {
 		writer.Write([]byte("Hello World"))
 
 		if writer, ok := writer.(ContextAware); ok {
-			// nolint:staticcheck
 			writer.SetContext(context.WithValue(writer.Context(), bodyKey, body))
 		} else {
 			assert.Fail("Writer must be ContextAware")
@@ -107,11 +98,9 @@ func TestChain(t *testing.T) {
 	server := httptest.NewServer(chain.Then(handler))
 	defer server.Close()
 
-	// nolint:bodyclose
 	r, err := http.NewRequest("GET", server.URL, nil)
 	assert.NoError(err)
-	r = r.WithContext(logging.WithLogger(r.Context(), logging.New(nil)))
-	// nolint:bodyclose
+	r = r.WithContext(sallust.With(r.Context(), sallust.Default()))
 	response, err := (&http.Client{}).Do(r)
 	assert.NoError(err)
 	assert.NotNil(response)

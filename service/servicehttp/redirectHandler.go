@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-kit/kit/log/level"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust/sallusthttp"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"go.uber.org/zap"
 )
 
 // KeyFunc examines an HTTP request and produces the service key to use when finding
@@ -30,22 +30,22 @@ type RedirectHandler struct {
 
 func (rh *RedirectHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	key, err := rh.KeyFunc(request)
-	ctxLogger := logging.GetLogger(request.Context())
+	ctxLogger := sallusthttp.Get(request)
 	if err != nil {
-		ctxLogger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "unable to obtain service key from request", logging.ErrorKey(), err)
+		ctxLogger.Error("unable to obtain service key from request", zap.Error(err))
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	instance, err := rh.Accessor.Get(key)
 	if err != nil && instance == "" {
-		ctxLogger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "accessor failed to return an instance", logging.ErrorKey(), err)
+		ctxLogger.Error("accessor failed to return an instance", zap.Error(err))
 		http.Error(response, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	instance += strings.TrimRight(request.RequestURI, "/")
-	ctxLogger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "redirecting", "instance", instance)
+	ctxLogger.Debug("redirecting", zap.String("instance", instance))
 
 	code := rh.RedirectCode
 	if code < 300 {

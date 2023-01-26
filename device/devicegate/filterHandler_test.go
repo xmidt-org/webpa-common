@@ -9,16 +9,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestServeHTTPGet(t *testing.T) {
 	var (
 		assert = assert.New(t)
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		response = httptest.NewRecorder()
 		request  = httptest.NewRequest("GET", "/", nil)
@@ -40,8 +38,8 @@ func TestServeHTTPGet(t *testing.T) {
 
 func TestBadRequest(t *testing.T) {
 	var (
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 
 		mockDeviceGate = new(mockDeviceGate)
 		f              = FilterHandler{
@@ -107,8 +105,8 @@ func TestBadRequest(t *testing.T) {
 
 func TestSuccessfulAdd(t *testing.T) {
 	var (
-		logger = logging.NewTestLogger(nil, t)
-		ctx    = logging.WithLogger(context.Background(), logger)
+		logger = sallust.Default()
+		ctx    = sallust.With(context.Background(), logger)
 	)
 
 	tests := []struct {
@@ -175,8 +173,8 @@ func TestSuccessfulAdd(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	var (
-		logger   = logging.NewTestLogger(nil, t)
-		ctx      = logging.WithLogger(context.Background(), logger)
+		logger   = sallust.Default()
+		ctx      = sallust.With(context.Background(), logger)
 		assert   = assert.New(t)
 		response = httptest.NewRecorder()
 
@@ -198,7 +196,7 @@ func TestDelete(t *testing.T) {
 func TestGateLogger(t *testing.T) {
 
 	var (
-		logger = logging.NewTestLogger(nil, t)
+		logger = sallust.Default()
 		gate   = &FilterGate{
 			FilterStore: FilterStore(map[string]Set{
 				"partner-id": &FilterSet{

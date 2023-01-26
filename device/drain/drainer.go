@@ -6,17 +6,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
 	"github.com/go-kit/kit/metrics/discard"
+	"go.uber.org/zap"
 
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
-	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -41,12 +36,12 @@ const (
 
 type Option func(*drainer)
 
-func WithLogger(l log.Logger) Option {
+func WithLogger(l *zap.Logger) Option {
 	return func(dr *drainer) {
 		if l != nil {
 			dr.logger = l
 		} else {
-			dr.logger = logging.DefaultLogger()
+			dr.logger = sallust.Default()
 		}
 	}
 }
@@ -203,7 +198,7 @@ func defaultNewTicker(d time.Duration) (<-chan time.Time, func()) {
 // New constructs a drainer using the supplied options
 func New(options ...Option) Interface {
 	dr := &drainer{
-		logger:    logging.DefaultLogger(),
+		logger:    sallust.Default(),
 		now:       time.Now,
 		newTicker: defaultNewTicker,
 		m: metrics{
@@ -236,7 +231,7 @@ type metrics struct {
 // jobContext stores all the runtime information for a drain job
 type jobContext struct {
 	id        uint32
-	logger    log.Logger
+	logger    *zap.Logger
 	t         *tracker
 	j         Job
 	batchSize int
@@ -248,7 +243,7 @@ type jobContext struct {
 
 // drainer is the internal implementation of Interface
 type drainer struct {
-	logger    log.Logger
+	logger    *zap.Logger
 	connector device.Connector
 	registry  device.Registry
 	now       func() time.Time
@@ -282,7 +277,7 @@ func (df *drainFilter) AllowConnection(d device.Interface) (bool, device.MatchRe
 // to disconnect each of them.  This method is sensitive to the jc.cancel channel.  If canceled, or if
 // no more devices are available, this method returns false.
 func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, visited int, skipped int) {
-	jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch starting")
+	jc.logger.Debug("nextBatch starting")
 
 	more = true
 	skipped = 0
@@ -299,7 +294,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 		case batch <- d.ID():
 			return true
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
+			jc.logger.Error("job canceled", zap.Error(nil))
 			more = false
 			return false
 		default:
@@ -313,7 +308,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	}
 
 	if visited > 0 {
-		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited)
+		jc.logger.Debug("nextBatch", zap.Int("visited", visited))
 		drained := 0
 		for finished := false; more && !finished; {
 			select {
@@ -322,20 +317,20 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 					drained++
 				}
 			case <-jc.cancel:
-				jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
+				jc.logger.Error("job canceled", zap.Error(nil))
 				more = false
 			default:
 				finished = true
 			}
 		}
 
-		jc.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "nextBatch", "visited", visited, "drained", drained)
+		jc.logger.Debug("nextBatch", zap.Int("visited", visited), zap.Int("drained", drained))
 		jc.t.addVisited(visited)
 		jc.t.addDrained(drained)
 	} else {
 		// if no devices were visited (or enqueued), then we must be done.
 		// either a cancellation occurred or no devices are left
-		dr.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "no devices visited")
+		dr.logger.Debug("no devices visited")
 		more = false
 	}
 
@@ -361,13 +356,13 @@ func (dr *drainer) jobFinished(jc jobContext) {
 	close(jc.done)
 
 	p := jc.t.Progress()
-	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain complete", "visited", p.Visited, "drained", p.Drained)
+	jc.logger.Info("drain complete", zap.Int("visited", p.Visited), zap.Int("drained", p.Drained))
 }
 
 // drain is run as a goroutine to drain devices at a particular rate
 func (dr *drainer) drain(jc jobContext) {
 	defer dr.jobFinished(jc)
-	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain starting", "count", jc.j.Count, "rate", jc.j.Rate, "tick", jc.j.Tick)
+	jc.logger.Info("drain starting", zap.Int("count", jc.j.Count), zap.Int("rate", jc.j.Rate), zap.Duration("tick", jc.j.Tick))
 
 	var (
 		remaining = jc.j.Count
@@ -393,7 +388,7 @@ func (dr *drainer) drain(jc jobContext) {
 				more = false
 			}
 		case <-jc.cancel:
-			jc.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "job canceled")
+			jc.logger.Error("job canceled", zap.Error(nil))
 			more = false
 		}
 	}
@@ -402,7 +397,7 @@ func (dr *drainer) drain(jc jobContext) {
 // disconnect is run as a goroutine to drain devices without a rate, i.e. as fast as possible
 func (dr *drainer) disconnect(jc jobContext) {
 	defer dr.jobFinished(jc)
-	jc.logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "drain starting", "count", jc.j.Count)
+	jc.logger.Info("drain starting", zap.Int("count", jc.j.Count))
 
 	var (
 		remaining = jc.j.Count
@@ -434,7 +429,7 @@ func (dr *drainer) Start(j Job) (<-chan struct{}, Job, error) {
 	dr.currentID++
 	jc := jobContext{
 		id:     dr.currentID,
-		logger: log.With(dr.logger, "id", dr.currentID),
+		logger: dr.logger.With(zap.Uint32("id", dr.currentID)),
 		t: &tracker{
 			started: dr.now().UTC(),
 			counter: dr.m.counter,

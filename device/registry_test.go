@@ -6,10 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
-	// nolint:staticcheck
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 )
 
@@ -18,7 +15,7 @@ func testRegistryAdd(t *testing.T) {
 		var (
 			assert  = assert.New(t)
 			require = require.New(t)
-			logger  = logging.NewTestLogger(nil, t)
+			logger  = sallust.Default()
 
 			p = xmetricstest.NewProvider(nil, Metrics)
 			r = newRegistry(registryOptions{
@@ -75,7 +72,7 @@ func testRegistryAdd(t *testing.T) {
 		var (
 			assert  = assert.New(t)
 			require = require.New(t)
-			logger  = logging.NewTestLogger(nil, t)
+			logger  = sallust.Default()
 
 			p = xmetricstest.NewProvider(nil, Metrics)
 			r = newRegistry(registryOptions{
@@ -139,7 +136,7 @@ func testRegistryRemoveAndGet(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = sallust.Default()
 
 		p = xmetricstest.NewProvider(nil, Metrics)
 		r = newRegistry(registryOptions{
@@ -216,7 +213,7 @@ func testRegistryRemoveIf(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = sallust.Default()
 
 		p = xmetricstest.NewProvider(nil, Metrics)
 		r = newRegistry(registryOptions{
@@ -273,7 +270,7 @@ func testRegistryRemoveAll(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = sallust.Default()
 
 		devices = []*device{
 			newDevice(deviceOptions{ID: ID("1"), Logger: logger}),
@@ -309,7 +306,7 @@ func testRegistryVisit(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
-		logger  = logging.NewTestLogger(nil, t)
+		logger  = sallust.Default()
 
 		p = xmetricstest.NewProvider(nil, Metrics)
 		r = newRegistry(registryOptions{

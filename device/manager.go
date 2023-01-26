@@ -2,6 +2,7 @@ package device
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -11,13 +12,10 @@ import (
 
 	"github.com/xmidt-org/webpa-common/v2/convey"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
+	"go.uber.org/zap"
 
-	"github.com/go-kit/log"
 	"github.com/gorilla/websocket"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveyhttp"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 	"github.com/xmidt-org/wrp-go/v3"
 )
@@ -26,6 +24,11 @@ const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 
 // DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
 const DefaultWRPContentType = "application/octet-stream"
+
+// emptyBuffer is solely used as an address of a global empty buffer.
+// This sentinel value will reset pointers of the writePump's encoder
+// such that the gc can clean things up.
+var emptyBuffer = []byte{}
 
 // Connector is a strategy interface for managing device connections to a server.
 // Implementations are responsible for upgrading websocket connections and providing
@@ -113,18 +116,15 @@ type ManagerOption func(*manager)
 // created from the options if one is not supplied.
 func NewManager(o *Options) Manager {
 	var (
-		logger      = o.logger()
-		debugLogger = logging.Debug(logger)
-		measures    = NewMeasures(o.metricsProvider())
-		wrpCheck    = o.wrpCheck()
+		logger   = o.logger()
+		measures = NewMeasures(o.metricsProvider())
+		wrpCheck = o.wrpCheck()
 	)
 
-	debugLogger.Log(logging.MessageKey(), "source check configuration", "type", wrpCheck.Type)
+	logger.Debug("source check configuration", zap.String("type", string(wrpCheck.Type)))
 
 	return &manager{
 		logger:           logger,
-		errorLog:         logging.Error(logger),
-		debugLog:         debugLogger,
 		readDeadline:     NewDeadline(o.idlePeriod(), o.now()),
 		writeDeadline:    NewDeadline(o.writeTimeout(), o.now()),
 		upgrader:         o.upgrader(),
@@ -152,14 +152,11 @@ func NewManager(o *Options) Manager {
 		enforceWRPSourceCheck: wrpCheck.Type == CheckTypeEnforce,
 		filter:                o.filter(),
 	}
-
 }
 
 // manager is the internal Manager implementation.
 type manager struct {
-	logger   log.Logger
-	errorLog log.Logger
-	debugLog log.Logger
+	logger *zap.Logger
 
 	readDeadline     func() time.Time
 	writeDeadline    func() time.Time
@@ -180,7 +177,7 @@ type manager struct {
 }
 
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
-	m.debugLog.Log(logging.MessageKey(), "device connect", "url", request.URL)
+	m.logger.Debug("device connect", zap.Any("url", request.URL))
 	ctx := request.Context()
 	id, ok := GetID(ctx)
 	if !ok {
@@ -209,37 +206,37 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	})
 
 	if allow, matchResults := m.filter.AllowConnection(d); !allow {
-		d.infoLog.Log("filter", "filter match found,", "location", matchResults.Location, "key", matchResults.Key)
+		d.logger.Info("filter match found", zap.String("location", matchResults.Location), zap.String("key", matchResults.Key))
 		return nil, ErrorDeviceFilteredOut
 	}
 
 	if len(metadata.Claims()) < 1 {
-		d.errorLog.Log(logging.MessageKey(), "missing security information")
+		d.logger.Error("missing security information")
 	}
 
 	if cvyErr == nil {
-		d.infoLog.Log("convey", cvy)
+		d.logger.Info(fmt.Sprintf("convey: %v", cvy))
 	} else {
-		d.errorLog.Log(logging.MessageKey(), "bad or missing convey data", logging.ErrorKey(), cvyErr)
+		d.logger.Error("bad or missing convey data", zap.Error(cvyErr))
 	}
 
 	c, err := m.upgrader.Upgrade(response, request, responseHeader)
 	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "failed websocket upgrade", logging.ErrorKey(), err)
+		d.logger.Error("failed websocket upgrade", zap.Error(err))
 		return nil, err
 	}
 
-	d.debugLog.Log(logging.MessageKey(), "websocket upgrade complete", "localAddress", c.LocalAddr().String())
+	d.logger.Debug("websocket upgrade complete", zap.String("localAddress", c.LocalAddr().String()))
 
 	pinger, err := NewPinger(c, m.measures.Ping, []byte(d.ID()), m.writeDeadline)
 	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "unable to create pinger", logging.ErrorKey(), err)
+		d.logger.Error("unable to create pinger", zap.Error(err))
 		c.Close()
 		return nil, err
 	}
 
 	if err := m.devices.add(d); err != nil {
-		d.errorLog.Log(logging.MessageKey(), "unable to register device", logging.ErrorKey(), err)
+		d.logger.Error("unable to register device", zap.Error(err))
 		c.Close()
 		return nil, err
 	}
@@ -255,12 +252,12 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 			event.Format = wrp.JSON
 			event.Contents = bytes
 		} else {
-			d.errorLog.Log(logging.MessageKey(), "unable to marshal the convey header", logging.ErrorKey(), err)
+			d.logger.Error("unable to marshal the convey header", zap.Error(err))
 		}
 	}
 	metricClosure, err := m.conveyHWMetric.Update(cvy, "partnerid", metadata.PartnerIDClaim(), "trust", strconv.Itoa(metadata.TrustClaim()))
 	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "failed to update convey metrics", logging.ErrorKey(), err)
+		d.logger.Error("failed to update convey metrics", zap.Error(err))
 	}
 
 	d.conveyClosure = metricClosure
@@ -293,9 +290,9 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 
 	closeError := c.Close()
 
-	d.errorLog.Log(logging.MessageKey(), "Closed device connection",
-		"closeError", closeError, "reasonError", reason.Err, "reason", reason.Text,
-		"finalStatistics", d.Statistics().String())
+	d.logger.Error("Closed device connection",
+		zap.NamedError("closeError", closeError), zap.String("reasonError", reason.String()), zap.String("reason", reason.Text),
+		zap.String("finalStatistics", d.Statistics().String()))
 
 	m.dispatch(
 		&Event{
@@ -309,7 +306,7 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 	expectedID := d.ID()
 	if len(strings.TrimSpace(message.Source)) == 0 {
-		d.errorLog.Log(logging.MessageKey(), "WRP source was empty", "trustLevel", d.Metadata().TrustClaim())
+		d.logger.Error("WRP source was empty", zap.Int("trustLevel", d.Metadata().TrustClaim()))
 		if m.enforceWRPSourceCheck {
 			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "empty").Add(1)
 			return false
@@ -320,7 +317,7 @@ func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 
 	actualID, err := ParseID(message.Source)
 	if err != nil {
-		d.errorLog.Log(logging.MessageKey(), "Failed to parse ID from WRP source", "trustLevel", d.Metadata().TrustClaim())
+		d.logger.Error("Failed to parse ID from WRP source", zap.Int("trustLevel", d.Metadata().TrustClaim()))
 		if m.enforceWRPSourceCheck {
 			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "parse_error").Add(1)
 			return false
@@ -330,7 +327,7 @@ func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 	}
 
 	if expectedID != actualID {
-		d.errorLog.Log(logging.MessageKey(), "ID in WRP source does not match device's ID", "spoofedID", actualID, "trustLevel", d.Metadata().TrustClaim())
+		d.logger.Error("ID in WRP source does not match device's ID", zap.String("spoofedID", string(actualID)), zap.Int("trustLevel", d.Metadata().TrustClaim()))
 		if m.enforceWRPSourceCheck {
 			m.measures.WRPSourceCheck.With("outcome", "rejected", "reason", "id_mismatch").Add(1)
 			return false
@@ -354,8 +351,8 @@ func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
 // readPump is the goroutine which handles the stream of WRP messages from a device.
 // This goroutine exits when any error occurs on the connection.
 func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
-	defer d.debugLog.Log(logging.MessageKey(), "readPump exiting")
-	d.debugLog.Log(logging.MessageKey(), "readPump starting")
+	defer d.logger.Debug("readPump exiting")
+	d.logger.Debug("readPump starting")
 
 	var (
 		readError error
@@ -372,12 +369,12 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 	for {
 		messageType, data, readError := r.ReadMessage()
 		if readError != nil {
-			d.errorLog.Log(logging.MessageKey(), "read error", logging.ErrorKey(), readError)
+			d.logger.Error("read error", zap.Error(readError))
 			return
 		}
 
 		if messageType != websocket.BinaryMessage {
-			d.errorLog.Log(logging.MessageKey(), "skipping non-binary frame", "messageType", messageType)
+			d.logger.Error("skipping non-binary frame", zap.Int("messageType", messageType))
 			continue
 		}
 
@@ -395,18 +392,18 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		decoder.ResetBytes(data)
 		err := decoder.Decode(message)
 		if err != nil {
-			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
+			d.logger.Error("skipping malformed WRP message", zap.Error(err))
 			continue
 		}
 
 		err = wrp.UTF8(message)
 		if err != nil {
-			d.errorLog.Log(logging.MessageKey(), "skipping malformed WRP message", logging.ErrorKey(), err)
+			d.logger.Error("skipping malformed WRP message", zap.Error(err))
 			continue
 		}
 
 		if !m.wrpSourceIsValid(message, d) {
-			d.errorLog.Log(logging.MessageKey(), "skipping WRP message with invalid source")
+			d.logger.Error("skipping WRP message with invalid source")
 			continue
 		}
 
@@ -424,7 +421,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		err = encoder.Encode(message)
 
 		if err != nil {
-			d.errorLog.Log(logging.MessageKey(), "unable to encode WRP message", logging.ErrorKey(), err)
+			d.logger.Error("unable to encode WRP message", zap.Error(err))
 			continue
 		}
 
@@ -441,7 +438,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			)
 
 			if err != nil {
-				d.errorLog.Log(logging.MessageKey(), "Error while completing transaction", "transactionKey", message.TransactionKey(), logging.ErrorKey(), err)
+				d.logger.Error("Error while completing transaction", zap.Error(err), zap.String("transactionKey", message.TransactionKey()))
 				event.Type = TransactionBroken
 				event.Error = err
 			} else {
@@ -456,11 +453,12 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 // this goroutine exits when either an explicit shutdown is requested or any
 // error occurs on the connection.
 func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, closeOnce *sync.Once) {
-	defer d.debugLog.Log(logging.MessageKey(), "writePump exiting")
-	d.debugLog.Log(logging.MessageKey(), "writePump starting")
+	defer d.logger.Debug("writePump exiting")
+	d.logger.Debug("writePump starting")
 
 	var (
 		envelope   *envelope
+		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
 
 		pingTicker = time.NewTicker(m.pingPeriod)
@@ -494,7 +492,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 		for {
 			select {
 			case undeliverable := <-d.messages:
-				d.errorLog.Log(logging.MessageKey(), "undeliverable message", "deviceMessage", undeliverable)
+				d.logger.Error("undeliverable message", zap.Any("deviceMessage", undeliverable))
 				m.dispatch(&Event{
 					Type:     MessageFailed,
 					Device:   d,
@@ -514,7 +512,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 
 		select {
 		case <-d.shutdown:
-			d.debugLog.Log(logging.MessageKey(), "explicit shutdown")
+			d.logger.Debug("explicit shutdown")
 			writeError = w.Close()
 			return
 
@@ -525,7 +523,9 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 			} else {
 				// if the request was in a format other than Msgpack, or if the caller did not pass
 				// Contents, then do the encoding here.
-				writeError = wrp.NewEncoderBytes(&frameContents, wrp.Msgpack).Encode(envelope.request.Message)
+				encoder.ResetBytes(&frameContents)
+				writeError = encoder.Encode(envelope.request.Message)
+				encoder.ResetBytes(&emptyBuffer)
 			}
 
 			if writeError == nil {

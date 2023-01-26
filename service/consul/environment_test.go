@@ -1,13 +1,14 @@
 package consul
 
 import (
+	"os"
 	"testing"
 
+	"github.com/go-kit/log"
 	"github.com/hashicorp/consul/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -61,7 +62,7 @@ func testNewEnvironmentFull(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		logger        = logging.NewTestLogger(nil, t)
+		logger        = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
 		clientFactory = prepareMockClientFactory()
 		client        = new(mockClient)
 		ttlUpdater    = new(mockTTLUpdater)

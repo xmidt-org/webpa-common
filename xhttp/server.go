@@ -1,62 +1,30 @@
 package xhttp
 
 import (
-	stdlog "log"
 	"net"
 	"net/http"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/sallust/sallusthttp"
+	"go.uber.org/zap"
 )
 
 var (
-	serverKey interface{} = "server"
+	serverKey = "server"
 )
 
 // ServerKey returns the contextual logging key for the server name
-func ServerKey() interface{} {
+func ServerKey() string {
 	return serverKey
-}
-
-// NewServerLogger adapts a go-kit Logger onto a golang Logger in a way that is appropriate
-// for http.Server.ErrorLog.
-func NewServerLogger(logger log.Logger) *stdlog.Logger {
-	if logger == nil {
-		logger = logging.DefaultLogger()
-	}
-
-	return stdlog.New(
-		log.NewStdlibAdapter(logger),
-		"", // having a prefix gives the adapter trouble
-		stdlog.LstdFlags|stdlog.LUTC,
-	)
-}
-
-// NewServerConnStateLogger adapts a go-kit Logger onto a connection state handler appropriate
-// for http.Server.ConnState.
-func NewServerConnStateLogger(logger log.Logger) func(net.Conn, http.ConnState) {
-	if logger == nil {
-		logger = logging.DefaultLogger()
-	}
-
-	return func(c net.Conn, cs http.ConnState) {
-		logger.Log(
-			"remoteAddress", c.RemoteAddr(),
-			"state", cs,
-		)
-	}
 }
 
 // StartOptions represents the subset of server options that have to do with how
 // an HTTP server is started.
 type StartOptions struct {
 	// Logger is the go-kit Logger to use for server startup and error logging.  If not
-	// supplied, logging.DefaultLogger() is used instead.
-	Logger log.Logger `json:"-"`
+	// supplied, sallust.Default() is used instead.
+	Logger *zap.Logger `json:"-"`
 
 	// Listener is the optional net.Listener to use.  If not supplied, the http.Server default
 	// listener is used.
@@ -85,7 +53,7 @@ type StartOptions struct {
 // Note: tlsConfig is expected to already be set
 func NewStarter(o StartOptions, s httpServer) func() error {
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = sallust.Default()
 	}
 
 	s.SetKeepAlivesEnabled(!o.DisableKeepAlives)
@@ -103,14 +71,12 @@ func NewStarter(o StartOptions, s httpServer) func() error {
 	}
 
 	return func() error {
-		o.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "starting server")
+		o.Logger.Info("starting server")
 		err := starter()
-		// nolint:errorlint
 		if err == http.ErrServerClosed {
-			// nolint:errorlint
-			o.Logger.Log(level.Key(), level.InfoValue(), logging.MessageKey(), "server closed")
+			o.Logger.Error("server closed", zap.Error(http.ErrServerClosed))
 		} else {
-			o.Logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "server exited", logging.ErrorKey(), err)
+			o.Logger.Error("server exited", zap.Error(err))
 		}
 
 		return err
@@ -132,8 +98,8 @@ type httpServer interface {
 // starting it.
 type ServerOptions struct {
 	// Logger is the go-kit Logger to use for server startup and error logging.  If not
-	// supplied, logging.DefaultLogger() is used instead.
-	Logger log.Logger `json:"-"`
+	// supplied, sallust.Default() is used instead.
+	Logger *zap.Logger `json:"-"`
 
 	// Address is the bind address of the server.  If not supplied, defaults to the internal net/http default.
 	Address string `json:"address,omitempty"`
@@ -178,12 +144,12 @@ type ServerOptions struct {
 func (so *ServerOptions) StartOptions() StartOptions {
 	logger := so.Logger
 	if logger == nil {
-		logger = logging.DefaultLogger()
+		logger = sallust.Default()
 	}
 
 	return StartOptions{
-		Logger: log.With(logger,
-			"address", so.Address,
+		Logger: logger.With(
+			zap.String("address", so.Address),
 		),
 		Listener:          so.Listener,
 		DisableKeepAlives: so.DisableKeepAlives,
@@ -201,7 +167,7 @@ func NewServer(o ServerOptions) *http.Server {
 		WriteTimeout:      o.WriteTimeout,
 		IdleTimeout:       o.IdleTimeout,
 		MaxHeaderBytes:    o.MaxHeaderBytes,
-		ErrorLog:          NewServerLogger(o.Logger),
-		ConnState:         NewServerConnStateLogger(o.Logger),
+		ErrorLog:          sallust.NewServerLogger("xhttp.Server", o.Logger),
+		ConnState:         sallusthttp.NewConnStateLogger(o.Logger, zap.DebugLevel),
 	}
 }

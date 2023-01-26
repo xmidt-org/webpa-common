@@ -23,20 +23,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
 	"github.com/go-kit/kit/metrics"
 	"github.com/go-kit/kit/metrics/discard"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 const DefaultRetryInterval = time.Second
 
 // temporaryError is the expected interface for a (possibly) temporary error.
-// Several of the error types in the net package implicitly implement this interface,
+// Several of the error types in the net package implicitely implement this interface,
 // for example net.DNSError.
 type temporaryError interface {
 	Temporary() bool
@@ -54,7 +50,6 @@ type ShouldRetryStatusFunc func(int) bool
 // method and that method returns true.  That means, for example, that for a net.DNSError with the temporary flag set to true
 // this predicate also returns true.
 func DefaultShouldRetry(err error) bool {
-	// nolint:errorlint
 	if temp, ok := err.(temporaryError); ok {
 		return temp.Temporary()
 	}
@@ -70,8 +65,8 @@ func DefaultShouldRetryStatus(status int) bool {
 
 // RetryOptions are the configuration options for a retry transactor
 type RetryOptions struct {
-	// Logger is the go-kit logger to use.  Defaults to logging.DefaultLogger() if unset.
-	Logger log.Logger
+	// Logger is the go-kit logger to use.  Defaults to sallust.Default() if unset.
+	Logger *zap.Logger
 
 	// Retries is the count of retries.  If not positive, then no transactor decoration is performed.
 	Retries int
@@ -106,7 +101,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 	}
 
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = sallust.Default()
 	}
 
 	if o.Counter == nil {
@@ -149,7 +144,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		for r := 0; r < o.Retries && ((err != nil && o.ShouldRetry(err)) || o.ShouldRetryStatus(statusCode)); r++ {
 			o.Counter.Add(1.0)
 			o.Sleep(o.Interval)
-			o.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "retrying HTTP transaction", "url", request.URL.String(), logging.ErrorKey(), err, "retry", r+1, "statusCode", statusCode)
+			o.Logger.Debug("retrying HTTP transaction", zap.String("url", request.URL.String()), zap.Error(err), zap.Int("retry", r+1), zap.Int("statusCode", statusCode))
 
 			if err := Rewind(request); err != nil {
 				return nil, err
@@ -163,7 +158,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		}
 
 		if err != nil {
-			o.Logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "All HTTP transaction retries failed", "url", request.URL.String(), logging.ErrorKey(), err, "retries", o.Retries)
+			o.Logger.Error("All HTTP transaction retries failed", zap.String("url", request.URL.String()), zap.Error(err), zap.Int("retries", o.Retries))
 		}
 
 		return response, err

@@ -7,14 +7,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
-
 	"github.com/go-kit/kit/metrics/discard"
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
-	// nolint:staticcheck
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	"go.uber.org/zap"
 )
 
 var (
@@ -27,8 +23,8 @@ var (
 
 // Options defines the available options for configuring a listener
 type Options struct {
-	// Logger is the go-kit logger to use for output.  If unset, logging.DefaultLogger() is used.
-	Logger log.Logger
+	// Logger is the go-kit logger to use for output.  If unset, sallust.Default() is used.
+	Logger *zap.Logger
 
 	// MaxConnections is the maximum number of active connections the listener will permit.  If this
 	// value is not positive, there is no limit to the number of connections.
@@ -60,7 +56,7 @@ type Options struct {
 // up via Close() if higher level errors occur.
 func New(o Options) (net.Listener, error) {
 	if o.Logger == nil {
-		o.Logger = logging.DefaultLogger()
+		o.Logger = sallust.Default()
 	}
 
 	var semaphore chan struct{}
@@ -99,7 +95,7 @@ func New(o Options) (net.Listener, error) {
 
 	return &listener{
 		Listener:  next,
-		logger:    log.With(o.Logger, "listenNetwork", next.Addr().Network(), "listenAddress", next.Addr().String()),
+		logger:    o.Logger.With(zap.String("listenNetwork", next.Addr().Network()), zap.String("listenAddress", next.Addr().String())),
 		semaphore: semaphore,
 		rejected:  xmetrics.NewIncrementer(o.Rejected),
 		active:    o.Active,
@@ -109,7 +105,7 @@ func New(o Options) (net.Listener, error) {
 // listener decorates a net.Listener with metrics and optional maximum connection enforcement
 type listener struct {
 	net.Listener
-	logger    log.Logger
+	logger    *zap.Logger
 	semaphore chan struct{}
 	rejected  xmetrics.Incrementer
 	active    xmetrics.Adder
@@ -148,16 +144,13 @@ func (l *listener) Accept() (net.Conn, error) {
 		c, err := l.Listener.Accept()
 		if err != nil {
 			sysValue := ""
-
-			// nolint:errorlint
 			if errno, ok := err.(syscall.Errno); ok {
 				sysValue = "0x" + strconv.FormatInt(int64(errno), 16)
 			}
 
-			l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "failed to accept connection", logging.ErrorKey(), err, "sysValue", sysValue)
-			// nolint:errorlint
+			l.logger.Error("failed to accept connection", zap.Error(err), zap.String("sysValue", sysValue))
 			if err == syscall.ENFILE {
-				l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "ENFILE received.  translating to EMFILE")
+				l.logger.Error("ENFILE received.  translating to EMFILE")
 				return nil, syscall.EMFILE
 			}
 
@@ -165,13 +158,13 @@ func (l *listener) Accept() (net.Conn, error) {
 		}
 
 		if !l.acquire() {
-			l.logger.Log(level.Key(), level.ErrorValue(), logging.MessageKey(), "rejected connection", "remoteAddress", c.RemoteAddr().String())
+			l.logger.Error("rejected connection", zap.String("remoteAddress", c.RemoteAddr().String()))
 			l.rejected.Inc()
 			c.Close()
 			continue
 		}
 
-		l.logger.Log(level.Key(), level.DebugValue(), logging.MessageKey(), "accepted connection", "remoteAddress", c.RemoteAddr().String())
+		l.logger.Debug("accepted connection", zap.String("remoteAddress", c.RemoteAddr().String()))
 		return &conn{Conn: c, release: l.release}, nil
 	}
 }

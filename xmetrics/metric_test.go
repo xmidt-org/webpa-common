@@ -6,7 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 func testNewCollectorMissingName(t *testing.T) {
@@ -93,7 +93,7 @@ func TestMerger(t *testing.T) {
 		var (
 			assert = assert.New(t)
 			merger = NewMerger().
-				Logger(logging.NewTestLogger(nil, t)).
+				Logger(sallust.Default()).
 				AddMetrics(false, []Metric{{Name: "counter", Type: "counter"}}).
 				AddModules(true, func() []Metric { return []Metric{{Name: "counter", Type: "counter"}} })
 		)

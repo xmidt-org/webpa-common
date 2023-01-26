@@ -11,14 +11,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
 )
 
 // setupHealth supplies a Health object with useful test configuration
 func setupHealth(t *testing.T) *Health {
 	return New(
 		time.Duration(69)*time.Second,
-		logging.NewTestLogger(nil, t),
+		sallust.Default(),
 	)
 }
 

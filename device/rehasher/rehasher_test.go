@@ -8,15 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
-
-	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/logging"
-	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service"
-	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
-	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 )
 
@@ -83,7 +78,7 @@ func testNewNilMetricsProvider(t *testing.T) {
 		r         = New(
 			connector,
 			[]string{"talaria"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(nil),
 		)
@@ -117,7 +112,7 @@ func testRehasherServiceDiscoveryError(t *testing.T) {
 		r                     = New(
 			connector,
 			[]string{"talaria", "caduceus"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -155,7 +150,7 @@ func testRehasherServiceDiscoveryStopped(t *testing.T) {
 		r         = New(
 			connector,
 			[]string{"caduceus"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -193,7 +188,7 @@ func testRehasherInitialEvent(t *testing.T) {
 		r         = New(
 			connector,
 			[]string{"talaria"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -227,7 +222,7 @@ func testRehasherSkippedService(t *testing.T) {
 		r         = New(
 			connector,
 			[]string{"caduceus"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -265,7 +260,7 @@ func testRehasherNoInstances(t *testing.T) {
 		r         = New(
 			connector,
 			[]string{"caduceus"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithMetricsProvider(provider),
 		)
@@ -345,7 +340,7 @@ func testRehasherRehash(t *testing.T) {
 		r         = New(
 			connector,
 			[]string{"talaria", "caduceus"},
-			WithLogger(logging.NewTestLogger(nil, t)),
+			WithLogger(sallust.Default()),
 			WithIsRegistered(isRegistered),
 			WithAccessorFactory(accessorFactory),
 			WithMetricsProvider(provider),
