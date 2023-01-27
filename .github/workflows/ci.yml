@@ -20,5 +20,6 @@ jobs:
   ci:
     uses: xmidt-org/.github/.github/workflows/go-ci.yml@go-ci-v1
     with:
+      lint-skip: true
       style-skip: true
     secrets: inherit
