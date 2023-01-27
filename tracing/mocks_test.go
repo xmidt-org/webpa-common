@@ -7,6 +7,7 @@ type mockSpanned struct {
 }
 
 func (m *mockSpanned) Spans() []Span {
+	// nolint: typecheck
 	return m.Called().Get(0).([]Span)
 }
 
@@ -15,9 +16,11 @@ type mockMergeable struct {
 }
 
 func (m *mockMergeable) Spans() []Span {
+	// nolint: typecheck
 	return m.Called().Get(0).([]Span)
 }
 
 func (m *mockMergeable) WithSpans(spans ...Span) interface{} {
+	// nolint: typecheck
 	return m.Called(spans).Get(0)
 }
