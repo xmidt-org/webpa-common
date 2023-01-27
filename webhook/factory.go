@@ -156,6 +156,7 @@ func (m *monitor) sendNewHooks(newHooks []W) {
 // It transforms the message containing webhook to []W and updates the webhook list
 func (m *monitor) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	// transform a request into a []byte
+	// nolint: typecheck
 	message := m.NotificationHandle(response, request)
 	if message == nil {
 		return

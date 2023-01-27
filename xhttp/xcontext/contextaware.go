@@ -48,6 +48,7 @@ func (carw contextAwareResponseWriter) Push(target string, opts *http.PushOption
 }
 
 func (carw *contextAwareResponseWriter) Context() context.Context {
+	// nolint: typecheck
 	if carw.ctx != nil {
 		return carw.ctx
 	}

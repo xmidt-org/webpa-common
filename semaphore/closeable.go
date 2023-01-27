@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"io"
+
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 )
 
 var (
 	// ErrClosed is returned when a closeable semaphore has been closed
-	ErrClosed = errors.New("The semaphore has been closed")
+	ErrClosed = errors.New("the semaphore has been closed")
 )
 
 const (
@@ -66,6 +68,7 @@ type closeable struct {
 
 func (cs *closeable) Close() error {
 	if atomic.CompareAndSwapInt32(&cs.state, stateOpen, stateClosed) {
+		// nolint: typecheck
 		close(cs.closed)
 		return nil
 	}
@@ -74,6 +77,7 @@ func (cs *closeable) Close() error {
 }
 
 func (cs *closeable) Closed() <-chan struct{} {
+	// nolint: typecheck
 	return cs.closed
 }
 
@@ -94,6 +98,7 @@ func (cs *closeable) Acquire() error {
 
 		return nil
 
+		// nolint: typecheck
 	case <-cs.closed:
 		return ErrClosed
 	}
@@ -115,6 +120,7 @@ func (cs *closeable) AcquireWait(t <-chan time.Time) error {
 	case <-t:
 		return ErrTimeout
 
+		// nolint: typecheck
 	case <-cs.closed:
 		return ErrClosed
 	}
@@ -136,6 +142,7 @@ func (cs *closeable) AcquireCtx(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 
+		// nolint: typecheck
 	case <-cs.closed:
 		return ErrClosed
 	}

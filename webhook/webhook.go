@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 )

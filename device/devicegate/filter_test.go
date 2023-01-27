@@ -58,6 +58,7 @@ func TestFilterGateAllowConnection(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			mockDevice := new(device.MockDevice)
 
+			// nolint: typecheck
 			mockDevice.On("Metadata").Return(metadata)
 
 			filterStore := make(FilterStore)

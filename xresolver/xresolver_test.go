@@ -41,6 +41,7 @@ type mockLookUp struct {
 }
 
 func (m *mockLookUp) LookupRoutes(ctx context.Context, host string) ([]Route, error) {
+	// nolint: typecheck
 	args := m.Called(ctx, host)
 	return args.Get(0).([]Route), args.Error(1)
 }
@@ -63,6 +64,7 @@ func TestClientWithResolver(t *testing.T) {
 	assert.NoError(err)
 
 	fakeLookUp := new(mockLookUp)
+	// nolint: typecheck
 	fakeLookUp.On("LookupRoutes", mock.Anything, customhost).Return([]Route{route}, nil)
 	r := NewResolver(DefaultDialer, sallust.Default(), fakeLookUp)
 
@@ -84,6 +86,7 @@ func TestClientWithResolver(t *testing.T) {
 
 		assert.Equal(200, res.StatusCode)
 		assert.Equal(expectedBody, string(body))
+		// nolint: typecheck
 		fakeLookUp.AssertExpectations(t)
 	}
 

@@ -40,6 +40,7 @@ func testDialerDialDevice(t *testing.T, deviceName, expectedURL, deviceHeader st
 
 	require.NotNil(dialer)
 
+	// nolint: typecheck
 	websocketDialer.On("Dial", expectedURL, expectedHeader).
 		Return(expectedConn, expectedResponse, nil).
 		Once()
@@ -50,6 +51,7 @@ func testDialerDialDevice(t *testing.T, deviceName, expectedURL, deviceHeader st
 	assert.True(expectedResponse == actualResponse)
 	assert.Nil(actualErr)
 
+	// nolint: typecheck
 	websocketDialer.AssertExpectations(t)
 }
 
@@ -62,7 +64,9 @@ func TestDialer(t *testing.T) {
 	)
 
 	t.Run("DialDevice", func(t *testing.T) {
+		// nolint: typecheck
 		testDialerDialDevice(t, deviceName, expectedURL, "", nil, http.Header{DeviceNameHeader: {deviceName}})
+		// nolint: typecheck
 		testDialerDialDevice(t, deviceName, expectedURL, "X-Something", http.Header{"Content-Type": {"text/plain"}}, http.Header{"Content-Type": {"text/plain"}, "X-Something": {deviceName}})
 	})
 }
@@ -76,6 +80,7 @@ func testMustDialDeviceSuccess(t *testing.T, deviceName, url string, extra http.
 		dialer = new(mockDialer)
 	)
 
+	// nolint: typecheck
 	dialer.On("DialDevice", deviceName, url, extra).
 		Return(expectedConn, expectedResponse, nil).
 		Once()
@@ -87,6 +92,7 @@ func testMustDialDeviceSuccess(t *testing.T, deviceName, url string, extra http.
 		assert.True(expectedResponse == actualResponse)
 	})
 
+	// nolint: typecheck
 	dialer.AssertExpectations(t)
 }
 
@@ -98,6 +104,7 @@ func testMustDialDeviceFailure(t *testing.T, deviceName, url string, extra http.
 		dialer = new(mockDialer)
 	)
 
+	// nolint: typecheck
 	dialer.On("DialDevice", deviceName, url, extra).
 		Return(nil, nil, expectedError).
 		Once()
@@ -108,6 +115,7 @@ func testMustDialDeviceFailure(t *testing.T, deviceName, url string, extra http.
 		MustDialDevice(dialer, deviceName, url, extra)
 	})
 
+	// nolint: typecheck
 	dialer.AssertExpectations(t)
 }
 
@@ -119,11 +127,15 @@ func TestMustDialDevice(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		testMustDialDeviceSuccess(t, deviceName, expectedURL, nil)
+
+		// nolint: typecheck
 		testMustDialDeviceSuccess(t, deviceName, expectedURL, http.Header{"Content-Type": {"text/plain"}, "X-Something": {"value1", "value2"}})
 	})
 
 	t.Run("Failure", func(t *testing.T) {
 		testMustDialDeviceFailure(t, deviceName, expectedURL, nil)
+
+		// nolint: typecheck
 		testMustDialDeviceFailure(t, deviceName, expectedURL, http.Header{"Content-Type": {"text/plain"}, "X-Something": {"value1", "value2"}})
 	})
 }

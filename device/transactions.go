@@ -14,10 +14,12 @@ import (
 type Request struct {
 	// Message is the original, decoded WRP message containing the routing information.  When sending a request
 	// through Manager.Route, this field is required and must also implement wrp.Routable.
+	// nolint: typecheck
 	Message wrp.Typed
 
 	// Format is the WRP format of the Contents member.  If Format is not JSON, then Routing
 	// will be encoded prior to sending to devices.
+	// nolint: typecheck
 	Format wrp.Format
 
 	// Contents is the encoded form of Routing in Format format.  If this member is of 0 length,
@@ -33,6 +35,7 @@ type Request struct {
 // from the request.  This method returns a tuple containing the transaction key (if any) combined with
 // wheither this request represents part of a transaction.
 func (r *Request) Transactional() (string, bool) {
+	// nolint: typecheck
 	if routable, ok := r.Message.(wrp.Routable); ok {
 		return routable.TransactionKey(), routable.IsTransactionPart()
 	}
@@ -44,6 +47,7 @@ func (r *Request) Transactional() (string, bool) {
 // This method never returns nil.  If no context is associated with this Request,
 // this method returns context.Background().
 func (r *Request) Context() context.Context {
+	// nolint: typecheck
 	if r.ctx != nil {
 		return r.ctx
 	}
@@ -67,6 +71,7 @@ func (r *Request) WithContext(ctx context.Context) *Request {
 // ID returns the device id for this request.  If Message is nil or does not implement
 // wrp.Routable, this method returns an empty identifier.
 func (r *Request) ID() (i ID, err error) {
+	// nolint: typecheck
 	if routable, ok := r.Message.(wrp.Routable); ok {
 		i, err = ParseID(routable.To())
 	}
@@ -78,17 +83,20 @@ func (r *Request) ID() (i ID, err error) {
 // to produce a device Request from an http.Request.
 //
 // The returned request will not be associated with any context.
+// nolint: typecheck
 func DecodeRequest(source io.Reader, format wrp.Format) (*Request, error) {
 	contents, err := io.ReadAll(source)
 	if err != nil {
 		return nil, err
 	}
 
+	// nolint: typecheck
 	message := new(wrp.Message)
 	if err := wrp.NewDecoderBytes(contents, format).Decode(message); err != nil {
 		return nil, err
 	}
 
+	// nolint: typecheck
 	err = wrp.UTF8(message)
 	if err != nil {
 		return nil, err
@@ -108,9 +116,11 @@ type Response struct {
 	Device Interface
 
 	// Message is the decoded WRP message received from the device
+	// nolint: typecheck
 	Message *wrp.Message
 
 	// Format is the encoding Format of the Contents field.  Almost always, this will be Msgpack.
+	// nolint: typecheck
 	Format wrp.Format
 
 	// Contents is the encoded form of Message, formatted in Format
@@ -129,6 +139,7 @@ type Response struct {
 //
 // If none of the above applies, the encoder pool is used to encode response.Routing to the HTTP
 // response.  The content type is set to pool.Format().
+// nolint: typecheck
 func EncodeResponse(output http.ResponseWriter, response *Response, format wrp.Format) (err error) {
 	if format == response.Format {
 		if len(response.Contents) == 0 {
@@ -147,6 +158,7 @@ func EncodeResponse(output http.ResponseWriter, response *Response, format wrp.F
 	}
 
 	output.Header().Set("Content-Type", format.ContentType())
+	// nolint: typecheck
 	err = wrp.NewEncoder(output, format).Encode(response.Message)
 	return
 }

@@ -28,11 +28,13 @@ func TestNopCloser(t *testing.T) {
 	actualBytes, err := io.ReadAll(rsc)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
+	// nolint: typecheck
 	assert.NoError(rsc.Close())
 
 	rsc2 := NopCloser(rsc)
 	require.NotNil(rsc2)
 	assert.True(rsc == rsc2)
+	// nolint: typecheck
 	assert.NoError(rsc2.Close())
 
 	_, err = reader.Seek(0, 0)
@@ -79,12 +81,14 @@ func testNewRewindReadError(t *testing.T) {
 		reader = new(mockReader)
 	)
 
+	// nolint: typecheck
 	reader.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	body, getBody, err := NewRewind(reader)
 	assert.Nil(body)
 	assert.Nil(getBody)
 	assert.Error(err)
 
+	// nolint: typecheck
 	reader.AssertExpectations(t)
 }
 
@@ -220,11 +224,13 @@ func testEnsureRewindableReadError(t *testing.T) {
 		}
 	)
 
+	// nolint: typecheck
 	contents.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	assert.Equal(expectedError, EnsureRewindable(r))
 	assert.Nil(r.GetBody)
 	assert.True(expectedBody == r.Body)
 
+	// nolint: typecheck
 	contents.AssertExpectations(t)
 }
 

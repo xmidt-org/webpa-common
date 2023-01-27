@@ -64,10 +64,12 @@ func New(o Options) (net.Listener, error) {
 		semaphore = make(chan struct{}, o.MaxConnections)
 	}
 
+	// nolint: typecheck
 	if o.Rejected == nil {
 		o.Rejected = discard.NewCounter()
 	}
 
+	// nolint: typecheck
 	if o.Active == nil {
 		o.Active = discard.NewGauge()
 	}

@@ -47,6 +47,7 @@ func TestDevice(t *testing.T) {
 
 		var (
 			ctx, cancel = context.WithCancel(context.Background())
+			// nolint: typecheck
 			testMessage = new(wrp.Message)
 			device      = newDevice(deviceOptions{
 				ID:          record.expectedID,

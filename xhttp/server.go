@@ -60,6 +60,7 @@ func NewStarter(o StartOptions, s httpServer) func() error {
 
 	var starter func() error
 
+	// nolint: typecheck
 	if o.Listener != nil {
 		starter = func() error {
 			return s.Serve(o.Listener)

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 

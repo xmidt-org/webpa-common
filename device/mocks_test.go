@@ -18,30 +18,35 @@ type mockReader struct {
 }
 
 func (m *mockReader) Read(b []byte) (int, error) {
+	// nolint: typecheck
 	arguments := m.Called(b)
 	return arguments.Int(0), arguments.Error(1)
 }
 
 // mockConnectionReader is a mocked Reader, from this package.  It represents
-// the read side of a websocket.
+// the read side of a websocket.// nolint: typecheck
 type mockConnectionReader struct {
 	mock.Mock
 }
 
 func (m *mockConnectionReader) ReadMessage() (int, []byte, error) {
+	// nolint: typecheck
 	arguments := m.Called()
 	return arguments.Int(0), arguments.Get(1).([]byte), arguments.Error(2)
 }
 
 func (m *mockConnectionReader) SetReadDeadline(d time.Time) error {
+	// nolint: typecheck
 	return m.Called(d).Error(0)
 }
 
 func (m *mockConnectionReader) SetPongHandler(h func(string) error) {
+	// nolint: typecheck
 	m.Called(h)
 }
 
 func (m *mockConnectionReader) Close() error {
+	// nolint: typecheck
 	return m.Called().Error(0)
 }
 
@@ -52,18 +57,22 @@ type mockConnectionWriter struct {
 }
 
 func (m *mockConnectionWriter) WriteMessage(messageType int, data []byte) error {
+	// nolint: typecheck
 	return m.Called(messageType, data).Error(0)
 }
 
 func (m *mockConnectionWriter) WritePreparedMessage(pm *websocket.PreparedMessage) error {
+	// nolint: typecheck
 	return m.Called(pm).Error(0)
 }
 
 func (m *mockConnectionWriter) SetWriteDeadline(d time.Time) error {
+	// nolint: typecheck
 	return m.Called(d).Error(0)
 }
 
 func (m *mockConnectionWriter) Close() error {
+	// nolint: typecheck
 	return m.Called().Error(0)
 }
 
@@ -73,6 +82,7 @@ type mockDialer struct {
 
 func (m *mockDialer) DialDevice(deviceName, url string, extra http.Header) (*websocket.Conn, *http.Response, error) {
 	var (
+		// nolint: typecheck
 		arguments = m.Called(deviceName, url, extra)
 		first, _  = arguments.Get(0).(*websocket.Conn)
 		second, _ = arguments.Get(1).(*http.Response)
@@ -87,6 +97,7 @@ type mockWebsocketDialer struct {
 
 func (m *mockWebsocketDialer) Dial(url string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
 	var (
+		// nolint: typecheck
 		arguments = m.Called(url, requestHeader)
 		first, _  = arguments.Get(0).(*websocket.Conn)
 		second, _ = arguments.Get(1).(*http.Response)
@@ -131,6 +142,7 @@ type mockRouter struct {
 }
 
 func (m *mockRouter) Route(request *Request) (*Response, error) {
+	// nolint: typecheck
 	arguments := m.Called(request)
 	first, _ := arguments.Get(0).(*Response)
 	return first, arguments.Error(1)
@@ -142,8 +154,9 @@ func TestMockConnector(t *testing.T) {
 
 		c = new(MockConnector)
 
-		response             = httptest.NewRecorder()
-		request              = httptest.NewRequest("GET", "/", nil)
+		response = httptest.NewRecorder()
+		request  = httptest.NewRequest("GET", "/", nil)
+		// nolint: typecheck
 		header               = http.Header{"X-Something": {"foo"}}
 		expectedDevice       = new(MockDevice)
 		expectedConnectError = errors.New("expected connect error")
@@ -158,13 +171,18 @@ func TestMockConnector(t *testing.T) {
 		}
 	)
 
+	// nolint: typecheck
 	c.On("Connect", response, request, header).Return(expectedDevice, expectedConnectError).Once()
+	// nolint: typecheck
 	c.On("Disconnect", id1, CloseReason{}).Return(true).Once()
+	// nolint: typecheck
 	c.On("Disconnect", id2, CloseReason{}).Return(false).Once()
+	// nolint: typecheck
 	c.On("DisconnectIf", mock.MatchedBy(func(func(ID) (CloseReason, bool)) bool { return true })).Return(5).
 		Run(func(arguments mock.Arguments) {
 			arguments.Get(0).(func(ID) (CloseReason, bool))(id1)
 		}).Once()
+	// nolint: typecheck
 	c.On("DisconnectAll", CloseReason{}).Return(12).Once()
 
 	actualDevice, actualConnectError := c.Connect(response, request, header)
@@ -179,6 +197,7 @@ func TestMockConnector(t *testing.T) {
 
 	assert.Equal(12, c.DisconnectAll(CloseReason{}))
 
+	// nolint: typecheck
 	c.AssertExpectations(t)
 }
 
@@ -187,6 +206,7 @@ type mockFilter struct {
 }
 
 func (m *mockFilter) AllowConnection(d Interface) (bool, MatchResult) {
+	// nolint: typecheck
 	args := m.Called(d)
 	result, _ := args.Get(1).(MatchResult)
 	return args.Bool(0), result

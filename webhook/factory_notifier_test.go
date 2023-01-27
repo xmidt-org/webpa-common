@@ -29,12 +29,15 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	confSubArn := "testSubscriptionArn"
 
 	// mocking SNS subscribe response
+	// nolint: typecheck
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	webhookMetrics := ApplyMetricsData(metricsRegistry)
+	// nolint: typecheck
 	registry, handler := f.NewRegistryAndHandler(webhookMetrics)
+	// nolint: typecheck
 	f.Initialize(r, nil, "", handler, nil, AWS.ApplyMetricsData(metricsRegistry), testNow)
 
 	ts := httptest.NewServer(r)
@@ -46,17 +49,22 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	req.Header.Add("x-amz-sns-message-type", "SubscriptionConfirmation")
 
 	// mocking SNS ConfirmSubscription response
+	// nolint: typecheck
 	m.On("ConfirmSubscription", mock.AnythingOfType("*sns.ConfirmSubscriptionInput")).Return(&sns.ConfirmSubscriptionOutput{
 		SubscriptionArn: &confSubArn}, nil)
 
 	// mocking SNS ListSubscriptionsByTopic response to empty list
+	// nolint: typecheck
 	m.On("ListSubscriptionsByTopic", mock.AnythingOfType("*sns.ListSubscriptionsByTopicInput")).Return(
 		&sns.ListSubscriptionsByTopicOutput{Subscriptions: []*sns.Subscription{}}, nil)
 
+	// nolint: typecheck
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil).Once()
 
+	// nolint: typecheck
 	f.PrepareAndStart()
 
+	// nolint: typecheck
 	subValid := f.ValidateSubscriptionArn("")
 
 	assert.Equal(subValid, false)
@@ -70,11 +78,14 @@ func testNotifierReady(t *testing.T, m *AWS.MockSVC, mv *AWS.MockValidator, r *m
 	assert.Equal(http.StatusOK, res.StatusCode)
 
 	time.Sleep(1 * time.Second)
+	// nolint: typecheck
 	subConfValid := f.ValidateSubscriptionArn(confSubArn)
 
 	assert.Equal(true, subConfValid)
 
+	// nolint: typecheck
 	m.AssertExpectations(t)
+	// nolint: typecheck
 	mv.AssertExpectations(t)
 
 	return ts, registry
@@ -85,7 +96,9 @@ func TestNotifierReadyFlow(t *testing.T) {
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
 	f, _ := NewFactory(nil)
+	// nolint: typecheck
 	f.Notifier = n
+	// nolint: typecheck
 	f.m = &monitor{}
 
 	testNotifierReady(t, m, mv, r, f)
@@ -97,6 +110,7 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	n, m, mv, r := AWS.SetUpTestNotifier()
 
 	f, _ := NewFactory(nil)
+	// nolint: typecheck
 	f.Notifier = n
 
 	// nolint:goconst
@@ -104,12 +118,15 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	confSubArn := "testSubscriptionArn"
 
 	// mocking SNS subscribe response
+	// nolint: typecheck
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	webhookMetrics := ApplyMetricsData(metricsRegistry)
+	// nolint: typecheck
 	_, handler := f.NewRegistryAndHandler(webhookMetrics)
+	// nolint: typecheck
 	f.Initialize(r, nil, "", handler, nil, AWS.ApplyMetricsData(metricsRegistry), testNow)
 
 	ts := httptest.NewServer(r)
@@ -120,11 +137,14 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	req := httptest.NewRequest("POST", subConfUrl, strings.NewReader(AWS.TEST_SUB_MSG))
 	req.Header.Add("x-amz-sns-message-type", "SubscriptionConfirmation")
 
+	// nolint: typecheck
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(false,
 		fmt.Errorf("%s", AWS.SNS_VALIDATION_ERR))
 
+	// nolint: typecheck
 	f.PrepareAndStart()
 
+	// nolint: typecheck
 	subValid := f.ValidateSubscriptionArn("")
 
 	assert.Equal(false, subValid)
@@ -144,10 +164,13 @@ func TestNotifierReadyValidateErr(t *testing.T) {
 	assert.Equal(http.StatusBadRequest, errMsg.Code)
 	assert.Equal(AWS.SNS_VALIDATION_ERR, errMsg.Message)
 
+	// nolint: typecheck
 	subConfValid := f.ValidateSubscriptionArn(confSubArn)
 	assert.Equal(false, subConfValid)
 
+	// nolint: typecheck
 	m.AssertExpectations(t)
+	// nolint: typecheck
 	mv.AssertExpectations(t)
 }
 
@@ -157,13 +180,16 @@ func TestNotifierPublishFlow(t *testing.T) {
 
 	f, _ := NewFactory(nil)
 	// setting to mocked Notifier instance
+	// nolint: typecheck
 	f.Notifier = n
 
 	ts, registry := testNotifierReady(t, m, mv, r, f)
 
 	// mocking SNS Publish response
+	// nolint: typecheck
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
 
+	// nolint: typecheck
 	f.PublishMessage(AWS.TEST_HOOK)
 
 	time.Sleep(1 * time.Second)
@@ -173,6 +199,7 @@ func TestNotifierPublishFlow(t *testing.T) {
 	req.Header.Add("x-amz-sns-message-type", "Notification")
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
+	// nolint: typecheck
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil)
 
 	req.RequestURI = ""
@@ -194,7 +221,9 @@ func TestNotifierPublishFlow(t *testing.T) {
 	assert.Equal("http://127.0.0.1:8080/test", hook.Config.URL)
 	assert.Equal([]string{".*"}, hook.Matcher.DeviceId)
 
+	// nolint: typecheck
 	m.AssertExpectations(t)
+	// nolint: typecheck
 	mv.AssertExpectations(t)
 }
 
@@ -205,13 +234,16 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 
 	f, _ := NewFactory(nil)
 	// setting to mocked Notifier instance
+	// nolint: typecheck
 	f.Notifier = n
 
 	ts, registry := testNotifierReady(t, m, mv, r, f)
 
 	// mocking SNS Publish response
+	// nolint: typecheck
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
 
+	// nolint: typecheck
 	f.PublishMessage(AWS.TEST_HOOK)
 
 	time.Sleep(1 * time.Second)
@@ -221,6 +253,7 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	req.Header.Add("x-amz-sns-message-type", "Notification")
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
+	// nolint: typecheck
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(true, nil)
 
 	req.RequestURI = ""
@@ -240,7 +273,9 @@ func TestNotifierPublishTopicArnMismatch(t *testing.T) {
 	assert.Equal("TopicArn does not match", errMsg.Message)
 	assert.Equal(0, registry.m.list.Len())
 
+	// nolint: typecheck
 	m.AssertExpectations(t)
+	// nolint: typecheck
 	mv.AssertExpectations(t)
 
 }
@@ -252,13 +287,16 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 
 	f, _ := NewFactory(nil)
 	// setting to mocked Notifier instance
+	// nolint: typecheck
 	f.Notifier = n
 
 	ts, registry := testNotifierReady(t, m, mv, r, f)
 
 	// mocking SNS Publish response
+	// nolint: typecheck
 	m.On("Publish", mock.AnythingOfType("*sns.PublishInput")).Return(&sns.PublishOutput{}, nil)
 
+	// nolint: typecheck
 	f.PublishMessage(AWS.TEST_HOOK)
 
 	time.Sleep(1 * time.Second)
@@ -268,6 +306,7 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 	req.Header.Add("x-amz-sns-message-type", "Notification")
 	req.Header.Add("x-amz-sns-subscription-arn", "testSubscriptionArn")
 
+	// nolint: typecheck
 	mv.On("Validate", mock.AnythingOfType("*aws.SNSMessage")).Return(false,
 		fmt.Errorf("%s", AWS.SNS_VALIDATION_ERR))
 
@@ -287,7 +326,9 @@ func TestNotifierPublishValidateErr(t *testing.T) {
 	assert.Equal(AWS.SNS_VALIDATION_ERR, errMsg.Message)
 	assert.Equal(0, registry.m.list.Len())
 
+	// nolint: typecheck
 	m.AssertExpectations(t)
+	// nolint: typecheck
 	mv.AssertExpectations(t)
 
 }

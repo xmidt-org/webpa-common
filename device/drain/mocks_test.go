@@ -14,16 +14,19 @@ type mockDrainer struct {
 }
 
 func (m *mockDrainer) Start(j Job) (<-chan struct{}, Job, error) {
+	// nolint: typecheck
 	arguments := m.Called(j)
 	return arguments.Get(0).(<-chan struct{}), arguments.Get(1).(Job), arguments.Error(2)
 }
 
 func (m *mockDrainer) Status() (bool, Job, Progress) {
+	// nolint: typecheck
 	arguments := m.Called()
 	return arguments.Bool(0), arguments.Get(1).(Job), arguments.Get(2).(Progress)
 }
 
 func (m *mockDrainer) Cancel() (<-chan struct{}, error) {
+	// nolint: typecheck
 	arguments := m.Called()
 	return arguments.Get(0).(<-chan struct{}), arguments.Error(1)
 }
@@ -131,7 +134,9 @@ func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 			d  = new(device.MockDevice)
 		)
 
+		// nolint: typecheck
 		d.On("ID").Return(id)
+		// nolint: typecheck
 		d.On("String").Return("mockDevice(" + string(id) + ")")
 		sm.devices[id] = d
 	}
@@ -156,18 +161,22 @@ func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneC
 			d  = new(device.MockDevice)
 		)
 
+		// nolint: typecheck
 		d.On("ID").Return(id)
+		// nolint: typecheck
 		d.On("String").Return("mockDevice(" + string(id) + ")")
 
 		if mac < deviceCountOne {
 			metadata := new(device.Metadata)
 			metadata.SetClaims(metadataOneClaims)
 
+			// nolint: typecheck
 			d.On("Metadata").Return(metadata)
 		} else {
 			metadata := new(device.Metadata)
 			metadata.SetClaims(metadataTwoClaims)
 
+			// nolint: typecheck
 			d.On("Metadata").Return(metadata)
 		}
 

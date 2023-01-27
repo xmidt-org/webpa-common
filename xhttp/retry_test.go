@@ -229,12 +229,14 @@ func testRetryTransactorNotRewindable(t *testing.T) {
 		)
 	)
 
+	// nolint: typecheck
 	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	require.NotNil(retry)
 	response, actualError := retry(&http.Request{Body: ioutil.NopCloser(body)})
 	assert.Nil(response)
 	assert.Equal(expectedError, actualError)
 
+	// nolint: typecheck
 	body.AssertExpectations(t)
 }
 

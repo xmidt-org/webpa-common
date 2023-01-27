@@ -20,6 +20,7 @@ func testNewString(t *testing.T) {
 
 	require.NotNil(g1)
 	require.NotNil(g2)
+	// nolint: typecheck
 	assert.NotEqual(g2.String(), g1.String())
 }
 

@@ -158,6 +158,7 @@ func (o *Options) listeners() []Listener {
 }
 
 func (o *Options) metricsProvider() provider.Provider {
+	// nolint: typecheck
 	if o != nil && o.MetricsProvider != nil {
 		return o.MetricsProvider
 	}

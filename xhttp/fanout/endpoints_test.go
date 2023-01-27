@@ -37,11 +37,13 @@ func testMustFanoutURLsPanics(t *testing.T) {
 		endpoints = new(mockEndpoints)
 	)
 
+	// nolint: typecheck
 	endpoints.On("FanoutURLs", mock.MatchedBy(func(*http.Request) bool { return true })).Return(nil, errors.New("expected")).Once()
 	assert.Panics(func() {
 		MustFanoutURLs(endpoints, httptest.NewRequest("GET", "/", nil))
 	})
 
+	// nolint: typecheck
 	endpoints.AssertExpectations(t)
 }
 
@@ -52,11 +54,13 @@ func testMustFanoutURLsSuccess(t *testing.T) {
 		endpoints    = new(mockEndpoints)
 	)
 
+	// nolint: typecheck
 	endpoints.On("FanoutURLs", mock.MatchedBy(func(*http.Request) bool { return true })).Return(expectedURLs, error(nil)).Once()
 	assert.NotPanics(func() {
 		assert.Equal(expectedURLs, MustFanoutURLs(endpoints, httptest.NewRequest("GET", "/", nil)))
 	})
 
+	// nolint: typecheck
 	endpoints.AssertExpectations(t)
 }
 

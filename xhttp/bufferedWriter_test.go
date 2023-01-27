@@ -75,6 +75,7 @@ func testBufferedWriterWriteToWithContent(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal(
+		// nolint: typecheck
 		http.Header{
 			"Content-Type":   {"text/plain"},
 			"X-Custom":       {"zippidee doo da"},
@@ -117,6 +118,7 @@ func testBufferedWriterWriteToCustomResponseCode(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(499, response.Code)
 	assert.Equal(
+		// nolint: typecheck
 		http.Header{
 			"Content-Type":   {"text/plain"},
 			"X-Custom":       {"zippidee doo da"},

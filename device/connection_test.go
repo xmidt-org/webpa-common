@@ -79,11 +79,13 @@ func TestSetPongHandler(t *testing.T) {
 			pongHandler func(string) error
 		)
 
+		// nolint: typecheck
 		reader.On("SetPongHandler", mock.MatchedBy(func(func(string) error) bool { return true })).
 			Run(func(arguments mock.Arguments) {
 				pongHandler = arguments.Get(0).(func(string) error)
 			}).
 			Once()
+		// nolint: typecheck
 		reader.On("SetReadDeadline", now).Return((error)(nil)).Once()
 
 		SetPongHandler(reader, xmetrics.NewIncrementer(counter), func() time.Time { return now })
@@ -91,6 +93,7 @@ func TestSetPongHandler(t *testing.T) {
 		assert.NoError(pongHandler("does not matter"))
 		assert.Equal(1.0, counter.Value())
 
+		// nolint: typecheck
 		reader.AssertExpectations(t)
 	})
 
@@ -107,11 +110,13 @@ func TestSetPongHandler(t *testing.T) {
 			pongHandler func(string) error
 		)
 
+		// nolint: typecheck
 		reader.On("SetPongHandler", mock.MatchedBy(func(func(string) error) bool { return true })).
 			Run(func(arguments mock.Arguments) {
 				pongHandler = arguments.Get(0).(func(string) error)
 			}).
 			Once()
+		// nolint: typecheck
 		reader.On("SetReadDeadline", now).Return(expectedError).Once()
 
 		SetPongHandler(reader, xmetrics.NewIncrementer(counter), func() time.Time { return now })
@@ -119,6 +124,7 @@ func TestSetPongHandler(t *testing.T) {
 		assert.Equal(expectedError, pongHandler("does not matter"))
 		assert.Equal(1.0, counter.Value())
 
+		// nolint: typecheck
 		reader.AssertExpectations(t)
 	})
 }
@@ -137,12 +143,15 @@ func TestNewPinger(t *testing.T) {
 		pinger, err := NewPinger(writer, xmetrics.NewIncrementer(counter), []byte("ping data"), func() time.Time { return expectedDeadline })
 		assert.NoError(err)
 		require.NotNil(pinger)
+		// nolint: typecheck
 		writer.On("SetWriteDeadline", expectedDeadline).Return((error)(nil)).Once()
+		// nolint: typecheck
 		writer.On("WritePreparedMessage", mock.MatchedBy(func(*websocket.PreparedMessage) bool { return true })).Return((error)(nil)).Once()
 
 		assert.NoError(pinger())
 		assert.Equal(1.0, counter.Value())
 
+		// nolint: typecheck
 		writer.AssertExpectations(t)
 	})
 
@@ -160,11 +169,13 @@ func TestNewPinger(t *testing.T) {
 		pinger, err := NewPinger(writer, xmetrics.NewIncrementer(counter), []byte("ping data"), func() time.Time { return expectedDeadline })
 		assert.NoError(err)
 		require.NotNil(pinger)
+		// nolint: typecheck
 		writer.On("SetWriteDeadline", expectedDeadline).Return(expectedError).Once()
 
 		assert.Equal(expectedError, pinger())
 		assert.Zero(counter.Value())
 
+		// nolint: typecheck
 		writer.AssertExpectations(t)
 	})
 
@@ -182,12 +193,15 @@ func TestNewPinger(t *testing.T) {
 		pinger, err := NewPinger(writer, xmetrics.NewIncrementer(counter), []byte("ping data"), func() time.Time { return expectedDeadline })
 		assert.NoError(err)
 		require.NotNil(pinger)
+		// nolint: typecheck
 		writer.On("SetWriteDeadline", expectedDeadline).Return((error)(nil)).Once()
+		// nolint: typecheck
 		writer.On("WritePreparedMessage", mock.MatchedBy(func(*websocket.PreparedMessage) bool { return true })).Return(expectedError).Once()
 
 		assert.Equal(expectedError, pinger())
 		assert.Zero(counter.Value())
 
+		// nolint: typecheck
 		writer.AssertExpectations(t)
 	})
 }
@@ -205,6 +219,7 @@ func TestInstrumentReader(t *testing.T) {
 		)
 
 		require.NotNil(instrumentedReader)
+		// nolint: typecheck
 		reader.On("ReadMessage").Return(websocket.BinaryMessage, expectedData, (error)(nil)).Once()
 
 		messageType, actualData, actualError := instrumentedReader.ReadMessage()
@@ -214,6 +229,7 @@ func TestInstrumentReader(t *testing.T) {
 		assert.Equal(len(expectedData), statistics.BytesReceived())
 		assert.Equal(1, statistics.MessagesReceived())
 
+		// nolint: typecheck
 		reader.AssertExpectations(t)
 	})
 
@@ -229,6 +245,7 @@ func TestInstrumentReader(t *testing.T) {
 		)
 
 		require.NotNil(instrumentedReader)
+		// nolint: typecheck
 		reader.On("ReadMessage").Return(-1, []byte{}, expectedError).Once()
 
 		messageType, actualData, actualError := instrumentedReader.ReadMessage()
@@ -238,6 +255,7 @@ func TestInstrumentReader(t *testing.T) {
 		assert.Zero(statistics.BytesReceived())
 		assert.Zero(statistics.MessagesReceived())
 
+		// nolint: typecheck
 		reader.AssertExpectations(t)
 	})
 }
@@ -256,12 +274,14 @@ func TestInstrumentWriter(t *testing.T) {
 			)
 
 			require.NotNil(instrumentedWriter)
+			// nolint: typecheck
 			writer.On("WriteMessage", websocket.BinaryMessage, expectedData).Return((error)(nil)).Once()
 
 			assert.NoError(instrumentedWriter.WriteMessage(websocket.BinaryMessage, expectedData))
 			assert.Equal(len(expectedData), statistics.BytesSent())
 			assert.Equal(1, statistics.MessagesSent())
 
+			// nolint: typecheck
 			writer.AssertExpectations(t)
 		})
 
@@ -278,12 +298,14 @@ func TestInstrumentWriter(t *testing.T) {
 			)
 
 			require.NotNil(instrumentedWriter)
+			// nolint: typecheck
 			writer.On("WriteMessage", websocket.BinaryMessage, expectedData).Return(expectedError).Once()
 
 			assert.Equal(expectedError, instrumentedWriter.WriteMessage(websocket.BinaryMessage, expectedData))
 			assert.Zero(statistics.BytesSent())
 			assert.Zero(statistics.MessagesSent())
 
+			// nolint: typecheck
 			writer.AssertExpectations(t)
 		})
 	})
@@ -305,12 +327,14 @@ func TestInstrumentWriter(t *testing.T) {
 			require.NoError(err)
 			require.NotNil(expectedMessage)
 
+			// nolint: typecheck
 			writer.On("WritePreparedMessage", expectedMessage).Return((error)(nil)).Once()
 
 			assert.NoError(instrumentedWriter.WritePreparedMessage(expectedMessage))
 			assert.Zero(statistics.BytesSent())
 			assert.Equal(1, statistics.MessagesSent())
 
+			// nolint: typecheck
 			writer.AssertExpectations(t)
 		})
 
@@ -331,12 +355,14 @@ func TestInstrumentWriter(t *testing.T) {
 			require.NoError(err)
 			require.NotNil(expectedMessage)
 
+			// nolint: typecheck
 			writer.On("WritePreparedMessage", expectedMessage).Return(expectedError).Once()
 
 			assert.Equal(expectedError, instrumentedWriter.WritePreparedMessage(expectedMessage))
 			assert.Zero(statistics.BytesSent())
 			assert.Zero(statistics.MessagesSent())
 
+			// nolint: typecheck
 			writer.AssertExpectations(t)
 		})
 	})

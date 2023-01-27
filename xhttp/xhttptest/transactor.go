@@ -43,6 +43,7 @@ func (dc *TransactCall) RespondWith(er ExpectedResponse) *TransactCall {
 
 // Respond is a convenience for setting a Return(response, err)
 func (dc *TransactCall) Respond(response *http.Response, err error) *TransactCall {
+	// nolint: typecheck
 	dc.Return(response, err)
 	return dc
 }
@@ -62,6 +63,7 @@ func (mt *MockTransactor) Do(request *http.Request) (*http.Response, error) {
 	// HACK: Because of the way Called works, there is a race condition involving the http.Request's Context object.
 	// Called performs a printf, which bypasses the context's mutex to produce the string.  We have to replace
 	// the context with a known, immutable value so that no race conditions occur.
+	// nolint: typecheck
 	arguments := mt.Called(request.WithContext(context.Background()))
 	response, _ := arguments.Get(0).(*http.Response)
 	return response, arguments.Error(1)
@@ -72,6 +74,7 @@ func (mt *MockTransactor) RoundTrip(request *http.Request) (*http.Response, erro
 	// HACK: Because of the way Called works, there is a race condition involving the http.Request's Context object.
 	// Called performs a printf, which bypasses the context's mutex to produce the string.  We have to replace
 	// the context with a known, immutable value so that no race conditions occur.
+	// nolint: typecheck
 	arguments := mt.Called(request.WithContext(context.Background()))
 	response, _ := arguments.Get(0).(*http.Response)
 	return response, arguments.Error(1)
@@ -80,6 +83,7 @@ func (mt *MockTransactor) RoundTrip(request *http.Request) (*http.Response, erro
 // OnDo sets an On("Do", ...) with the given matchers for a request.  The returned Call has some
 // augmented behavior for setting responses.
 func (mt *MockTransactor) OnDo(matchers ...func(*http.Request) bool) *TransactCall {
+	// nolint: typecheck
 	call := mt.On("Do", mock.MatchedBy(func(candidate *http.Request) bool {
 		for _, matcher := range matchers {
 			if !matcher(candidate) {
@@ -96,6 +100,7 @@ func (mt *MockTransactor) OnDo(matchers ...func(*http.Request) bool) *TransactCa
 // OnRoundTrip sets an On("Do", ...) with the given matchers for a request.  The returned Call has some
 // augmented behavior for setting responses.
 func (mt *MockTransactor) OnRoundTrip(matchers ...func(*http.Request) bool) *TransactCall {
+	// nolint: typecheck
 	call := mt.On("RoundTrip", mock.MatchedBy(func(candidate *http.Request) bool {
 		for _, matcher := range matchers {
 			if !matcher(candidate) {

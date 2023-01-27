@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+
+	// nolint: typecheck
 	"sync/atomic"
 )
 
@@ -39,6 +41,7 @@ func (bw *BufferedWriter) Close() error {
 
 // Header returns the HTTP header to write to the response.  This method is unaffected by the close state.
 func (bw *BufferedWriter) Header() http.Header {
+	// nolint: typecheck
 	if bw.header == nil {
 		bw.header = make(http.Header)
 	}

@@ -178,6 +178,7 @@ type instrumentedCloseable struct {
 }
 
 func (ic *instrumentedCloseable) Close() (err error) {
+	// nolint: typecheck
 	err = (ic.instrumentedSemaphore.delegate).(Closeable).Close()
 	ic.closed.Set(MetricClosed)
 

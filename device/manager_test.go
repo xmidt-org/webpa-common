@@ -75,6 +75,8 @@ func connectTestDevices(t *testing.T, dialer Dialer, connectURL string) map[ID]C
 
 func closeTestDevices(assert *assert.Assertions, devices map[ID]Connection) {
 	for _, connection := range devices {
+
+		// nolint: typecheck
 		assert.Nil(connection.Close())
 	}
 }
@@ -91,6 +93,7 @@ func testManagerConnectFilterDeny(t *testing.T) {
 	response := httptest.NewRecorder()
 	request := WithIDRequest(ID("mac:123412341234"), httptest.NewRequest("POST", "http://localhost.com", nil))
 
+	// nolint: typecheck
 	mockFilter.On("AllowConnection", mock.Anything).Return(false, MatchResult{}).Once()
 
 	device, err := manager.Connect(response, request, nil)
@@ -286,6 +289,7 @@ func testManagerRouteBadDestination(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		request = &Request{
+			// nolint: typecheck
 			Message: &wrp.Message{
 				Destination: "this is a bad destination",
 			},
@@ -303,6 +307,7 @@ func testManagerRouteDeviceNotFound(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		request = &Request{
+			// nolint: typecheck
 			Message: &wrp.Message{
 				Destination: "mac:112233445566",
 			},
@@ -355,6 +360,8 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 			}
 
 	*/
+
+	// nolint: typecheck
 	header := &http.Header{
 		"X-Webpa-Convey": {"eyAgDQogICAiaHctc2VyaWFsLW51bWJlciI6MTIzNDU2Nzg5LA0KICAgIndlYnBhLXByb3RvY29sIjoiV2ViUEEtMS42Ig0KfQ=="},
 	}
@@ -465,6 +472,7 @@ func TestWRPSourceIsValid(t *testing.T) {
 
 			// strict mode
 			counter := newTestCounter()
+			// nolint: typecheck
 			message := &wrp.Message{Source: record.Source}
 			m := &manager{enforceWRPSourceCheck: true, measures: Measures{WRPSourceCheck: counter}}
 			ok := m.wrpSourceIsValid(message, d)
@@ -473,6 +481,7 @@ func TestWRPSourceIsValid(t *testing.T) {
 
 			// lenient mode
 			counter = newTestCounter()
+			// nolint: typecheck
 			message = &wrp.Message{Source: record.Source}
 			m = &manager{enforceWRPSourceCheck: false, measures: Measures{WRPSourceCheck: counter}}
 

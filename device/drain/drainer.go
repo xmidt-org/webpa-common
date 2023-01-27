@@ -3,6 +3,8 @@ package drain
 import (
 	"errors"
 	"sync"
+
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 
@@ -16,8 +18,8 @@ import (
 )
 
 var (
-	ErrActive    error = errors.New("A drain operation is already running")
-	ErrNotActive error = errors.New("No drain operation is running")
+	ErrActive    error = errors.New("a drain operation is already running")
+	ErrNotActive error = errors.New("no drain operation is running")
 )
 
 const (
@@ -211,10 +213,12 @@ func New(options ...Option) Interface {
 		f(dr)
 	}
 
+	// nolint: typecheck
 	if dr.registry == nil {
 		panic("A device.Registry is required")
 	}
 
+	// nolint: typecheck
 	if dr.connector == nil {
 		panic("A device.Connector is required")
 	}
@@ -267,6 +271,7 @@ func (d *drainFilter) GetFilterRequest() devicegate.FilterRequest {
 }
 
 func (df *drainFilter) AllowConnection(d device.Interface) (bool, device.MatchResult) {
+	// nolint: typecheck
 	if df.filter == nil {
 		return false, device.MatchResult{}
 	}
@@ -284,6 +289,7 @@ func (dr *drainer) nextBatch(jc jobContext, batch chan device.ID) (more bool, vi
 	dr.registry.VisitAll(func(d device.Interface) bool {
 		// if drain filter set, see if device should be drained
 		if jc.j.DrainFilter != nil {
+			// nolint: typecheck
 			if allow, _ := jc.j.DrainFilter.AllowConnection(d); allow {
 				skipped++
 				return true

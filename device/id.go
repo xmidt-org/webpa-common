@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+
+	// nolint: typecheck
 	"unicode"
 )
 

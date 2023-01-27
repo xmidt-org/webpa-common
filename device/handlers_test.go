@@ -198,11 +198,12 @@ func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
-	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	assert.Equal("application/json", response.Header().Get("Content-Type"))
 	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
+	// nolint: typecheck
 	router.AssertExpectations(t)
 }
 
@@ -211,6 +212,7 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint: typecheck
 		message = &wrp.Message{
 			Type:        wrp.SimpleEventMessageType,
 			Source:      "test.com",
@@ -220,6 +222,7 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 		requestContents []byte
 	)
 
+	// nolint: typecheck
 	require.NoError(wrp.NewEncoderBytes(&requestContents, wrp.Msgpack).Encode(message))
 
 	var (
@@ -233,9 +236,11 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 		}
 	)
 
+	// nolint: typecheck
 	router.On(
 		"Route",
 		mock.MatchedBy(func(candidate *Request) bool {
+			// nolint: typecheck
 			return candidate.Message != nil &&
 				len(candidate.Contents) > 0 &&
 				candidate.Format == wrp.Msgpack
@@ -244,19 +249,22 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(expectedCode, response.Code)
-	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	assert.Equal("application/json", response.Header().Get("Content-Type"))
 	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
+	// nolint: typecheck
 	router.AssertExpectations(t)
 }
 
+// nolint: typecheck
 func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 	var (
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint: typecheck
 		event = &wrp.SimpleEvent{
 			Source:      "test.com",
 			Destination: "mac:123412341234",
@@ -269,6 +277,7 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 		requestContents []byte
 	)
 
+	// nolint: typecheck
 	require.NoError(wrp.NewEncoderBytes(&requestContents, requestFormat).Encode(event))
 
 	var (
@@ -286,10 +295,12 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 
 	request.Header.Set("Content-Type", requestFormat.ContentType())
 
+	// nolint: typecheck
 	router.On(
 		"Route",
 		mock.MatchedBy(func(candidate *Request) bool {
 			actualDeviceRequest = candidate
+			// nolint: typecheck
 			return candidate.Message != nil &&
 				len(candidate.Contents) > 0 &&
 				candidate.Format == requestFormat
@@ -301,9 +312,11 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 	assert.Equal(0, response.Body.Len())
 	require.NotNil(actualDeviceRequest)
 
+	// nolint: typecheck
 	router.AssertExpectations(t)
 }
 
+// nolint: typecheck
 func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, requestFormat wrp.Format) {
 	const transactionKey = "transaction-key"
 
@@ -311,6 +324,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint: typecheck
 		requestMessage = &wrp.Message{
 			Type:            wrp.SimpleRequestResponseMessageType,
 			Source:          "test.com",
@@ -322,6 +336,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 			Metadata:        map[string]string{"foo": "bar"},
 		}
 
+		// nolint: typecheck
 		responseMessage = &wrp.Message{
 			Type:            wrp.SimpleRequestResponseMessageType,
 			Destination:     "test.com",
@@ -333,7 +348,9 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		responseContents []byte
 	)
 
+	// nolint: typecheck
 	require.NoError(wrp.NewEncoderBytes(&requestContents, requestFormat).Encode(requestMessage))
+	// nolint: typecheck
 	require.NoError(wrp.NewEncoderBytes(&responseContents, responseFormat).Encode(responseMessage))
 
 	var (
@@ -349,8 +366,9 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 
 		actualDeviceRequest    *Request
 		expectedDeviceResponse = &Response{
-			Device:   device,
-			Message:  responseMessage,
+			Device:  device,
+			Message: responseMessage,
+			// nolint: typecheck
 			Format:   wrp.Msgpack,
 			Contents: responseContents,
 		}
@@ -359,10 +377,12 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 	request.Header.Set("Content-Type", requestFormat.ContentType())
 	request.Header.Set("Accept", responseFormat.ContentType())
 
+	// nolint: typecheck
 	router.On(
 		"Route",
 		mock.MatchedBy(func(candidate *Request) bool {
 			actualDeviceRequest = candidate
+			// nolint: typecheck
 			return candidate.Message != nil &&
 				len(candidate.Contents) > 0 &&
 				candidate.Format == requestFormat
@@ -371,11 +391,14 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
-	assert.Equal(responseFormat.ContentType(), response.HeaderMap.Get("Content-Type"))
+	assert.Equal(responseFormat.ContentType(), response.Header().Get("Content-Type"))
 	require.NotNil(actualDeviceRequest)
+	// nolint: typecheck
 	assert.NoError(wrp.NewDecoder(response.Body, responseFormat).Decode(new(wrp.Message)))
 
+	// nolint: typecheck
 	router.AssertExpectations(t)
+	// nolint: typecheck
 	device.AssertExpectations(t)
 }
 
@@ -386,7 +409,9 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
+		// nolint: typecheck
 		requestMessage = &wrp.Message{
+			// nolint: typecheck
 			Type:            wrp.SimpleRequestResponseMessageType,
 			Source:          "test.com",
 			Destination:     "mac:123412341234",
@@ -397,6 +422,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 			Metadata:        map[string]string{"foo": "bar"},
 		}
 
+		// nolint: typecheck
 		responseMessage = &wrp.Message{
 			Type:            wrp.SimpleRequestResponseMessageType,
 			Destination:     "test.com",
@@ -407,6 +433,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		requestContents []byte
 	)
 
+	// nolint: typecheck
 	require.NoError(wrp.NewEncoderBytes(&requestContents, wrp.Msgpack).Encode(requestMessage))
 
 	var (
@@ -423,13 +450,16 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 		expectedDeviceResponse = &Response{
 			Device:  device,
 			Message: responseMessage,
-			Format:  wrp.Msgpack,
+			// nolint: typecheck
+			Format: wrp.Msgpack,
 		}
 	)
 
+	// nolint: typecheck
 	router.On(
 		"Route",
 		mock.MatchedBy(func(candidate *Request) bool {
+			// nolint: typecheck
 			return candidate.Message != nil &&
 				len(candidate.Contents) > 0 &&
 				candidate.Format == wrp.Msgpack
@@ -438,12 +468,14 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
-	assert.Equal("application/json", response.HeaderMap.Get("Content-Type"))
+	assert.Equal("application/json", response.Header().Get("Content-Type"))
 	responseContents, err := ioutil.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
+	// nolint: typecheck
 	router.AssertExpectations(t)
+	// nolint: typecheck
 	device.AssertExpectations(t)
 }
 
@@ -464,13 +496,16 @@ func TestMessageHandler(t *testing.T) {
 		})
 
 		t.Run("Event", func(t *testing.T) {
+			// nolint: typecheck
 			for _, requestFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 				testMessageHandlerServeHTTPEvent(t, requestFormat)
 			}
 		})
 
 		t.Run("RequestResponse", func(t *testing.T) {
+			// nolint: typecheck
 			for _, responseFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
+				// nolint: typecheck
 				for _, requestFormat := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 					testMessageHandlerServeHTTPRequestResponse(t, responseFormat, requestFormat)
 				}
@@ -509,9 +544,12 @@ func testConnectHandlerServeHTTP(t *testing.T, connectError error, responseHeade
 	)
 
 	if connectError != nil {
+		// nolint: typecheck
 		connector.On("Connect", response, request, responseHeader).Once().Return(nil, connectError)
 	} else {
+		// nolint: typecheck
 		device.On("ID").Once().Return(ID("mac:112233445566"))
+		// nolint: typecheck
 		connector.On("Connect", response, request, responseHeader).Once().Return(device, connectError)
 	}
 
@@ -521,7 +559,9 @@ func testConnectHandlerServeHTTP(t *testing.T, connectError error, responseHeade
 	// the Connector does that
 	assert.Equal(http.StatusOK, response.Code)
 
+	// nolint: typecheck
 	device.AssertExpectations(t)
+	// nolint: typecheck
 	connector.AssertExpectations(t)
 }
 
@@ -574,7 +614,9 @@ func testListHandlerServeHTTP(t *testing.T) {
 	firstDevice.statistics = NewStatistics(now, expectedConnectedAt)
 	secondDevice.statistics = NewStatistics(now, expectedConnectedAt)
 
+	// nolint: typecheck
 	registry.On("VisitAll", mock.MatchedBy(func(func(Interface) bool) bool { return true })).Return(0).Once()
+	// nolint: typecheck
 	registry.On("VisitAll", mock.MatchedBy(func(func(Interface) bool) bool { return true })).
 		Run(func(arguments mock.Arguments) {
 			visitor := arguments.Get(0).(func(Interface) bool)
@@ -599,7 +641,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		assert.JSONEq(`{"devices":[]}`, string(data))
 
 		assert.False(handler.cacheExpiry.IsZero())
-		cacheDuration := handler.cacheExpiry.Sub(time.Now())
+		cacheDuration := time.Until(handler.cacheExpiry)
 		assert.True(cacheDuration > 0)
 		assert.True(cacheDuration <= handler.refresh(), "The cache duration %s should be less than the refresh interval %s", cacheDuration, handler.refresh())
 	}
@@ -632,7 +674,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		assert.JSONEq(expectedJSON.String(), string(data))
 
 		assert.False(handler.cacheExpiry.IsZero())
-		cacheDuration := handler.cacheExpiry.Sub(time.Now())
+		cacheDuration := time.Until(handler.cacheExpiry)
 		assert.True(cacheDuration > 0)
 		assert.True(cacheDuration <= handler.refresh(), "The cache duration %s should be less than the refresh interval %s", cacheDuration, handler.refresh())
 	}
@@ -655,6 +697,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		assert.Equal(lastCacheExpiry, handler.cacheExpiry)
 	}
 
+	// nolint: typecheck
 	registry.AssertExpectations(t)
 }
 
@@ -679,6 +722,7 @@ func testStatHandlerNoPathVariables(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
+	// nolint: typecheck
 	registry.AssertExpectations(t)
 }
 
@@ -701,6 +745,7 @@ func testStatHandlerNoDeviceName(t *testing.T) {
 	router.Handle("/{doesNotMatter}", &handler)
 	router.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
+	// nolint: typecheck
 	registry.AssertExpectations(t)
 }
 
@@ -723,6 +768,7 @@ func testStatHandlerInvalidDeviceName(t *testing.T) {
 	router.Handle("/{deviceID}", &handler)
 	router.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
+	// nolint: typecheck
 	registry.AssertExpectations(t)
 }
 
@@ -743,10 +789,12 @@ func testStatHandlerMissingDevice(t *testing.T) {
 	)
 
 	router.Handle("/{deviceID}", &handler)
+	// nolint: typecheck
 	registry.On("Get", ID("mac:112233445566")).Return(nil, false).Once()
 
 	router.ServeHTTP(response, request)
 	assert.Equal(http.StatusNotFound, response.Code)
+	// nolint: typecheck
 	registry.AssertExpectations(t)
 }
 
@@ -768,12 +816,16 @@ func testStatHandlerMarshalJSONFailed(t *testing.T) {
 	)
 
 	router.Handle("/{deviceID}", &handler)
+	// nolint: typecheck
 	registry.On("Get", ID("mac:112233445566")).Return(device, true).Once()
+	// nolint: typecheck
 	device.On("MarshalJSON").Return([]byte{}, errors.New("expected")).Once()
 
 	router.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
+	// nolint: typecheck
 	registry.AssertExpectations(t)
+	// nolint: typecheck
 	device.AssertExpectations(t)
 }
 
@@ -795,14 +847,18 @@ func testStatHandlerSuccess(t *testing.T) {
 	)
 
 	router.Handle("/{deviceID}", &handler)
+	// nolint: typecheck
 	registry.On("Get", ID("mac:112233445566")).Return(device, true).Once()
+	// nolint: typecheck
 	device.On("MarshalJSON").Return([]byte(`{"foo": "bar"}`), (error)(nil)).Once()
 
 	router.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal("application/json", response.Header().Get("Content-Type"))
 	assert.Equal(`{"foo": "bar"}`, response.Body.String())
+	// nolint: typecheck
 	registry.AssertExpectations(t)
+	// nolint: typecheck
 	device.AssertExpectations(t)
 }
 

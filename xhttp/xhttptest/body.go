@@ -12,20 +12,24 @@ type MockBody struct {
 // OnReadError sets an expectation for a call to Read, with any byte slice, that returns the given error (and 0 for bytes read).
 // If the given error is nil, weird behavior can occur as the mocked Read will return (0, nil).
 func (mb *MockBody) OnReadError(err error) *mock.Call {
+	// nolint: typecheck
 	return mb.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, err)
 }
 
 // OnCloseError sets an expectation for a call to Close that simply returns the given error.
 // The given error can be nil.
 func (mb *MockBody) OnCloseError(err error) *mock.Call {
+	// nolint: typecheck
 	return mb.On("Close").Return(err)
 }
 
 func (mb *MockBody) Read(p []byte) (int, error) {
+	// nolint: typecheck
 	arguments := mb.Called(p)
 	return arguments.Int(0), arguments.Error(1)
 }
 
 func (mb *MockBody) Close() error {
+	// nolint: typecheck
 	return mb.Called().Error(0)
 }

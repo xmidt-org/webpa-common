@@ -50,6 +50,7 @@ func NewRewind(r io.Reader) (io.ReadCloser, func() (io.ReadCloser, error), error
 
 		return rsc,
 			func() (io.ReadCloser, error) {
+				// nolint: typecheck
 				_, err := rsc.Seek(0, 0)
 				return rsc, err
 			}, nil
@@ -72,6 +73,7 @@ func NewRewindBytes(b []byte) (io.ReadCloser, func() (io.ReadCloser, error)) {
 	rsc := NopCloser(bytes.NewReader(b))
 	return rsc,
 		func() (io.ReadCloser, error) {
+			// nolint: typecheck
 			_, err := rsc.Seek(0, 0)
 			return rsc, err
 		}

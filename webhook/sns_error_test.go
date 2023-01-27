@@ -30,22 +30,27 @@ func TestSubArnError(t *testing.T) {
 	n, m, _, r := AWS.SetUpTestNotifier()
 
 	f, _ := NewFactory(nil)
+	// nolint: typecheck
 	f.Notifier = n
 
 	assert := assert.New(t)
 	expectedSubArn := "pending confirmation"
 
 	// mocking SNS subscribe response
+	// nolint: typecheck
 	m.On("Subscribe", mock.AnythingOfType("*sns.SubscribeInput")).Return(&sns.SubscribeOutput{
 		SubscriptionArn: &expectedSubArn}, nil)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	webhookMetrics := ApplyMetricsData(metricsRegistry)
+	// nolint: typecheck
 	_, handler := f.NewRegistryAndHandler(webhookMetrics)
+	// nolint: typecheck
 	f.Initialize(r, nil, "", handler, nil, AWS.ApplyMetricsData(metricsRegistry), testNow)
 
 	ts := httptest.NewServer(r)
 
+	// nolint: typecheck
 	f.PrepareAndStart()
 
 	time.Sleep(1 * time.Second)
@@ -73,6 +78,7 @@ func TestSubArnError(t *testing.T) {
 	assert.Equal(errMsg.Message, "SubscriptionARN does not match")
 	assert.Equal(http.StatusInternalServerError, res.StatusCode)
 
+	// nolint: typecheck
 	m.AssertExpectations(t)
 
 }
@@ -81,13 +87,16 @@ func TestNotificationBeforeInitialize(t *testing.T) {
 	n, _, _, r := AWS.SetUpTestNotifier()
 
 	f, _ := NewFactory(nil)
+	// nolint: typecheck
 	f.Notifier = n
 
 	assert := assert.New(t)
 
 	metricsRegistry, _ := xmetrics.NewRegistry(&xmetrics.Options{}, Metrics, AWS.Metrics)
 	webhookMetrics := ApplyMetricsData(metricsRegistry)
+	// nolint: typecheck
 	_, handler := f.NewRegistryAndHandler(webhookMetrics)
+	// nolint: typecheck
 	f.Initialize(r, nil, "", handler, nil, AWS.ApplyMetricsData(metricsRegistry), testNow)
 
 	ts := httptest.NewServer(r)
