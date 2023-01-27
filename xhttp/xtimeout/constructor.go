@@ -69,6 +69,7 @@ func NewConstructor(o Options) func(http.Handler) http.Handler {
 		return xhttp.NilConstructor
 	}
 
+	// nolint: typecheck
 	if o.TimedOut == nil {
 		o.TimedOut = defaultTimedOut
 	}

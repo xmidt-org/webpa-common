@@ -39,11 +39,6 @@ const (
 	InvalidEventString string = "!!INVALID DEVICE EVENT TYPE!!"
 )
 
-var (
-	// blankEvent is an Event in its initial state.  Useful for quick state reset.
-	blankEvent Event
-)
-
 func (et EventType) String() string {
 	switch et {
 	case Connect:
@@ -82,9 +77,11 @@ type Event struct {
 	// Never assume that it is safe to use this Message outside the listener invocation.  Make
 	// a copy if this Message is needed by other goroutines or if it needs to be part of a long-lived
 	// data structure.
+	// nolint: typecheck
 	Message wrp.Typed
 
 	// Format is the encoding format of the Contents field
+	// nolint: typecheck
 	Format wrp.Format
 
 	// Contents is the encoded representation of the Message field.  It is always set if and only if

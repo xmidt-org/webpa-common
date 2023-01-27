@@ -158,6 +158,7 @@ func benchmarkMetadataClaimsUsageParallel(readPercentage int, b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
+			// nolint:gosec
 			v := rand.Intn(100)
 			if v < readPercentage {
 				m.Claims()

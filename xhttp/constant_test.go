@@ -18,6 +18,7 @@ func testConstant(t *testing.T, c Constant) {
 
 	c.ServeHTTP(response, request)
 	assert.Equal(c.Code, response.Code)
+	// nolint: typecheck
 	if c.Header != nil {
 		assert.Equal(c.Header, response.Header())
 	} else {
@@ -30,6 +31,7 @@ func testConstant(t *testing.T, c Constant) {
 func TestConstant(t *testing.T) {
 	testData := []Constant{
 		{Code: http.StatusNotFound},
+		// nolint: typecheck
 		{Code: http.StatusServiceUnavailable, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: []byte(`{"message": "oh noes!"}`)},
 	}
 

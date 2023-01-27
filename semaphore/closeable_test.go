@@ -47,8 +47,10 @@ func testCloseableTryAcquire(t *testing.T, cs Closeable, totalCount int) {
 	assert.False(cs.TryAcquire())
 
 	assert.NoError(cs.Release())
+	// nolint: typecheck
 	assert.NoError(cs.Close())
 	assert.False(cs.TryAcquire())
+	// nolint: typecheck
 	assert.Equal(ErrClosed, cs.Close())
 	assert.Equal(ErrClosed, cs.Release())
 }
@@ -120,6 +122,7 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 		closeWait   = make(chan struct{})
 	)
 
+	// nolint: typecheck
 	defer cs.Close()
 
 	go func() {
@@ -154,12 +157,14 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 
 	go func() {
 		defer close(closeWait)
+		// nolint: typecheck
 		<-cs.Closed()
 	}()
 
 	// post condition: no point continuing if this fails
 	require.False(cs.TryAcquire())
 
+	// nolint: typecheck
 	assert.NoError(cs.Close())
 	for i := 0; i < totalCount; i++ {
 		select {
@@ -173,6 +178,7 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 	select {
 	case <-closeWait:
 		assert.False(cs.TryAcquire())
+		// nolint: typecheck
 		assert.Equal(ErrClosed, cs.Close())
 		assert.Equal(ErrClosed, cs.Acquire())
 		assert.Equal(ErrClosed, cs.Release())
@@ -204,6 +210,7 @@ func testCloseableAcquireWaitSuccess(t *testing.T, cs Closeable, totalCount int)
 		}
 	}
 
+	// nolint: typecheck
 	defer cs.Close()
 
 	// post condition: no point continuing if this fails
@@ -245,6 +252,7 @@ func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
 		closeWait   = make(chan struct{})
 	)
 
+	// nolint: typecheck
 	defer cs.Close()
 
 	go func() {
@@ -282,9 +290,11 @@ func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
 
 	go func() {
 		defer close(closeWait)
+		// nolint: typecheck
 		<-cs.Closed()
 	}()
 
+	// nolint: typecheck
 	assert.NoError(cs.Close())
 	for i := 0; i < totalCount; i++ {
 		select {
@@ -298,6 +308,7 @@ func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
 	select {
 	case <-closeWait:
 		assert.False(cs.TryAcquire())
+		// nolint: typecheck
 		assert.Equal(ErrClosed, cs.Close())
 		assert.Equal(ErrClosed, cs.Acquire())
 		assert.Equal(ErrClosed, cs.Release())
@@ -407,9 +418,11 @@ func testCloseableAcquireCtxClose(t *testing.T, cs Closeable, totalCount int) {
 
 	go func() {
 		defer close(closeWait)
+		// nolint: typecheck
 		<-cs.Closed()
 	}()
 
+	// nolint: typecheck
 	assert.NoError(cs.Close())
 	for i := 0; i < totalCount; i++ {
 		select {
@@ -423,6 +436,7 @@ func testCloseableAcquireCtxClose(t *testing.T, cs Closeable, totalCount int) {
 	select {
 	case <-closeWait:
 		assert.False(cs.TryAcquire())
+		// nolint: typecheck
 		assert.Equal(ErrClosed, cs.Close())
 		assert.Equal(ErrClosed, cs.Acquire())
 		assert.Equal(ErrClosed, cs.Release())

@@ -45,6 +45,7 @@ func testTimeoutHandlerSuccess(t *testing.T) {
 
 		delegate = xhttp.Constant{
 			Code: 299,
+			// nolint: typecheck
 			Header: http.Header{
 				"X-Custom": {"value"},
 				"X-Multi":  {"1", "2"},
@@ -60,8 +61,8 @@ func testTimeoutHandlerSuccess(t *testing.T) {
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(299, response.Code)
-	assert.Equal([]string{"value"}, response.HeaderMap["X-Custom"])
-	assert.Equal([]string{"1", "2"}, response.HeaderMap["X-Multi"])
+	assert.Equal([]string{"value"}, response.Header()["X-Custom"])
+	assert.Equal([]string{"1", "2"}, response.Header()["X-Multi"])
 	assert.Equal(body, response.Body.String())
 }
 
@@ -82,6 +83,7 @@ func testTimeoutHandlerTimeout(t *testing.T) {
 
 		timedOut = xhttp.Constant{
 			Code: 499,
+			// nolint: typecheck
 			Header: http.Header{
 				"X-Custom": {"value"},
 				"X-Multi":  {"1", "2"},
@@ -119,8 +121,8 @@ func testTimeoutHandlerTimeout(t *testing.T) {
 	}
 
 	assert.Equal(499, response.Code)
-	assert.Equal([]string{"value"}, response.HeaderMap["X-Custom"])
-	assert.Equal([]string{"1", "2"}, response.HeaderMap["X-Multi"])
+	assert.Equal([]string{"value"}, response.Header()["X-Custom"])
+	assert.Equal([]string{"1", "2"}, response.Header()["X-Multi"])
 	assert.Equal(body, response.Body.String())
 }
 

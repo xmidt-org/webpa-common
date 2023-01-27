@@ -30,6 +30,7 @@ func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	assert.Zero(statistics.Duplications())
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
 
+	// nolint: typecheck
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
 	require.NoError(err)
@@ -79,6 +80,7 @@ func testStatisticsInitialStateCustomNow(t *testing.T) {
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
 	assert.Equal(expectedUpTime, statistics.UpTime())
 
+	// nolint: typecheck
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
 	require.NoError(err)
@@ -140,6 +142,7 @@ func testStatisticsConcurrency(t *testing.T) {
 	assert.Equal(expectedConnectedAt.UTC(), statistics.ConnectedAt())
 	assert.Equal(expectedUpTime, statistics.UpTime())
 
+	// nolint: typecheck
 	data, err := statistics.MarshalJSON()
 	require.NotEmpty(data)
 	require.NoError(err)

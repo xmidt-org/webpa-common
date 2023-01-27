@@ -42,11 +42,13 @@ func TestStaticHeaders(t *testing.T) {
 	t.Run("Several", func(t *testing.T) {
 		testStaticHeaders(
 			t,
+			// nolint: typecheck
 			http.Header{
 				"Content-Type": {"application/json"},
 				"x-something":  {"value1", "value2"},
 				"eMPtY":        {},
 			},
+			// nolint: typecheck
 			http.Header{
 				"Content-Type": {"application/json"},
 				"X-Something":  {"value1", "value2"},

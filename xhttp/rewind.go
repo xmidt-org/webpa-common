@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 )
 
@@ -25,7 +24,7 @@ func (ca closeAdapter) Close() error {
 	return nil
 }
 
-// NopCloser is an analog of ioutil.NopCloser.  This function preserves io.Seeker semantics in
+// NopCloser is an analog of io.NopCloser.  This function preserves io.Seeker semantics in
 // the returned instance.  Additionally, if rs already implements io.Closer, this function
 // returns rs as is.
 func NopCloser(rs io.ReadSeeker) ReadSeekerCloser {
@@ -51,12 +50,13 @@ func NewRewind(r io.Reader) (io.ReadCloser, func() (io.ReadCloser, error), error
 
 		return rsc,
 			func() (io.ReadCloser, error) {
+				// nolint: typecheck
 				_, err := rsc.Seek(0, 0)
 				return rsc, err
 			}, nil
 	}
 
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -73,6 +73,7 @@ func NewRewindBytes(b []byte) (io.ReadCloser, func() (io.ReadCloser, error)) {
 	rsc := NopCloser(bytes.NewReader(b))
 	return rsc,
 		func() (io.ReadCloser, error) {
+			// nolint: typecheck
 			_, err := rsc.Seek(0, 0)
 			return rsc, err
 		}

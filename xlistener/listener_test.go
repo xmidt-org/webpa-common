@@ -21,6 +21,7 @@ func testNewDefault(t *testing.T) {
 		expectedNext = new(mockListener)
 	)
 
+	// nolint: typecheck
 	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
 
 	netListen = func(network, address string) (net.Listener, error) {
@@ -39,6 +40,7 @@ func testNewDefault(t *testing.T) {
 	assert.NotNil(l.(*listener).rejected)
 	assert.NotNil(l.(*listener).active)
 
+	// nolint: typecheck
 	expectedNext.AssertExpectations(t)
 }
 
@@ -54,6 +56,7 @@ func testNewCustom(t *testing.T) {
 		expectedNext     = new(mockListener)
 	)
 
+	// nolint: typecheck
 	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
 
 	netListen = func(network, address string) (net.Listener, error) {
@@ -86,6 +89,7 @@ func testNewCustom(t *testing.T) {
 	l.(*listener).active.Add(10.0)
 	assert.Equal(10.0, expectedActive.Value())
 
+	// nolint: typecheck
 	expectedNext.AssertExpectations(t)
 }
 
@@ -101,6 +105,7 @@ func testNewTLSCustom(t *testing.T) {
 		expectedNext     = new(mockListener)
 	)
 
+	// nolint: typecheck
 	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
 
 	tlsListen = func(network, address string, config *tls.Config) (net.Listener, error) {
@@ -137,6 +142,7 @@ func testNewTLSCustom(t *testing.T) {
 	l.(*listener).active.Add(10.0)
 	assert.Equal(10.0, expectedActive.Value())
 
+	// nolint: typecheck
 	expectedNext.AssertExpectations(t)
 }
 
@@ -179,7 +185,9 @@ func testListenerAcceptError(t *testing.T, maxConnections int) {
 		expectedNext     = new(mockListener)
 	)
 
+	// nolint: typecheck
 	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(nil, expectedError).Once()
 
 	l, err := New(Options{
@@ -199,6 +207,7 @@ func testListenerAcceptError(t *testing.T, maxConnections int) {
 	assert.Equal(0.0, expectedRejected.Value())
 	assert.Equal(0.0, expectedActive.Value())
 
+	// nolint: typecheck
 	expectedNext.AssertExpectations(t)
 }
 
@@ -218,16 +227,25 @@ func testListenerAcceptUnlimitedConnections(t *testing.T) {
 		expectedConnCloseError = errors.New("expected")
 	)
 
+	// nolint: typecheck
 	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
+	// nolint: typecheck
 	expectedConn1.On("RemoteAddr").Return(new(net.IPAddr)).Once()
+	// nolint: typecheck
 	expectedConn2.On("RemoteAddr").Return(new(net.IPAddr)).Once()
 
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(expectedConn1, error(nil)).Once()
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(expectedConn2, error(nil)).Once()
 
+	// nolint: typecheck
 	expectedConn1.On("Close").Return(error(nil)).Once()
+	// nolint: typecheck
 	expectedConn1.On("Close").Return(expectedConnCloseError).Once()
+	// nolint: typecheck
 	expectedConn2.On("Close").Return(error(nil)).Once()
+	// nolint: typecheck
 	expectedConn2.On("Close").Return(expectedConnCloseError).Once()
 
 	l, err := New(Options{
@@ -271,8 +289,11 @@ func testListenerAcceptUnlimitedConnections(t *testing.T) {
 	assert.Zero(expectedRejected.Value())
 	assert.Zero(expectedActive.Value())
 
+	// nolint: typecheck
 	expectedNext.AssertExpectations(t)
+	// nolint: typecheck
 	expectedConn1.AssertExpectations(t)
+	// nolint: typecheck
 	expectedConn2.AssertExpectations(t)
 }
 
@@ -294,20 +315,33 @@ func testListenerAcceptMaxConnections(t *testing.T) {
 		expectedAcceptError    = errors.New("expected accept error")
 	)
 
+	// nolint: typecheck
 	expectedNext.On("Addr").Return(new(net.IPAddr)).Twice()
+	// nolint: typecheck
 	expectedConn1.On("RemoteAddr").Return(new(net.IPAddr)).Once()
+	// nolint: typecheck
 	rejectedConn.On("RemoteAddr").Return(new(net.IPAddr)).Once()
+	// nolint: typecheck
 	expectedConn2.On("RemoteAddr").Return(new(net.IPAddr)).Once()
 
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(expectedConn1, error(nil)).Once()
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(rejectedConn, error(nil)).Once()
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(nil, expectedAcceptError).Once()
+	// nolint: typecheck
 	expectedNext.On("Accept").Return(expectedConn2, error(nil)).Once()
 
+	// nolint: typecheck
 	expectedConn1.On("Close").Return(error(nil)).Once()
+	// nolint: typecheck
 	expectedConn1.On("Close").Return(expectedConnCloseError).Once()
+	// nolint: typecheck
 	rejectedConn.On("Close").Return(error(nil)).Once() // this should be closed as part of rejecting the connection
+	// nolint: typecheck
 	expectedConn2.On("Close").Return(error(nil)).Once()
+	// nolint: typecheck
 	expectedConn2.On("Close").Return(expectedConnCloseError).Once()
 
 	l, err := New(Options{
@@ -359,9 +393,13 @@ func testListenerAcceptMaxConnections(t *testing.T) {
 	assert.Equal(1.0, expectedRejected.Value())
 	assert.Zero(expectedActive.Value())
 
+	// nolint: typecheck
 	expectedNext.AssertExpectations(t)
+	// nolint: typecheck
 	expectedConn1.AssertExpectations(t)
+	// nolint: typecheck
 	rejectedConn.AssertExpectations(t)
+	// nolint: typecheck
 	expectedConn2.AssertExpectations(t)
 }
 

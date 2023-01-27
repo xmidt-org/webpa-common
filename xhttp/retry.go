@@ -104,6 +104,7 @@ func RetryTransactor(o RetryOptions, next func(*http.Request) (*http.Response, e
 		o.Logger = sallust.Default()
 	}
 
+	// nolint: typecheck
 	if o.Counter == nil {
 		o.Counter = discard.NewCounter()
 	}

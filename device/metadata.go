@@ -136,11 +136,13 @@ func (m *Metadata) copyAndStore(key string, val interface{}) {
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {
 	deepCopy := make(map[string]interface{})
 	for key, val := range m {
+		// nolint:gosimple
 		switch val.(type) {
 		case map[interface{}]interface{}:
 			val = cast.ToStringMap(val)
 			deepCopy[key] = deepCopyMap(val.(map[string]interface{}))
 		case map[string]interface{}:
+			// nolint:gosimple
 			deepCopy[key] = deepCopyMap(val.(map[string]interface{}))
 		default:
 			deepCopy[key] = val

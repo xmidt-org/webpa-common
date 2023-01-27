@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 )

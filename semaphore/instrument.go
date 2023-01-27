@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/metrics/discard"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -177,6 +178,7 @@ type instrumentedCloseable struct {
 }
 
 func (ic *instrumentedCloseable) Close() (err error) {
+	// nolint: typecheck
 	err = (ic.instrumentedSemaphore.delegate).(Closeable).Close()
 	ic.closed.Set(MetricClosed)
 

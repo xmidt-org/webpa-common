@@ -28,7 +28,9 @@ func TestServeHTTPGet(t *testing.T) {
 		}
 	)
 
+	// nolint: typecheck
 	mockDeviceGate.On("VisitAll", mock.Anything).Return(0)
+	// nolint: typecheck
 	mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil).Once()
 	f.GetFilters(response, request.WithContext(ctx))
 	assert.Equal(http.StatusOK, response.Code)
@@ -77,6 +79,7 @@ func TestBadRequest(t *testing.T) {
 		},
 	}
 
+	// nolint: typecheck
 	mockDeviceGate.On("GetAllowedFilters").Return(&FilterSet{}, true)
 
 	for _, tc := range tests {
@@ -157,9 +160,13 @@ func TestSuccessfulAdd(t *testing.T) {
 				Gate: mockDeviceGate,
 			}
 
+			// nolint: typecheck
 			mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil)
+			// nolint: typecheck
 			mockDeviceGate.On("GetAllowedFilters").Return(tc.allowedFilters, tc.allowedFiltersSet).Once()
+			// nolint: typecheck
 			mockDeviceGate.On("SetFilter", mock.AnythingOfType("string"), mock.Anything).Return(nil, tc.newKey).Once()
+			// nolint: typecheck
 			mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
 
 			response := httptest.NewRecorder()
@@ -184,8 +191,11 @@ func TestDelete(t *testing.T) {
 		}
 	)
 
+	// nolint: typecheck
 	mockDeviceGate.On("DeleteFilter", "test").Return(true).Once()
+	// nolint: typecheck
 	mockDeviceGate.On("VisitAll", mock.Anything).Return(0).Once()
+	// nolint: typecheck
 	mockDeviceGate.On("MarshalJSON").Return([]byte(`{}`), nil).Once()
 
 	req := httptest.NewRequest("DELETE", "/", bytes.NewBuffer([]byte(`{"key": "test"}`)))

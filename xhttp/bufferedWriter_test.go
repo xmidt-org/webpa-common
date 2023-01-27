@@ -42,7 +42,7 @@ func testBufferedWriterWriteToEmpty(t *testing.T) {
 	assert.Zero(c)
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, response.Code)
-	assert.Empty(response.HeaderMap)
+	assert.Empty(response.Header())
 	assert.Empty(response.Body)
 	assert.False(response.Flushed)
 
@@ -75,13 +75,14 @@ func testBufferedWriterWriteToWithContent(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(http.StatusOK, response.Code)
 	assert.Equal(
+		// nolint: typecheck
 		http.Header{
 			"Content-Type":   {"text/plain"},
 			"X-Custom":       {"zippidee doo da"},
 			"X-Value":        {"1", "2"},
 			"Content-Length": {strconv.Itoa(len(text))},
 		},
-		response.HeaderMap,
+		response.Header(),
 	)
 	assert.Equal(text, response.Body.String())
 	assert.False(response.Flushed)
@@ -117,13 +118,14 @@ func testBufferedWriterWriteToCustomResponseCode(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(499, response.Code)
 	assert.Equal(
+		// nolint: typecheck
 		http.Header{
 			"Content-Type":   {"text/plain"},
 			"X-Custom":       {"zippidee doo da"},
 			"X-Value":        {"1", "2"},
 			"Content-Length": {strconv.Itoa(len(text))},
 		},
-		response.HeaderMap,
+		response.Header(),
 	)
 	assert.Equal(text, response.Body.String())
 	assert.False(response.Flushed)

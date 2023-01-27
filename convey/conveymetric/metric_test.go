@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/xmidt-org/webpa-common/v2/convey"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 
 	"github.com/stretchr/testify/assert"
@@ -27,6 +29,7 @@ func TestConveyMetric(t *testing.T) {
 
 	// try with no `hw_model`
 	dec, err = conveyMetric.Update(convey.C{"data": "neat", "fw-name": "firmware-abc"})
+	assert.NoError(err)
 	t.Logf("%v+", gauge)
 	assert.Equal(float64(1), gauge.With("model", UnknownLabelValue, "firmware", "firmware-abc").(xmetrics.Valuer).Value())
 

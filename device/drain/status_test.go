@@ -23,10 +23,12 @@ func testStatus(t *testing.T, active bool, j Job, p Progress, expectedJSON strin
 		request  = httptest.NewRequest("GET", "/", nil)
 	)
 
+	// nolint: typecheck
 	d.On("Status").Return(active, j, p).Once()
 	status.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
 	assert.JSONEq(expectedJSON, response.Body.String())
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 

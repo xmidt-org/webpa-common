@@ -3,12 +3,14 @@ package webhook
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 type testTransport struct {
@@ -25,7 +27,7 @@ func (tt testTransport) RoundTrip(r *http.Request) (resp *http.Response, err err
 		Request:    r,
 		StatusCode: http.StatusOK,
 		Status:     "200 OK",
-		Body:       ioutil.NopCloser(bytes.NewBufferString(tt.Body)),
+		Body:       io.NopCloser(bytes.NewBufferString(tt.Body)),
 	}
 
 	return
@@ -69,11 +71,15 @@ func TestGetPayload(t *testing.T) {
 	sc := NewStartFactory(nil)
 	sc.client = testClient(t, "What's in the box!")
 	resp, err := sc.makeRequest()
+	if err != nil {
+		t.Errorf("error return while obtaining request: %v", err)
+	}
 
 	body, err := getPayload(resp)
 	if err != nil {
 		t.Errorf("error return while obtaining payload from response: %v", err)
 	}
+
 	if body == nil {
 		t.Error("bad payload returned")
 	}
@@ -83,6 +89,7 @@ func TestMakeRequest(t *testing.T) {
 	sc := NewStartFactory(nil)
 	sc.client = testClient(t, "Making Requests")
 
+	// nolint:bodyclose
 	resp, err := sc.makeRequest()
 
 	if err != nil {
@@ -173,39 +180,25 @@ func TestMakeRequestAuthorizationHeader(t *testing.T) {
 	sc := NewStartFactory(nil)
 	sc.client = testClient(t, "Making Requests")
 
+	// nolint:bodyclose
 	t.Run("MakeRequestWithoutBearerToken", func(t *testing.T) {
 		sc.Sat.Token = ""
 		sc.AuthHeader = "TheAuthHeader"
 		resp, err := sc.makeRequest()
-
-		if err != nil {
-			t.Errorf("error return while performing request: %v", err)
-		}
-		if resp == nil {
-			t.Error("response returned was nil")
-		}
-
-		var authorizationHeader = resp.Request.Header.Get("Authorization")
-		if authorizationHeader != "Basic TheAuthHeader" {
-			t.Error("authorization header was not \"Basic TheAuthHeader\"")
-		}
+		require := require.New(t)
+		require.NoErrorf(err, "error return while performing request")
+		require.NotNil(resp)
+		require.Equalf("Basic TheAuthHeader", resp.Request.Header.Get("Authorization"), "authorization header was not \"Basic TheAuthHeader\"")
 	})
 
+	// nolint:bodyclose
 	t.Run("MakeRequestWithBearerToken", func(t *testing.T) {
 		sc.Sat.Token = "TheBearerToken"
 		sc.AuthHeader = "TheAuthHeader"
 		resp, err := sc.makeRequest()
-
-		if err != nil {
-			t.Errorf("error return while performing request: %v", err)
-		}
-		if resp == nil {
-			t.Error("response returned was nil")
-		}
-
-		var authorizationHeader = resp.Request.Header.Get("Authorization")
-		if authorizationHeader != "Bearer TheBearerToken" {
-			t.Error("authorization header was not \"Bearer TheBearerToken\"")
-		}
+		require := require.New(t)
+		require.NoErrorf(err, "error return while performing request")
+		require.NotNil(resp)
+		require.Equalf("Bearer TheBearerToken", resp.Request.Header.Get("Authorization"), "authorization header was not \"Bearer TheBearerToken\"")
 	})
 }

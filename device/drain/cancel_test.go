@@ -21,10 +21,12 @@ func testCancelNotActive(t *testing.T) {
 		request  = httptest.NewRequest("GET", "/", nil)
 	)
 
+	// nolint: typecheck
 	d.On("Cancel").Return((<-chan struct{})(nil), ErrNotActive).Once()
 	cancel.ServeHTTP(response, request)
 	assert.Equal(http.StatusConflict, response.Code)
 
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 
@@ -42,6 +44,7 @@ func testCancelSuccess(t *testing.T) {
 		request  = httptest.NewRequest("GET", "/", nil)
 	)
 
+	// nolint: typecheck
 	d.On("Cancel").WaitUntil(cancelWait).Return((<-chan struct{})(done), error(nil)).Once()
 
 	go func() {
@@ -60,6 +63,7 @@ func testCancelSuccess(t *testing.T) {
 	}
 
 	assert.Equal(http.StatusOK, response.Code)
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 
@@ -78,6 +82,7 @@ func testCancelTimeout(t *testing.T) {
 		request        = httptest.NewRequest("GET", "/", nil).WithContext(ctx)
 	)
 
+	// nolint: typecheck
 	d.On("Cancel").WaitUntil(cancelWait).Return((<-chan struct{})(done), error(nil)).Once()
 
 	go func() {
@@ -96,6 +101,7 @@ func testCancelTimeout(t *testing.T) {
 	}
 
 	assert.Equal(http.StatusOK, response.Code)
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 

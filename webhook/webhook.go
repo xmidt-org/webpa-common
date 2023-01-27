@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 )
@@ -114,7 +116,7 @@ func (w *W) sanitize(ip string) (err error) {
 	// always set duration to default
 	w.Duration = DEFAULT_EXPIRATION_DURATION
 
-	if &w.Until == nil || w.Until.Equal(time.Time{}) {
+	if w.Until.Equal(time.Time{}) {
 		w.Until = time.Now().Add(w.Duration)
 	}
 
@@ -195,6 +197,7 @@ func (ul *updatableList) Update(newItems []W) {
 
 			// add item
 			if !found {
+				// nolint:gosec
 				items = append(items, &newItem)
 			}
 
@@ -212,9 +215,7 @@ func (ul *updatableList) Update(newItems []W) {
 func (ul *updatableList) Filter(filter func([]W) []W) {
 	if list, ok := ul.value.Load().([]W); ok {
 		copyOf := make([]W, len(list))
-		for i, w := range list {
-			copyOf[i] = w
-		}
+		copy(copyOf, list)
 
 		ul.set(filter(copyOf))
 	}

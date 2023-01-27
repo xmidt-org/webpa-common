@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"io"
-	"io/ioutil"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +36,7 @@ func testTranslatorWriteTo(t *testing.T, translatorEncoding, expectedEncoding *b
 	require.NoError(translator.WriteTo(&output, source))
 
 	decoder := base64.NewDecoder(expectedEncoding, &output)
-	actual, err := ioutil.ReadAll(decoder)
+	actual, err := io.ReadAll(decoder)
 	require.NoError(err)
 	assert.NotEmpty(actual)
 	assert.JSONEq(expected, string(actual))
@@ -113,11 +112,12 @@ func TestReadString(t *testing.T) {
 		translator = new(mockTranslator)
 	)
 
+	// nolint: typecheck
 	translator.On("ReadFrom", mock.MatchedBy(func(io.Reader) bool { return true })).
 		Return(C{"key": "value"}, expectedError).
 		Run(func(arguments mock.Arguments) {
 			reader := arguments.Get(0).(io.Reader)
-			actual, err := ioutil.ReadAll(reader)
+			actual, err := io.ReadAll(reader)
 			assert.Equal("expected", string(actual))
 			assert.NoError(err)
 		}).
@@ -127,6 +127,7 @@ func TestReadString(t *testing.T) {
 	assert.Equal(C{"key": "value"}, actual)
 	assert.Equal(expectedError, actualError)
 
+	// nolint: typecheck
 	translator.AssertExpectations(t)
 }
 
@@ -138,11 +139,12 @@ func TestReadBytes(t *testing.T) {
 		translator = new(mockTranslator)
 	)
 
+	// nolint: typecheck
 	translator.On("ReadFrom", mock.MatchedBy(func(io.Reader) bool { return true })).
 		Return(C{"key": "value"}, expectedError).
 		Run(func(arguments mock.Arguments) {
 			reader := arguments.Get(0).(io.Reader)
-			actual, err := ioutil.ReadAll(reader)
+			actual, err := io.ReadAll(reader)
 			assert.Equal("expected", string(actual))
 			assert.NoError(err)
 		}).
@@ -152,6 +154,7 @@ func TestReadBytes(t *testing.T) {
 	assert.Equal(C{"key": "value"}, actual)
 	assert.Equal(expectedError, actualError)
 
+	// nolint: typecheck
 	translator.AssertExpectations(t)
 }
 
@@ -164,6 +167,7 @@ func TestWriteString(t *testing.T) {
 		translator = new(mockTranslator)
 	)
 
+	// nolint: typecheck
 	translator.On("WriteTo", mock.MatchedBy(func(io.Writer) bool { return true }), expectedC).
 		Return(expectedError).
 		Run(func(arguments mock.Arguments) {
@@ -175,6 +179,7 @@ func TestWriteString(t *testing.T) {
 	assert.Equal("expected", actual)
 	assert.Equal(expectedError, actualError)
 
+	// nolint: typecheck
 	translator.AssertExpectations(t)
 }
 
@@ -187,6 +192,7 @@ func TestWriteBytes(t *testing.T) {
 		translator = new(mockTranslator)
 	)
 
+	// nolint: typecheck
 	translator.On("WriteTo", mock.MatchedBy(func(io.Writer) bool { return true }), expectedC).
 		Return(expectedError).
 		Run(func(arguments mock.Arguments) {
@@ -198,5 +204,6 @@ func TestWriteBytes(t *testing.T) {
 	assert.Equal("expected", string(actual))
 	assert.Equal(expectedError, actualError)
 
+	// nolint: typecheck
 	translator.AssertExpectations(t)
 }

@@ -14,8 +14,10 @@ import (
 
 func testRequestContext(t *testing.T) {
 	var (
-		assert   = assert.New(t)
-		message  = new(wrp.Message)
+		assert = assert.New(t)
+		// nolint: typecheck
+		message = new(wrp.Message)
+		// nolint: typecheck
 		format   = wrp.JSON
 		contents = []byte("some contents")
 
@@ -28,9 +30,11 @@ func testRequestContext(t *testing.T) {
 
 	assert.Equal(context.Background(), request.Context())
 	assert.Panics(func() {
+		// nolint:staticcheck
 		request.WithContext(nil)
 	})
 
+	// nolint:staticcheck
 	newContext := context.WithValue(context.Background(), "foo", "bar")
 	assert.True(request == request.WithContext(newContext))
 	assert.Equal(newContext, request.Context())
@@ -40,6 +44,7 @@ func testRequestID(t *testing.T) {
 	var (
 		assert  = assert.New(t)
 		request = &Request{
+			// nolint: typecheck
 			Message: &wrp.Message{
 				Destination: "mac:123412341234",
 			},
@@ -50,6 +55,7 @@ func testRequestID(t *testing.T) {
 	assert.Equal(ID("mac:123412341234"), id)
 	assert.NoError(err)
 
+	// nolint: typecheck
 	request.Message = &wrp.Message{
 		Destination: "this is not a valid device ID",
 	}
@@ -64,6 +70,7 @@ func TestRequest(t *testing.T) {
 	t.Run("ID", testRequestID)
 }
 
+// nolint: typecheck
 func testDecodeRequest(t *testing.T, message wrp.Routable, format wrp.Format) {
 	var (
 		assert   = assert.New(t)
@@ -71,12 +78,14 @@ func testDecodeRequest(t *testing.T, message wrp.Routable, format wrp.Format) {
 		contents []byte
 	)
 
+	// nolint: typecheck
 	require.NoError(wrp.NewEncoderBytes(&contents, format).Encode(message))
 
 	request, err := DecodeRequest(bytes.NewReader(contents), format)
 	require.NotNil(request)
 	require.NoError(err)
 
+	// nolint: typecheck
 	if routable, ok := request.Message.(wrp.Routable); ok {
 		assert.Equal(message.MessageType(), routable.MessageType())
 		assert.Equal(message.To(), routable.To())
@@ -89,6 +98,7 @@ func testDecodeRequest(t *testing.T, message wrp.Routable, format wrp.Format) {
 	assert.Nil(request.ctx)
 }
 
+// nolint: typecheck
 func testDecodeRequestReadError(t *testing.T, format wrp.Format) {
 	var (
 		assert        = assert.New(t)
@@ -96,14 +106,17 @@ func testDecodeRequestReadError(t *testing.T, format wrp.Format) {
 		expectedError = errors.New("expected error")
 	)
 
+	// nolint: typecheck
 	source.On("Read", mock.AnythingOfType("[]uint8")).Return(0, expectedError)
 	request, err := DecodeRequest(source, format)
 	assert.Nil(request)
 	assert.Equal(expectedError, err)
 
+	// nolint: typecheck
 	source.AssertExpectations(t)
 }
 
+// nolint: typecheck
 func testDecodeRequestDecodeError(t *testing.T, format wrp.Format) {
 	var (
 		assert = assert.New(t)
@@ -116,11 +129,13 @@ func testDecodeRequestDecodeError(t *testing.T, format wrp.Format) {
 }
 
 func TestDecodeRequest(t *testing.T) {
+	// nolint: typecheck
 	for _, format := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 		t.Run(format.String(), func(t *testing.T) {
 			testDecodeRequest(
 				t,
-				&wrp.SimpleEvent{
+				// nolint: typecheck
+				&wrp.Message{
 					Source:      "app.comcast.com:9999",
 					Destination: "uuid:1234/service",
 					ContentType: "text/plain",
@@ -131,7 +146,8 @@ func TestDecodeRequest(t *testing.T) {
 
 			testDecodeRequest(
 				t,
-				&wrp.SimpleRequestResponse{
+				// nolint: typecheck
+				&wrp.Message{
 					Source:          "app.comcast.com:9999",
 					Destination:     "uuid:1234/service",
 					TransactionUUID: "this-is-a-transaction-id",
@@ -145,12 +161,14 @@ func TestDecodeRequest(t *testing.T) {
 	}
 
 	t.Run("ReadError", func(t *testing.T) {
+		// nolint: typecheck
 		for _, format := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 			testDecodeRequestReadError(t, format)
 		}
 	})
 
 	t.Run("DecodeError", func(t *testing.T) {
+		// nolint: typecheck
 		for _, format := range []wrp.Format{wrp.Msgpack, wrp.JSON} {
 			testDecodeRequestDecodeError(t, format)
 		}

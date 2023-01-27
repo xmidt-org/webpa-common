@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,20 +25,22 @@ func TestNopCloser(t *testing.T) {
 
 	rsc := NopCloser(reader)
 	require.NotNil(rsc)
-	actualBytes, err := ioutil.ReadAll(rsc)
+	actualBytes, err := io.ReadAll(rsc)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
+	// nolint: typecheck
 	assert.NoError(rsc.Close())
 
 	rsc2 := NopCloser(rsc)
 	require.NotNil(rsc2)
 	assert.True(rsc == rsc2)
+	// nolint: typecheck
 	assert.NoError(rsc2.Close())
 
 	_, err = reader.Seek(0, 0)
 	assert.NoError(err)
 
-	actualBytes, err = ioutil.ReadAll(rsc2)
+	actualBytes, err = io.ReadAll(rsc2)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 }
@@ -58,7 +59,7 @@ func testNewRewindReadSeeker(t *testing.T) {
 	require.NotNil(body)
 	require.NotNil(getBody)
 
-	actualBytes, err := ioutil.ReadAll(body)
+	actualBytes, err := io.ReadAll(body)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 
@@ -67,7 +68,7 @@ func testNewRewindReadSeeker(t *testing.T) {
 	require.NotNil(body2)
 	assert.True(body == body2)
 
-	actualBytes, err = ioutil.ReadAll(body2)
+	actualBytes, err = io.ReadAll(body2)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 }
@@ -80,12 +81,14 @@ func testNewRewindReadError(t *testing.T) {
 		reader = new(mockReader)
 	)
 
+	// nolint: typecheck
 	reader.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	body, getBody, err := NewRewind(reader)
 	assert.Nil(body)
 	assert.Nil(getBody)
 	assert.Error(err)
 
+	// nolint: typecheck
 	reader.AssertExpectations(t)
 }
 
@@ -103,7 +106,7 @@ func testNewRewindBuffer(t *testing.T) {
 	require.NotNil(body)
 	require.NotNil(getBody)
 
-	actualBytes, err := ioutil.ReadAll(body)
+	actualBytes, err := io.ReadAll(body)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 
@@ -112,7 +115,7 @@ func testNewRewindBuffer(t *testing.T) {
 	require.NotNil(body2)
 	assert.True(body == body2)
 
-	actualBytes, err = ioutil.ReadAll(body2)
+	actualBytes, err = io.ReadAll(body2)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 }
@@ -134,7 +137,7 @@ func TestNewRewindBytes(t *testing.T) {
 	require.NotNil(body)
 	require.NotNil(getBody)
 
-	actualBytes, err := ioutil.ReadAll(body)
+	actualBytes, err := io.ReadAll(body)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 
@@ -143,7 +146,7 @@ func TestNewRewindBytes(t *testing.T) {
 	require.NotNil(body2)
 	assert.True(body == body2)
 
-	actualBytes, err = ioutil.ReadAll(body2)
+	actualBytes, err = io.ReadAll(body2)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 }
@@ -189,14 +192,14 @@ func testEnsureRewindableBodyNotRewindable(t *testing.T) {
 		expectedContents = []byte{6, 253, 12, 34}
 
 		r = &http.Request{
-			Body: ioutil.NopCloser(bytes.NewReader(expectedContents)),
+			Body: io.NopCloser(bytes.NewReader(expectedContents)),
 		}
 	)
 
 	assert.NoError(EnsureRewindable(r))
 
 	require.NotNil(r.Body)
-	actualContents, err := ioutil.ReadAll(r.Body)
+	actualContents, err := io.ReadAll(r.Body)
 	assert.Equal(expectedContents, actualContents)
 	assert.NoError(err)
 
@@ -204,7 +207,7 @@ func testEnsureRewindableBodyNotRewindable(t *testing.T) {
 	actualBuffer, err := r.GetBody()
 	require.NoError(err)
 	require.NotNil(actualBuffer)
-	actualContents, err = ioutil.ReadAll(actualBuffer)
+	actualContents, err = io.ReadAll(actualBuffer)
 	assert.Equal(expectedContents, actualContents)
 	assert.NoError(err)
 }
@@ -213,7 +216,7 @@ func testEnsureRewindableReadError(t *testing.T) {
 	var (
 		assert        = assert.New(t)
 		contents      = new(mockReader)
-		expectedBody  = ioutil.NopCloser(contents)
+		expectedBody  = io.NopCloser(contents)
 		expectedError = errors.New("expected")
 
 		r = &http.Request{
@@ -221,11 +224,13 @@ func testEnsureRewindableReadError(t *testing.T) {
 		}
 	)
 
+	// nolint: typecheck
 	contents.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	assert.Equal(expectedError, EnsureRewindable(r))
 	assert.Nil(r.GetBody)
 	assert.True(expectedBody == r.Body)
 
+	// nolint: typecheck
 	contents.AssertExpectations(t)
 }
 
@@ -260,7 +265,7 @@ func testRewindGetBodySuccess(t *testing.T) {
 		expectedBytes = []byte{1, 7, 8, 5, 1, 16, 177}
 
 		getBody = func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewReader(expectedBytes)), nil
+			return io.NopCloser(bytes.NewReader(expectedBytes)), nil
 		}
 
 		r = &http.Request{
@@ -271,7 +276,7 @@ func testRewindGetBodySuccess(t *testing.T) {
 	assert.NoError(Rewind(r))
 	require.NotNil(r.Body)
 
-	actualBytes, err := ioutil.ReadAll(r.Body)
+	actualBytes, err := io.ReadAll(r.Body)
 	assert.Equal(expectedBytes, actualBytes)
 	assert.NoError(err)
 }

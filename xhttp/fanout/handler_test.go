@@ -36,11 +36,13 @@ func testHandlerBodyError(t *testing.T) {
 	)
 
 	require.NotNil(handler)
+	// nolint: typecheck
 	body.OnReadError(expectedError).Once()
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
+	// nolint: typecheck
 	body.AssertExpectations(t)
 }
 
@@ -61,11 +63,13 @@ func testHandlerNoEndpoints(t *testing.T) {
 	)
 
 	require.NotNil(handler)
+	// nolint: typecheck
 	body.OnReadError(io.EOF).Once()
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
+	// nolint: typecheck
 	body.AssertExpectations(t)
 }
 
@@ -90,11 +94,13 @@ func testHandlerEndpointsError(t *testing.T) {
 
 	require.NotNil(handler)
 	body.OnReadError(io.EOF).Once()
+	// nolint: typecheck
 	endpoints.On("FanoutURLs", original).Once().Return(nil, expectedError)
 
 	handler.ServeHTTP(response, original)
 	assert.Equal(599, response.Code)
 
+	// nolint: typecheck
 	body.AssertExpectations(t)
 }
 
@@ -115,6 +121,7 @@ func testHandlerBadTransactor(t *testing.T) {
 	)
 
 	require.NotNil(handler)
+	// nolint: typecheck
 	transactor.OnDo(
 		xhttptest.MatchMethod("GET"),
 		xhttptest.MatchURLString(endpoints[0].String()+"/api/v2/something"),
@@ -130,6 +137,7 @@ func testHandlerBadTransactor(t *testing.T) {
 		assert.Fail("Not all transactors completed")
 	}
 
+	// nolint: typecheck
 	transactor.AssertExpectations(t)
 }
 
@@ -189,6 +197,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 
 	require.NotNil(handler)
 	for i, er := range expectedResponses {
+		// nolint: typecheck
 		transactor.OnDo(
 			xhttptest.MatchMethod("GET"),
 			xhttptest.MatchURLString(endpoints[i].String()+"/api/v2/something"),
@@ -212,6 +221,7 @@ func testHandlerGet(t *testing.T, expectedResponses []xhttptest.ExpectedResponse
 
 	assert.Equal(expectAfter, clientAfterCalled)
 	assert.Equal(expectedFailedCalled, fanoutFailedCalled)
+	// nolint: typecheck
 	transactor.AssertExpectations(t)
 }
 
@@ -270,6 +280,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 
 	require.NotNil(handler)
 	for i, er := range expectedResponses {
+		// nolint: typecheck
 		transactor.OnDo(
 			xhttptest.MatchMethod("POST"),
 			xhttptest.MatchURLString(endpoints[i].String()+"/api/v2/something"),
@@ -295,6 +306,7 @@ func testHandlerPost(t *testing.T, expectedResponses []xhttptest.ExpectedRespons
 		}
 	}
 
+	// nolint: typecheck
 	transactor.AssertExpectations(t)
 }
 
@@ -320,6 +332,7 @@ func testHandlerTimeout(t *testing.T, endpointCount int) {
 
 	require.NotNil(handler)
 	for i := 0; i < endpointCount; i++ {
+		// nolint: typecheck
 		transactor.OnDo(
 			xhttptest.MatchMethod("GET"),
 			xhttptest.MatchURLString(endpoints[i].String()+"/api/v2/something"),
@@ -352,6 +365,7 @@ func testHandlerTimeout(t *testing.T, endpointCount int) {
 		}
 	}
 
+	// nolint: typecheck
 	transactor.AssertExpectations(t)
 }
 

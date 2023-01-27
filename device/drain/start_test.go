@@ -27,6 +27,7 @@ func testStartServeHTTPDefaultLogger(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/", nil)
 	)
 
+	// nolint: typecheck
 	d.On("Start", Job{}).Return(done, Job{Count: 126, Percent: 10, Rate: 12, Tick: 5 * time.Minute}, error(nil))
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
@@ -36,6 +37,7 @@ func testStartServeHTTPDefaultLogger(t *testing.T) {
 		response.Body.String(),
 	)
 
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 
@@ -80,6 +82,7 @@ func testStartServeHTTPValid(t *testing.T) {
 				request  = httptest.NewRequest("POST", record.uri, nil).WithContext(ctx)
 			)
 
+			// nolint: typecheck
 			d.On("Start", record.expected).Return(done, Job{Count: 47192, Percent: 57, Rate: 500, Tick: 37 * time.Second, DrainFilter: record.expected.DrainFilter}, error(nil)).Once()
 			start.ServeHTTP(response, request)
 			assert.Equal(http.StatusOK, response.Code)
@@ -88,6 +91,7 @@ func testStartServeHTTPValid(t *testing.T) {
 				`{"count": 47192, "percent": 57, "rate": 500, "tick": "37s"}`,
 				response.Body.String(),
 			)
+			// nolint: typecheck
 			d.AssertExpectations(t)
 		})
 	}
@@ -170,6 +174,7 @@ func testStartServeHTTPWithBody(t *testing.T) {
 			)
 
 			if record.expectedStatusCode == http.StatusOK {
+				// nolint: typecheck
 				d.On("Start", record.expected).Return(done, Job{Count: 47192, Percent: 57, Rate: 500, Tick: 37 * time.Second, DrainFilter: record.expected.DrainFilter}, error(nil)).Once()
 			}
 			start.ServeHTTP(response, request)
@@ -186,6 +191,7 @@ func testStartServeHTTPWithBody(t *testing.T) {
 				}
 			}
 
+			// nolint: typecheck
 			d.AssertExpectations(t)
 		})
 	}
@@ -206,6 +212,7 @@ func testStartServeHTTPParseFormError(t *testing.T) {
 
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 
@@ -223,6 +230,7 @@ func testStartServeHTTPInvalidQuery(t *testing.T) {
 
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 
@@ -240,9 +248,11 @@ func testStartServeHTTPStartError(t *testing.T) {
 		request  = httptest.NewRequest("POST", "/foo?count=100", nil).WithContext(ctx)
 	)
 
+	// nolint: typecheck
 	d.On("Start", Job{Count: 100}).Return(done, Job{}, expectedError).Once()
 	start.ServeHTTP(response, request)
 	assert.Equal(http.StatusConflict, response.Code)
+	// nolint: typecheck
 	d.AssertExpectations(t)
 }
 

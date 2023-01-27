@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	// nolint: typecheck
 	"sync/atomic"
 	"time"
 
@@ -251,7 +253,7 @@ func (d *device) awaitResponse(request *Request, result <-chan *Response) (*Resp
 		return nil, ErrorDeviceClosed
 	case response := <-result:
 		if response == nil {
-			return nil, ErrorTransactionCancelled
+			return nil, ErrorTransactionCanceled
 		}
 
 		return response, nil

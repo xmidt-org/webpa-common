@@ -14,6 +14,8 @@ import (
 var (
 	// conveyHandle is the internal package singleton used to parse Convey JSON
 	conveyHandle codec.Handle = &codec.JsonHandle{
+		// TODO replace `codec.BasicHandle` since it's not meant to be used directly
+		// nolint:staticcheck
 		BasicHandle: codec.BasicHandle{
 			DecodeOptions: codec.DecodeOptions{
 				MapType: reflect.TypeOf((C)(nil)),

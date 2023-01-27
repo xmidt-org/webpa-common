@@ -1,7 +1,6 @@
 package xhttp
 
 import (
-	"crypto/tls"
 	"errors"
 	"net/http"
 	"testing"
@@ -47,7 +46,9 @@ func testNewStarterListenAndServe(t *testing.T) {
 		for _, expectedError := range []error{errors.New("expected"), http.ErrServerClosed} {
 			httpServer := new(mockHTTPServer)
 
+			// nolint: typecheck
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
+			// nolint: typecheck
 			httpServer.On("ListenAndServe").Return(expectedError).Once()
 
 			starter := NewStarter(o, httpServer)
@@ -57,6 +58,7 @@ func testNewStarterListenAndServe(t *testing.T) {
 				assert.Equal(expectedError, starter())
 			})
 
+			// nolint: typecheck
 			httpServer.AssertExpectations(t)
 		}
 	}
@@ -77,7 +79,9 @@ func testNewStarterServe(t *testing.T) {
 				httpServer = new(mockHTTPServer)
 			)
 
+			// nolint: typecheck
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
+			// nolint: typecheck
 			httpServer.On("Serve", listener).Return(expectedError).Once()
 			o.Listener = listener
 
@@ -88,36 +92,12 @@ func testNewStarterServe(t *testing.T) {
 				assert.Equal(expectedError, starter())
 			})
 
+			// nolint: typecheck
 			listener.AssertExpectations(t)
+			// nolint: typecheck
 			httpServer.AssertExpectations(t)
 		}
 	}
-}
-
-func testloadconfig(certificatFiles, keyFiles []string) *tls.Config {
-	certPem := []byte(`-----BEGIN CERTIFICATE-----
-MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
-DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
-EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
-7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
-5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
-BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
-NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
-Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
-6MF9+Yw1Yy0t
------END CERTIFICATE-----`)
-	keyPem := []byte(`-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
-AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
-EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
------END EC PRIVATE KEY-----`)
-	cert, err := tls.X509KeyPair(certPem, keyPem)
-	if err != nil {
-		panic(err)
-	}
-	cfg := &tls.Config{Certificates: []tls.Certificate{cert}}
-	cfg.BuildNameToCertificate()
-	return cfg
 }
 
 func testNewStarterListenAndServeTLS(t *testing.T) {
@@ -132,7 +112,9 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 		for _, expectedError := range []error{errors.New("expected"), http.ErrServerClosed} {
 			httpServer := new(mockHTTPServer)
 
+			// nolint: typecheck
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
+			// nolint: typecheck
 			httpServer.On("ListenAndServe").Return(expectedError).Once()
 			o.CertificateFile = []string{expectedCertificateFile}
 			o.KeyFile = []string{expectedKeyFile}
@@ -144,6 +126,7 @@ func testNewStarterListenAndServeTLS(t *testing.T) {
 				assert.Equal(expectedError, starter())
 			})
 
+			// nolint: typecheck
 			httpServer.AssertExpectations(t)
 		}
 	}
@@ -164,7 +147,9 @@ func testNewStarterServeTLS(t *testing.T) {
 				httpServer = new(mockHTTPServer)
 			)
 
+			// nolint: typecheck
 			httpServer.On("SetKeepAlivesEnabled", !o.DisableKeepAlives).Once()
+			// nolint: typecheck
 			httpServer.On("Serve", listener).Return(expectedError).Once()
 			o.Listener = listener
 			o.CertificateFile = []string{expectedCertificateFile}
@@ -177,7 +162,9 @@ func testNewStarterServeTLS(t *testing.T) {
 				assert.Equal(expectedError, starter())
 			})
 
+			// nolint: typecheck
 			listener.AssertExpectations(t)
+			// nolint: typecheck
 			httpServer.AssertExpectations(t)
 		}
 	}
@@ -211,6 +198,7 @@ func TestServerOptions(t *testing.T) {
 	assert.True(so.DisableKeepAlives)
 	assert.Equal([]string{"cert.pem"}, so.CertificateFile)
 	assert.Equal([]string{"key.pem"}, so.KeyFile)
+	// nolint: typecheck
 	listener.AssertExpectations(t)
 }
 

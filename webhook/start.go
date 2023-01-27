@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -52,8 +52,7 @@ type Result struct {
 }
 
 type satReqResp struct {
-	expires int   `json:"expires_in"`
-	Token   token `json:"serviceAccessToken"`
+	Token token `json:"serviceAccessToken"`
 }
 
 func NewStartFactory(v *viper.Viper) (sc *StartConfig) {
@@ -113,14 +112,14 @@ func (sc *StartConfig) getAuthorization() (err error) {
 
 func getPayload(resp *http.Response) (body []byte, err error) {
 	if resp == nil {
-		return body, errors.New("Response was nil")
+		return body, errors.New("response was nil")
 	} else if resp.StatusCode >= 400 {
-		return body, errors.New(fmt.Sprintf("Response status code: %d", resp.StatusCode))
+		return body, fmt.Errorf("response status code: %d", resp.StatusCode)
 	} else {
-		body, err = ioutil.ReadAll(resp.Body)
+		body, err = io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return body, errors.New(fmt.Sprintf("Response body read failed. %v", err))
+			return body, fmt.Errorf("response body read failed. %v", err)
 		}
 		return
 	}
@@ -159,9 +158,11 @@ func (sc *StartConfig) GetCurrentSystemsHooks(rc chan Result) {
 	}
 
 	fn := func(sc *StartConfig, rChan chan Result) {
-		resp, err := sc.makeRequest()
-		body, err := getPayload(resp)
-		err = json.Unmarshal(body, &hooks)
+		// TODO why are we ignoring this error?
+		resp, _ := sc.makeRequest()
+		// TODO why are we ignoring this error?
+		body, _ := getPayload(resp)
+		err := json.Unmarshal(body, &hooks)
 
 		// temporary fix to convert old webhook struct to new.
 		if err != nil && strings.HasPrefix(err.Error(), "parsing time") {

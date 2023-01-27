@@ -62,6 +62,7 @@ func TestConfiguration(t *testing.T) {
 
 func TestNewTransactor(t *testing.T) {
 	assert := assert.New(t)
+	// nolint:bodyclose
 	assert.NotNil(NewTransactor(Configuration{}))
 }
 

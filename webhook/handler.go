@@ -3,7 +3,7 @@ package webhook
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 )
 
@@ -43,7 +43,7 @@ func (r *Registry) GetRegistry(rw http.ResponseWriter, req *http.Request) {
 
 // update is an api call to processes a listenener registration for adding and updating
 func (r *Registry) UpdateRegistry(rw http.ResponseWriter, req *http.Request) {
-	payload, err := ioutil.ReadAll(req.Body)
+	payload, _ := io.ReadAll(req.Body)
 	req.Body.Close()
 
 	w, err := NewW(payload, req.RemoteAddr)

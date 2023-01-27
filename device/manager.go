@@ -249,6 +249,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	if cvyErr == nil {
 		bytes, err := json.Marshal(cvy)
 		if err == nil {
+			// nolint: typecheck
 			event.Format = wrp.JSON
 			event.Contents = bytes
 		} else {
@@ -292,6 +293,7 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 
 	d.logger.Error("Closed device connection",
 		zap.NamedError("closeError", closeError), zap.String("reasonError", reason.String()), zap.String("reason", reason.Text),
+		// nolint: typecheck
 		zap.String("finalStatistics", d.Statistics().String()))
 
 	m.dispatch(
@@ -303,6 +305,7 @@ func (m *manager) pumpClose(d *device, c io.Closer, reason CloseReason) {
 	d.conveyClosure()
 }
 
+// nolint: typecheck
 func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 	expectedID := d.ID()
 	if len(strings.TrimSpace(message.Source)) == 0 {
@@ -340,9 +343,11 @@ func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 	return true
 }
 
+// nolint: typecheck
 func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
 	message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
 
+	// nolint: typecheck
 	if message.Type == wrp.SimpleEventMessageType {
 		message.SessionID = deviceMetadata.SessionID()
 	}
@@ -356,8 +361,10 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 	var (
 		readError error
-		decoder   = wrp.NewDecoder(nil, wrp.Msgpack)
-		encoder   = wrp.NewEncoder(nil, wrp.Msgpack)
+		// nolint: typecheck
+		decoder = wrp.NewDecoder(nil, wrp.Msgpack)
+		// nolint: typecheck
+		encoder = wrp.NewEncoder(nil, wrp.Msgpack)
 	)
 
 	// all the read pump has to do is ensure the device and the connection are closed
@@ -379,11 +386,13 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 		}
 
 		var (
+			// nolint: typecheck
 			message = new(wrp.Message)
 			event   = Event{
-				Type:     MessageReceived,
-				Device:   d,
-				Message:  message,
+				Type:    MessageReceived,
+				Device:  d,
+				Message: message,
+				// nolint: typecheck
 				Format:   wrp.Msgpack,
 				Contents: data,
 			}
@@ -396,6 +405,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			continue
 		}
 
+		// nolint: typecheck
 		err = wrp.UTF8(message)
 		if err != nil {
 			d.logger.Error("skipping malformed WRP message", zap.Error(err))
@@ -413,6 +423,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 
 		addDeviceMetadataContext(message, d.Metadata())
 
+		// nolint: typecheck
 		if message.Type == wrp.SimpleRequestResponseMessageType {
 			m.measures.RequestResponse.Add(1.0)
 		}
@@ -430,8 +441,9 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			err := d.transactions.Complete(
 				message.TransactionKey(),
 				&Response{
-					Device:   d,
-					Message:  message,
+					Device:  d,
+					Message: message,
+					// nolint: typecheck
 					Format:   wrp.Msgpack,
 					Contents: event.Contents,
 				},
@@ -457,7 +469,8 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 	d.logger.Debug("writePump starting")
 
 	var (
-		envelope   *envelope
+		envelope *envelope
+		// nolint: typecheck
 		encoder    = wrp.NewEncoder(nil, wrp.Msgpack)
 		writeError error
 
@@ -513,11 +526,13 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 		select {
 		case <-d.shutdown:
 			d.logger.Debug("explicit shutdown")
+			// nolint: typecheck
 			writeError = w.Close()
 			return
 
 		case envelope = <-d.messages:
 			var frameContents []byte
+			// nolint: typecheck
 			if envelope.request.Format == wrp.Msgpack && len(envelope.request.Contents) > 0 {
 				frameContents = envelope.request.Contents
 			} else {

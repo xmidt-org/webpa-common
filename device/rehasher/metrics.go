@@ -1,7 +1,9 @@
 package rehasher
 
 import (
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service"
+	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 

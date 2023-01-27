@@ -2,13 +2,15 @@
 linters-settings:
   misspell:
     locale: US
+  errorlint:
+    # Report non-wrapping error creation using fmt.Errorf
+    errorf: false
 
 linters:
   enable:
     - bodyclose
     - dupl
     - errorlint
-    - funlen
     - goconst
     - gosec
     - misspell
@@ -25,7 +27,12 @@ issues:
         - dupl
         - funlen
 
-linters-settings:
-  errorlint:
-    # Report non-wrapping error creation using fmt.Errorf
-    errorf: false
+run:
+  skip-dirs:
+    - concurrent/*
+    - health/*
+    - server/*
+    - service/*
+    - webhook/aws/*
+    - xviper/*
+    - xmetrics/*

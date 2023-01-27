@@ -112,6 +112,7 @@ func (mh *MessageHandler) logger() *zap.Logger {
 
 // decodeRequest transforms an HTTP request into a device request.
 func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceRequest *Request, err error) {
+	// nolint: typecheck
 	format, err := wrp.FormatFromContentType(httpRequest.Header.Get("Content-Type"), wrp.Msgpack)
 	if err != nil {
 		return nil, err
@@ -139,6 +140,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 		return
 	}
 
+	// nolint: typecheck
 	responseFormat, err := wrp.FormatFromContentType(httpRequest.Header.Get("Accept"), deviceRequest.Format)
 	if err != nil {
 		mh.logger().Error("Unable to determine response WRP format", zap.Error(err))
@@ -263,6 +265,7 @@ func (lh *ListHandler) updateCache() []byte {
 				lh.cache.WriteString(`,`)
 			}
 
+			// nolint: typecheck
 			if data, err := d.MarshalJSON(); err != nil {
 				lh.cache.WriteString(
 					fmt.Sprintf(`{"id": "%s", "error": "%s"}`, d.ID(), err),
@@ -331,6 +334,7 @@ func (sh *StatHandler) ServeHTTP(response http.ResponseWriter, request *http.Req
 		return
 	}
 
+	// nolint: typecheck
 	data, err := d.MarshalJSON()
 	if err != nil {
 		sh.Logger.Error("unable to marshal device as JSON", zap.Error(err), zap.String("deviceName", name))

@@ -30,7 +30,7 @@ func (carw contextAwareResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, er
 		return h.Hijack()
 	}
 
-	return nil, nil, errors.New("Hijacker not supported")
+	return nil, nil, errors.New("hijacker not supported")
 }
 
 func (carw contextAwareResponseWriter) Flush() {
@@ -44,10 +44,11 @@ func (carw contextAwareResponseWriter) Push(target string, opts *http.PushOption
 		return p.Push(target, opts)
 	}
 
-	return errors.New("Pusher not supported")
+	return errors.New("pusher not supported")
 }
 
 func (carw *contextAwareResponseWriter) Context() context.Context {
+	// nolint: typecheck
 	if carw.ctx != nil {
 		return carw.ctx
 	}
@@ -56,6 +57,7 @@ func (carw *contextAwareResponseWriter) Context() context.Context {
 }
 
 func (carw *contextAwareResponseWriter) SetContext(ctx context.Context) {
+
 	if ctx == nil {
 		// mimic the behavior of the net/http package
 		panic("nil context")

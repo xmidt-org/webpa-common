@@ -119,6 +119,7 @@ func testInstrumentedSemaphoreAcquireFail(t *testing.T) {
 	)
 
 	go func() {
+		// nolint: typecheck
 		cm.Close()
 		result <- s.Acquire()
 	}()
@@ -360,6 +361,7 @@ func testInstrumentedCloseableAcquire(t *testing.T) {
 		result = make(chan error)
 	)
 
+	// nolint: typecheck
 	assert.NotNil(s.Closed())
 	assert.Equal(MetricOpen, closed.Value())
 
@@ -382,6 +384,7 @@ func testInstrumentedCloseableAcquire(t *testing.T) {
 		assert.FailNow("Acquire blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.NoError(s.Close())
 	assert.Zero(resources.Value())
 	assert.Zero(failures.Value())
@@ -393,6 +396,7 @@ func testInstrumentedCloseableAcquire(t *testing.T) {
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -429,6 +433,7 @@ func testInstrumentedCloseableTryAcquire(t *testing.T) {
 	assert.Equal(float64(1.0), failures.Value())
 	assert.Equal(MetricOpen, closed.Value())
 
+	// nolint: typecheck
 	assert.NoError(s.Close())
 	assert.Zero(resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
@@ -440,6 +445,7 @@ func testInstrumentedCloseableTryAcquire(t *testing.T) {
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -493,12 +499,14 @@ func testInstrumentedCloseableAcquireWaitSuccess(t *testing.T) {
 		assert.FailNow("AcquireWait blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.NoError(s.Close())
 	assert.Zero(resources.Value())
 	assert.Zero(failures.Value())
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -519,6 +527,7 @@ func testInstrumentedCloseableAcquireWaitTimeout(t *testing.T) {
 		timer  = make(chan time.Time)
 	)
 
+	// nolint: typecheck
 	assert.NotNil(s.Closed())
 	assert.Equal(MetricOpen, closed.Value())
 
@@ -553,12 +562,14 @@ func testInstrumentedCloseableAcquireWaitTimeout(t *testing.T) {
 		assert.FailNow("AcquireWait blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.NoError(s.Close())
 	assert.Zero(resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -579,6 +590,7 @@ func testInstrumentedCloseableAcquireWaitClose(t *testing.T) {
 		timer  = make(chan time.Time)
 	)
 
+	// nolint: typecheck
 	assert.NotNil(s.Closed())
 	assert.Equal(MetricOpen, closed.Value())
 
@@ -593,6 +605,7 @@ func testInstrumentedCloseableAcquireWaitClose(t *testing.T) {
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
 		assert.Equal(MetricOpen, closed.Value())
+		// nolint: typecheck
 		assert.NoError(s.Close())
 	case <-time.After(time.Second):
 		assert.FailNow("Failed to spawn AcquireWait goroutine")
@@ -613,12 +626,14 @@ func testInstrumentedCloseableAcquireWaitClose(t *testing.T) {
 		assert.FailNow("AcquireWait blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.Equal(ErrClosed, s.Close())
 	assert.Equal(float64(1.0), resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -645,6 +660,7 @@ func testInstrumentedCloseableAcquireCtxSuccess(t *testing.T) {
 	)
 
 	defer cancel()
+	// nolint: typecheck
 	assert.NotNil(s.Closed())
 	assert.Equal(MetricOpen, closed.Value())
 
@@ -683,12 +699,14 @@ func testInstrumentedCloseableAcquireCtxSuccess(t *testing.T) {
 		assert.FailNow("AcquireCtx blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.NoError(s.Close())
 	assert.Zero(resources.Value())
 	assert.Zero(failures.Value())
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -715,6 +733,7 @@ func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
 	)
 
 	defer cancel()
+	// nolint: typecheck
 	assert.NotNil(s.Closed())
 	assert.Equal(MetricOpen, closed.Value())
 
@@ -749,12 +768,14 @@ func testInstrumentedCloseableAcquireCtxCancel(t *testing.T) {
 		assert.FailNow("AcquireCtx blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.NoError(s.Close())
 	assert.Zero(resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:
@@ -776,6 +797,7 @@ func testInstrumentedCloseableAcquireCtxClose(t *testing.T) {
 	)
 
 	defer cancel()
+	// nolint: typecheck
 	assert.NotNil(s.Closed())
 	assert.Equal(MetricOpen, closed.Value())
 
@@ -791,6 +813,7 @@ func testInstrumentedCloseableAcquireCtxClose(t *testing.T) {
 		assert.Zero(failures.Value())
 		assert.Equal(MetricOpen, closed.Value())
 
+		// nolint: typecheck
 		assert.NoError(s.Close())
 		assert.Equal(float64(1.0), resources.Value())
 		assert.Zero(failures.Value())
@@ -814,12 +837,14 @@ func testInstrumentedCloseableAcquireCtxClose(t *testing.T) {
 		assert.FailNow("AcquireCtx blocked unexpectedly")
 	}
 
+	// nolint: typecheck
 	assert.Equal(ErrClosed, s.Close())
 	assert.Equal(float64(1.0), resources.Value())
 	assert.Equal(float64(1.0), failures.Value())
 	assert.Equal(MetricClosed, closed.Value())
 
 	select {
+	// nolint: typecheck
 	case <-s.Closed():
 		// passing
 	default:

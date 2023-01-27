@@ -13,6 +13,7 @@ type mockEndpoints struct {
 }
 
 func (m *mockEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) {
+	// nolint: typecheck
 	arguments := m.Called(original)
 	first, _ := arguments.Get(0).([]*url.URL)
 	return first, arguments.Error(1)
