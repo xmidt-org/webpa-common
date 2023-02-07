@@ -32,7 +32,7 @@ require (
 	github.com/xmidt-org/bascule v0.11.3 // indirect
 	github.com/xmidt-org/candlelight v0.0.13
 	github.com/xmidt-org/sallust v0.2.1
-	github.com/xmidt-org/themis v0.4.13
+	github.com/xmidt-org/themis v0.4.14
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.38.0
 	go.uber.org/fx v1.19.1
