@@ -27,7 +27,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.1
-	github.com/ugorji/go/codec v1.2.8
+	github.com/ugorji/go/codec v1.2.9
 	github.com/xmidt-org/argus v0.9.5
 	github.com/xmidt-org/bascule v0.11.3 // indirect
 	github.com/xmidt-org/candlelight v0.0.13
