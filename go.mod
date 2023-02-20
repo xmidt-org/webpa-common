@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aws/aws-sdk-go v1.44.202
+	github.com/aws/aws-sdk-go v1.44.203
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/go-kit/kit v0.12.0
@@ -20,6 +20,7 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/miekg/dns v1.1.50
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/prometheus/client_golang v1.14.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -28,8 +29,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.1
 	github.com/ugorji/go/codec v1.2.8
-	github.com/xmidt-org/argus v0.9.5
-	github.com/xmidt-org/bascule v0.11.3 // indirect
+	github.com/xmidt-org/argus v0.9.6
 	github.com/xmidt-org/candlelight v0.0.13
 	github.com/xmidt-org/sallust v0.2.1
 	github.com/xmidt-org/themis v0.4.14
