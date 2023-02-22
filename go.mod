@@ -20,6 +20,7 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/miekg/dns v1.1.50
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/prometheus/client_golang v1.14.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -28,8 +29,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.1
 	github.com/ugorji/go/codec v1.2.8
-	github.com/xmidt-org/argus v0.9.5
-	github.com/xmidt-org/bascule v0.11.3 // indirect
+	github.com/xmidt-org/argus v0.9.7
 	github.com/xmidt-org/candlelight v0.0.14
 	github.com/xmidt-org/sallust v0.2.1
 	github.com/xmidt-org/themis v0.4.14
