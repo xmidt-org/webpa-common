@@ -35,7 +35,7 @@ require (
 	github.com/xmidt-org/themis v0.4.14
 	github.com/xmidt-org/wrp-go/v3 v3.1.4
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.39.0
-	go.uber.org/fx v1.19.1
+	go.uber.org/fx v1.19.2
 	go.uber.org/zap v1.24.0
 	golang.org/x/tools v0.5.0 // indirect
 )
