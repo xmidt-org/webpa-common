@@ -28,7 +28,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2
 	github.com/ugorji/go/codec v1.2.8
-	github.com/xmidt-org/argus v0.9.9
+	github.com/xmidt-org/argus v0.9.10
 	github.com/xmidt-org/candlelight v0.0.15
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/themis v0.4.14
@@ -36,5 +36,4 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.uber.org/fx v1.19.2
 	go.uber.org/zap v1.24.0
-	golang.org/x/tools v0.5.0 // indirect
 )
