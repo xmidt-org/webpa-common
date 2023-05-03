@@ -7,18 +7,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/mitchellh/mapstructure"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"go.uber.org/zap"
 )
 
 // datacenterWatcher checks if datacenters have been updated, based on an interval.
 type datacenterWatcher struct {
-	logger              log.Logger
+	logger              *zap.Logger
 	environment         Environment
 	options             Options
 	inactiveDatacenters map[string]bool
@@ -36,10 +35,10 @@ var (
 	defaultWatchInterval = 5 * time.Minute
 )
 
-func newDatacenterWatcher(logger log.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
+func newDatacenterWatcher(logger *zap.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
 
 	if logger == nil {
-		logger = log.NewNopLogger()
+		logger = sallust.Default()
 	}
 
 	if options.DatacenterWatchInterval <= 0 {
@@ -86,13 +85,13 @@ func newDatacenterWatcher(logger log.Logger, environment Environment, options Op
 		//create chrysom client and start it
 		datacenterWatcher.stopListener = listener.Stop
 		listener.Start(context.Background())
-		logger.Log(level.Key(), level.DebugValue(), "msg", "started chrysom, argus client")
+		logger.Debug("started chrysom, argus client")
 	}
 
 	//start consul watch
 	ticker := time.NewTicker(datacenterWatcher.consulWatchInterval)
 	go datacenterWatcher.watchDatacenters(ticker)
-	logger.Log(level.Key(), level.DebugValue(), "msg", "started consul datacenter watch")
+	logger.Debug("started consul datacenter watch")
 	return datacenterWatcher, nil
 
 }
@@ -144,7 +143,7 @@ func (d *datacenterWatcher) updateInstancers(datacenters []string) {
 
 }
 
-func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, lock *sync.RWMutex, logger log.Logger) {
+func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[string]bool, lock *sync.RWMutex, logger *zap.Logger) {
 	chrysomMap := make(map[string]bool)
 	for _, item := range items {
 
@@ -154,7 +153,7 @@ func updateInactiveDatacenters(items []model.Item, inactiveDatacenters map[strin
 		err := mapstructure.Decode(item.Data, &df)
 
 		if err != nil {
-			logger.Log(level.Key(), level.ErrorValue(), "msg", "failed to decode database results into datacenter filter struct")
+			logger.Error("failed to decode database results into datacenter filter struct")
 			continue
 		}
 
@@ -186,7 +185,8 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 	dw.lock.RUnlock()
 
 	if found {
-		dw.logger.Log(level.Key(), level.InfoValue(), "msg", "datacenter set as inactive", "datacenter name: ", datacenter)
+		field := zap.Any("datacenter name: ", datacenter)
+		dw.logger.Info("datacenter set as inactive", field)
 		return
 	}
 
@@ -203,7 +203,11 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 
 	// don't create new instancer if it was already created and added to the new instancers map
 	if instancersToAdd.Has(key) {
-		dw.logger.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+		s := zap.String("service", w.Service)
+		t := zap.Any("tags", w.Tags)
+		p := zap.Bool("passingOnly", w.PassingOnly)
+		d := zap.String("datacenter", w.QueryOptions.Datacenter)
+		dw.logger.Warn("skipping duplicate watch", s, t, p, d)
 		return
 	}
 
