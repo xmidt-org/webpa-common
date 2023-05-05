@@ -1,6 +1,8 @@
 package adapter
 
-import "go.uber.org/zap"
+import (
+	"go.uber.org/zap"
+)
 
 type Logger struct {
 	*zap.Logger
@@ -8,9 +10,9 @@ type Logger struct {
 
 // this method makes Adapter implement log.Logger
 func (l Logger) Log(keyvals ...interface{}) error {
-	fields := make([]zap.Field, 0, len(keyvals)/2)
-	for i, j := 0, 0; j < len(keyvals); i, j = i+1, j+1 {
-		fields = append(fields, zap.Any(keyvals[i].(string), keyvals[j]))
+	fields := make([]zap.Field, 0, len(keyvals))
+	for i := 0; i < len(keyvals); i += 2 {
+		fields = append(fields, zap.Any(keyvals[i].(string), keyvals[i+1]))
 	}
 
 	// ignore the case where there's an odd number of keyvals ... that would be a bug

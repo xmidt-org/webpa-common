@@ -147,5 +147,5 @@ func TestNewEnvironment(t *testing.T) {
 	t.Run("Empty", testNewEnvironmentEmpty)
 	t.Run("ClientError", testNewEnvironmentClientError)
 	t.Run("InstancerError", testNewEnvironmentInstancerError)
-	// t.Run("Full", testNewEnvironmentFull)
+	t.Run("Full", testNewEnvironmentFull)
 }
