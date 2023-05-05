@@ -53,8 +53,7 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 	defer stop()
 	defer func() {
 		if err := updater.UpdateTTL(tc.checkID, tc.failFormat(time.Now()), "fail"); err != nil {
-			e := zap.Error(err)
-			tc.logger.Error("error while updating TTL to critical", e)
+			tc.logger.Error("error while updating TTL to critical", zap.Error(err))
 		}
 	}()
 	tc.logger.Info("starting TTL updater")
@@ -69,12 +68,10 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 			if err := updater.UpdateTTL(tc.checkID, tc.passFormat(t), "pass"); err != nil {
 				successiveErrorCount++
 				if successiveErrorCount == 1 {
-					e := zap.Error(err)
-					tc.logger.Error("error while updating TTL to passing", e)
+					tc.logger.Error("error while updating TTL to passing", zap.Error(err))
 				}
 			} else if successiveErrorCount > 0 {
-				i := zap.Int("previousErrorCount", successiveErrorCount)
-				tc.logger.Info("update TTL success", i)
+				tc.logger.Info("update TTL success", zap.Int("previousErrorCount", successiveErrorCount))
 				successiveErrorCount = 0
 			}
 
@@ -102,17 +99,13 @@ func appendTTLCheck(logger *zap.Logger, serviceID string, agentCheck *api.AgentS
 		return nil, fmt.Errorf("TTL %s is too small", agentCheck.TTL)
 	}
 
-	s := zap.String("serviceID", serviceID)
-	c := zap.String("checkID", agentCheck.CheckID)
-	t := zap.String("ttl", agentCheck.TTL)
-	i := zap.String("interval", interval.String())
 	ttlChecks = append(
 		ttlChecks,
 		ttlCheck{
 			checkID:  agentCheck.CheckID,
 			interval: interval,
 			logger: logger.With(
-				s, c, t, i,
+				zap.String("serviceID", serviceID), zap.String("checkID", agentCheck.CheckID), zap.String("ttl", agentCheck.TTL), zap.String("interval", interval.String()),
 			),
 			passFormat: passFormat(serviceID),
 			failFormat: failFormat(serviceID),
@@ -137,7 +130,7 @@ type ttlRegistrar struct {
 }
 
 // NewRegistrar creates an sd.Registrar, binding any TTL checks to the Register/Deregister lifecycle as needed.
-func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistration, logger adapter.Adapter) (sd.Registrar, error) {
+func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistration, logger adapter.Logger) (sd.Registrar, error) {
 	var (
 		ttlChecks []ttlCheck
 		err       error

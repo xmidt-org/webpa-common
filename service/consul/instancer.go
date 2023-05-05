@@ -82,20 +82,24 @@ func (i *instancer) update(e sd.Event) {
 	sort.Strings(e.Instances)
 	defer i.registerLock.Unlock()
 	i.registerLock.Lock()
+
 	if reflect.DeepEqual(i.state, e) {
 		return
 	}
+
 	i.state = e
 	for c := range i.registry {
 		c <- i.state
 	}
 }
+
 func (i *instancer) loop(lastIndex uint64) {
 	var (
 		instances []string
 		err       error
 		d         time.Duration = 10 * time.Millisecond
 	)
+
 	for {
 		instances, lastIndex, err = i.getInstances(lastIndex, i.stop)
 		switch {
@@ -148,24 +152,30 @@ func (i *instancer) getInstances(lastIndex uint64, stop <-chan struct{}) ([]stri
 				if len(i.filterTags) > 0 {
 					entries = filterEntries(entries, i.filterTags)
 				}
+
 				resp.instances = makeInstances(entries)
 				resp.index = meta.LastIndex
 			}
 		}
+
 		result <- resp
 	}()
+
 	select {
 	case r := <-result:
 		return r.instances, r.index, r.err
 	case <-stop:
 		return nil, 0, errStopped
 	}
+
 }
+
 func filterEntry(candidate *api.ServiceEntry, requiredTags []string) bool {
 	serviceTags := make(map[string]bool, len(candidate.Service.Tags))
 	for _, tag := range candidate.Service.Tags {
 		serviceTags[tag] = true
 	}
+
 	for _, requiredTag := range requiredTags {
 		if !serviceTags[requiredTag] {
 			return false
@@ -198,6 +208,7 @@ func makeInstances(entries []*api.ServiceEntry) []string {
 	}
 	return instances
 }
+
 func (i *instancer) Register(ch chan<- sd.Event) {
 	defer i.registerLock.Unlock()
 	i.registerLock.Lock()
@@ -205,11 +216,13 @@ func (i *instancer) Register(ch chan<- sd.Event) {
 	// push the current state to the new channel
 	ch <- i.state
 }
+
 func (i *instancer) Deregister(ch chan<- sd.Event) {
 	defer i.registerLock.Unlock()
 	i.registerLock.Lock()
 	delete(i.registry, ch)
 }
+
 func (i *instancer) Stop() {
 	// this isn't idempotent, but mimics go-kit's behavior
 	close(i.stop)

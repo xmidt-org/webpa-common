@@ -26,9 +26,11 @@ var (
 // in direct API calls.
 type Environment interface {
 	service.Environment
+
 	// Client returns the custom consul Client interface exposed by this package
 	Client() Client
 }
+
 type environment struct {
 	service.Environment
 	client Client
@@ -37,6 +39,7 @@ type environment struct {
 func (e environment) Client() Client {
 	return e.client
 }
+
 func generateID() string {
 	b := make([]byte, 16)
 	_, err := rand.Read(b)
@@ -46,6 +49,7 @@ func generateID() string {
 	}
 	return base64.RawURLEncoding.EncodeToString(b)
 }
+
 func ensureIDs(r *api.AgentServiceRegistration) {
 	if len(r.ID) == 0 {
 		r.ID = generateID()
@@ -59,6 +63,7 @@ func ensureIDs(r *api.AgentServiceRegistration) {
 		}
 	}
 }
+
 func newInstancerKey(w Watch) string {
 	return fmt.Sprintf(
 		"%s%s{passingOnly=%t}{datacenter=%s}",
@@ -68,13 +73,17 @@ func newInstancerKey(w Watch) string {
 		w.QueryOptions.Datacenter,
 	)
 }
+
 func defaultClientFactory(client *api.Client) (Client, ttlUpdater) {
 	return NewClient(client), client.Agent()
 }
 
 var clientFactory = defaultClientFactory
-var logger = adapter.Adapter{
-	Logger: sallust.Default(),
+
+func DefaultLogger() *adapter.Logger {
+	return &adapter.Logger{
+		Logger: sallust.Default(),
+	}
 }
 
 func getDatacenters(l *zap.Logger, c Client, co Options) ([]string, error) {
@@ -164,8 +173,8 @@ func newRegistrars(l *zap.Logger, registrationScheme string, c gokitconsul.Clien
 		}
 		rid := zap.String("id", registration.ID)
 		in := zap.String("instance", instance)
-		logger.Logger.With(rid, in)
-		consulRegistrar, err = NewRegistrar(c, u, &registration, logger)
+		l.With(rid, in)
+		consulRegistrar, err = NewRegistrar(c, u, &registration, *DefaultLogger())
 		if err != nil {
 			return
 		}

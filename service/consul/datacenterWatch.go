@@ -185,8 +185,7 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 	dw.lock.RUnlock()
 
 	if found {
-		field := zap.Any("datacenter name: ", datacenter)
-		dw.logger.Info("datacenter set as inactive", field)
+		dw.logger.Info("datacenter set as inactive", zap.Any("datacenter name: ", datacenter))
 		return
 	}
 
@@ -203,11 +202,7 @@ func createNewInstancer(keys map[string]bool, instancersToAdd service.Instancers
 
 	// don't create new instancer if it was already created and added to the new instancers map
 	if instancersToAdd.Has(key) {
-		s := zap.String("service", w.Service)
-		t := zap.Any("tags", w.Tags)
-		p := zap.Bool("passingOnly", w.PassingOnly)
-		d := zap.String("datacenter", w.QueryOptions.Datacenter)
-		dw.logger.Warn("skipping duplicate watch", s, t, p, d)
+		dw.logger.Warn("skipping duplicate watch", zap.String("service", w.Service), zap.Any("tags", w.Tags), zap.Bool("passingOnly", w.PassingOnly), zap.String("datacenter", w.QueryOptions.Datacenter))
 		return
 	}
 

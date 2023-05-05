@@ -13,7 +13,7 @@ import (
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 )
 
-var log = adapter.Adapter{
+var log = adapter.Logger{
 	Logger: sallust.Default(),
 }
 
