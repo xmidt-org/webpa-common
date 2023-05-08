@@ -11,7 +11,6 @@ import (
 	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"go.uber.org/zap"
@@ -79,12 +78,6 @@ func defaultClientFactory(client *api.Client) (Client, ttlUpdater) {
 }
 
 var clientFactory = defaultClientFactory
-
-func DefaultLogger() *adapter.Logger {
-	return &adapter.Logger{
-		Logger: sallust.Default(),
-	}
-}
 
 func getDatacenters(l *zap.Logger, c Client, co Options) ([]string, error) {
 	datacenters, err := c.Datacenters()
@@ -159,12 +152,12 @@ func newInstancers(l *zap.Logger, c Client, co Options) (i service.Instancers, e
 	return
 }
 
-func newRegistrars(l *zap.Logger, registrationScheme string, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
+func newRegistrars(l *adapter.Logger, registrationScheme string, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
 	var consulRegistrar sd.Registrar
 	for _, registration := range co.registrations() {
 		instance := service.FormatInstance(registrationScheme, registration.Address, registration.Port)
 		if r.Has(instance) {
-			l.Warn("skipping duplicate registration", zap.String("instance", instance))
+			l.Logger.Warn("skipping duplicate registration", zap.String("instance", instance))
 			continue
 		}
 
@@ -173,8 +166,8 @@ func newRegistrars(l *zap.Logger, registrationScheme string, c gokitconsul.Clien
 		}
 		rid := zap.String("id", registration.ID)
 		in := zap.String("instance", instance)
-		l.With(rid, in)
-		consulRegistrar, err = NewRegistrar(c, u, &registration, *DefaultLogger())
+		l.Logger.With(rid, in)
+		consulRegistrar, err = NewRegistrar(c, u, &registration, l)
 		if err != nil {
 			return
 		}
@@ -183,9 +176,9 @@ func newRegistrars(l *zap.Logger, registrationScheme string, c gokitconsul.Clien
 	return
 }
 
-func NewEnvironment(l *zap.Logger, registrationScheme string, co Options, eo ...service.Option) (service.Environment, error) {
+func NewEnvironment(l *adapter.Logger, registrationScheme string, co Options, eo ...service.Option) (service.Environment, error) {
 	if l == nil {
-		l = sallust.Default()
+		l = adapter.DefaultLogger()
 	}
 
 	if len(co.Watches) == 0 && len(co.Registrations) == 0 {
@@ -200,7 +193,7 @@ func NewEnvironment(l *zap.Logger, registrationScheme string, co Options, eo ...
 	if err != nil {
 		return nil, err
 	}
-	i, err := newInstancers(l, client, co)
+	i, err := newInstancers(l.Logger, client, co)
 	if err != nil {
 		return nil, err
 	}
@@ -213,9 +206,9 @@ func NewEnvironment(l *zap.Logger, registrationScheme string, co Options, eo ...
 				service.WithCloser(closer),
 			)...), NewClient(consulClient)}
 	if co.DatacenterWatchInterval > 0 || (len(co.Chrysom.Bucket) > 0 && co.Chrysom.Listen.PullInterval > 0) {
-		_, err := newDatacenterWatcher(l, newServiceEnvironment, co)
+		_, err := newDatacenterWatcher(l.Logger, newServiceEnvironment, co)
 		if err != nil {
-			l.Error("Could not create datacenter watcher", zap.Error(err))
+			l.Logger.Error("Could not create datacenter watcher", zap.Error(err))
 		}
 	}
 

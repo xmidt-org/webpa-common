@@ -11,7 +11,7 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/go-kit/kit/util/conn"
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"go.uber.org/zap"
 )
 
@@ -32,7 +32,7 @@ type InstancerOptions struct {
 
 func NewInstancer(o InstancerOptions) sd.Instancer {
 	if o.Logger == nil {
-		o.Logger = sallust.Default()
+		o.Logger = adapter.DefaultLogger().Logger
 	}
 
 	i := &instancer{

@@ -9,13 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 )
 
-var log = adapter.Logger{
-	Logger: sallust.Default(),
-}
+var log = adapter.DefaultLogger()
 
 func TestDefaultTickerFactory(t *testing.T) {
 	var (

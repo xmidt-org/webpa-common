@@ -11,6 +11,7 @@ import (
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/webpa-common/v2/service"
 	"go.uber.org/zap"
 )
@@ -38,7 +39,7 @@ var (
 func newDatacenterWatcher(logger *zap.Logger, environment Environment, options Options) (*datacenterWatcher, error) {
 
 	if logger == nil {
-		logger = sallust.Default()
+		logger = adapter.DefaultLogger().Logger
 	}
 
 	if options.DatacenterWatchInterval <= 0 {

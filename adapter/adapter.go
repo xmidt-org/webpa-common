@@ -1,6 +1,7 @@
 package adapter
 
 import (
+	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
 
@@ -20,4 +21,10 @@ func (l Logger) Log(keyvals ...interface{}) error {
 
 	l.Logger.Info("", fields...)
 	return nil
+}
+
+func DefaultLogger() *Logger {
+	return &Logger{
+		Logger: sallust.Default(),
+	}
 }
