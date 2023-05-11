@@ -5,16 +5,15 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
 	"github.com/go-kit/kit/util/conn"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/hashicorp/consul/api"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"go.uber.org/zap"
 )
 
 var (
@@ -47,7 +46,6 @@ func generateID() string {
 		// TODO: When does this ever happen?
 		panic(err)
 	}
-
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
@@ -55,11 +53,9 @@ func ensureIDs(r *api.AgentServiceRegistration) {
 	if len(r.ID) == 0 {
 		r.ID = generateID()
 	}
-
 	if r.Check != nil && len(r.Check.CheckID) == 0 {
 		r.Check.CheckID = generateID()
 	}
-
 	for _, check := range r.Checks {
 		if len(check.CheckID) == 0 {
 			check.CheckID = generateID()
@@ -83,31 +79,30 @@ func defaultClientFactory(client *api.Client) (Client, ttlUpdater) {
 
 var clientFactory = defaultClientFactory
 
-func getDatacenters(l log.Logger, c Client, co Options) ([]string, error) {
+func getDatacenters(l *zap.Logger, c Client, co Options) ([]string, error) {
 	datacenters, err := c.Datacenters()
 	if err == nil {
 		return datacenters, nil
 	}
 
-	l.Log(level.Key(), level.ErrorValue(), "msg", "Could not acquire datacenters on initial attempt", "error", err)
+	l.Error("Could not acquire datacenters on initial attempt", zap.Error(err))
 
 	d := 30 * time.Millisecond
 	for retry := 0; retry < co.datacenterRetries(); retry++ {
 		time.Sleep(d)
 		d = conn.Exponential(d)
-
 		datacenters, err = c.Datacenters()
 		if err == nil {
 			return datacenters, nil
 		}
 
-		l.Log(level.Key(), level.ErrorValue(), "retryCount", retry, "msg", "Could not acquire datacenters", "error", err)
+		l.Error("Could not acquire datacenters", zap.Int("retryCount", retry), zap.Error(err))
 	}
 
 	return nil, errNoDatacenters
 }
 
-func newInstancer(l log.Logger, c Client, w Watch) sd.Instancer {
+func newInstancer(l *zap.Logger, c Client, w Watch) sd.Instancer {
 	return service.NewContextualInstancer(
 		NewInstancer(InstancerOptions{
 			Client:       c,
@@ -126,7 +121,7 @@ func newInstancer(l log.Logger, c Client, w Watch) sd.Instancer {
 	)
 }
 
-func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, err error) {
+func newInstancers(l *zap.Logger, c Client, co Options) (i service.Instancers, err error) {
 	var datacenters []string
 	for _, w := range co.watches() {
 		if w.CrossDatacenter {
@@ -136,12 +131,11 @@ func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, er
 					return
 				}
 			}
-
 			for _, datacenter := range datacenters {
 				w.QueryOptions.Datacenter = datacenter
 				key := newInstancerKey(w)
 				if i.Has(key) {
-					l.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+					l.Warn("skipping duplicate watch", zap.String("service", w.Service), zap.Strings("tags", w.Tags), zap.Bool("passingOnly", w.PassingOnly), zap.String("datacenter", w.QueryOptions.Datacenter))
 					continue
 				}
 				i.Set(key, newInstancer(l, c, w))
@@ -149,65 +143,60 @@ func newInstancers(l log.Logger, c Client, co Options) (i service.Instancers, er
 		} else {
 			key := newInstancerKey(w)
 			if i.Has(key) {
-				l.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate watch", "service", w.Service, "tags", w.Tags, "passingOnly", w.PassingOnly, "datacenter", w.QueryOptions.Datacenter)
+				l.Warn("skipping duplicate watch", zap.String("service", w.Service), zap.Strings("tags", w.Tags), zap.Bool("passingOnly", w.PassingOnly), zap.String("datacenter", w.QueryOptions.Datacenter))
 				continue
 			}
 			i.Set(key, newInstancer(l, c, w))
 		}
 	}
-
 	return
 }
 
-func newRegistrars(l log.Logger, registrationScheme string, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
+func newRegistrars(l *adapter.Logger, registrationScheme string, c gokitconsul.Client, u ttlUpdater, co Options) (r service.Registrars, closer func() error, err error) {
 	var consulRegistrar sd.Registrar
 	for _, registration := range co.registrations() {
 		instance := service.FormatInstance(registrationScheme, registration.Address, registration.Port)
 		if r.Has(instance) {
-			l.Log(level.Key(), level.WarnValue(), "msg", "skipping duplicate registration", "instance", instance)
+			l.Logger.Warn("skipping duplicate registration", zap.String("instance", instance))
 			continue
 		}
 
 		if !co.disableGenerateID() {
 			ensureIDs(&registration)
 		}
-
-		consulRegistrar, err = NewRegistrar(c, u, &registration, log.With(l, "id", registration.ID, "instance", instance))
+		rid := zap.String("id", registration.ID)
+		in := zap.String("instance", instance)
+		l.Logger = l.Logger.With(rid, in)
+		consulRegistrar, err = NewRegistrar(c, u, &registration, l)
 		if err != nil {
 			return
 		}
-
 		r.Add(instance, consulRegistrar)
 	}
-
 	return
 }
 
-func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...service.Option) (service.Environment, error) {
+func NewEnvironment(l *adapter.Logger, registrationScheme string, co Options, eo ...service.Option) (service.Environment, error) {
 	if l == nil {
-		l = log.NewJSONLogger(log.NewSyncWriter(os.Stdout))
+		l = adapter.DefaultLogger()
 	}
 
 	if len(co.Watches) == 0 && len(co.Registrations) == 0 {
 		return nil, service.ErrIncomplete
 	}
-
 	consulClient, err := api.NewClient(co.config())
 	if err != nil {
 		return nil, err
 	}
-
 	client, updater := clientFactory(consulClient)
 	r, closer, err := newRegistrars(l, registrationScheme, client, updater, co)
 	if err != nil {
 		return nil, err
 	}
-
-	i, err := newInstancers(l, client, co)
+	i, err := newInstancers(l.Logger, client, co)
 	if err != nil {
 		return nil, err
 	}
-
 	newServiceEnvironment := environment{
 		service.NewEnvironment(
 			append(
@@ -216,11 +205,10 @@ func NewEnvironment(l log.Logger, registrationScheme string, co Options, eo ...s
 				service.WithInstancers(i),
 				service.WithCloser(closer),
 			)...), NewClient(consulClient)}
-
 	if co.DatacenterWatchInterval > 0 || (len(co.Chrysom.Bucket) > 0 && co.Chrysom.Listen.PullInterval > 0) {
-		_, err := newDatacenterWatcher(l, newServiceEnvironment, co)
+		_, err := newDatacenterWatcher(l.Logger, newServiceEnvironment, co)
 		if err != nil {
-			l.Log(level.Key(), level.ErrorValue(), "msg", "Could not create datacenter watcher", "error", err)
+			l.Logger.Error("Could not create datacenter watcher", zap.Error(err))
 		}
 	}
 
