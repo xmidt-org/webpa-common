@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aws/aws-sdk-go v1.44.258
+	github.com/aws/aws-sdk-go v1.44.261
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/go-kit/kit v0.12.0
@@ -35,6 +35,6 @@ require (
 	github.com/xmidt-org/themis v0.4.14
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
-	go.uber.org/fx v1.19.2
+	go.uber.org/fx v1.19.3
 	go.uber.org/zap v1.24.0
 )
