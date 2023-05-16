@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-kit/kit/sd"
 	gokitconsul "github.com/go-kit/kit/sd/consul"
-	"github.com/go-kit/log"
-	"github.com/go-kit/log/level"
 	"github.com/hashicorp/consul/api"
+	"github.com/xmidt-org/webpa-common/v2/adapter"
+	"go.uber.org/zap"
 )
 
 // passFormat returns a closure that produces the output for a passing TTL, given the current system time
@@ -43,7 +43,7 @@ type ttlUpdater interface {
 type ttlCheck struct {
 	checkID    string
 	interval   time.Duration
-	logger     log.Logger
+	logger     *zap.Logger
 	passFormat func(time.Time) string
 	failFormat func(time.Time) string
 }
@@ -53,11 +53,10 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 	defer stop()
 	defer func() {
 		if err := updater.UpdateTTL(tc.checkID, tc.failFormat(time.Now()), "fail"); err != nil {
-			tc.logger.Log(level.Key(), level.ErrorValue(), "msg", "error while updating TTL to critical", "error", err)
+			tc.logger.Error("error while updating TTL to critical", zap.Error(err))
 		}
 	}()
-
-	tc.logger.Log(level.Key(), level.InfoValue(), "msg", "starting TTL updater")
+	tc.logger.Info("starting TTL updater")
 
 	// we log an error only on the first error, and then an info message if and when the update recovers.
 	// this avoids filling up the server's logs with what are almost certainly just duplicate errors over and over.
@@ -69,15 +68,15 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 			if err := updater.UpdateTTL(tc.checkID, tc.passFormat(t), "pass"); err != nil {
 				successiveErrorCount++
 				if successiveErrorCount == 1 {
-					tc.logger.Log(level.Key(), level.ErrorValue(), "msg", "error while updating TTL to passing", "error", err)
+					tc.logger.Error("error while updating TTL to passing", zap.Error(err))
 				}
 			} else if successiveErrorCount > 0 {
-				tc.logger.Log(level.Key(), level.InfoValue(), "msg", "update TTL success", "previousErrorCount", successiveErrorCount)
+				tc.logger.Info("update TTL success", zap.Int("previousErrorCount", successiveErrorCount))
 				successiveErrorCount = 0
 			}
 
 		case <-shutdown:
-			tc.logger.Log(level.Key(), level.ErrorValue(), "msg", "TTL updater shutdown")
+			tc.logger.Error("TTL updater shutdown")
 			return
 		}
 	}
@@ -85,7 +84,7 @@ func (tc ttlCheck) updatePeriodically(updater ttlUpdater, shutdown <-chan struct
 
 // appendTTLCheck conditionally creates a ttlCheck for the given agent check if and only if the agent check is configured with a TTL.
 // If the agent check is nil or has no TTL, this function returns ttlChecks unmodified with no error.
-func appendTTLCheck(logger log.Logger, serviceID string, agentCheck *api.AgentServiceCheck, ttlChecks []ttlCheck) ([]ttlCheck, error) {
+func appendTTLCheck(logger *zap.Logger, serviceID string, agentCheck *api.AgentServiceCheck, ttlChecks []ttlCheck) ([]ttlCheck, error) {
 	if agentCheck == nil || len(agentCheck.TTL) == 0 {
 		return ttlChecks, nil
 	}
@@ -105,12 +104,8 @@ func appendTTLCheck(logger log.Logger, serviceID string, agentCheck *api.AgentSe
 		ttlCheck{
 			checkID:  agentCheck.CheckID,
 			interval: interval,
-			logger: log.With(
-				logger,
-				"serviceID", serviceID,
-				"checkID", agentCheck.CheckID,
-				"ttl", agentCheck.TTL,
-				"interval", interval.String(),
+			logger: logger.With(
+				zap.String("serviceID", serviceID), zap.String("checkID", agentCheck.CheckID), zap.String("ttl", agentCheck.TTL), zap.String("interval", interval.String()),
 			),
 			passFormat: passFormat(serviceID),
 			failFormat: failFormat(serviceID),
@@ -124,7 +119,7 @@ func appendTTLCheck(logger log.Logger, serviceID string, agentCheck *api.AgentSe
 // When Register is called, a goroutine is spawned for each TTL check that invokes UpdateTTL on an interval.
 // When Dereigster is called, any goroutines spawned are stopped and each check is set to fail (critical).
 type ttlRegistrar struct {
-	logger    log.Logger
+	logger    *zap.Logger
 	serviceID string
 	registrar sd.Registrar
 	updater   ttlUpdater
@@ -135,19 +130,19 @@ type ttlRegistrar struct {
 }
 
 // NewRegistrar creates an sd.Registrar, binding any TTL checks to the Register/Deregister lifecycle as needed.
-func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistration, logger log.Logger) (sd.Registrar, error) {
+func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistration, logger *adapter.Logger) (sd.Registrar, error) {
 	var (
 		ttlChecks []ttlCheck
 		err       error
 	)
 
-	ttlChecks, err = appendTTLCheck(logger, r.ID, r.Check, ttlChecks)
+	ttlChecks, err = appendTTLCheck(logger.Logger, r.ID, r.Check, ttlChecks)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, agentCheck := range r.Checks {
-		ttlChecks, err = appendTTLCheck(logger, r.ID, agentCheck, ttlChecks)
+		ttlChecks, err = appendTTLCheck(logger.Logger, r.ID, agentCheck, ttlChecks)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +153,7 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 	// decorate the given registrar if we have any TTL checks
 	if len(ttlChecks) > 0 {
 		registrar = &ttlRegistrar{
-			logger:    logger,
+			logger:    logger.Logger,
 			serviceID: r.ID,
 			registrar: registrar,
 			updater:   u,
