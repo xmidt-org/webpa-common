@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v2.1.1]
 - Removed gokit/logger and replaced with zap.logger as part of the webpa-common deprecation for scytale, caduceus, and talaria (https://github.com/xmidt-org/webpa-common/issues/655) 
 
 ## [v2.1.0]
@@ -254,7 +256,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
  - The first official release. We will be better about documenting changes 
    moving forward.
 
-[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/xmidt-org/webpa-common/compare/v2.1.1...HEAD
+[v2.1.1]: https://github.com/xmidt-org/webpa-common/compare/v2.1.0...v2.1.1
 [v2.1.0]: https://github.com/xmidt-org/webpa-common/compare/v2.0.7...v2.1.0
 [v2.0.7]: https://github.com/xmidt-org/webpa-common/compare/v2.0.6...v2.0.7
 [v2.0.6]: https://github.com/xmidt-org/webpa-common/compare/v2.0.5...v2.0.6
