@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/sd"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
@@ -157,16 +156,11 @@ func (m *monitor) start() error {
 // preprocess the set of instances sent to the listener.
 func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instancer) {
 	var (
-		eventCount              = 0
-		eventCounter log.Valuer = func() interface{} {
-			return eventCount
-		}
-
-		logger = l.With(zap.Any(EventCountKey(), eventCounter))
-		events = make(chan sd.Event, 10)
+		eventCount = 0
+		events     = make(chan sd.Event, 10)
 	)
 
-	logger.Info("subscription monitor starting")
+	l.Info("subscription monitor starting", zap.Int(EventCountKey(), eventCount))
 
 	defer i.Deregister(events)
 	i.Register(events)
@@ -183,10 +177,10 @@ func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instan
 			}
 
 			if sdEvent.Err != nil {
-				logger.Error("service discovery error", zap.Error(sdEvent.Err))
+				l.Error("service discovery error", zap.Error(sdEvent.Err), zap.Int(EventCountKey(), eventCount))
 				event.Err = sdEvent.Err
 			} else {
-				logger.Error("service discovery update", zap.Strings("instances", sdEvent.Instances))
+				l.Error("service discovery update", zap.Strings("instances", sdEvent.Instances), zap.Int(EventCountKey(), eventCount))
 				if len(sdEvent.Instances) > 0 {
 					event.Instances = m.filter(sdEvent.Instances)
 				}
@@ -195,12 +189,12 @@ func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instan
 			m.listeners.MonitorEvent(event)
 
 		case <-m.stopped:
-			logger.Info("subscription monitor was stopped")
+			l.Info("subscription monitor was stopped", zap.Int(EventCountKey(), eventCount))
 			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 
 		case <-m.closed:
-			logger.Info("subscription monitor exiting due to external closure")
+			l.Info("subscription monitor exiting due to external closure", zap.Int(EventCountKey(), eventCount))
 			m.Stop() // ensure that the Stopped state is correct
 			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
