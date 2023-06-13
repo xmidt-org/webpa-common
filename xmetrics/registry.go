@@ -125,6 +125,38 @@ func (r *registry) NewGauge(name string) metrics.Gauge {
 	return gokitprometheus.NewGauge(r.NewGaugeVec(name))
 }
 
+func (r *registry) NewPrometheusGauge(name string) prometheus.Gauge {
+	return r.NewPrometheusGaugeEx(r.namespace, r.subsystem, name)
+}
+
+func (r *registry) NewPrometheusGaugeEx(namespace, subsystem, name string) prometheus.Gauge {
+
+	key := prometheus.BuildFQName(namespace, subsystem, name)
+	if existing, ok := r.preregistered[key]; ok {
+		if gauge, ok := existing.(prometheus.Gauge); ok {
+			return gauge
+		}
+
+		panic(fmt.Errorf("the preregistered metric %s is not a gauge", key))
+	}
+	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      name,
+		Help:      name,
+	})
+
+	if err := r.Register(gauge); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(prometheus.Gauge)
+		} else {
+			panic(err)
+		}
+	}
+
+	return gauge
+}
+
 func (r *registry) NewHistogramVec(name string) *prometheus.HistogramVec {
 	return r.NewHistogramVecEx(r.namespace, r.subsystem, name)
 }
