@@ -35,6 +35,9 @@ type Registry interface {
 	PrometheusProvider
 	provider.Provider
 	prometheus.Gatherer
+
+	NewPrometheusGaugeEx(namespace, subsystem, name string) prometheus.Gauge
+	NewPrometheusGauge(name string) prometheus.Gauge
 }
 
 // registry is the internal Registry implementation
@@ -97,7 +100,7 @@ func (r *registry) NewGaugeVecEx(namespace, subsystem, name string) *prometheus.
 			return gaugeVec
 		}
 
-		panic(fmt.Errorf("The preregistered metric %s is not a gauge", key))
+		panic(fmt.Errorf("the preregistered metric %s is not a gauge", key))
 	}
 
 	gaugeVec := prometheus.NewGaugeVec(
