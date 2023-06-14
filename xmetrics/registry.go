@@ -35,6 +35,9 @@ type Registry interface {
 	PrometheusProvider
 	provider.Provider
 	prometheus.Gatherer
+
+	NewPrometheusGaugeEx(namespace, subsystem, name string) prometheus.Gauge
+	NewPrometheusGauge(name string) prometheus.Gauge
 }
 
 // registry is the internal Registry implementation
@@ -97,7 +100,7 @@ func (r *registry) NewGaugeVecEx(namespace, subsystem, name string) *prometheus.
 			return gaugeVec
 		}
 
-		panic(fmt.Errorf("The preregistered metric %s is not a gauge", key))
+		panic(fmt.Errorf("the preregistered metric %s is not a gauge", key))
 	}
 
 	gaugeVec := prometheus.NewGaugeVec(
@@ -123,6 +126,30 @@ func (r *registry) NewGaugeVecEx(namespace, subsystem, name string) *prometheus.
 
 func (r *registry) NewGauge(name string) metrics.Gauge {
 	return gokitprometheus.NewGauge(r.NewGaugeVec(name))
+}
+
+func (r *registry) NewPrometheusGauge(name string) prometheus.Gauge {
+	return r.NewPrometheusGaugeEx(r.namespace, r.subsystem, name)
+}
+
+func (r *registry) NewPrometheusGaugeEx(namespace, subsystem, name string) prometheus.Gauge {
+
+	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Subsystem: subsystem,
+		Name:      name,
+		Help:      name,
+	})
+
+	if err := r.Register(gauge); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(prometheus.Gauge)
+		} else {
+			panic(err)
+		}
+	}
+
+	return gauge
 }
 
 func (r *registry) NewHistogramVec(name string) *prometheus.HistogramVec {
