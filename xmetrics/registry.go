@@ -134,14 +134,6 @@ func (r *registry) NewPrometheusGauge(name string) prometheus.Gauge {
 
 func (r *registry) NewPrometheusGaugeEx(namespace, subsystem, name string) prometheus.Gauge {
 
-	key := prometheus.BuildFQName(namespace, subsystem, name)
-	if existing, ok := r.preregistered[key]; ok {
-		if gauge, ok := existing.(prometheus.Gauge); ok {
-			return gauge
-		}
-
-		panic(fmt.Errorf("the preregistered metric %s is not a gauge", key))
-	}
 	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
 		Subsystem: subsystem,

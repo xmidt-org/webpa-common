@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
@@ -139,47 +138,6 @@ func NewCollector(m Metric) (prometheus.Collector, error) {
 	default:
 		return nil, fmt.Errorf("Unsupported metric type: %s", m.Type)
 	}
-}
-func (m Metric) Describe(chan<- *prometheus.Desc) {
-
-}
-
-func (m Metric) Collect(chan<- prometheus.Metric) {
-
-}
-
-func (m Metric) Desc() *prometheus.Desc {
-	return prometheus.NewDesc(m.Name, m.Name, []string{}, prometheus.Labels{})
-}
-
-func (m Metric) Write(*dto.Metric) error {
-	var err error
-
-	return err
-}
-
-func (m Metric) Set(float64) {
-
-}
-
-func (m Metric) Inc() {
-
-}
-
-func (m Metric) Dec() {
-
-}
-
-func (m Metric) Add(float64) {
-
-}
-
-func (m Metric) Sub(float64) {
-
-}
-
-func (m Metric) SetToCurrentTime() {
-
 }
 
 // Merger is the strategy for merging metrics from various sources.  It applies a configurable default
