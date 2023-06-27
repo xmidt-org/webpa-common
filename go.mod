@@ -3,7 +3,6 @@ module github.com/xmidt-org/webpa-common/v2
 go 1.13
 
 require (
-	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.44.289
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
@@ -13,11 +12,9 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/hashicorp/consul/api v1.21.0
-	github.com/hashicorp/go-hclog v1.4.0 // indirect
+	github.com/hashicorp/consul/api v1.22.0
 	github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c // indirect
 	github.com/justinas/alice v1.2.0
-	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/miekg/dns v1.1.55
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/prometheus/client_golang v1.16.0
