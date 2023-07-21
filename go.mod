@@ -28,7 +28,7 @@ require (
 	github.com/ugorji/go v1.2.7 // indirect
 	github.com/ugorji/go/codec v1.2.11
 	github.com/xmidt-org/argus v0.9.10
-	github.com/xmidt-org/candlelight v0.0.16
+	github.com/xmidt-org/candlelight v0.0.18
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/themis v0.4.14
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
