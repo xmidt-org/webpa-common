@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.327
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
-	github.com/go-kit/kit v0.12.0
+	github.com/go-kit/kit v0.13.0
 	github.com/go-kit/log v0.2.1
 	github.com/go-zookeeper/zk v1.0.3
 	github.com/gorilla/mux v1.8.0
