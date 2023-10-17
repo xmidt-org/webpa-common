@@ -34,5 +34,5 @@ require (
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.uber.org/fx v1.20.0
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 )
