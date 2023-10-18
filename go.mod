@@ -3,7 +3,7 @@ module github.com/xmidt-org/webpa-common/v2
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.45.11
+	github.com/aws/aws-sdk-go v1.45.27
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/go-kit/kit v0.13.0
@@ -17,8 +17,7 @@ require (
 	github.com/justinas/alice v1.2.0
 	github.com/miekg/dns v1.1.56
 	github.com/mitchellh/mapstructure v1.5.0
-	github.com/prometheus/client_golang v1.16.0
-	github.com/prometheus/client_model v0.4.0 // indirect
+	github.com/prometheus/client_golang v1.17.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.5.1
@@ -34,5 +33,5 @@ require (
 	github.com/xmidt-org/wrp-go/v3 v3.1.6
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.uber.org/fx v1.20.0
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 )
