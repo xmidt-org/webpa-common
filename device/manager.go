@@ -26,6 +26,9 @@ const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 // DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
 const DefaultWRPContentType = "application/octet-stream"
 
+// WRPTimestampMetadataKey is the uniform timestamp given to all device wrp messsages (expect for message sent to devices `writePump`)
+const WRPTimestampMetadataKey = "/xdmit-timestamp"
+
 // emptyBuffer is solely used as an address of a global empty buffer.
 // This sentinel value will reset pointers of the writePump's encoder
 // such that the gc can clean things up.
@@ -271,7 +274,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
 
 	d.logger.Debug("Connection metadata", zap.String("deviceID", string(d.ID())), zap.String("conveyCompliance", convey.GetCompliance(cvyErr).String()), zap.Strings("conveyHeaderKeys", maps.Keys(cvy)), zap.Any("conveyHeader", cvy))
-	
+
 	return d, nil
 }
 
@@ -348,6 +351,7 @@ func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 
 // nolint: typecheck
 func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
+	message.Metadata[WRPTimestampMetadataKey] = time.Now().Format(time.RFC3339Nano)
 	message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
 
 	// nolint: typecheck
