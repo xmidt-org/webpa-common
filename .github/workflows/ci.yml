@@ -25,6 +25,6 @@ jobs:
       copyright-skip: true
       lint-skip:      true
       style-skip:     true
-      tests-skip:     true
+      # tests-skip:     true
       release-type:   library
     secrets: inherit
