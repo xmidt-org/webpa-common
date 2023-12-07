@@ -13,6 +13,7 @@ import (
 	"github.com/xmidt-org/webpa-common/v2/convey"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveymetric"
 	"go.uber.org/zap"
+	"golang.org/x/exp/maps"
 
 	"github.com/gorilla/websocket"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveyhttp"
@@ -269,6 +270,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
 	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
 
+	d.logger.Debug("Connection metadata", zap.String("deviceID", string(d.ID())), zap.String("conveyCompliance", convey.GetCompliance(cvyErr).String()), zap.Strings("conveyHeaderKeys", maps.Keys(cvy)), zap.Any("conveyHeader", cvy))
 	return d, nil
 }
 
