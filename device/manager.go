@@ -27,7 +27,7 @@ const MaxDevicesHeader = "X-Xmidt-Max-Devices"
 const DefaultWRPContentType = "application/octet-stream"
 
 // WRPTimestampMetadataKey is the uniform timestamp given to all device wrp messsages (expect for message sent to devices `writePump`)
-const WRPTimestampMetadataKey = "/xdmit-timestamp"
+const WRPTimestampMetadataKey = "/xmidt-timestamp"
 
 // emptyBuffer is solely used as an address of a global empty buffer.
 // This sentinel value will reset pointers of the writePump's encoder
