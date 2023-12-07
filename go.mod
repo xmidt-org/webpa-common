@@ -11,7 +11,7 @@ require (
 	github.com/go-zookeeper/zk v1.0.3
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.1
 	github.com/hashicorp/consul/api v1.25.1
 	github.com/justinas/alice v1.2.0
 	github.com/miekg/dns v1.1.56
