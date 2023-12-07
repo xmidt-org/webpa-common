@@ -559,8 +559,8 @@ github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqri
 github.com/ugorji/go/codec v1.2.11 h1:BMaWp1Bb6fHwEtbplGBGJ498wD+LKlNSl25MjdZY4dU=
 github.com/ugorji/go/codec v1.2.11/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/xhit/go-str2duration v1.2.0/go.mod h1:3cPSlfZlUHVlneIVfePFWcJZsuwf+P1v2SRTV4cUmp4=
-github.com/xmidt-org/argus v0.9.12 h1:5u0Itt8FzwBvo/DogYhpLsKzThEg+6aVVdVhc2FQMWw=
-github.com/xmidt-org/argus v0.9.12/go.mod h1:sJ/pCNapRY42Et4r0d5lr25228lVVZCXALVliY0aOcM=
+github.com/xmidt-org/argus v0.9.10 h1:/DWas7vwooLvGAwBi4DU8BVykFkH2DuG8VHocdIEV3o=
+github.com/xmidt-org/argus v0.9.10/go.mod h1:FBFhBQ07fquAiDT7mMG+X6h0ycerZQJCpqIlQJ+Kjf8=
 github.com/xmidt-org/arrange v0.5.0 h1:ajkVHkr7dXnfCYm/6eafWoOab+6A3b2jEHQO0IdIIb0=
 github.com/xmidt-org/arrange v0.5.0/go.mod h1:PoZB9lR49ma0osydQbaWpNeA3XPoLkjP5RYUoOw8wZU=
 github.com/xmidt-org/bascule v0.11.7 h1:+pasCXM+irFuBB4HgO67xC7VHuygjmlmFjEpJdBGXeQ=
