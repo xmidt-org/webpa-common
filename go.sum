@@ -294,8 +294,8 @@ github.com/google/pprof v0.0.0-20210609004039-a478d1d731e9/go.mod h1:kpwsk12EmLe
 github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1/go.mod h1:kpwsk12EmLew5upagYY7GY0pfYCcupk39gWOCRROcvE=
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/uuid v1.1.2/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
-github.com/google/uuid v1.3.1 h1:KjJaJ9iWZ3jOFZIf1Lqf4laDRCasjl0BCmnEGxkdLb4=
-github.com/google/uuid v1.3.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/google/uuid v1.4.0 h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=
+github.com/google/uuid v1.4.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+vpHVxEJEs9eg=
 github.com/googleapis/gax-go/v2 v2.0.5/go.mod h1:DWXyrwAJ9X0FpwwEdw+IPEYBICEFu5mhpdKc/us6bOk=
 github.com/googleapis/gax-go/v2 v2.1.0/go.mod h1:Q3nei7sK6ybPYH7twZdmQpAd1MKb7pfu6SK+H1/DsU0=
@@ -650,8 +650,8 @@ github.com/xmidt-org/themis v0.4.14 h1:mlk9QhG0OysF2wTelTVUZcWGYvklMvCi/7s2JIMtX
 github.com/xmidt-org/themis v0.4.14/go.mod h1:h7ia5b5+Tba16Zdn52kyBdH6E2OvMrW3Xe6oHlUMJzI=
 github.com/xmidt-org/touchstone v0.1.2 h1:XftgpxlRGvUd+ZSZMzFskgRHwTM7hDYwvCd6ExCNe2s=
 github.com/xmidt-org/touchstone v0.1.2/go.mod h1:2xVJVO8FE393Aofw/FD8Cu9wXES4n1AlJP109Nk7/gg=
-github.com/xmidt-org/wrp-go/v3 v3.2.0 h1:XX5c0ZJYaTEvlHFk0lzxadoOMbxg5YtUkPWNXHoxTDE=
-github.com/xmidt-org/wrp-go/v3 v3.2.0/go.mod h1:46ily/xzmRUhs8gSbTKNeOA6ztwcHauZFnfr4hRpoHA=
+github.com/xmidt-org/wrp-go/v3 v3.2.3 h1:Qmcsnz8QQZ2ZYVLvhyuTH11ixySes1Lm30XNdGDTpn8=
+github.com/xmidt-org/wrp-go/v3 v3.2.3/go.mod h1:ZXUMN7ZTOv/F+9/WypWexNxIt33WVLQvb2hidwIHvqw=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

@@ -27,7 +27,7 @@ require (
 	github.com/xmidt-org/candlelight v0.0.16
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/themis v0.4.14
-	github.com/xmidt-org/wrp-go/v3 v3.2.0
+	github.com/xmidt-org/wrp-go/v3 v3.2.3
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.40.0
 	go.uber.org/fx v1.20.1
 	go.uber.org/zap v1.26.0
@@ -55,7 +55,7 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/glog v1.1.0 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
-	github.com/google/uuid v1.3.1 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
