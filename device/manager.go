@@ -273,7 +273,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 	go m.readPump(d, InstrumentReader(c, d.statistics), closeOnce)
 	go m.writePump(d, InstrumentWriter(c, d.statistics), pinger, closeOnce)
 
-	d.logger.Debug("Connection metadata", zap.String("deviceID", string(d.ID())), zap.String("conveyCompliance", convey.GetCompliance(cvyErr).String()), zap.Strings("conveyHeaderKeys", maps.Keys(cvy)), zap.Any("conveyHeader", cvy))
+	d.logger.Debug("Connection metadata", zap.String("conveyCompliance", convey.GetCompliance(cvyErr).String()), zap.Strings("conveyHeaderKeys", maps.Keys(cvy)), zap.Any("conveyHeader", cvy))
 
 	return d, nil
 }
@@ -351,6 +351,10 @@ func (m *manager) wrpSourceIsValid(message *wrp.Message, d *device) bool {
 
 // nolint: typecheck
 func addDeviceMetadataContext(message *wrp.Message, deviceMetadata *Metadata) {
+	if message.Metadata == nil {
+		message.Metadata = make(map[string]string)
+	}
+
 	message.Metadata[WRPTimestampMetadataKey] = time.Now().Format(time.RFC3339Nano)
 	message.PartnerIDs = []string{deviceMetadata.PartnerIDClaim()}
 
