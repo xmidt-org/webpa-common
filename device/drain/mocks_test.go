@@ -185,3 +185,7 @@ func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneC
 
 	return sm
 }
+
+func (sm *stubManager) MaxDevices() int {
+	return 1
+}
