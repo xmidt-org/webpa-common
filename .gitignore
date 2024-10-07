@@ -9,4 +9,9 @@ report.json
 .idea
 server/cpuprofile
 server/memprofile
+
+# VSCode
 *.code-workspace
+.vscode/*
+.dev/*
+
