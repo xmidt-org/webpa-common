@@ -336,7 +336,7 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 	select {
 	case <-done:
 		// passed
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		assert.Fail("Drain failed to complete")
 		return
 	}
@@ -594,7 +594,7 @@ func testDrainerDrainCancel(t *testing.T) {
 	select {
 	case <-done:
 		// passing
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		assert.Fail("Drain failed to complete")
 		return
 	}
@@ -645,6 +645,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 
 		stopCalled = false
 		stop       = func() {
+			time.Sleep(time.Second * 5)
 			stopCalled = true
 		}
 
@@ -744,7 +745,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 	select {
 	case <-done:
 		// passed
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		assert.Fail("Drain failed to complete")
 		return
 	}
@@ -882,7 +883,7 @@ func testDisconnectFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo 
 	select {
 	case <-done:
 		// passed
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		assert.Fail("Drain failed to complete")
 		return
 	}

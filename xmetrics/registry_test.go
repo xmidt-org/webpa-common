@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/sallust"
 )
 
 func testRegistryAsPrometheusProvider(t *testing.T) {
@@ -38,6 +39,7 @@ func testRegistryAsPrometheusProvider(t *testing.T) {
 					MaxAge: 15 * time.Hour,
 				},
 			},
+			Logger: sallust.Default(),
 		}
 	)
 
@@ -143,6 +145,7 @@ func testRegistryAsGoKitProvider(t *testing.T) {
 					MaxAge: 15 * time.Hour,
 				},
 			},
+			Logger: sallust.Default(),
 		}
 	)
 
@@ -216,6 +219,7 @@ func testRegistryMissingName(t *testing.T) {
 					Type: "counter",
 				},
 			},
+			Logger: sallust.Default(),
 		})
 	)
 
@@ -257,6 +261,7 @@ func testRegistryModules(t *testing.T) {
 					Type: "gauge",
 				},
 			},
+			Logger: sallust.Default(),
 		}
 	)
 
@@ -293,6 +298,7 @@ func testRegistryDuplicate(t *testing.T) {
 						Type: "gauge",
 					},
 				},
+				Logger: sallust.Default(),
 			}
 		)
 
@@ -330,6 +336,7 @@ func testRegistryDuplicate(t *testing.T) {
 						Type: "counter",
 					},
 				},
+				Logger: sallust.Default(),
 			}
 		)
 
@@ -349,6 +356,7 @@ func testRegistryUnsupportedType(t *testing.T) {
 					Type: "huh?",
 				},
 			},
+			Logger: sallust.Default(),
 		})
 	)
 
@@ -368,6 +376,7 @@ func testRegistryCounterLabel(t *testing.T) {
 					LabelNames: []string{"label"},
 				},
 			},
+			Logger: sallust.Default(),
 		})
 	)
 
