@@ -645,6 +645,7 @@ func testDrainFilter(t *testing.T, deviceTypeOne deviceInfo, deviceTypeTwo devic
 
 		stopCalled = false
 		stop       = func() {
+			time.Sleep(time.Second)
 			stopCalled = true
 		}
 
