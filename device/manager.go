@@ -111,6 +111,7 @@ type Manager interface {
 	Connector
 	Router
 	Registry
+	MaxDevices() int
 }
 
 // ManagerOption is a configuration option for a manager
@@ -629,4 +630,8 @@ func (m *manager) Route(request *Request) (*Response, error) {
 	} else {
 		return nil, ErrorDeviceNotFound
 	}
+}
+
+func (m *manager) MaxDevices() int {
+	return m.devices.limit
 }

@@ -38,6 +38,7 @@ type Registry interface {
 
 	NewPrometheusGaugeEx(namespace, subsystem, name string) prometheus.Gauge
 	NewPrometheusGauge(name string) prometheus.Gauge
+	NewGaugeFunc(name string, f func() float64) prometheus.GaugeFunc
 }
 
 // registry is the internal Registry implementation
@@ -126,6 +127,24 @@ func (r *registry) NewGaugeVecEx(namespace, subsystem, name string) *prometheus.
 
 func (r *registry) NewGauge(name string) metrics.Gauge {
 	return gokitprometheus.NewGauge(r.NewGaugeVec(name))
+}
+
+func (r *registry) NewGaugeFunc(name string, f func() float64) prometheus.GaugeFunc {
+	gauge := prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+		Namespace: r.namespace,
+		Subsystem: r.subsystem,
+		Name:      name,
+		Help:      name,
+	}, f)
+
+	if err := r.Register(gauge); err != nil {
+		if already, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			return already.ExistingCollector.(prometheus.GaugeFunc)
+		} else {
+			panic(err)
+		}
+	}
+	return gauge
 }
 
 func (r *registry) NewPrometheusGauge(name string) prometheus.Gauge {
