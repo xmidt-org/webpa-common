@@ -8,7 +8,7 @@ require (
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/go-kit/kit v0.13.0
 	github.com/go-kit/log v0.2.1
-	github.com/go-zookeeper/zk v1.0.3
+	github.com/go-zookeeper/zk v1.0.4
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/schema v1.4.1
 	github.com/gorilla/websocket v1.5.3
