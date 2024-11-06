@@ -23,7 +23,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
 	github.com/ugorji/go/codec v1.2.12
-	github.com/xmidt-org/argus v0.10.16
+	github.com/xmidt-org/argus v0.10.17
 	github.com/xmidt-org/candlelight v0.1.21
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/themis v0.4.18
