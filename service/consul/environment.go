@@ -167,7 +167,7 @@ func newRegistrars(l *adapter.Logger, registrationScheme string, c gokitconsul.C
 		rid := zap.String("id", registration.ID)
 		in := zap.String("instance", instance)
 		l.Logger = l.Logger.With(rid, in)
-		consulRegistrar, err = NewRegistrar(c, u, &registration, l)
+		consulRegistrar, err = NewRegistrar(c, u, registration, l)
 		if err != nil {
 			return
 		}

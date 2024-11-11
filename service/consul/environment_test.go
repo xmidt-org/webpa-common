@@ -1,6 +1,7 @@
 package consul
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/hashicorp/consul/api"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
+
 	"github.com/xmidt-org/webpa-common/v2/service"
 )
 
@@ -136,8 +138,66 @@ func testNewEnvironmentFull(t *testing.T) {
 	ttlUpdater.AssertExpectations(t)
 }
 
+func testVerifyEnviromentRegistrars(t *testing.T) {
+	var (
+		require       = require.New(t)
+		logger        = adapter.DefaultLogger()
+		clientFactory = prepareMockClientFactory()
+		client        = new(mockClient)
+		ttlUpdater    = new(mockTTLUpdater)
+		registrations = []api.AgentServiceRegistration{
+			{
+				ID:      "deadbeef",
+				Name:    "deadbeef",
+				Tags:    []string{"role=deadbeef, region=1"},
+				Address: "deadbeef.com",
+				Port:    8080,
+			},
+			{
+				ID:      "api:deadbeef",
+				Name:    "deadbeef-api",
+				Tags:    []string{"role=deadbeef, region=1"},
+				Address: "deadbeef.com",
+				Port:    443,
+			},
+		}
+		co = Options{
+			Client: &api.Config{
+				Address: "localhost:8500",
+				Scheme:  "https",
+			},
+			Registrations: registrations,
+		}
+	)
+
+	clientFactory.On("NewClient", mock.MatchedBy(func(*api.Client) bool { return true })).Return(client, ttlUpdater).Once()
+
+	client.On("Register", mock.MatchedBy(func(r *api.AgentServiceRegistration) bool {
+		return reflect.DeepEqual(registrations[0], *r)
+	})).Return(error(nil)).Once()
+	client.On("Register", mock.MatchedBy(func(r *api.AgentServiceRegistration) bool {
+		return reflect.DeepEqual(registrations[1], *r)
+	})).Return(error(nil)).Once()
+
+	client.On("Deregister", mock.MatchedBy(func(r *api.AgentServiceRegistration) bool {
+		return reflect.DeepEqual(registrations[0], *r)
+	})).Return(error(nil)).Once()
+	client.On("Deregister", mock.MatchedBy(func(r *api.AgentServiceRegistration) bool {
+		return reflect.DeepEqual(registrations[1], *r)
+	})).Return(error(nil)).Once()
+	consulEnv, err := NewEnvironment(logger, service.DefaultScheme, co)
+	require.NoError(err)
+
+	consulEnv.Register()
+	consulEnv.Deregister()
+	clientFactory.AssertExpectations(t)
+	ttlUpdater.AssertExpectations(t)
+	client.AssertExpectations(t)
+}
+
 func TestNewEnvironment(t *testing.T) {
 	t.Run("Empty", testNewEnvironmentEmpty)
 	t.Run("ClientError", testNewEnvironmentClientError)
 	t.Run("Full", testNewEnvironmentFull)
+	t.Run("Verify Multi Registrar Environment", testVerifyEnviromentRegistrars)
 }

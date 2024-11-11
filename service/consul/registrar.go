@@ -130,7 +130,7 @@ type ttlRegistrar struct {
 }
 
 // NewRegistrar creates an sd.Registrar, binding any TTL checks to the Register/Deregister lifecycle as needed.
-func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistration, logger *adapter.Logger) (sd.Registrar, error) {
+func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r api.AgentServiceRegistration, logger *adapter.Logger) (sd.Registrar, error) {
 	var (
 		ttlChecks []ttlCheck
 		err       error
@@ -148,7 +148,7 @@ func NewRegistrar(c gokitconsul.Client, u ttlUpdater, r *api.AgentServiceRegistr
 		}
 	}
 
-	var registrar sd.Registrar = gokitconsul.NewRegistrar(c, r, logger)
+	var registrar sd.Registrar = gokitconsul.NewRegistrar(c, &r, logger)
 
 	// decorate the given registrar if we have any TTL checks
 	if len(ttlChecks) > 0 {

@@ -39,7 +39,7 @@ func testNewRegistrarNoChecks(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
@@ -80,7 +80,7 @@ func testNewRegistrarNoTTL(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
@@ -131,7 +131,7 @@ func testNewRegistrarCheckMalformedTTL(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
@@ -161,7 +161,7 @@ func testNewRegistrarCheckTTLTooSmall(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
@@ -191,7 +191,7 @@ func testNewRegistrarChecksMalformedTTL(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
@@ -223,7 +223,7 @@ func testNewRegistrarChecksTTLTooSmall(t *testing.T) {
 		ttlUpdater    = new(mockTTLUpdater)
 		tickerFactory = prepareMockTickerFactory()
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
@@ -272,7 +272,7 @@ func testNewRegistrarTTL(t *testing.T) {
 			close(update2Done)
 		}
 
-		registration = &api.AgentServiceRegistration{
+		registration = api.AgentServiceRegistration{
 			ID:      "service1",
 			Address: "somehost.com",
 			Port:    1111,
