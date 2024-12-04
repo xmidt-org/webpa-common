@@ -21,10 +21,10 @@ require (
 	github.com/spf13/cast v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.19.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/ugorji/go/codec v1.2.12
 	github.com/xmidt-org/argus v0.10.18
-	github.com/xmidt-org/candlelight v0.1.21
+	github.com/xmidt-org/candlelight v0.1.22
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/themis v0.4.20
 	github.com/xmidt-org/wrp-go/v3 v3.6.0
