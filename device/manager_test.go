@@ -533,3 +533,50 @@ func newTestCounter() *testCounter {
 		labelPairs: make(map[string]string),
 	}
 }
+
+func TestManagerIsDeviceDuplicated(t *testing.T) {
+	var (
+		assert = assert.New(t)
+		tests  = []struct {
+			expected bool
+			existing *device
+			new      *device
+			m        *manager
+		}{
+			{
+				expected: false,
+				existing: nil,
+				new:      &device{id: "test"},
+				m: NewManager(&Options{
+					MaxDevices: 0,
+				}).(*manager),
+			},
+			{
+				expected: false,
+				existing: &device{id: "test", state: stateOpen},
+				new:      &device{id: "test", state: stateOpen},
+				m: NewManager(&Options{
+					MaxDevices: 0,
+				}).(*manager),
+			},
+			{
+				expected: true,
+				existing: &device{id: "test", state: stateOpen},
+				new:      &device{id: "test", state: stateClosed},
+				m: NewManager(&Options{
+					MaxDevices: 0,
+				}).(*manager),
+			},
+		}
+	)
+
+	for _, test := range tests {
+		if test.existing != nil {
+			err := test.m.devices.add(test.existing)
+			if err != nil {
+				assert.Error(err)
+			}
+		}
+		assert.Equal(test.expected, test.m.isDeviceDuplicated(test.new))
+	}
+}
