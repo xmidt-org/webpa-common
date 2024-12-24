@@ -1,6 +1,7 @@
 module github.com/xmidt-org/webpa-common/v2
 
 go 1.21
+toolchain go1.23.4
 
 require (
 	github.com/aws/aws-sdk-go v1.55.5
@@ -25,7 +26,7 @@ require (
 	github.com/ugorji/go/codec v1.2.12
 	github.com/xmidt-org/argus v0.10.18
 	github.com/xmidt-org/candlelight v0.1.22
-	github.com/xmidt-org/sallust v0.2.2
+	github.com/xmidt-org/sallust v0.2.3
 	github.com/xmidt-org/themis v0.4.20
 	github.com/xmidt-org/wrp-go/v3 v3.6.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0
