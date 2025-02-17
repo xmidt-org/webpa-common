@@ -184,13 +184,13 @@ func (m *monitor) dispatchEvents(key, svc string, l *zap.Logger, i sd.Instancer)
 				l.Error("service discovery error", zap.Error(sdEvent.Err), zap.Int(EventCountKey(), eventCount))
 				event.Err = sdEvent.Err
 			} else {
-				l.Error("service discovery update", zap.Strings("instances", sdEvent.Instances), zap.Int(EventCountKey(), eventCount))
+				l.Info("service discovery update", zap.Strings("instances", sdEvent.Instances), zap.Int(EventCountKey(), eventCount))
 				if len(sdEvent.Instances) > 0 {
 					event.Instances = m.filter(sdEvent.Instances)
 				}
 			}
 
-			l.Debug("subscription monitor activity", append(zapDebugFields, zap.Int(EventCountKey(), eventCount))...)
+			l.Debug("subscription monitor activity", append(zapDebugFields, zap.Any("event", event))...)
 			m.listeners.MonitorEvent(event)
 
 		case <-m.stopped:
