@@ -1,6 +1,9 @@
 package service
 
 import (
+	"fmt"
+	"net/url"
+
 	"github.com/billhathaway/consistentHash"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/gate"
 )
@@ -11,13 +14,51 @@ const DefaultVnodeCount = 211
 // of nodes and turn them into an Accessor.
 type AccessorFactory func([]string) Accessor
 
+type hostHasher struct {
+	hasher    *consistentHash.ConsistentHash
+	hostToURL map[string]string
+}
+
+// Add adds a server url to the consistentHash.
+// Note, Add expects a valid url with a schema and hostname
+func (h *hostHasher) Add(s string) {
+	u, err := url.Parse(s)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse url `%s`: %s", s, err))
+	}
+	if u.Scheme == "" || u.Host == "" {
+		panic(fmt.Sprintf("expected a schema and host: `%s`", s))
+	}
+
+	h.hasher.Add(u.Hostname())
+	h.hostToURL[u.Hostname()] = u.String()
+}
+
+// Get fetches the server url associated with a particular key.
+func (h *hostHasher) Get(key []byte) (string, error) {
+	host, err := h.hasher.Get(key)
+	if err != nil {
+		return "", err
+	}
+
+	return h.hostToURL[host], nil
+}
+
+func newHostHasher(vnodeCount int) *hostHasher {
+	hasher := consistentHash.New()
+	hasher.SetVnodeCount(vnodeCount)
+	return &hostHasher{
+		hasher:    hasher,
+		hostToURL: map[string]string{},
+	}
+}
+
 func newConsistentAccessor(vnodeCount int, instances []string) Accessor {
 	if len(instances) == 0 {
 		return emptyAccessor{}
 	}
 
-	hasher := consistentHash.New()
-	hasher.SetVnodeCount(vnodeCount)
+	hasher := newHostHasher(vnodeCount)
 	for _, i := range instances {
 		hasher.Add(i)
 	}
