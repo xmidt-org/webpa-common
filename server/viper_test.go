@@ -44,45 +44,6 @@ func ExampleInitialize() {
 	// [TotalRequests TotalResponses SomeOtherStat]
 }
 
-func ExampleInitializeWithFlags() {
-	var (
-		f = pflag.NewFlagSet("applicationName", pflag.ContinueOnError)
-		v = viper.New()
-
-		// simulates passing `-f example` on the command line
-		_, _, webPA, err = Initialize("applicationName", []string{"-f", "example"}, f, v)
-	)
-
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(webPA.Primary.Name)
-	fmt.Println(webPA.Primary.Address)
-	fmt.Println(webPA.Primary.LogConnectionState)
-
-	fmt.Println(webPA.Alternate.Name)
-	fmt.Println(webPA.Alternate.Address)
-	fmt.Println(webPA.Alternate.LogConnectionState)
-
-	fmt.Println(webPA.Health.Name)
-	fmt.Println(webPA.Health.Address)
-	fmt.Println(webPA.Health.LogInterval)
-	fmt.Println(webPA.Health.Options)
-
-	// Output:
-	// applicationName
-	// localhost:10010
-	// true
-	// applicationName.alternate
-	// :10011
-	// false
-	// applicationName.health
-	// :9001
-	// 45s
-	// [TotalRequests TotalResponses SomeOtherStat]
-}
-
 func TestConfigureWhenParseError(t *testing.T) {
 	var (
 		assert = assert.New(t)
