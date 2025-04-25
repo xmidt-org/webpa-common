@@ -10,6 +10,7 @@ import (
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 )
 
@@ -36,12 +37,12 @@ func WithLogger(l *zap.Logger) Option {
 	}
 }
 
-// WithAccessorFactory configures a rehasher with a specific factory for service.Accessor objects.
+// WithAccessorFactory configures a rehasher with a specific factory for accessor.Accessor objects.
 // If af is nil, the default accessor factory is used.
-func WithAccessorFactory(af service.AccessorFactory) Option {
+func WithAccessorFactory(af accessor.AccessorFactory) Option {
 	return func(r *rehasher) {
 		if af == nil {
-			r.accessorFactory = service.DefaultAccessorFactory
+			r.accessorFactory = accessor.DefaultAccessorFactory
 		} else {
 			r.accessorFactory = af
 		}
@@ -94,7 +95,7 @@ func New(connector device.Connector, services []string, options ...Option) monit
 
 		r = &rehasher{
 			logger:          sallust.Default(),
-			accessorFactory: service.DefaultAccessorFactory,
+			accessorFactory: accessor.DefaultAccessorFactory,
 			connector:       connector,
 			now:             time.Now,
 			services:        make(map[string]bool),
@@ -127,7 +128,7 @@ func New(connector device.Connector, services []string, options ...Option) monit
 type rehasher struct {
 	logger          *zap.Logger
 	services        map[string]bool
-	accessorFactory service.AccessorFactory
+	accessorFactory accessor.AccessorFactory
 	isRegistered    func(string) bool
 	connector       device.Connector
 	now             func() time.Time
@@ -139,7 +140,7 @@ type rehasher struct {
 	duration             metrics.Gauge
 }
 
-func (r *rehasher) rehash(svc string, logger *zap.Logger, accessor service.Accessor) {
+func (r *rehasher) rehash(svc string, logger *zap.Logger, accessor accessor.Accessor) {
 	logger.Info("rehash starting")
 
 	start := r.now()
