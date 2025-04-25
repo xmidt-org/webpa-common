@@ -11,6 +11,7 @@ import (
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 )
@@ -299,9 +300,9 @@ func testRehasherRehash(t *testing.T) {
 		accessorError   = errors.New("expected accessor error")
 
 		expectedNodes   = []string{keepNode, rehashNode}
-		accessorFactory = service.AccessorFactory(func(actualNodes []string) service.Accessor {
+		accessorFactory = accessor.AccessorFactory(func(actualNodes []string) accessor.Accessor {
 			assert.Equal(expectedNodes, actualNodes)
-			return service.AccessorFunc(func(key []byte) (string, error) {
+			return accessor.AccessorFunc(func(key []byte) (string, error) {
 				switch string(key) {
 				case string(keepID):
 					return keepNode, nil

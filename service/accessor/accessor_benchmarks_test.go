@@ -1,4 +1,4 @@
-package service
+package accessor
 
 import (
 	"encoding/base64"

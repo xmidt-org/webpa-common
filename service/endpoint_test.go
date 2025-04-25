@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 )
 
 func testNewAccessorEndpointNilAccessor(t *testing.T) {
@@ -23,7 +24,7 @@ func testNewAccessorEndpointSuccess(t *testing.T) {
 
 		expectedKey = StringKey("expected key")
 
-		a = new(MockAccessor)
+		a = new(accessor.MockAccessor)
 		e = NewAccessorEndpoint(a)
 	)
 
@@ -45,7 +46,7 @@ func testNewAccessorEndpointError(t *testing.T) {
 		expectedKey   = StringKey("expected key")
 		expectedError = errors.New("expected error")
 
-		a = new(MockAccessor)
+		a = new(accessor.MockAccessor)
 		e = NewAccessorEndpoint(a)
 	)
 

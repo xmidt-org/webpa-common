@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/xmidt-org/sallust/sallusthttp"
-	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"go.uber.org/zap"
 )
 
@@ -22,7 +22,7 @@ type RedirectHandler struct {
 	KeyFunc KeyFunc
 
 	// Accessor produces instances given hash keys.  Note that a Subscription implements the Accessor interface.
-	Accessor service.Accessor
+	Accessor accessor.Accessor
 
 	// RedirectCode is the HTTP status code sent as part of the redirect.  If not set, http.StatusTemporaryRedirect is used.
 	RedirectCode int
