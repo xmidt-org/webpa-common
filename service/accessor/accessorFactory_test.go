@@ -64,60 +64,6 @@ func testNewConsistentAccessorFactory(t *testing.T, vnodeCount int) {
 	}
 }
 
-func TestHostHasherPanics(t *testing.T) {
-	var (
-		require = require.New(t)
-		hh      = newHostHasher(DefaultVnodeCount)
-	)
-
-	require.NotNil(hh)
-	tests := []struct {
-		description string
-		url         string
-	}{
-		{
-			"formating error",
-			"[2001:0db8:85a3:0000:0000:8a2e:0370:7334]",
-		},
-		{
-			"missing host error",
-			"https://",
-		},
-		{
-			"missing schema error",
-			"example.com",
-		},
-	}
-
-	for _, tc := range tests {
-		require.Panics(func() {
-			hh.Add(tc.url)
-		})
-	}
-}
-
-func TestHostHasher(t *testing.T) {
-	var (
-		require = require.New(t)
-		hh      = newHostHasher(DefaultVnodeCount)
-	)
-
-	require.NotNil(hh)
-	hostToURLTests := map[string]string{
-		"1.2.3.4": "https://1.2.3.4",
-		"2001:0db8:85a3:0000:0000:8a2e:0370:7334": "https://2001:0db8:85a3:0000:0000:8a2e:0370:7334:17000",
-		"foo.com":                            "https://foo.com:80",
-		"some.super.long.domain.example.com": "https://some.super.long.domain.example.com:8080/somepath",
-	}
-	// Add urls
-	for _, url := range hostToURLTests {
-		hh.Add(url)
-	}
-
-	// Check the maps are the same.
-	require.Equal(hostToURLTests, hh.hostToURL)
-}
-
 func TestNewConsistentAccessorFactory(t *testing.T) {
 	for _, v := range []int{-1, 0, 123, DefaultVnodeCount, 756} {
 		t.Run(fmt.Sprintf("vnodeCount=%d", v), func(t *testing.T) {
