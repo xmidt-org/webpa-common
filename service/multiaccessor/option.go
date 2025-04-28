@@ -13,7 +13,6 @@ func (opts options) Apply(h multiHasher) {
 	for _, o := range opts {
 		o.Apply(h)
 	}
-
 }
 
 type optionFunc func(multiHasher)

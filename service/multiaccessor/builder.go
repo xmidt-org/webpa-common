@@ -11,10 +11,7 @@ type Builder struct {
 
 // Build translates the configuration into a MultiAccessor.
 func (b Builder) Build(opts ...option) MultiAccessor {
-	var (
-		hopts options
-	)
-
+	var hopts options
 	for _, c := range b.MultiAccessor {
 		if c.Disable {
 			continue
