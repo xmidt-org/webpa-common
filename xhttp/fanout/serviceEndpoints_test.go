@@ -16,8 +16,9 @@ import (
 	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service"
 	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/service/accessor"
+
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
+	"github.com/xmidt-org/webpa-common/v2/service/multiaccessor"
 )
 
 func testNewServiceEndpointsHashError(t *testing.T) {
@@ -111,12 +112,12 @@ func testNewServiceEndpointsCustom(t *testing.T) {
 		}
 
 		accessorFactoryCalled = false
-		accessorFactory       = func(instances []string) accessor.Accessor {
+		multiAccessorFactory  = func(instances []string) multiaccessor.MultiAccessor {
 			accessorFactoryCalled = true
-			return accessor.DefaultAccessorFactory(instances)
+			return multiaccessor.DefaultMultiAccessorFactory(instances)
 		}
 
-		se = NewServiceEndpoints(WithAccessorFactory(accessorFactory), WithKeyFunc(keyFunc))
+		se = NewServiceEndpoints(WithHasherFactory(multiAccessorFactory), WithKeyFunc(keyFunc))
 	)
 
 	require.NotNil(se)
@@ -173,7 +174,7 @@ func TestNewServiceEndpoints(t *testing.T) {
 	t.Run("HashError", testNewServiceEndpointsHashError)
 	t.Run("Default", func(t *testing.T) {
 		testNewServiceEndpointsDefault(t, NewServiceEndpoints())
-		testNewServiceEndpointsDefault(t, NewServiceEndpoints(WithAccessorFactory(nil), WithKeyFunc(nil)))
+		testNewServiceEndpointsDefault(t, NewServiceEndpoints(WithHasherFactory(nil), WithKeyFunc(nil)))
 	})
 	t.Run("Custom", testNewServiceEndpointsCustom)
 }
@@ -193,7 +194,7 @@ func TestServiceEndpointsAlternate(t *testing.T) {
 	require.True(ok)
 
 	assert.NotNil(se.keyFunc)
-	assert.NotNil(se.accessorFactory)
+	assert.NotNil(se.multiAccessorFactory)
 }
 
 func testMonitorListenerWithNonListener(t *testing.T) {
