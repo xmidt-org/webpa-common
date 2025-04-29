@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 	"go.uber.org/zap"
 )
@@ -113,11 +114,11 @@ func TestNewMetricsListener(t *testing.T) {
 func testNewAccessorListenerMissingNext(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		NewAccessorListener(service.DefaultAccessorFactory, nil)
+		NewAccessorListener(accessor.DefaultAccessorFactory, nil)
 	})
 }
 
-func testNewAccessorListenerError(t *testing.T, f service.AccessorFactory) {
+func testNewAccessorListenerError(t *testing.T, f accessor.AccessorFactory) {
 	var (
 		assert        = assert.New(t)
 		require       = require.New(t)
@@ -126,7 +127,7 @@ func testNewAccessorListenerError(t *testing.T, f service.AccessorFactory) {
 
 		l = NewAccessorListener(
 			f,
-			func(a service.Accessor, err error) {
+			func(a accessor.Accessor, err error) {
 				nextCalled = true
 				assert.Nil(a)
 				assert.Equal(expectedError, err)
@@ -148,7 +149,7 @@ func testNewAccessorListenerInstances(t *testing.T) {
 
 		l = NewAccessorListener(
 			nil,
-			func(a service.Accessor, err error) {
+			func(a accessor.Accessor, err error) {
 				nextCalled = true
 				require.NotNil(a)
 				assert.NoError(err)
@@ -173,9 +174,9 @@ func testNewAccessorListenerEmpty(t *testing.T) {
 
 		l = NewAccessorListener(
 			nil,
-			func(a service.Accessor, err error) {
+			func(a accessor.Accessor, err error) {
 				nextCalled = true
-				assert.Equal(service.EmptyAccessor(), a)
+				assert.Equal(accessor.EmptyAccessor(), a)
 				assert.NoError(err)
 			},
 		)
@@ -191,7 +192,7 @@ func TestNewAccessorListener(t *testing.T) {
 
 	t.Run("DefaultAccessorFactory", func(t *testing.T) {
 		t.Run("Error", func(t *testing.T) {
-			testNewAccessorListenerError(t, service.DefaultAccessorFactory)
+			testNewAccessorListenerError(t, accessor.DefaultAccessorFactory)
 		})
 
 		t.Run("Instances", func(t *testing.T) {
@@ -204,7 +205,7 @@ func TestNewAccessorListener(t *testing.T) {
 	})
 
 	t.Run("CustomAccessorFactory", func(t *testing.T) {
-		f := service.NewConsistentAccessorFactory(2)
+		f := accessor.NewConsistentAccessorFactory(2)
 
 		t.Run("Error", func(t *testing.T) {
 			testNewAccessorListenerError(t, f)

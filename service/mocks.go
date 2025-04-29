@@ -3,20 +3,9 @@ package service
 import (
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
-
-// MockAccessor is a mocked Accessor
-type MockAccessor struct {
-	mock.Mock
-}
-
-var _ Accessor = (*MockAccessor)(nil)
-
-func (m *MockAccessor) Get(v []byte) (string, error) {
-	arguments := m.Called(v)
-	return arguments.String(0), arguments.Error(1)
-}
 
 // MockRegistrar is a stretchr/testify mocked sd.Registrar
 type MockRegistrar struct {
@@ -87,8 +76,8 @@ func (m *MockEnvironment) UpdateInstancers(currentKeys map[string]bool, instance
 	m.Called(currentKeys, instancersToAdd)
 }
 
-func (m *MockEnvironment) AccessorFactory() AccessorFactory {
-	return m.Called().Get(0).(AccessorFactory)
+func (m *MockEnvironment) AccessorFactory() accessor.AccessorFactory {
+	return m.Called().Get(0).(accessor.AccessorFactory)
 }
 
 func (m *MockEnvironment) Closed() <-chan struct{} {
