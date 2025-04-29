@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics/xmetricstest"
 	"go.uber.org/zap"
 )
@@ -113,11 +114,11 @@ func TestNewMetricsListener(t *testing.T) {
 func testNewAccessorListenerMissingNext(t *testing.T) {
 	assert := assert.New(t)
 	assert.Panics(func() {
-		NewAccessorListener(service.DefaultAccessorFactory, nil)
+		NewAccessorListener(accessor.DefaultAccessorFactory, nil)
 	})
 }
 
-func testNewAccessorListenerError(t *testing.T, f service.AccessorFactory) {
+func testNewAccessorListenerError(t *testing.T, f accessor.AccessorFactory) {
 	var (
 		assert        = assert.New(t)
 		require       = require.New(t)
@@ -126,7 +127,7 @@ func testNewAccessorListenerError(t *testing.T, f service.AccessorFactory) {
 
 		l = NewAccessorListener(
 			f,
-			func(a service.Accessor, err error) {
+			func(a accessor.Accessor, err error) {
 				nextCalled = true
 				assert.Nil(a)
 				assert.Equal(expectedError, err)
@@ -139,32 +140,33 @@ func testNewAccessorListenerError(t *testing.T, f service.AccessorFactory) {
 	assert.True(nextCalled)
 }
 
-func testNewAccessorListenerInstances(t *testing.T, f service.AccessorFactory) {
+func testNewAccessorListenerInstances(t *testing.T) {
 	var (
-		assert     = assert.New(t)
-		require    = require.New(t)
-		nextCalled = false
+		assert        = assert.New(t)
+		require       = require.New(t)
+		nextCalled    = false
+		instance_fqdn = "https://example.com"
 
 		l = NewAccessorListener(
 			nil,
-			func(a service.Accessor, err error) {
+			func(a accessor.Accessor, err error) {
 				nextCalled = true
 				require.NotNil(a)
 				assert.NoError(err)
 
 				i, err := a.Get([]byte("asdfasdfasdfsdf"))
-				assert.Equal("instance1", i)
+				assert.Equal(instance_fqdn, i)
 				assert.NoError(err)
 			},
 		)
 	)
 
 	require.NotNil(l)
-	l.MonitorEvent(Event{Instances: []string{"instance1"}})
+	l.MonitorEvent(Event{Instances: []string{instance_fqdn}})
 	assert.True(nextCalled)
 }
 
-func testNewAccessorListenerEmpty(t *testing.T, f service.AccessorFactory) {
+func testNewAccessorListenerEmpty(t *testing.T) {
 	var (
 		assert     = assert.New(t)
 		require    = require.New(t)
@@ -172,9 +174,9 @@ func testNewAccessorListenerEmpty(t *testing.T, f service.AccessorFactory) {
 
 		l = NewAccessorListener(
 			nil,
-			func(a service.Accessor, err error) {
+			func(a accessor.Accessor, err error) {
 				nextCalled = true
-				assert.Equal(service.EmptyAccessor(), a)
+				assert.Equal(accessor.EmptyAccessor(), a)
 				assert.NoError(err)
 			},
 		)
@@ -190,31 +192,31 @@ func TestNewAccessorListener(t *testing.T) {
 
 	t.Run("DefaultAccessorFactory", func(t *testing.T) {
 		t.Run("Error", func(t *testing.T) {
-			testNewAccessorListenerError(t, service.DefaultAccessorFactory)
+			testNewAccessorListenerError(t, accessor.DefaultAccessorFactory)
 		})
 
 		t.Run("Instances", func(t *testing.T) {
-			testNewAccessorListenerInstances(t, service.DefaultAccessorFactory)
+			testNewAccessorListenerInstances(t)
 		})
 
 		t.Run("Empty", func(t *testing.T) {
-			testNewAccessorListenerEmpty(t, service.DefaultAccessorFactory)
+			testNewAccessorListenerEmpty(t)
 		})
 	})
 
 	t.Run("CustomAccessorFactory", func(t *testing.T) {
-		f := service.NewConsistentAccessorFactory(2)
+		f := accessor.NewConsistentAccessorFactory(2)
 
 		t.Run("Error", func(t *testing.T) {
 			testNewAccessorListenerError(t, f)
 		})
 
 		t.Run("Instances", func(t *testing.T) {
-			testNewAccessorListenerInstances(t, f)
+			testNewAccessorListenerInstances(t)
 		})
 
 		t.Run("Empty", func(t *testing.T) {
-			testNewAccessorListenerEmpty(t, f)
+			testNewAccessorListenerEmpty(t)
 		})
 	})
 }
