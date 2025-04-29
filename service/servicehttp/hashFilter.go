@@ -5,7 +5,7 @@ import (
 
 	"github.com/xmidt-org/sallust/sallusthttp"
 	"github.com/xmidt-org/webpa-common/v2/device"
-	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/xhttp/xfilter"
 	"go.uber.org/zap"
 )
@@ -15,7 +15,7 @@ import (
 //
 // The returned filter will check the request's context for a device id, using that to hash with if one is found.
 // Otherwise, the device key is parsed from the request via device.IDHashParser.
-func NewHashFilter(a service.Accessor, reject error, self func(string) bool) xfilter.Interface {
+func NewHashFilter(a accessor.Accessor, reject error, self func(string) bool) xfilter.Interface {
 	// allow any nil parameter to simply disable the filtering
 	if a == nil || reject == nil || self == nil {
 		return xfilter.Allow()

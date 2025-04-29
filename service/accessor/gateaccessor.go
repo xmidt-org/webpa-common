@@ -1,4 +1,4 @@
-package service
+package accessor
 
 import (
 	"errors"
@@ -13,16 +13,16 @@ type gateAccessor struct {
 	Accessor Accessor
 }
 
-func GateAccessor(g gate.Interface, accessor Accessor) Accessor {
+func GateAccessor(g gate.Interface, a Accessor) Accessor {
 	if g == nil {
 		g = gate.New(true)
 	}
-	if accessor == nil {
-		accessor = EmptyAccessor()
+	if a == nil {
+		a = EmptyAccessor()
 	}
 	return gateAccessor{
 		Gate:     g,
-		Accessor: accessor,
+		Accessor: a,
 	}
 }
 
