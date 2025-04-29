@@ -1,8 +1,6 @@
 module github.com/xmidt-org/webpa-common/v2
 
-go 1.23.0
-
-toolchain go1.24.1
+go 1.24
 
 require (
 	github.com/aws/aws-sdk-go v1.55.7
@@ -27,7 +25,7 @@ require (
 	github.com/ugorji/go/codec v1.2.12
 	github.com/xmidt-org/argus v0.10.18
 	github.com/xmidt-org/candlelight v0.1.23
-	github.com/xmidt-org/sallust v0.2.3
+	github.com/xmidt-org/sallust v0.2.4
 	github.com/xmidt-org/themis v0.4.31
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.60.0
@@ -114,7 +112,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
-	go.uber.org/dig v1.18.0 // indirect
+	go.uber.org/dig v1.18.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
