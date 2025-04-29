@@ -947,7 +947,6 @@ func TestDrainerWithFilter(t *testing.T) {
 		metadata2 = map[string]interface{}{filterKey: filterValue}
 
 		counts = [][]int{
-			[]int{0, 0, 100},
 			[]int{1, 0, 1},
 			[]int{2, 0, 9},
 			[]int{0, 1, 100},

@@ -5,11 +5,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 )
 
 func testOptionsDefault(t *testing.T, o *Options) {
 	assert := assert.New(t)
-	assert.Equal(service.DefaultVnodeCount, o.vnodeCount())
+	assert.Equal(accessor.DefaultVnodeCount, o.vnodeCount())
 	assert.False(o.disableFilter())
 	assert.Equal(service.DefaultScheme, o.defaultScheme())
 }

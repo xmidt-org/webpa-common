@@ -2,6 +2,7 @@ package servicecfg
 
 import (
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/consul"
 	"github.com/xmidt-org/webpa-common/v2/service/zk"
 )
@@ -22,7 +23,7 @@ func (o *Options) vnodeCount() int {
 		return o.VnodeCount
 	}
 
-	return service.DefaultVnodeCount
+	return accessor.DefaultVnodeCount
 }
 
 func (o *Options) disableFilter() bool {

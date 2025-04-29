@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 )
 
 func TestNopCloser(t *testing.T) {
@@ -68,9 +69,9 @@ func testNewEnvironmentWithOptions(t *testing.T) {
 		instancers = Instancers{"test": instancer}
 
 		accessorFactoryCalled = false
-		accessorFactory       = func(i []string) Accessor {
+		accessorFactory       = func(i []string) accessor.Accessor {
 			accessorFactoryCalled = true
-			return EmptyAccessor()
+			return accessor.EmptyAccessor()
 		}
 
 		expectedCloseError = errors.New("expected")
