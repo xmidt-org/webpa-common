@@ -26,7 +26,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/ugorji/go/codec v1.2.12
 	github.com/xmidt-org/argus v0.10.18
-	github.com/xmidt-org/candlelight v0.1.23
+	github.com/xmidt-org/candlelight v0.2.1
 	github.com/xmidt-org/sallust v0.2.3
 	github.com/xmidt-org/themis v0.4.31
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
