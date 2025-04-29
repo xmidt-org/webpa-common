@@ -6,14 +6,10 @@ import (
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/v2/device"
-	// nolint:staticcheck
 
 	// nolint:staticcheck
-
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 	"github.com/xmidt-org/webpa-common/v2/service/multiaccessor"
-
-	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service/servicehttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )

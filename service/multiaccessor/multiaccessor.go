@@ -15,6 +15,7 @@ type MultiAccessor interface {
 	GetNormMap() (m map[HasherType]map[string]string)
 }
 
+// New returns a MultiAccessor.
 func New(opts ...option) MultiAccessor {
 	hs := make(multiHasher)
 	options(opts).Apply(hs)
