@@ -28,5 +28,4 @@ jobs:
       lint-skip:             true
       release-type:          library
       release-docker:        false
-      tests-skip:            true
     secrets: inherit

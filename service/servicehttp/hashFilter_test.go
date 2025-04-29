@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
-	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 )
 
 func testNewHashFilterNoAccessor(t *testing.T) {
@@ -36,7 +36,7 @@ func testNewHashFilterNoReject(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		a = new(service.MockAccessor)
+		a = new(accessor.MockAccessor)
 
 		self = func(string) bool {
 			assert.Fail("The self predicate should not have been called")
@@ -56,7 +56,7 @@ func testNewHashFilterNoSelf(t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		a  = new(service.MockAccessor)
+		a  = new(accessor.MockAccessor)
 		hf = NewHashFilter(a, errors.New("reject"), nil)
 	)
 
@@ -76,7 +76,7 @@ func testNewHashFilterParseError(t *testing.T) {
 			return false
 		}
 
-		accessor = new(service.MockAccessor)
+		accessor = new(accessor.MockAccessor)
 		hf       = NewHashFilter(accessor, errors.New("reject"), self)
 	)
 
@@ -101,7 +101,7 @@ func testNewHashFilterHashError(t *testing.T) {
 		}
 
 		hashErr  = errors.New("hash")
-		accessor = new(service.MockAccessor)
+		accessor = new(accessor.MockAccessor)
 		hf       = NewHashFilter(accessor, errors.New("reject"), self)
 	)
 
@@ -138,7 +138,7 @@ func testNewHashFilterAllow(t *testing.T) {
 			return true
 		}
 
-		a  = new(service.MockAccessor)
+		a  = new(accessor.MockAccessor)
 		hf = NewHashFilter(a, errors.New("reject"), self)
 	)
 
@@ -169,7 +169,7 @@ func testNewHashFilterReject(t *testing.T) {
 			return false
 		}
 
-		a           = new(service.MockAccessor)
+		a           = new(accessor.MockAccessor)
 		expectedErr = errors.New("expected")
 		hf          = NewHashFilter(a, expectedErr, self)
 	)

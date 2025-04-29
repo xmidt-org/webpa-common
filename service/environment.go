@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/sd"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -43,7 +44,7 @@ type Environment interface {
 
 	// AccessorFactory returns the creation strategy for Accessors used in this environment.
 	// Typically, this factory is set via configuration by some external source.
-	AccessorFactory() AccessorFactory
+	AccessorFactory() accessor.AccessorFactory
 
 	// Closed returns a channel that is closed when this Environment in closed.
 	Closed() <-chan struct{}
@@ -89,10 +90,10 @@ func WithInstancers(i Instancers) Option {
 // WithAccessorFactory configures the creation strategy for Accessor objects.  By default,
 // DefaultAccessorFactory is used.  Passing nil via this option sets (or resets) the environment
 // back to using the DefaultAccessorFactory.
-func WithAccessorFactory(af AccessorFactory) Option {
+func WithAccessorFactory(af accessor.AccessorFactory) Option {
 	return func(e *environment) {
 		if af == nil {
-			e.accessorFactory = DefaultAccessorFactory
+			e.accessorFactory = accessor.DefaultAccessorFactory
 		} else {
 			e.accessorFactory = af
 		}
@@ -126,7 +127,7 @@ func WithProvider(p xmetrics.Registry) Option {
 func NewEnvironment(options ...Option) Environment {
 	e := &environment{
 		defaultScheme:   DefaultScheme,
-		accessorFactory: DefaultAccessorFactory,
+		accessorFactory: accessor.DefaultAccessorFactory,
 		closer:          NopCloser,
 		closed:          make(chan struct{}),
 	}
@@ -142,7 +143,7 @@ type environment struct {
 	defaultScheme   string
 	registrars      Registrars
 	instancers      Instancers
-	accessorFactory AccessorFactory
+	accessorFactory accessor.AccessorFactory
 	provider        xmetrics.Registry
 
 	lock      sync.RWMutex
@@ -190,7 +191,7 @@ func (e *environment) UpdateInstancers(currentKeys map[string]bool, instancersTo
 	e.lock.Unlock()
 }
 
-func (e *environment) AccessorFactory() AccessorFactory {
+func (e *environment) AccessorFactory() accessor.AccessorFactory {
 	return e.accessorFactory
 }
 
