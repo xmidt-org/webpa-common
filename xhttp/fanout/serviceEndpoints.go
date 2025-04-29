@@ -6,12 +6,10 @@ import (
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/v2/device"
-	// nolint:staticcheck
 
 	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
-	// nolint:staticcheck
+	"github.com/xmidt-org/webpa-common/v2/service/multiaccessor"
 	"github.com/xmidt-org/webpa-common/v2/service/servicehttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
 )
@@ -20,10 +18,10 @@ import (
 // This type is a monitor.Listener, and fanout URLs are computed from all configured
 // instancers.
 type ServiceEndpoints struct {
-	lock            sync.RWMutex
-	keyFunc         servicehttp.KeyFunc
-	accessorFactory accessor.AccessorFactory
-	accessors       map[string]accessor.Accessor
+	lock                 sync.RWMutex
+	keyFunc              servicehttp.KeyFunc
+	multiAccessorFactory multiaccessor.MultiAccessorFactory
+	accessors            map[string]multiaccessor.MultiAccessor
 }
 
 // FanoutURLs uses the currently available discovered endpoints to produce a set of URLs.
@@ -38,12 +36,12 @@ func (se *ServiceEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, erro
 	se.lock.RLock()
 	endpoints := make([]string, 0, len(se.accessors))
 	for _, a := range se.accessors {
-		e, err := a.Get(hashKey)
+		es, err := a.Get(hashKey)
 		if err != nil {
 			continue
 		}
 
-		endpoints = append(endpoints, e)
+		endpoints = append(endpoints, es...)
 	}
 
 	se.lock.RUnlock()
@@ -56,7 +54,7 @@ func (se *ServiceEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, erro
 // MonitorEvent supplies the monitor.Listener behavior.  An accessor is created and stored under
 // the event Key.
 func (se *ServiceEndpoints) MonitorEvent(e monitor.Event) {
-	accessor := se.accessorFactory(e.Instances)
+	accessor := se.multiAccessorFactory(e.Instances)
 	se.lock.Lock()
 	se.accessors[e.Key] = accessor
 	se.lock.Unlock()
@@ -77,14 +75,14 @@ func WithKeyFunc(kf servicehttp.KeyFunc) ServiceEndpointsOption {
 	}
 }
 
-// WithAccessorFactory configures an accessor factory for the given service endpoints.
+// WithHasherFactory configures an accessor factory for the given service endpoints.
 // If nil, then accessor.DefaultAccessorFactory is used.
-func WithAccessorFactory(af accessor.AccessorFactory) ServiceEndpointsOption {
+func WithHasherFactory(hf multiaccessor.MultiAccessorFactory) ServiceEndpointsOption {
 	return func(se *ServiceEndpoints) {
-		if af != nil {
-			se.accessorFactory = af
+		if hf != nil {
+			se.multiAccessorFactory = hf
 		} else {
-			se.accessorFactory = accessor.DefaultAccessorFactory
+			se.multiAccessorFactory = multiaccessor.DefaultMultiAccessorFactory
 		}
 	}
 }
@@ -93,9 +91,9 @@ func WithAccessorFactory(af accessor.AccessorFactory) ServiceEndpointsOption {
 // and accessor.DefaultAccessorFactory is used as the accessor factory.
 func NewServiceEndpoints(options ...ServiceEndpointsOption) *ServiceEndpoints {
 	se := &ServiceEndpoints{
-		keyFunc:         device.IDHashParser,
-		accessorFactory: accessor.DefaultAccessorFactory,
-		accessors:       make(map[string]accessor.Accessor),
+		keyFunc:              device.IDHashParser,
+		multiAccessorFactory: multiaccessor.DefaultMultiAccessorFactory,
+		accessors:            make(map[string]multiaccessor.MultiAccessor),
 	}
 
 	for _, o := range options {
