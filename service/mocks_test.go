@@ -7,6 +7,7 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 )
 
 func TestMockRegistrar(t *testing.T) {
@@ -50,9 +51,9 @@ func TestMockEnvironment(t *testing.T) {
 		closeError = errors.New("expected close error")
 
 		accessorFactoryCalled = false
-		accessorFactory       = AccessorFactory(func(i []string) Accessor {
+		accessorFactory       = accessor.AccessorFactory(func(i []string) accessor.Accessor {
 			accessorFactoryCalled = true
-			return EmptyAccessor()
+			return accessor.EmptyAccessor()
 		})
 	)
 
@@ -76,7 +77,7 @@ func TestMockEnvironment(t *testing.T) {
 
 	af := e.AccessorFactory()
 	require.NotNil(af)
-	assert.Equal(EmptyAccessor(), af([]string{}))
+	assert.Equal(accessor.EmptyAccessor(), af([]string{}))
 	assert.True(accessorFactoryCalled)
 
 	assert.Equal((<-chan struct{})(closed), e.Closed())

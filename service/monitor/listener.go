@@ -8,6 +8,7 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"go.uber.org/zap"
 )
 
@@ -93,13 +94,13 @@ func NewMetricsListener(p provider.Provider) Listener {
 //
 //	ua := new(UpdatableAccessor)
 //	l := NewAccessorListener(f, ua.Update)
-func NewAccessorListener(f service.AccessorFactory, next func(service.Accessor, error)) Listener {
+func NewAccessorListener(f accessor.AccessorFactory, next func(accessor.Accessor, error)) Listener {
 	if next == nil {
 		panic("A next closure is required to receive Accessors")
 	}
 
 	if f == nil {
-		f = service.DefaultAccessorFactory
+		f = accessor.DefaultAccessorFactory
 	}
 
 	return ListenerFunc(func(e Event) {
@@ -111,18 +112,18 @@ func NewAccessorListener(f service.AccessorFactory, next func(service.Accessor, 
 			next(f(e.Instances), nil)
 
 		default:
-			next(service.EmptyAccessor(), nil)
+			next(accessor.EmptyAccessor(), nil)
 		}
 	})
 }
 
-func NewKeyAccessorListener(f service.AccessorFactory, key string, next func(string, service.Accessor, error)) Listener {
+func NewKeyAccessorListener(f accessor.AccessorFactory, key string, next func(string, accessor.Accessor, error)) Listener {
 	if next == nil {
 		panic("A next closure is required to receive Accessors")
 	}
 
 	if f == nil {
-		f = service.DefaultAccessorFactory
+		f = accessor.DefaultAccessorFactory
 	}
 
 	return ListenerFunc(func(e Event) {
@@ -134,7 +135,7 @@ func NewKeyAccessorListener(f service.AccessorFactory, key string, next func(str
 			next(key, f(e.Instances), nil)
 
 		default:
-			next(key, service.EmptyAccessor(), nil)
+			next(key, accessor.EmptyAccessor(), nil)
 		}
 	})
 }

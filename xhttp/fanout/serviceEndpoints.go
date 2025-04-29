@@ -7,8 +7,9 @@ import (
 
 	"github.com/xmidt-org/webpa-common/v2/device"
 	// nolint:staticcheck
-	"github.com/xmidt-org/webpa-common/v2/service"
+
 	// nolint:staticcheck
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service/servicehttp"
@@ -21,8 +22,8 @@ import (
 type ServiceEndpoints struct {
 	lock            sync.RWMutex
 	keyFunc         servicehttp.KeyFunc
-	accessorFactory service.AccessorFactory
-	accessors       map[string]service.Accessor
+	accessorFactory accessor.AccessorFactory
+	accessors       map[string]accessor.Accessor
 }
 
 // FanoutURLs uses the currently available discovered endpoints to produce a set of URLs.
@@ -77,24 +78,24 @@ func WithKeyFunc(kf servicehttp.KeyFunc) ServiceEndpointsOption {
 }
 
 // WithAccessorFactory configures an accessor factory for the given service endpoints.
-// If nil, then service.DefaultAccessorFactory is used.
-func WithAccessorFactory(af service.AccessorFactory) ServiceEndpointsOption {
+// If nil, then accessor.DefaultAccessorFactory is used.
+func WithAccessorFactory(af accessor.AccessorFactory) ServiceEndpointsOption {
 	return func(se *ServiceEndpoints) {
 		if af != nil {
 			se.accessorFactory = af
 		} else {
-			se.accessorFactory = service.DefaultAccessorFactory
+			se.accessorFactory = accessor.DefaultAccessorFactory
 		}
 	}
 }
 
 // NewServiceEndpoints creates a ServiceEndpoints instance.  By default, device.IDHashParser is used as the KeyFunc
-// and service.DefaultAccessorFactory is used as the accessor factory.
+// and accessor.DefaultAccessorFactory is used as the accessor factory.
 func NewServiceEndpoints(options ...ServiceEndpointsOption) *ServiceEndpoints {
 	se := &ServiceEndpoints{
 		keyFunc:         device.IDHashParser,
-		accessorFactory: service.DefaultAccessorFactory,
-		accessors:       make(map[string]service.Accessor),
+		accessorFactory: accessor.DefaultAccessorFactory,
+		accessors:       make(map[string]accessor.Accessor),
 	}
 
 	for _, o := range options {
