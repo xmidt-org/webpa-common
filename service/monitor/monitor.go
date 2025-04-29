@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/go-kit/kit/sd"
@@ -139,13 +140,7 @@ func (m *monitor) start() error {
 	}
 
 	for k, v := range m.instancers {
-		var svc = k
-		if ci, ok := v.(service.ContextualInstancer); ok {
-			if svcName, ok := ci.Metadata()["service"].(string); ok {
-				svc = svcName
-			}
-		}
-		go m.dispatchEvents(k, svc, m.logger.With(zap.Any(k, v)), v)
+		go m.dispatchEvents(k, k, m.logger.With(zap.Any(k, v)), v)
 	}
 
 	return nil
@@ -154,11 +149,20 @@ func (m *monitor) start() error {
 // dispatchEvents is a goroutine that consumes service discovery events from an sd.Instancer
 // and dispatches those events zero or more Listeners.  If configured, the filter is used to
 // preprocess the set of instances sent to the listener.
-func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instancer) {
+func (m *monitor) dispatchEvents(key, svc string, l *zap.Logger, i sd.Instancer) {
 	var (
 		eventCount = 0
 		events     = make(chan sd.Event, 10)
 	)
+
+	var zapDebugFields []zap.Field
+	if ci, ok := i.(service.ContextualInstancer); ok {
+		metadata := ci.Metadata()
+		if svcName, ok := metadata["service"].(string); ok {
+			svc = svcName
+		}
+		zapDebugFields = append(zapDebugFields, zap.String("instancer", fmt.Sprintf("%s-%s", key, svc)), zap.Any("metadata", metadata))
+	}
 
 	l.Info("subscription monitor starting", zap.Int(EventCountKey(), eventCount))
 
@@ -171,7 +175,7 @@ func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instan
 			eventCount++
 			event := Event{
 				Key:        key,
-				Service:    service,
+				Service:    svc,
 				Instancer:  i,
 				EventCount: eventCount,
 			}
@@ -180,23 +184,24 @@ func (m *monitor) dispatchEvents(key, service string, l *zap.Logger, i sd.Instan
 				l.Error("service discovery error", zap.Error(sdEvent.Err), zap.Int(EventCountKey(), eventCount))
 				event.Err = sdEvent.Err
 			} else {
-				l.Error("service discovery update", zap.Strings("instances", sdEvent.Instances), zap.Int(EventCountKey(), eventCount))
+				l.Info("service discovery update", zap.Strings("instances", sdEvent.Instances), zap.Int(EventCountKey(), eventCount))
 				if len(sdEvent.Instances) > 0 {
 					event.Instances = m.filter(sdEvent.Instances)
 				}
 			}
 
+			l.Debug("subscription monitor activity", append(zapDebugFields, zap.Any("event", event))...)
 			m.listeners.MonitorEvent(event)
 
 		case <-m.stopped:
 			l.Info("subscription monitor was stopped", zap.Int(EventCountKey(), eventCount))
-			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Service: svc, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 
 		case <-m.closed:
 			l.Info("subscription monitor exiting due to external closure", zap.Int(EventCountKey(), eventCount))
 			m.Stop() // ensure that the Stopped state is correct
-			m.listeners.MonitorEvent(Event{Key: key, Service: service, Instancer: i, EventCount: eventCount, Stopped: true})
+			m.listeners.MonitorEvent(Event{Key: key, Service: svc, Instancer: i, EventCount: eventCount, Stopped: true})
 			return
 		}
 	}
