@@ -16,6 +16,7 @@ import (
 	// nolint:staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service"
 	// nolint:staticcheck
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 )
 
@@ -110,9 +111,9 @@ func testNewServiceEndpointsCustom(t *testing.T) {
 		}
 
 		accessorFactoryCalled = false
-		accessorFactory       = func(instances []string) service.Accessor {
+		accessorFactory       = func(instances []string) accessor.Accessor {
 			accessorFactoryCalled = true
-			return service.DefaultAccessorFactory(instances)
+			return accessor.DefaultAccessorFactory(instances)
 		}
 
 		se = NewServiceEndpoints(WithAccessorFactory(accessorFactory), WithKeyFunc(keyFunc))

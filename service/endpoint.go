@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-kit/kit/endpoint"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 )
 
 // Key represents a service key.
@@ -26,7 +27,7 @@ type KeyParser func(string) (Key, error)
 // NewAccessorEndpoint produces a go-kit Endpoint which delegates to an Accessor.
 // The returned Endpoint expects a service Key as its request, and returns the instance
 // string as the response.
-func NewAccessorEndpoint(a Accessor) endpoint.Endpoint {
+func NewAccessorEndpoint(a accessor.Accessor) endpoint.Endpoint {
 	if a == nil {
 		panic("an Accessor is required")
 	}

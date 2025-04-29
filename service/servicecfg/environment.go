@@ -6,6 +6,7 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/webpa-common/v2/service"
+	"github.com/xmidt-org/webpa-common/v2/service/accessor"
 	"github.com/xmidt-org/webpa-common/v2/service/consul"
 	"github.com/xmidt-org/webpa-common/v2/service/zk"
 	"github.com/xmidt-org/webpa-common/v2/xviper"
@@ -30,7 +31,7 @@ func NewEnvironment(l *adapter.Logger, u xviper.Unmarshaler, options ...service.
 	}
 	eo := []service.Option{
 		service.WithAccessorFactory(
-			service.NewConsistentAccessorFactory(o.vnodeCount()),
+			accessor.NewConsistentAccessorFactory(o.vnodeCount()),
 		),
 		service.WithDefaultScheme(o.defaultScheme()),
 	}
