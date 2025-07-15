@@ -24,7 +24,6 @@ jobs:
     with:
       style-skip:            true
       yaml-lint-skip:        true
-      copyright-skip:        true
       lint-skip:             true
       release-type:          library
       release-docker:        false
