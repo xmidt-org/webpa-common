@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
+
 package tracing
 
 // Spanned can be implemented by message objects to describe the spans

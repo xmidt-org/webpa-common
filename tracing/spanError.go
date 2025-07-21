@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
+
 package tracing
 
 // NoErrorSupplied is the string returned from SpanError.Error() if no causal error is

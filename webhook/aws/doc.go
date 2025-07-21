@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
+
 /*
 Package aws provides functionality for webhook management using AWS. This
 package will not work with go 1.18+ due to its dependency on SHA1.  For further
