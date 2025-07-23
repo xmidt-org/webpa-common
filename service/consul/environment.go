@@ -205,7 +205,7 @@ func NewEnvironment(l *adapter.Logger, registrationScheme string, co Options, eo
 				service.WithInstancers(i),
 				service.WithCloser(closer),
 			)...), NewClient(consulClient)}
-	if co.DatacenterWatchInterval > 0 || (len(co.Chrysom.Bucket) > 0 && co.Chrysom.Listen.PullInterval > 0) {
+	if co.DatacenterWatchInterval > 0 {
 		_, err := newDatacenterWatcher(l.Logger, newServiceEnvironment, co)
 		if err != nil {
 			l.Logger.Error("Could not create datacenter watcher", zap.Error(err))
