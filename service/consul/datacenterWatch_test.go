@@ -6,25 +6,17 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/webpa-common/v2/adapter"
 	"github.com/xmidt-org/webpa-common/v2/service"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/zap"
 )
 
 func TestNewDatacenterWatcher(t *testing.T) {
 	logger := adapter.DefaultLogger().Logger
-	r, err := xmetrics.NewRegistry(nil, Metrics)
-	require.Nil(t, err)
 	envShutdownChan := make(<-chan struct{})
 
 	mockServiceEnvironment := new(service.MockEnvironment)
-	mockServiceEnvironment.On("Provider").Return(r, true)
 	mockServiceEnvironment.On("Closed").Return(envShutdownChan)
-
-	noProviderEnv := new(service.MockEnvironment)
-	noProviderEnv.On("Provider").Return(nil, false)
 
 	tests := []struct {
 		description     string

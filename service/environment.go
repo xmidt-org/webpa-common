@@ -47,10 +47,6 @@ type Environment interface {
 
 	// Closed returns a channel that is closed when this Environment in closed.
 	Closed() <-chan struct{}
-
-	// Provider returns the metrics provider that is associated with this environment
-	// Mainly used for the argus chrysom client
-	Provider() xmetrics.Registry
 }
 
 // Option represents a service discovery option for configuring an Environment
@@ -221,8 +217,4 @@ func (e *environment) Close() (err error) {
 	})
 
 	return
-}
-
-func (e *environment) Provider() xmetrics.Registry {
-	return e.provider
 }

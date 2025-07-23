@@ -3,7 +3,6 @@ package service
 import (
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 // MockAccessor is a mocked Accessor
@@ -93,13 +92,4 @@ func (m *MockEnvironment) AccessorFactory() AccessorFactory {
 
 func (m *MockEnvironment) Closed() <-chan struct{} {
 	return m.Called().Get(0).(<-chan struct{})
-}
-
-func (m *MockEnvironment) Provider() xmetrics.Registry {
-	if m.Called().Get(1).(bool) {
-		return m.Called().Get(0).(xmetrics.Registry)
-	}
-
-	return nil
-
 }
