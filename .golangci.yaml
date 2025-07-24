@@ -16,25 +16,31 @@ linters:
     - goconst
     - gosec
     - misspell
-    - unconvert
     - prealloc
+    - unconvert
   disable:
     - errcheck
     - ineffassign
+  settings:
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    # rules:
+    #   - linters:
+    #       - dupl
+    paths:
+      - _test.go
+      - concurrent/*
+      - health/*
+      - server/*
 
-issues:
-  exclude-rules:
-    - path: _test.go
-      linters:
-        - dupl
-        - funlen
-
-run:
-  skip-dirs:
-    - concurrent/*
-    - health/*
-    - server/*
-    - service/*
-    - webhook/aws/*
-    - xviper/*
-    - xmetrics/*
+      - service/*
+      - webhook/aws/*
+      - xviper/*
+      - xmetrics/*
