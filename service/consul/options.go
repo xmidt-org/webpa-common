@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/consul/api"
-	"github.com/xmidt-org/argus/chrysom"
 )
 
 const DefaultDatacenterRetries = 10
@@ -22,17 +21,11 @@ type Watch struct {
 
 type Options struct {
 	Client                  *api.Config                    `json:"client"`
-	Chrysom                 ChrysomConfig                  `json:"chrysom"`
 	DisableGenerateID       bool                           `json:"disableGenerateID"`
 	DatacenterRetries       int                            `json:"datacenterRetries"`
 	DatacenterWatchInterval time.Duration                  `json:"datacenterWatchInterval"`
 	Registrations           []api.AgentServiceRegistration `json:"registrations,omitempty"`
 	Watches                 []Watch                        `json:"watches,omitempty"`
-}
-
-type ChrysomConfig struct {
-	chrysom.BasicClientConfig `mapstructure:",squash"`
-	Listen                    chrysom.ListenerClientConfig
 }
 
 func (o *Options) config() *api.Config {

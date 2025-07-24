@@ -7,7 +7,6 @@ import (
 	"github.com/go-kit/kit/sd"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/webpa-common/v2/service/accessor"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 // MockRegistrar is a stretchr/testify mocked sd.Registrar
@@ -85,13 +84,4 @@ func (m *MockEnvironment) AccessorFactory() accessor.AccessorFactory {
 
 func (m *MockEnvironment) Closed() <-chan struct{} {
 	return m.Called().Get(0).(<-chan struct{})
-}
-
-func (m *MockEnvironment) Provider() xmetrics.Registry {
-	if m.Called().Get(1).(bool) {
-		return m.Called().Get(0).(xmetrics.Registry)
-	}
-
-	return nil
-
 }
