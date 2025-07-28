@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
-	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v5"
 	"go.uber.org/zap"
 )
 
@@ -116,6 +116,7 @@ func (mh *MessageHandler) logger() *zap.Logger {
 // decodeRequest transforms an HTTP request into a device request.
 func (mh *MessageHandler) decodeRequest(httpRequest *http.Request) (deviceRequest *Request, err error) {
 	// nolint: typecheck
+	
 	format, err := wrp.FormatFromContentType(httpRequest.Header.Get("Content-Type"), wrp.Msgpack)
 	if err != nil {
 		return nil, err
@@ -137,20 +138,6 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			httpResponse,
 			http.StatusBadRequest,
 			"Unable to decode request: %s",
-			err,
-		)
-
-		return
-	}
-
-	// nolint: typecheck
-	responseFormat, err := wrp.FormatFromContentType(httpRequest.Header.Get("Accept"), deviceRequest.Format)
-	if err != nil {
-		mh.logger().Error("Unable to determine response WRP format", zap.Error(err))
-		xhttp.WriteErrorf(
-			httpResponse,
-			http.StatusBadRequest,
-			"Unable to determine response WRP format: %s",
 			err,
 		)
 
@@ -182,7 +169,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 			err,
 		)
 	} else if deviceResponse != nil {
-		if err := EncodeResponse(httpResponse, deviceResponse, responseFormat); err != nil {
+		if err := EncodeResponse(httpResponse, deviceResponse, deviceResponse.Format); err != nil {
 			mh.logger().Error("Error while writing transaction response", zap.Error(err))
 		}
 	}

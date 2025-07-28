@@ -21,7 +21,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/xmidt-org/webpa-common/v2/convey/conveyhttp"
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
-	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v5"
 )
 
 const MaxDevicesHeader = "X-Xmidt-Max-Devices"
@@ -409,7 +409,7 @@ func (m *manager) readPump(d *device, r ReadCloser, closeOnce *sync.Once) {
 			event   = Event{
 				Type:    MessageReceived,
 				Device:  d,
-				Message: message,
+				Message: *message,
 				// nolint: typecheck
 				Format:   wrp.Msgpack,
 				Contents: data,

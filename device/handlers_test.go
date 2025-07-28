@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/sallust"
-	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v5"
 )
 
 func testUseIDFNilStrategy(t *testing.T) {
@@ -296,7 +296,7 @@ func testMessageHandlerServeHTTPEvent(t *testing.T, requestFormat wrp.Format) {
 		actualDeviceRequest *Request
 	)
 
-	request.Header.Set("Content-Type", requestFormat.ContentType())
+	request.Header.Set("Content-Type", requestFormat.String())
 
 	// nolint: typecheck
 	router.On(
@@ -377,8 +377,8 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 		}
 	)
 
-	request.Header.Set("Content-Type", requestFormat.ContentType())
-	request.Header.Set("Accept", responseFormat.ContentType())
+	request.Header.Set("Content-Type", requestFormat.String())
+	request.Header.Set("Accept", responseFormat.String())
 
 	// nolint: typecheck
 	router.On(
@@ -394,7 +394,7 @@ func testMessageHandlerServeHTTPRequestResponse(t *testing.T, responseFormat, re
 
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusOK, response.Code)
-	assert.Equal(responseFormat.ContentType(), response.Header().Get("Content-Type"))
+	assert.Equal(responseFormat.String(), response.Header().Get("Content-Type"))
 	require.NotNil(actualDeviceRequest)
 	// nolint: typecheck
 	assert.NoError(wrp.NewDecoder(response.Body, responseFormat).Decode(new(wrp.Message)))

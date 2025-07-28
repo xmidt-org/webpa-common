@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/v2/xhttp"
-	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v5"
 )
 
 // Request represents a single device Request, carrying routing information and message contents.
@@ -18,7 +18,7 @@ type Request struct {
 	// Message is the original, decoded WRP message containing the routing information.  When sending a request
 	// through Manager.Route, this field is required and must also implement wrp.Routable.
 	// nolint: typecheck
-	Message wrp.Typed
+	Message *wrp.Message
 
 	// Format is the WRP format of the Contents member.  If Format is not JSON, then Routing
 	// will be encoded prior to sending to devices.
@@ -155,12 +155,12 @@ func EncodeResponse(output http.ResponseWriter, response *Response, format wrp.F
 			return
 		}
 
-		output.Header().Set("Content-Type", response.Format.ContentType())
+		output.Header().Set("Content-Type", response.Format.String())
 		_, err = output.Write(response.Contents)
 		return
 	}
 
-	output.Header().Set("Content-Type", format.ContentType())
+	output.Header().Set("Content-Type", format.String())
 	// nolint: typecheck
 	err = wrp.NewEncoder(output, format).Encode(response.Message)
 	return

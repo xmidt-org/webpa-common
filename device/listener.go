@@ -4,7 +4,7 @@
 package device
 
 import (
-	"github.com/xmidt-org/wrp-go/v3"
+	"github.com/xmidt-org/wrp-go/v5"
 )
 
 // EventType is the type of device-related event
@@ -81,7 +81,7 @@ type Event struct {
 	// a copy if this Message is needed by other goroutines or if it needs to be part of a long-lived
 	// data structure.
 	// nolint: typecheck
-	Message wrp.Typed
+	Message wrp.Message
 
 	// Format is the encoding format of the Contents field
 	// nolint: typecheck
