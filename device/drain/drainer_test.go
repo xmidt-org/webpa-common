@@ -338,7 +338,6 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 
 	select {
 	case <-done:
-		fmt.Println("passed")
 		// passed
 	case <-time.After(5 * time.Second):
 		assert.Fail("Drain failed to complete")
@@ -363,6 +362,102 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 
 	assert.Empty(manager.devices)
 	assert.True(stopCalled)
+}
+
+func testDrainerDrainEmpty(t *testing.T) {
+	var (
+		assert      = assert.New(t)
+		require     = require.New(t)
+		provider    = xmetricstest.NewProvider(nil)
+		logger      = sallust.Default()
+		deviceCount = 0
+
+		manager = generateManager(assert, uint64(deviceCount))
+
+		firstTime        = true
+		expectedStarted  = time.Now()
+		expectedFinished = expectedStarted.Add(10 * time.Minute)
+
+		stopCalled = false
+		stop       = func() {
+			stopCalled = true
+		}
+
+		ticker = make(chan time.Time, 1)
+
+		d = New(
+			WithLogger(logger),
+			WithRegistry(manager),
+			WithConnector(manager),
+			WithStateGauge(provider.NewGauge("state")),
+			WithDrainCounter(provider.NewCounter("counter")),
+		)
+	)
+
+	require.NotNil(d)
+	d.(*drainer).now = func() time.Time {
+		if firstTime {
+			firstTime = false
+			return expectedStarted
+		}
+
+		return expectedFinished
+	}
+
+	d.(*drainer).newTicker = func(d time.Duration) (<-chan time.Time, func()) {
+		assert.Equal(time.Second, d)
+		return ticker, stop
+	}
+
+	defer d.Cancel() // cleanup in case of horribleness
+
+	done, err := d.Cancel()
+	assert.Nil(done)
+	assert.Error(err)
+
+	active, job, progress := d.Status()
+	assert.False(active)
+	assert.Equal(Job{}, job)
+	assert.Equal(Progress{}, progress)
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	done, job, err = d.Start(Job{Rate: 100, Tick: time.Second})
+	require.NoError(err)
+	require.NotNil(done)
+	assert.Equal(Job{Count: deviceCount, Rate: 100, Tick: time.Second}, job)
+
+	close(manager.pauseDisconnect)
+	close(manager.pauseVisit)
+
+	select {
+	case <-done:
+		// passed
+	case <-time.After(5 * time.Second):
+		assert.Fail("Drain failed to complete")
+		return
+	}
+
+	provider.Assert(t, "state")(xmetricstest.Value(MetricNotDraining))
+	provider.Assert(t, "counter")(xmetricstest.Value(0.0))
+
+	done, err = d.Cancel()
+	assert.Nil(done)
+	assert.Error(err)
+
+	active, job, progress = d.Status()
+	assert.False(active)
+	assert.Equal(Job{Count: deviceCount, Rate: 100, Tick: time.Second}, job)
+	assert.Equal(deviceCount, progress.Visited)
+	assert.Equal(deviceCount, progress.Drained)
+	assert.Equal(expectedStarted.UTC(), progress.Started)
+	require.NotNil(progress.Finished)
+	assert.Equal(expectedFinished.UTC(), *progress.Finished)
+
+	assert.Empty(manager.devices)
+	assert.True(stopCalled)
+
 }
 
 func testDrainerDisconnectAll(t *testing.T, deviceCount int) {
@@ -610,7 +705,7 @@ func testDrainerDrainCancel(t *testing.T) {
 }
 
 func TestDrainer(t *testing.T) {
-	deviceCounts := []int{0, 1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
+	deviceCounts := []int{1, 2, disconnectBatchSize - 1, disconnectBatchSize, disconnectBatchSize + 1, 1709}
 
 	t.Run("DisconnectAll", func(t *testing.T) {
 		for _, deviceCount := range deviceCounts {
@@ -628,6 +723,7 @@ func TestDrainer(t *testing.T) {
 		}
 	})
 
+	t.Run("DrainEmpty", testDrainerDrainEmpty)
 	t.Run("VisitCancel", testDrainerVisitCancel)
 	t.Run("DisconnectCancel", testDrainerDisconnectCancel)
 	t.Run("DrainCancel", testDrainerDrainCancel)
