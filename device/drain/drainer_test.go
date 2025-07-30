@@ -334,10 +334,9 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 			}
 		}()
 	}
-	
+
 	close(manager.pauseDisconnect)
 	close(manager.pauseVisit)
-	// wg.Wait()
 
 	select {
 	case <-done:
