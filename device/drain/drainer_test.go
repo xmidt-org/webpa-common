@@ -323,19 +323,22 @@ func testDrainerDrainAll(t *testing.T, deviceCount int) {
 	assert.Equal(Job{Count: deviceCount, Rate: 100, Tick: time.Second}, job)
 	assert.Equal(Progress{Visited: 0, Drained: 0, Started: expectedStarted.UTC(), Finished: nil}, progress)
 
-	go func() {
-		ticks := deviceCount / 100
-		if (deviceCount % 100) > 0 {
-			ticks++
-		}
-
-		for i := 0; i < ticks; i++ {
-			ticker <- time.Time{}
-		}
-	}()
-
+	if deviceCount > 0 {
+		go func() {
+			ticks := deviceCount / 100
+			if (deviceCount % 100) > 0 {
+				ticks++
+			}
+			for i := 0; i < ticks; i++ {
+				ticker <- time.Time{}
+			}
+		}()
+	}
+	
 	close(manager.pauseDisconnect)
 	close(manager.pauseVisit)
+	// wg.Wait()
+
 	select {
 	case <-done:
 		// passed
