@@ -567,7 +567,7 @@ func (m *manager) writePump(d *device, w WriteCloser, pinger func() error, close
 
 			event := Event{
 				Device:   d,
-				Message:  envelope.request.Message,
+				Message:  *envelope.request.Message,
 				Format:   envelope.request.Format,
 				Contents: envelope.request.Contents,
 				Error:    writeError,

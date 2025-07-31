@@ -74,7 +74,7 @@ func TestRequest(t *testing.T) {
 }
 
 // nolint: typecheck
-func testDecodeRequest(t *testing.T, message wrp.Routable, format wrp.Format) {
+func testDecodeRequest(t *testing.T, message wrp.Union, format wrp.Format) {
 	var (
 		assert   = assert.New(t)
 		require  = require.New(t)
@@ -89,12 +89,13 @@ func testDecodeRequest(t *testing.T, message wrp.Routable, format wrp.Format) {
 	require.NoError(err)
 
 	// nolint: typecheck
-	if routable, ok := request.Message.(wrp.Routable); ok {
-		assert.Equal(message.MessageType(), routable.MessageType())
-		assert.Equal(message.To(), routable.To())
-		assert.Equal(message.From(), routable.From())
-		assert.Equal(message.TransactionKey(), routable.TransactionKey())
+	if m, ok := message.(*wrp.Message); ok {
+		assert.Equal(m.Type, request.Message.Type)
+		assert.Equal(m.TransactionUUID, request.Message.TransactionUUID)
 	}
+
+	assert.Equal(message.MsgType(), request.Message.MsgType())
+	assert.Equal(message.To(&wrp.Message{}), request.Message.TransactionUUID)
 
 	assert.Equal(format, request.Format)
 	assert.Equal(contents, request.Contents)
