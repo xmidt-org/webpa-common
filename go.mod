@@ -18,10 +18,10 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cast v1.9.2
-  github.com/spf13/pflag v1.0.7
+	github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
-	github.com/ugorji/go/codec v1.2.12
+	github.com/ugorji/go/codec v1.3.0
 	github.com/xmidt-org/candlelight v0.2.1
 	github.com/xmidt-org/sallust v0.2.4
 	github.com/xmidt-org/themis v0.4.31
