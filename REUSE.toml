@@ -4,6 +4,12 @@ SPDX-PackageSupplier = "John Bass <john_bass2@cable.comcast.com>"
 SPDX-PackageDownloadLocation = "https://github.com/xmidt-org/webpa-common"
 
 [[annotations]]
+path = "REUSE.toml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = "NOTICE"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC"
