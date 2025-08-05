@@ -3,7 +3,7 @@ module github.com/xmidt-org/webpa-common/v2
 go 1.24
 
 require (
-	github.com/aws/aws-sdk-go v1.55.7
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
 	github.com/c9s/goprocinfo v0.0.0-20210130143923-c95fcf8c64a8
 	github.com/go-kit/kit v0.13.0
@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/segmentio/ksuid v1.0.4
 	github.com/spf13/cast v1.9.2
-	github.com/spf13/pflag v1.0.6
+  github.com/spf13/pflag v1.0.7
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
 	github.com/ugorji/go/codec v1.2.12
