@@ -5,6 +5,6 @@ SPDX-PackageDownloadLocation = "https://github.com/xmidt-org/webpa-common"
 
 [[annotations]]
 path = "**"
-precedence = "default"
+precedence = "aggregate"
 SPDX-FileCopyrightText = "SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC"
 SPDX-License-Identifier = "Apache-2.0"
