@@ -212,6 +212,7 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 		Metadata:   metadata,
 		Logger:     m.logger,
 	})
+	d.intermediateContext = request.Header.Get("X-Intermediate-Context")
 
 	if allow, matchResults := m.filter.AllowConnection(d); !allow {
 		d.logger.Info("filter match found", zap.String("location", matchResults.Location), zap.String("key", matchResults.Key))
