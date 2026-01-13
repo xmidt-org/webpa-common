@@ -1,6 +1,6 @@
 module github.com/xmidt-org/webpa-common/v2
 
-go 1.25.3
+go 1.25.5
 
 require (
 	github.com/aws/aws-sdk-go v1.55.8
@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/schema v1.4.1
 	github.com/gorilla/websocket v1.5.3
-	github.com/hashicorp/consul/api v1.33.0
+	github.com/hashicorp/consul/api v1.33.2
 	github.com/justinas/alice v1.2.0
 	github.com/miekg/dns v1.1.70
 	github.com/prometheus/client_golang v1.23.2
