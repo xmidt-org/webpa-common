@@ -110,3 +110,75 @@ func TestDevice(t *testing.T) {
 		assert.Error(err)
 	}
 }
+
+func TestDevice_IntermediateContext(t *testing.T) {
+	tests := []struct {
+		name                        string
+		intermediateContext         string
+		expectedIntermediateContext string
+	}{
+		{
+			name:                        "empty intermediate context",
+			intermediateContext:         "",
+			expectedIntermediateContext: "",
+		},
+		{
+			name:                        "non-empty intermediate context",
+			intermediateContext:         "some-context-value",
+			expectedIntermediateContext: "some-context-value",
+		},
+		{
+			name:                        "intermediate context with special characters",
+			intermediateContext:         "context/with/special-chars_123",
+			expectedIntermediateContext: "context/with/special-chars_123",
+		},
+		{
+			name:                        "intermediate context with JSON-like content",
+			intermediateContext:         `{"key": "value", "nested": {"data": 123}}`,
+			expectedIntermediateContext: `{"key": "value", "nested": {"data": 123}}`,
+		},
+		{
+			name:                        "intermediate context with whitespace",
+			intermediateContext:         "  spaced context  ",
+			expectedIntermediateContext: "  spaced context  ",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert := assert.New(t)
+			require := require.New(t)
+
+			device := newDevice(deviceOptions{
+				ID:        ID("test-device"),
+				QueueSize: 10,
+				Logger:    sallust.Default(),
+				Metadata:  new(Metadata),
+			})
+			require.NotNil(device)
+
+			// Set the intermediateContext field directly since it's an internal field
+			device.intermediateContext = tc.intermediateContext
+
+			assert.Equal(tc.expectedIntermediateContext, device.IntermediateContext())
+		})
+	}
+}
+
+func TestDevice_IntermediateContext_Default(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	// Create a device without setting intermediateContext
+	device := newDevice(deviceOptions{
+		ID:        ID("test-device"),
+		QueueSize: 10,
+		Logger:    sallust.Default(),
+		Metadata:  new(Metadata),
+	})
+	require.NotNil(device)
+
+	// Default value should be empty string
+	assert.Empty(device.IntermediateContext())
+	assert.Equal("", device.IntermediateContext())
+}
