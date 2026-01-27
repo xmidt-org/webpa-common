@@ -137,6 +137,10 @@ func (m *MockDevice) CloseReason() CloseReason {
 	return first
 }
 
+func (m *MockDevice) IntermediateContext() string {
+	return ""
+}
+
 func (m *MockDevice) Send(request *Request) (*Response, error) {
 	// nolint: typecheck
 	arguments := m.Called(request)
