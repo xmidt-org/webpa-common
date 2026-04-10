@@ -21,6 +21,7 @@ const (
 const (
 	PartnerIDClaimKey = "partner-id"
 	TrustClaimKey     = "trust"
+	AccountIDClaimKey = "accountID"
 )
 
 // Default values
@@ -119,6 +120,14 @@ func (m *Metadata) PartnerIDClaim() string {
 		return UnknownPartner
 	}
 	return partnerID
+}
+
+// AccountIDClaim returns the xbo account ID claim.
+// If no claim is found, the value defaults to an empty string.
+func (m *Metadata) AccountIDClaim() string {
+	accountID, _ := m.Claims()[AccountIDClaimKey].(string)
+
+	return accountID
 }
 
 func (m *Metadata) loadData() (data map[string]interface{}) {

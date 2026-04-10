@@ -15,3 +15,4 @@ server/memprofile
 .vscode/*
 .dev/*
 
+*.DS_Store

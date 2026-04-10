@@ -229,7 +229,7 @@ func validCertSlices(certificateFiles, keyFiles []string) bool {
 	valid := true
 	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
 		for i := 0; i < len(certificateFiles); i++ {
-			if !(len(certificateFiles[i]) > 0 && len(certificateFiles[i]) > 0) {
+			if !(len(certificateFiles[i]) > 0) {
 				valid = false
 			}
 		}
