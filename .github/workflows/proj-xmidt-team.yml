@@ -11,7 +11,12 @@ on:
     types:
       - opened
 
+permissions:
+  contents:       read
+  issues:         write
+  pull-requests:  write
+
 jobs:
   package:
-    uses: xmidt-org/.github/.github/workflows/proj-template.yml@proj-v1
+    uses: xmidt-org/.github/.github/workflows/proj-template.yml@1340ff58ac2ad7bfba86fa531784bbd575d4b9b0 # proj-v1
     secrets: inherit
