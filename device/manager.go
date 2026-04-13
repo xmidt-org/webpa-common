@@ -24,7 +24,10 @@ import (
 	"github.com/xmidt-org/wrp-go/v3"
 )
 
-const MaxDevicesHeader = "X-Xmidt-Max-Devices"
+const (
+	MaxDevicesHeader          = "X-Xmidt-Max-Devices"
+	IntermediateContextHeader = "X-Intermediate-Context"
+)
 
 // DefaultWRPContentType is the content type used on inbound WRP messages which don't provide one.
 const DefaultWRPContentType = "application/octet-stream"
@@ -205,12 +208,13 @@ func (m *manager) Connect(response http.ResponseWriter, request *http.Request, r
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)
 	d := newDevice(deviceOptions{
-		ID:         id,
-		C:          cvy,
-		Compliance: convey.GetCompliance(cvyErr),
-		QueueSize:  m.deviceMessageQueueSize,
-		Metadata:   metadata,
-		Logger:     m.logger,
+		ID:                  id,
+		C:                   cvy,
+		Compliance:          convey.GetCompliance(cvyErr),
+		QueueSize:           m.deviceMessageQueueSize,
+		Metadata:            metadata,
+		Logger:              m.logger,
+		IntermediateContext: request.Header.Get(IntermediateContextHeader),
 	})
 
 	if allow, matchResults := m.filter.AllowConnection(d); !allow {
