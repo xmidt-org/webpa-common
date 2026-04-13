@@ -132,13 +132,14 @@ type device struct {
 }
 
 type deviceOptions struct {
-	ID          ID
-	C           convey.Interface
-	Compliance  convey.Compliance
-	QueueSize   int
-	ConnectedAt time.Time
-	Logger      *zap.Logger
-	Metadata    *Metadata
+	ID                  ID
+	C                   convey.Interface
+	Compliance          convey.Compliance
+	QueueSize           int
+	ConnectedAt         time.Time
+	Logger              *zap.Logger
+	Metadata            *Metadata
+	IntermediateContext string
 }
 
 // newDevice is an internal factory function for devices
@@ -156,16 +157,17 @@ func newDevice(o deviceOptions) *device {
 	}
 
 	return &device{
-		id:           o.ID,
-		logger:       o.Logger.With(zap.String("id", string(o.ID))),
-		statistics:   NewStatistics(nil, o.ConnectedAt),
-		c:            o.C,
-		compliance:   o.Compliance,
-		state:        stateOpen,
-		shutdown:     make(chan struct{}),
-		messages:     make(chan *envelope, o.QueueSize),
-		transactions: NewTransactions(),
-		metadata:     o.Metadata,
+		id:                  o.ID,
+		logger:              o.Logger.With(zap.String("id", string(o.ID))),
+		statistics:          NewStatistics(nil, o.ConnectedAt),
+		c:                   o.C,
+		compliance:          o.Compliance,
+		state:               stateOpen,
+		shutdown:            make(chan struct{}),
+		messages:            make(chan *envelope, o.QueueSize),
+		transactions:        NewTransactions(),
+		metadata:            o.Metadata,
+		intermediateContext: o.IntermediateContext,
 	}
 }
 
