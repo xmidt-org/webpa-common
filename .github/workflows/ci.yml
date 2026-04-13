@@ -20,15 +20,16 @@ on:
 
 permissions:
   pull-requests: read
-  contents:      write
-  packages:      write
+  contents: write
+  packages: write
 
 jobs:
   ci:
-    uses: xmidt-org/shared-go/.github/workflows/ci.yml@3d552804b9a20638508bf359cdd2e9b46bc06879 # v4.4.24
+    # yamllint disable-line
+    uses: xmidt-org/shared-go/.github/workflows/ci.yml@aff0471aa7e2f96ddb059beb178f63747a7cc57e # v4.9.41
     with:
-      style-skip:            true
-      lint-skip:             true
-      release-type:          library
-      release-docker:        false
+      style-skip:     true
+      yaml-lint-skip: true
+      lint-skip:      true
+      release-type:   library
     secrets: inherit
