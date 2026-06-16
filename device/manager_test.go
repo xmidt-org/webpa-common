@@ -4,6 +4,7 @@
 package device
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -45,6 +46,32 @@ func startWebsocketServer(o *Options) (Manager, *httptest.Server, string) {
 					Logger:    o.logger(),
 					Connector: manager,
 				},
+			),
+		)
+
+		websocketURL, err = url.Parse(server.URL)
+	)
+
+	if err != nil {
+		server.Close()
+		panic(fmt.Errorf("Unable to parse test server URL: %s", err))
+	}
+
+	websocketURL.Scheme = "ws"
+	return manager, server, websocketURL.String()
+}
+
+func startWebsocketServerWithRequestContext(o *Options, ctx context.Context) (Manager, *httptest.Server, string) {
+	var (
+		manager = NewManager(o)
+		server  = httptest.NewServer(
+			alice.New(UseID.FromHeader).Then(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					(&ConnectHandler{
+						Logger:    o.logger(),
+						Connector: manager,
+					}).ServeHTTP(w, r.WithContext(ctx))
+				}),
 			),
 		)
 
@@ -142,6 +169,129 @@ func testManagerConnectUpgradeError(t *testing.T) {
 	device, actualError := manager.Connect(response, request, responseHeader)
 	assert.Nil(device)
 	assert.Error(actualError)
+}
+
+func testManagerConnectDeviceIDFromClaimsError(t *testing.T) {
+	assert := assert.New(t)
+	metadata := new(Metadata)
+	metadata.SetClaims(map[string]any{
+		AccountIDClaimKey: "abc123",
+	})
+	manager := NewManager(&Options{
+		Logger: zap.NewNop(),
+		Listeners: []Listener{
+			func(e *Event) {
+				assert.Fail("The listener should not have been called")
+			},
+		},
+	})
+	metadata.SetClaims(map[string]any{DeviceIDClaimKey: "mac:invalid"})
+	request := httptest.NewRequestWithContext(WithDeviceMetadata(context.Background(), metadata), "POST", "http://localhost.com", nil)
+	device, err := manager.Connect(httptest.NewRecorder(), request, http.Header{})
+	assert.Empty(device)
+	assert.ErrorIs(err, ErrorInvalidDeviceName)
+}
+
+func testManagerConnectDeviceIDFromClaims(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	metadata := new(Metadata)
+	realID := ID("mac:123412341234")
+	metadata.SetClaims(map[string]any{
+		AccountIDClaimKey: "abc123",
+		DeviceIDClaimKey:  string(realID),
+	})
+	spoofedID := ID("mac:1800DEADBEEF")
+	connections := make(chan *device, 1)
+	connectWait := new(sync.WaitGroup)
+	_, server, connectURL := startWebsocketServerWithRequestContext(
+		&Options{
+			Logger: zap.NewNop(),
+			Listeners: []Listener{
+				func(event *Event) {
+					if event.Type == Connect {
+						assert.NoError(event.Error)
+						d := event.Device.(*device)
+						defer connectWait.Done()
+						select {
+						case connections <- d:
+						default:
+							assert.Fail("The connect listener should not block")
+						}
+					}
+				},
+			},
+		},
+		// Device ID supplied via a JWT claims set, Xmidt should use this instead of a Device ID from a header.
+		WithDeviceMetadata(context.Background(), metadata))
+
+	defer server.Close()
+
+	// A spoofed ID will be supplied via a header but it should not be used since a Device ID already exists in the device's claims.
+	deviceConnection, _, err := defaultDialer.DialDevice(string(spoofedID), connectURL, nil)
+	require.NoError(err)
+
+	defer assert.Nil(deviceConnection.Close())
+
+	connectWait.Add(1)
+	connectWait.Wait()
+	close(connections)
+	assert.Equal(1, len(connections))
+
+	select {
+	case d := <-connections:
+		assert.NotEqual(d.ID(), spoofedID)
+		assert.Equal(d.ID(), realID)
+	case <-time.After(time.Millisecond):
+		assert.Fail("The connect listener should have returned a device")
+	}
+}
+
+func testManagerConnectDeviceIDFromHeader(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	id := ID("mac:1800deadbeef")
+	connections := make(chan *device, 1)
+	connectWait := new(sync.WaitGroup)
+	_, server, connectURL := startWebsocketServerWithRequestContext(
+		&Options{
+			Logger: zap.NewNop(),
+			Listeners: []Listener{
+				func(event *Event) {
+					if event.Type == Connect {
+						assert.NoError(event.Error)
+						d := event.Device.(*device)
+						defer connectWait.Done()
+						select {
+						case connections <- d:
+						default:
+							assert.Fail("The connect listener should not block")
+						}
+					}
+				},
+			},
+		},
+		// Device ID supplied via request header.
+		WithID(context.Background(), id))
+
+	defer server.Close()
+
+	// A spoofed ID will be supplied as a header but it should not be used since a Device ID already exists in its claims.
+	deviceConnection, _, err := defaultDialer.DialDevice(string(id), connectURL, nil)
+	require.NoError(err)
+
+	defer assert.Nil(deviceConnection.Close())
+
+	connectWait.Add(1)
+	connectWait.Wait()
+	close(connections)
+	assert.Equal(1, len(connections))
+	select {
+	case d := <-connections:
+		assert.Equal(d.ID(), id)
+	case <-time.After(time.Millisecond):
+		assert.Fail("The connect listener should have returned a device")
+	}
 }
 
 func testManagerConnectVisit(t *testing.T) {
@@ -396,6 +546,9 @@ func TestManager(t *testing.T) {
 		t.Run("UpgradeError", testManagerConnectUpgradeError)
 		t.Run("Visit", testManagerConnectVisit)
 		t.Run("IncludesConvey", testManagerConnectIncludesConvey)
+		t.Run("ConnectDeviceIDFromClaimsError", testManagerConnectDeviceIDFromClaimsError)
+		t.Run("ConnectDeviceIDFromClaims", testManagerConnectDeviceIDFromClaims)
+		t.Run("ConnectDeviceIDFromHeader", testManagerConnectDeviceIDFromHeader)
 	})
 
 	t.Run("Route", func(t *testing.T) {

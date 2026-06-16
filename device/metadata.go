@@ -22,6 +22,7 @@ const (
 	PartnerIDClaimKey = "partner-id"
 	TrustClaimKey     = "trust"
 	AccountIDClaimKey = "accountID"
+	DeviceIDClaimKey  = "device-id"
 )
 
 // Default values
@@ -128,6 +129,17 @@ func (m *Metadata) AccountIDClaim() string {
 	accountID, _ := m.Claims()[AccountIDClaimKey].(string)
 
 	return accountID
+}
+
+// DeviceIDClaim returns the device id.
+// If no claim is found, the value defaults to an empty string.
+func (m *Metadata) DeviceIDClaim() (ID, error) {
+	id, _ := m.Claims()[DeviceIDClaimKey].(string)
+	if len(id) == 0 {
+		return "", nil
+	}
+
+	return ParseID(id)
 }
 
 func (m *Metadata) loadData() (data map[string]interface{}) {
