@@ -5,6 +5,7 @@ package device
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -190,20 +191,36 @@ type manager struct {
 func (m *manager) Connect(response http.ResponseWriter, request *http.Request, responseHeader http.Header) (Interface, error) {
 	m.logger.Debug("device connect", zap.Any("url", request.URL))
 	ctx := request.Context()
-	id, ok := GetID(ctx)
-	if !ok {
-		xhttp.WriteError(
-			response,
-			http.StatusInternalServerError,
-			ErrorMissingDeviceNameContext,
-		)
-
-		return nil, ErrorMissingDeviceNameContext
-	}
-
 	metadata, ok := GetDeviceMetadata(ctx)
 	if !ok {
 		metadata = new(Metadata)
+	}
+
+	// Always use the device-id provided by themis if available.
+	// Otherwise, fallback to using the device-id from the X-Webpa-Device-Name request header.
+	id, err := metadata.DeviceIDClaim()
+	if err != nil {
+		err = errors.Join(ErrorInvalidDeviceName, err)
+		xhttp.WriteError(
+			response,
+			http.StatusInternalServerError,
+			err,
+		)
+
+		return nil, err
+	}
+
+	if len(id) == 0 {
+		id, ok = GetID(ctx)
+		if !ok {
+			xhttp.WriteError(
+				response,
+				http.StatusInternalServerError,
+				ErrorMissingDeviceNameContext,
+			)
+
+			return nil, ErrorMissingDeviceNameContext
+		}
 	}
 
 	cvy, cvyErr := m.conveyTranslator.FromHeader(request.Header)

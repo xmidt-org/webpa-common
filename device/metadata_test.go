@@ -44,6 +44,7 @@ claims:
 	}
 	v.UnmarshalKey("claims", &claims)
 	claims[AccountIDClaimKey] = "0123456789"
+	claims[DeviceIDClaimKey] = "mac:1800deadbeef"
 }
 
 func TestDeviceMetadataDefaultValues(t *testing.T) {
@@ -55,6 +56,7 @@ func TestDeviceMetadataDefaultValues(t *testing.T) {
 	assert.Equal(UnknownPartner, m.PartnerIDClaim())
 	assert.Zero(m.TrustClaim())
 	assert.Zero(m.AccountIDClaim())
+	assert.Zero(m.DeviceIDClaim())
 	assert.Nil(m.Load("not-exists"))
 }
 
@@ -68,7 +70,9 @@ func TestDeviceMetadataInitClaims(t *testing.T) {
 	assert.Equal("comcast", m.PartnerIDClaim())
 	assert.Equal(100, m.TrustClaim())
 	assert.Equal("0123456789", m.AccountIDClaim())
-
+	id, err := m.DeviceIDClaim()
+	assert.NoError(err)
+	assert.Equal(ID(claims[DeviceIDClaimKey].(string)), id)
 	// test defensive copy
 	inputClaims[TrustClaimKey] = 200
 	assert.NotEqual(inputClaims, m.Claims())
