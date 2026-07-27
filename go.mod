@@ -24,9 +24,9 @@ require (
 	github.com/ugorji/go/codec v1.2.14
 	github.com/xmidt-org/candlelight v0.2.15
 	github.com/xmidt-org/sallust v0.2.4
-	github.com/xmidt-org/themis v0.4.36
+	github.com/xmidt-org/themis v1.0.2
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0
 	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a
