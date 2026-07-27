@@ -53,10 +53,11 @@ var instancePattern = regexp.MustCompile("^((?P<scheme>.+)://)?(?P<address>[^:]+
 // NormalizeRoute canonicalizes a route string from a backend
 //
 // This function performs the following on the instance:
-//   (1) If instance is a blank string, e.g. contains only whitespace or is empty, an empty string is returned with an error
-//   (2) If the instance with whitespace trimmed off is not a valid instance, an error is returned with the trimmed instance string.
-//       This function is intentionally lenient on what is a valid instance string, e.g. "foobar.com", "foobar.com:8080", "asdf://foobar.com", etc
-//   (3) If there was no scheme prepended to the route, http will be used
+//
+//	(1) If instance is a blank string, e.g. contains only whitespace or is empty, an empty string is returned with an error
+//	(2) If the instance with whitespace trimmed off is not a valid instance, an error is returned with the trimmed instance string.
+//	    This function is intentionally lenient on what is a valid instance string, e.g. "foobar.com", "foobar.com:8080", "asdf://foobar.com", etc
+//	(3) If there was no scheme prepended to the route, http will be used
 func NormalizeRoute(route string) (string, error) {
 	route = strings.TrimSpace(route)
 	if len(route) == 0 {
@@ -74,6 +75,7 @@ func NormalizeRoute(route string) (string, error) {
 	)
 
 	if len(scheme) == 0 {
+		// nolint: goconst
 		scheme = "http"
 	}
 

@@ -14,7 +14,7 @@ import (
 const DefaultHeaderName = "X-Webpa-Convey"
 
 // ErrMissingHeader indicates that no HTTP header exists which contains convey information
-var ErrMissingHeader = errors.New("No convey header present")
+var ErrMissingHeader = errors.New("no convey header present")
 
 // HeaderTranslator is an analog to convey.Translator, except that this type works with http.Header.
 type HeaderTranslator interface {

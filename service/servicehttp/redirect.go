@@ -21,7 +21,7 @@ func Redirect(redirectCode int) gokithttp.EncodeResponseFunc {
 		redirectCode = http.StatusTemporaryRedirect
 	}
 
-	return func(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
+	return func(ctx context.Context, rw http.ResponseWriter, response any) error {
 		var (
 			logger        = sallust.Get(ctx)
 			instance      = response.(string)

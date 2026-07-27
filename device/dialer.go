@@ -87,7 +87,7 @@ func (d *dialer) DialDevice(deviceName, url string, extra http.Header) (*websock
 func MustDialDevice(d Dialer, deviceName, url string, extra http.Header) (*websocket.Conn, *http.Response) {
 	c, r, err := d.DialDevice(deviceName, url, extra)
 	if err != nil {
-		panic(fmt.Errorf("Dialing device %s at %s failed: %s", deviceName, url, err))
+		panic(fmt.Errorf("dialing device %s at %s failed: %s", deviceName, url, err))
 	}
 
 	return c, r

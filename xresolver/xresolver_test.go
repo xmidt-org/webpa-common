@@ -6,7 +6,8 @@ package xresolver
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
+
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -83,7 +84,7 @@ func TestClientWithResolver(t *testing.T) {
 
 	res, err := client.Do(req)
 	if assert.NoError(err) {
-		body, err := ioutil.ReadAll(res.Body)
+		body, err := io.ReadAll(res.Body)
 		res.Body.Close()
 		assert.NoError(err)
 

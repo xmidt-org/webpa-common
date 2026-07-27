@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -191,7 +191,7 @@ func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
 		invalidContents    = []byte("this is not a valid WRP message")
 		response           = httptest.NewRecorder()
 		request            = httptest.NewRequest("GET", "/foo", bytes.NewReader(invalidContents))
-		actualResponseBody map[string]interface{}
+		actualResponseBody map[string]any
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
@@ -202,7 +202,7 @@ func testMessageHandlerServeHTTPDecodeError(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusBadRequest, response.Code)
 	assert.Equal("application/json", response.Header().Get("Content-Type"))
-	responseContents, err := ioutil.ReadAll(response.Body)
+	responseContents, err := io.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
@@ -231,7 +231,7 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 	var (
 		response           = httptest.NewRecorder()
 		request            = httptest.NewRequest("POST", "/foo", bytes.NewReader(requestContents))
-		actualResponseBody map[string]interface{}
+		actualResponseBody map[string]any
 
 		router  = new(mockRouter)
 		handler = MessageHandler{
@@ -253,7 +253,7 @@ func testMessageHandlerServeHTTPRouteError(t *testing.T, routeError error, expec
 	handler.ServeHTTP(response, request)
 	assert.Equal(expectedCode, response.Code)
 	assert.Equal("application/json", response.Header().Get("Content-Type"))
-	responseContents, err := ioutil.ReadAll(response.Body)
+	responseContents, err := io.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
@@ -449,7 +449,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 			Router: router,
 		}
 
-		actualResponseBody     map[string]interface{}
+		actualResponseBody     map[string]any
 		expectedDeviceResponse = &Response{
 			Device:  device,
 			Message: responseMessage,
@@ -472,7 +472,7 @@ func testMessageHandlerServeHTTPEncodeError(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	assert.Equal(http.StatusInternalServerError, response.Code)
 	assert.Equal("application/json", response.Header().Get("Content-Type"))
-	responseContents, err := ioutil.ReadAll(response.Body)
+	responseContents, err := io.ReadAll(response.Body)
 	require.NoError(err)
 	assert.NoError(json.Unmarshal(responseContents, &actualResponseBody))
 
@@ -639,7 +639,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err := ioutil.ReadAll(response.Body)
+		data, err := io.ReadAll(response.Body)
 		require.NoError(err)
 		assert.JSONEq(`{"devices":[]}`, string(data))
 
@@ -672,7 +672,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err = ioutil.ReadAll(response.Body)
+		data, err = io.ReadAll(response.Body)
 		require.NoError(err)
 		assert.JSONEq(expectedJSON.String(), string(data))
 
@@ -694,7 +694,7 @@ func testListHandlerServeHTTP(t *testing.T) {
 		handler.ServeHTTP(response, request)
 		assert.Equal(http.StatusOK, response.Code)
 
-		data, err := ioutil.ReadAll(response.Body)
+		data, err := io.ReadAll(response.Body)
 		require.NoError(err)
 		assert.JSONEq(expectedJSON.String(), string(data))
 		assert.Equal(lastCacheExpiry, handler.cacheExpiry)

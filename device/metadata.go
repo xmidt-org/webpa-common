@@ -66,7 +66,7 @@ func (m *Metadata) SetSessionID(sessionID string) {
 
 // Load returns the value associated with the given key in the metadata map.
 // It is not recommended modifying values returned by reference.
-func (m *Metadata) Load(key string) interface{} {
+func (m *Metadata) Load(key string) any {
 	return m.loadData()[key]
 }
 
@@ -76,7 +76,7 @@ func (m *Metadata) Load(key string) interface{} {
 // To avoid updating keys with stale data/value, client code will need to
 // synchronize the entire transaction of reading, copying, modifying and
 // writing back the value.
-func (m *Metadata) Store(key string, value interface{}) bool {
+func (m *Metadata) Store(key string, value any) bool {
 	if reservedMetadataKeys[key] {
 		return false
 	}
@@ -89,21 +89,21 @@ func (m *Metadata) Store(key string, value interface{}) bool {
 // To avoid updating the claims with stale data, client code will need to
 // synchronize the entire transaction of reading, copying, modifying and
 // writing back the value.
-func (m *Metadata) SetClaims(claims map[string]interface{}) {
+func (m *Metadata) SetClaims(claims map[string]any) {
 	m.copyAndStore(JWTClaimsKey, deepCopyMap(claims))
 }
 
 // Claims returns the claims attached to a device. The returned map
 // should not be modified to avoid any race conditions. To update the claims,
 // take a look at the ClaimsCopy() function
-func (m *Metadata) Claims() (claims map[string]interface{}) {
-	claims, _ = m.loadData()[JWTClaimsKey].(map[string]interface{})
+func (m *Metadata) Claims() (claims map[string]any) {
+	claims, _ = m.loadData()[JWTClaimsKey].(map[string]any)
 	return
 }
 
 // ClaimsCopy returns a deep copy of the claims. Use this, along with the
 // SetClaims() method to update the claims.
-func (m *Metadata) ClaimsCopy() map[string]interface{} {
+func (m *Metadata) ClaimsCopy() map[string]any {
 	return deepCopyMap(m.Claims())
 }
 
@@ -142,32 +142,32 @@ func (m *Metadata) DeviceIDClaim() (ID, error) {
 	return ParseID(id)
 }
 
-func (m *Metadata) loadData() (data map[string]interface{}) {
-	data, _ = m.v.Load().(map[string]interface{})
+func (m *Metadata) loadData() (data map[string]any) {
+	data, _ = m.v.Load().(map[string]any)
 	return
 }
 
-func (m *Metadata) storeData(data map[string]interface{}) {
+func (m *Metadata) storeData(data map[string]any) {
 	m.v.Store(data)
 }
 
-func (m *Metadata) copyAndStore(key string, val interface{}) {
+func (m *Metadata) copyAndStore(key string, val any) {
 	data := deepCopyMap(m.loadData())
 	data[key] = val
 	m.storeData(data)
 }
 
-func deepCopyMap(m map[string]interface{}) map[string]interface{} {
-	deepCopy := make(map[string]interface{})
+func deepCopyMap(m map[string]any) map[string]any {
+	deepCopy := make(map[string]any)
 	for key, val := range m {
 		// nolint:gosimple
-		switch val.(type) {
-		case map[interface{}]interface{}:
+		switch v := val.(type) {
+		case map[any]any:
 			val = cast.ToStringMap(val)
-			deepCopy[key] = deepCopyMap(val.(map[string]interface{}))
-		case map[string]interface{}:
+			deepCopy[key] = deepCopyMap(val.(map[string]any))
+		case map[string]any:
 			// nolint:gosimple
-			deepCopy[key] = deepCopyMap(val.(map[string]interface{}))
+			deepCopy[key] = deepCopyMap(v)
 		default:
 			deepCopy[key] = val
 		}

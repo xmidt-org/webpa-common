@@ -62,13 +62,13 @@ func TestWriteErrorf(t *testing.T) {
 		testData = []struct {
 			code         int
 			format       string
-			parameters   []interface{}
+			parameters   []any
 			expectedJSON string
 		}{
 			{
 				http.StatusInternalServerError,
 				"some message followed by an int: %d",
-				[]interface{}{47},
+				[]any{47},
 				`{"code": 500, "message": "some message followed by an int: 47"}`,
 			},
 			{
@@ -107,7 +107,7 @@ func TestWriteError(t *testing.T) {
 
 		testData = []struct {
 			code         int
-			value        interface{}
+			value        any
 			expectedJSON string
 		}{
 			{

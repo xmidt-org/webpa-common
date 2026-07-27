@@ -42,7 +42,7 @@ func newClient(l *adapter.Logger, zo Options) (gokitzk.Client, error) {
 func newInstancer(l *adapter.Logger, c gokitzk.Client, path string) (i sd.Instancer, err error) {
 	i, err = gokitzk.NewInstancer(c, path, l)
 	if err == nil {
-		i = service.NewContextualInstancer(i, map[string]interface{}{"path": path})
+		i = service.NewContextualInstancer(i, map[string]any{"path": path})
 	}
 
 	return

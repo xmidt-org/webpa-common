@@ -52,7 +52,7 @@ func (c *counter) With(labelsAndValues ...string) metrics.Counter {
 	return nested
 }
 
-func (c *counter) Get(key LVKey) interface{} {
+func (c *counter) Get(key LVKey) any {
 	c.lock.Lock()
 	metric, ok := c.tree[key]
 	if !ok {
@@ -117,7 +117,7 @@ func (g *gauge) With(labelsAndValues ...string) metrics.Gauge {
 	return nested
 }
 
-func (g *gauge) Get(key LVKey) interface{} {
+func (g *gauge) Get(key LVKey) any {
 	g.lock.Lock()
 	metric, ok := g.tree[key]
 	if !ok {
@@ -184,7 +184,7 @@ func (h *histogram) With(labelsAndValues ...string) metrics.Histogram {
 	return nested
 }
 
-func (h *histogram) Get(key LVKey) interface{} {
+func (h *histogram) Get(key LVKey) any {
 	h.lock.Lock()
 	metric, ok := h.tree[key]
 	if !ok {
@@ -215,7 +215,7 @@ func (h *nestedHistogram) With(labelsAndValues ...string) metrics.Histogram {
 // If the returned error is nil, the returned metric will always be one of the metrics/generic types.
 //
 // Only the metric Name is used.  Namespace and subsystem are not applied by this factory function.
-func NewMetric(m xmetrics.Metric) (interface{}, error) {
+func NewMetric(m xmetrics.Metric) (any, error) {
 	if len(m.Name) == 0 {
 		return nil, errors.New("A name is required for a metric")
 	}

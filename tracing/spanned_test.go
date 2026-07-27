@@ -21,7 +21,7 @@ func TestSpans(t *testing.T) {
 		}
 
 		testData = []struct {
-			container     interface{}
+			container     any
 			expectedSpans []Span
 			expectedOk    bool
 		}{
@@ -61,21 +61,21 @@ func TestMergeSpans(t *testing.T) {
 		nonMergeable = "this is not mergeable"
 
 		testData = []struct {
-			originalContainer interface{}
-			spans             []interface{}
-			expectedContainer interface{}
+			originalContainer any
+			spans             []any
+			expectedContainer any
 			expectedOk        bool
 		}{
 			{nil, nil, nil, false},
 
 			{emptyContainer, nil, emptyContainer, false},
-			{emptyContainer, []interface{}{"none", "of", "these", "are", "spans"}, emptyContainer, false},
-			{emptyContainer, []interface{}{testSpans[0]}, NopMergeable{testSpans[0]}, true},
-			{emptyContainer, []interface{}{testSpans}, NopMergeable(testSpans), true},
+			{emptyContainer, []any{"none", "of", "these", "are", "spans"}, emptyContainer, false},
+			{emptyContainer, []any{testSpans[0]}, NopMergeable{testSpans[0]}, true},
+			{emptyContainer, []any{testSpans}, NopMergeable(testSpans), true},
 
 			{
 				emptyContainer,
-				[]interface{}{testSpans[0], testSpans[1:3], nonEmptyContainer},
+				[]any{testSpans[0], testSpans[1:3], nonEmptyContainer},
 				append(
 					append(NopMergeable{testSpans[0]}, testSpans[1:3]...), testSpans[3:]...,
 				),
@@ -83,16 +83,16 @@ func TestMergeSpans(t *testing.T) {
 			},
 
 			{nonEmptyContainer, nil, nonEmptyContainer, false},
-			{nonEmptyContainer, []interface{}{"none", "of", "these", "are", "spans"}, nonEmptyContainer, false},
-			{nonEmptyContainer, []interface{}{testSpans[0]}, append(NopMergeable(testSpans[3:]), testSpans[0]), true},
-			{nonEmptyContainer, []interface{}{testSpans}, append(NopMergeable(testSpans[3:]), testSpans...), true},
-			{nonEmptyContainer, []interface{}{nonEmptyContainer}, append(NopMergeable(testSpans[3:]), testSpans[3:]...), true},
+			{nonEmptyContainer, []any{"none", "of", "these", "are", "spans"}, nonEmptyContainer, false},
+			{nonEmptyContainer, []any{testSpans[0]}, append(NopMergeable(testSpans[3:]), testSpans[0]), true},
+			{nonEmptyContainer, []any{testSpans}, append(NopMergeable(testSpans[3:]), testSpans...), true},
+			{nonEmptyContainer, []any{nonEmptyContainer}, append(NopMergeable(testSpans[3:]), testSpans[3:]...), true},
 
 			{nonMergeable, nil, nonMergeable, false},
-			{nonMergeable, []interface{}{"none", "of", "these", "are", "spans"}, nonMergeable, false},
-			{nonMergeable, []interface{}{testSpans[0]}, nonMergeable, false},
-			{nonMergeable, []interface{}{testSpans}, nonMergeable, false},
-			{nonMergeable, []interface{}{nonEmptyContainer}, nonMergeable, false},
+			{nonMergeable, []any{"none", "of", "these", "are", "spans"}, nonMergeable, false},
+			{nonMergeable, []any{testSpans[0]}, nonMergeable, false},
+			{nonMergeable, []any{testSpans}, nonMergeable, false},
+			{nonMergeable, []any{nonEmptyContainer}, nonMergeable, false},
 		}
 	)
 

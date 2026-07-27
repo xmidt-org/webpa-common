@@ -31,8 +31,8 @@ type Progress struct {
 }
 
 type tracker struct {
-	visited  int32
-	drained  int32
+	visited  int64
+	drained  int64
 	started  time.Time
 	finished atomic.Value
 	counter  xmetrics.Adder
@@ -40,8 +40,8 @@ type tracker struct {
 
 func (t *tracker) Progress() Progress {
 	p := Progress{
-		Visited: int(atomic.LoadInt32(&t.visited)),
-		Drained: int(atomic.LoadInt32(&t.drained)),
+		Visited: int(atomic.LoadInt64(&t.visited)),
+		Drained: int(atomic.LoadInt64(&t.drained)),
 		Started: t.started,
 	}
 
@@ -53,11 +53,11 @@ func (t *tracker) Progress() Progress {
 }
 
 func (t *tracker) addVisited(delta int) {
-	atomic.AddInt32(&t.visited, int32(delta))
+	atomic.AddInt64(&t.visited, int64(delta))
 }
 
 func (t *tracker) addDrained(delta int) {
-	atomic.AddInt32(&t.drained, int32(delta))
+	atomic.AddInt64(&t.drained, int64(delta))
 	t.counter.Add(float64(delta))
 }
 

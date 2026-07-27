@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -218,7 +218,7 @@ func testRetryTransactorNotRewindable(t *testing.T) {
 	// nolint: typecheck
 	body.On("Read", mock.MatchedBy(func([]byte) bool { return true })).Return(0, expectedError).Once()
 	require.NotNil(retry)
-	response, actualError := retry(&http.Request{Body: ioutil.NopCloser(body)})
+	response, actualError := retry(&http.Request{Body: io.NopCloser(body)})
 	assert.Nil(response)
 	assert.Equal(expectedError, actualError)
 

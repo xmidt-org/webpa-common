@@ -51,9 +51,9 @@ func (m MultiMap) Get(eventType string, fallback ...string) ([]string, bool) {
 // this function returns a MultiMap that is the result of "flattening" the given raw map.
 //
 // The separator string must be nonempty.  It is used as the separator for nested map keys, e.g. "foo.bar".
-func NestedToMultiMap(separator string, raw map[string]interface{}) (MultiMap, error) {
+func NestedToMultiMap(separator string, raw map[string]any) (MultiMap, error) {
 	if len(separator) == 0 {
-		return nil, fmt.Errorf("The separator cannot be empty")
+		return nil, fmt.Errorf("the separator cannot be empty")
 	}
 
 	output := make(MultiMap, len(raw))
@@ -65,7 +65,7 @@ func NestedToMultiMap(separator string, raw map[string]interface{}) (MultiMap, e
 }
 
 // nestedToMultiMap is a recursive function that builds a MultiMap by travsersing any nested maps with the raw map.
-func nestedToMultiMap(base, separator string, raw map[string]interface{}, output MultiMap) error {
+func nestedToMultiMap(base, separator string, raw map[string]any, output MultiMap) error {
 	var eventType string
 	for k, v := range raw {
 		if len(base) > 0 {
@@ -81,16 +81,16 @@ func nestedToMultiMap(base, separator string, raw map[string]interface{}, output
 		case []string:
 			output.Set(eventType, value...)
 
-		case []interface{}:
+		case []any:
 			for _, rawElement := range value {
 				if stringElement, ok := rawElement.(string); ok {
 					output.Add(eventType, stringElement)
 				} else {
-					return fmt.Errorf("Invalid element value of type %T: %v", v, v)
+					return fmt.Errorf("invalid element value of type %T: %v", v, v)
 				}
 			}
 
-		case map[string]interface{}:
+		case map[string]any:
 			if err := nestedToMultiMap(eventType, separator, value, output); err != nil {
 				return err
 			}
@@ -101,7 +101,7 @@ func nestedToMultiMap(base, separator string, raw map[string]interface{}, output
 			}
 
 		default:
-			return fmt.Errorf("Invalid raw event value of type %T: %v", v, v)
+			return fmt.Errorf("invalid raw event value of type %T: %v", v, v)
 		}
 	}
 

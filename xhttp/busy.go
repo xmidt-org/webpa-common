@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/xmidt-org/sallust"
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/semaphore"
 	"go.uber.org/zap"
 )

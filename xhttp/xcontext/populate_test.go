@@ -42,7 +42,7 @@ func testPopulate(t *testing.T, funcCount int) {
 		next       = http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 			nextCalled = true
 
-			for i := 0; i < funcCount; i++ {
+			for i := range funcCount {
 				assert.Equal(fmt.Sprintf("value-%d", i), request.Context().Value(fmt.Sprintf("key-%d", i)))
 			}
 		})
@@ -51,8 +51,7 @@ func testPopulate(t *testing.T, funcCount int) {
 		request  = httptest.NewRequest("GET", "/", nil)
 	)
 
-	for i := 0; i < funcCount; i++ {
-		i := i
+	for i := range funcCount {
 		funcs[i] = func(ctx context.Context, actual *http.Request) context.Context {
 			funcCalled[i] = true
 			assert.Equal(request, actual)

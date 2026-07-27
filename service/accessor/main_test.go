@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	flag.StringVar(&addressCountsValue, "addressCounts", "1,5,10,50", "list of address counts to benchmark")
 	flag.Parse()
 
-	for _, v := range strings.Split(vnodeCountsValue, ",") {
+	for v := range strings.SplitSeq(vnodeCountsValue, ",") {
 		i, err := strconv.Atoi(strings.TrimSpace(v))
 		if err != nil {
 			fmt.Println(err)
@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 		vnodeCounts = append(vnodeCounts, i)
 	}
 
-	for _, v := range strings.Split(addressCountsValue, ",") {
+	for v := range strings.SplitSeq(addressCountsValue, ",") {
 		i, err := strconv.Atoi(strings.TrimSpace(v))
 		if err != nil {
 			fmt.Println(err)

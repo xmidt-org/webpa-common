@@ -5,6 +5,7 @@ package xlistener
 
 import (
 	"crypto/tls"
+	"errors"
 	"net"
 	"strconv"
 	"sync"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/go-kit/kit/metrics/discard"
 	"github.com/xmidt-org/sallust"
+
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/zap"
 )
@@ -149,12 +152,13 @@ func (l *listener) Accept() (net.Conn, error) {
 		c, err := l.Listener.Accept()
 		if err != nil {
 			sysValue := ""
+			// nolint: errorlint
 			if errno, ok := err.(syscall.Errno); ok {
-				sysValue = "0x" + strconv.FormatInt(int64(errno), 16)
+				sysValue = "0x" + strconv.FormatUint(uint64(errno), 16)
 			}
 
 			l.logger.Error("failed to accept connection", zap.Error(err), zap.String("sysValue", sysValue))
-			if err == syscall.ENFILE {
+			if errors.Is(err, syscall.ENFILE) {
 				l.logger.Error("ENFILE received.  translating to EMFILE")
 				return nil, syscall.EMFILE
 			}

@@ -9,7 +9,8 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
+
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -228,7 +229,7 @@ func (b *Basic) NewListener(logger *zap.Logger, activeConnections metrics.Gauge,
 func validCertSlices(certificateFiles, keyFiles []string) bool {
 	valid := true
 	if len(certificateFiles) > 0 && len(keyFiles) > 0 && len(certificateFiles) == len(keyFiles) {
-		for i := 0; i < len(certificateFiles); i++ {
+		for i := range certificateFiles {
 			if !(len(certificateFiles[i]) > 0) {
 				valid = false
 			}
@@ -245,7 +246,7 @@ func loadCerts(certificateFiles, keyFiles []string) (certs []tls.Certificate, er
 	}
 
 	certs = make([]tls.Certificate, len(certificateFiles))
-	for i := 0; i < len(certificateFiles); i++ {
+	for i := range certificateFiles {
 		certs[i], err = tls.LoadX509KeyPair(certificateFiles[i], keyFiles[i])
 		if err != nil {
 			sallust.Default().Error("Failed to LoadX509KeyPair", zap.String("cert", certificateFiles[i]), zap.String("key", keyFiles[i]), zap.Error(err))
@@ -285,7 +286,7 @@ func (b *Basic) New(logger *zap.Logger, handler http.Handler) *http.Server {
 		}
 
 		if len(b.ClientCACertFile) > 0 {
-			caCert, err := ioutil.ReadFile(b.ClientCACertFile)
+			caCert, err := os.ReadFile(b.ClientCACertFile)
 
 			if err != nil {
 				logger.Error("Error loading clientCACert file to configure mTLS", zap.Error(err))

@@ -15,7 +15,7 @@ func ApplyURLParser(parser func(string) (*url.URL, error), values ...string) ([]
 	for i, v := range values {
 		u, err := parser(v)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse URL '%s': %s", v, err)
+			return nil, fmt.Errorf("unable to parse URL '%s': %s", v, err)
 		}
 
 		urls[i] = u

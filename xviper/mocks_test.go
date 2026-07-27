@@ -28,7 +28,7 @@ type mockUnmarshaler struct {
 	mock.Mock
 }
 
-func (m *mockUnmarshaler) Unmarshal(v interface{}, configOptions ...viper.DecoderConfigOption) error {
+func (m *mockUnmarshaler) Unmarshal(v any, configOptions ...viper.DecoderConfigOption) error {
 	return m.Called(v, configOptions).Error(0)
 }
 
@@ -36,6 +36,6 @@ type mockKeyUnmarshaler struct {
 	mock.Mock
 }
 
-func (m *mockKeyUnmarshaler) UnmarshalKey(k string, v interface{}) error {
+func (m *mockKeyUnmarshaler) UnmarshalKey(k string, v any) error {
 	return m.Called(k, v).Error(0)
 }

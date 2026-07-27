@@ -133,7 +133,7 @@ func BenchmarkRoundRobinAdd(b *testing.B) {
 			b.ResetTimer()
 
 			for i := 0; i < b.N; i++ {
-				for index := 0; index < n; index++ {
+				for index := range n {
 					balancer.Add(testRoute(IPv4Address(int64(index))))
 				}
 			}
@@ -175,13 +175,13 @@ func BenchmarkRoundRobinRemove(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				b.StopTimer()
 				records := make([]string, n)
-				for index := 0; index < n; index++ {
+				for index := range n {
 					ip := IPv4Address(int64(index))
 					records[index] = ip
 					balancer.Add(testRoute(ip))
 				}
 				b.StartTimer()
-				for index := 0; index < n; index++ {
+				for index := range n {
 					err := balancer.Remove(testRoute(records[index]))
 					if err != nil {
 						panic(err)
@@ -225,7 +225,7 @@ func BenchmarkRoundRobinUpdate(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				b.StopTimer()
 				routes := make([]Route, n)
-				for index := 0; index < n; index++ {
+				for index := range n {
 					routes[index] = testRoute(IPv4Address(int64(index)))
 				}
 				b.StartTimer()
@@ -265,7 +265,7 @@ func BenchmarkRoundRobinGet(b *testing.B) {
 			b.ReportAllocs()
 
 			balancer := NewRoundRobinBalancer()
-			for index := 0; index < n; index++ {
+			for index := range n {
 				balancer.Add(testRoute(IPv4Address(int64(index))))
 			}
 

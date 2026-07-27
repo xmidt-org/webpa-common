@@ -171,7 +171,7 @@ func (s *statistics) String() string {
 
 func (s *statistics) MarshalJSON() ([]byte, error) {
 	s.lock.RLock()
-	output := []byte(fmt.Sprintf(
+	output := fmt.Appendf(nil,
 		`{"bytesSent": %d, "messagesSent": %d, "bytesReceived": %d, "messagesReceived": %d, "duplications": %d, "connectedAt": "%s", "upTime": "%s"}`,
 		s.bytesSent,
 		s.messagesSent,
@@ -180,7 +180,7 @@ func (s *statistics) MarshalJSON() ([]byte, error) {
 		s.duplications,
 		s.formattedConnectedAt,
 		s.UpTime(),
-	))
+	)
 	s.lock.RUnlock()
 	return output, nil
 }

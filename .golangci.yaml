@@ -1,12 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
 ---
-linters-settings:
-  misspell:
-    locale: US
-  errorlint:
-    # Report non-wrapping error creation using fmt.Errorf
-    errorf: false
+version: "2"
 
 linters:
   enable:
@@ -22,6 +17,8 @@ linters:
     - errcheck
     - ineffassign
   settings:
+    errorlint:
+      errorf: false
     misspell:
       locale: US
   exclusions:

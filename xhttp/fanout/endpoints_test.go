@@ -111,7 +111,7 @@ func testParseURLsValid(t *testing.T, urls []string, originalURL string, expecte
 	require.Equal(len(expected), len(actual))
 	require.NoError(err)
 
-	for i := 0; i < len(expected); i++ {
+	for i := range expected {
 		assert.Equal(expected[i], actual[i].String())
 	}
 }

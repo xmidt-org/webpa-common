@@ -7,11 +7,12 @@ import (
 	"errors"
 	"sync"
 
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/zap"
 )
 
-var errDeviceLimitReached = errors.New("Device limit reached")
+var errDeviceLimitReached = errors.New("device limit reached")
 
 type registryOptions struct {
 	Logger          *zap.Logger

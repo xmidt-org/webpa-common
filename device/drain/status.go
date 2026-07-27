@@ -19,7 +19,7 @@ func (s *Status) ServeHTTP(response http.ResponseWriter, request *http.Request) 
 	var (
 		active, job, progress = s.Drainer.Status()
 		message, err          = json.Marshal(
-			map[string]interface{}{
+			map[string]any{
 				"active":   active,
 				"job":      job.ToMap(),
 				"progress": progress,

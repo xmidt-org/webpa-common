@@ -4,6 +4,7 @@
 package device
 
 import (
+	"slices"
 	"time"
 
 	"github.com/go-kit/kit/metrics/provider"
@@ -193,10 +194,5 @@ func (o *Options) wrpCheck() wrpSourceCheckConfig {
 }
 
 func oneOf(e WRPSourceCheckType, options ...WRPSourceCheckType) bool {
-	for _, option := range options {
-		if e == option {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(options, e)
 }

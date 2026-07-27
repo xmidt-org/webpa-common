@@ -5,6 +5,7 @@ package devicegate
 
 import (
 	"encoding/json"
+	"slices"
 	"sync"
 
 	"github.com/xmidt-org/webpa-common/v2/device"
@@ -31,7 +32,7 @@ type Interface interface {
 
 	// SetFilter saves the filter values and filter key to filter by. It returns a Set of the old values and a
 	// bool that is true if the filter key did not previously exist and false if the filter key had existed beforehand.
-	SetFilter(key string, values []interface{}) (Set, bool)
+	SetFilter(key string, values []any) (Set, bool)
 
 	// DeleteFilter deletes a filter key. This completely removes all filter values associated with that key as well.
 	// Returns true if key had existed and values actually deleted, and false if key was not found.
@@ -46,10 +47,10 @@ type Interface interface {
 type Set interface {
 	json.Marshaler
 	// Has returns true if a value exists in the set, false if it doesn't.
-	Has(interface{}) bool
+	Has(any) bool
 
 	// VisitAll applies the visitor function to every value in the set.
-	VisitAll(func(interface{}))
+	VisitAll(func(any))
 }
 
 // FilterStore can be used to store filters in the Interface
@@ -57,7 +58,7 @@ type FilterStore map[string]Set
 
 // FilterSet is a concrete type that implements the Set interface
 type FilterSet struct {
-	Set  map[interface{}]bool
+	Set  map[any]bool
 	lock sync.RWMutex
 }
 
@@ -70,8 +71,8 @@ type FilterGate struct {
 }
 
 type FilterRequest struct {
-	Key    string        `json:"key"`
-	Values []interface{} `json:"values"`
+	Key    string `json:"key"`
+	Values []any  `json:"values"`
 }
 
 func (f *FilterGate) VisitAll(visit func(string, Set) bool) int {
@@ -98,12 +99,12 @@ func (f *FilterGate) GetFilter(key string) (Set, bool) {
 
 }
 
-func (f *FilterGate) SetFilter(key string, values []interface{}) (Set, bool) {
+func (f *FilterGate) SetFilter(key string, values []any) (Set, bool) {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
 	oldValues := f.FilterStore[key]
-	newValues := make(map[interface{}]bool)
+	newValues := make(map[any]bool)
 
 	for _, v := range values {
 		newValues[v] = true
@@ -157,7 +158,7 @@ func (f *FilterGate) GetAllowedFilters() (Set, bool) {
 	return f.AllowedFilters, true
 }
 
-func (s *FilterSet) Has(key interface{}) bool {
+func (s *FilterSet) Has(key any) bool {
 	if s.Set != nil {
 		s.lock.RLock()
 		defer s.lock.RUnlock()
@@ -167,7 +168,7 @@ func (s *FilterSet) Has(key interface{}) bool {
 	return false
 }
 
-func (s *FilterSet) VisitAll(f func(interface{})) {
+func (s *FilterSet) VisitAll(f func(any)) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
 	for key := range s.Set {
@@ -178,7 +179,7 @@ func (s *FilterSet) VisitAll(f func(interface{})) {
 func (s *FilterSet) MarshalJSON() ([]byte, error) {
 	s.lock.RLock()
 	defer s.lock.RUnlock()
-	temp := make([]interface{}, 0, len(s.Set))
+	temp := make([]any, 0, len(s.Set))
 	for key := range s.Set {
 		temp = append(temp, key)
 	}
@@ -187,7 +188,7 @@ func (s *FilterSet) MarshalJSON() ([]byte, error) {
 }
 
 func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *device.Metadata) (bool, device.MatchResult) {
-	var val interface{}
+	var val any
 	result := device.MatchResult{
 		Key: keyToCheck,
 	}
@@ -201,11 +202,11 @@ func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *devi
 
 	if val != nil {
 		switch t := val.(type) {
-		case []interface{}:
+		case []any:
 			if filterMatch(filterValues, t...) {
 				return true, result
 			}
-		case interface{}:
+		case any:
 			if filterMatch(filterValues, t) {
 				return true, result
 			}
@@ -216,13 +217,7 @@ func (f *FilterStore) metadataMatch(keyToCheck string, filterValues Set, m *devi
 }
 
 // function to check if any params are in a set
-func filterMatch(filterValues Set, paramsToCheck ...interface{}) bool {
-	for _, param := range paramsToCheck {
-		if filterValues.Has(param) {
-			return true
-		}
-	}
-
-	return false
+func filterMatch(filterValues Set, paramsToCheck ...any) bool {
+	return slices.ContainsFunc(paramsToCheck, filterValues.Has)
 
 }

@@ -44,7 +44,7 @@ func ForwardBody(followRedirects bool) FanoutRequestFunc {
 // ForwardHeaders creates a FanoutRequestFunc that copies headers from the original request onto each fanout request
 func ForwardHeaders(headers ...string) FanoutRequestFunc {
 	canonicalizedHeaders := make([]string, len(headers))
-	for i := 0; i < len(headers); i++ {
+	for i := range headers {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
 	}
 
@@ -93,7 +93,7 @@ type FanoutResponseFunc func(ctx context.Context, response http.ResponseWriter, 
 // ReturnHeaders copies zero or more headers from the fanout response into the top-level HTTP response.
 func ReturnHeaders(headers ...string) FanoutResponseFunc {
 	canonicalizedHeaders := make([]string, len(headers))
-	for i := 0; i < len(headers); i++ {
+	for i := range headers {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headers[i])
 	}
 
@@ -114,7 +114,7 @@ func ReturnHeaders(headers ...string) FanoutResponseFunc {
 // ReturnHeadersWithPrefix copies zero or more headers from the fanout where the headerPrefix is matched in the response into the top-level HTTP response.
 func ReturnHeadersWithPrefix(headerPrefixs ...string) FanoutResponseFunc {
 	canonicalizedHeaders := make([]string, len(headerPrefixs))
-	for i := 0; i < len(headerPrefixs); i++ {
+	for i := range headerPrefixs {
 		canonicalizedHeaders[i] = textproto.CanonicalMIMEHeaderKey(headerPrefixs[i])
 	}
 

@@ -35,7 +35,7 @@ func NewAccessorEndpoint(a accessor.Accessor) endpoint.Endpoint {
 		panic("an Accessor is required")
 	}
 
-	return func(ctx context.Context, request interface{}) (interface{}, error) {
+	return func(ctx context.Context, request any) (any, error) {
 		key := request.(Key)
 		return a.Get(key.Bytes())
 	}

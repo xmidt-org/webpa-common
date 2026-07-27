@@ -24,7 +24,7 @@ type timeoutHandler struct {
 func (th *timeoutHandler) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	var (
 		done        = make(chan struct{})
-		panics      = make(chan interface{}, 1)
+		panics      = make(chan any, 1)
 		writer      xhttp.BufferedWriter
 		ctx, cancel = context.WithTimeout(request.Context(), th.timeout)
 	)

@@ -19,7 +19,7 @@ import (
 )
 
 type deviceInfo struct {
-	claims map[string]interface{}
+	claims map[string]any
 	count  int
 }
 
@@ -27,7 +27,7 @@ func testJobNormalize(t *testing.T) {
 	testDrainFilter := &drainFilter{
 		filter: &devicegate.FilterGate{
 			FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-				"test": &devicegate.FilterSet{Set: map[interface{}]bool{
+				"test": &devicegate.FilterSet{Set: map[any]bool{
 					"testValue":  true,
 					"testValue2": true,
 				}},
@@ -35,7 +35,7 @@ func testJobNormalize(t *testing.T) {
 		},
 		filterRequest: devicegate.FilterRequest{
 			Key:    "test",
-			Values: []interface{}{"testValue", "testValue2"},
+			Values: []any{"testValue", "testValue2"},
 		},
 	}
 
@@ -1032,19 +1032,19 @@ func TestDrainerWithFilter(t *testing.T) {
 		df          = drainFilter{
 			filter: &devicegate.FilterGate{
 				FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-					filterKey: &devicegate.FilterSet{Set: map[interface{}]bool{
+					filterKey: &devicegate.FilterSet{Set: map[any]bool{
 						filterValue: true,
 					}},
 				}),
 			},
 			filterRequest: devicegate.FilterRequest{
 				Key:    filterKey,
-				Values: []interface{}{filterValue},
+				Values: []any{filterValue},
 			},
 		}
 
-		metadata1 = map[string]interface{}{filterKey: "test"}
-		metadata2 = map[string]interface{}{filterKey: filterValue}
+		metadata1 = map[string]any{filterKey: "test"}
+		metadata2 = map[string]any{filterKey: filterValue}
 
 		counts = [][]int{
 			[]int{1, 0, 1},

@@ -160,6 +160,7 @@ func (mh *MessageHandler) ServeHTTP(httpResponse http.ResponseWriter, httpReques
 	// deviceRequest carries the context through the routing infrastructure
 	if deviceResponse, err := mh.Router.Route(deviceRequest); err != nil {
 		code := http.StatusGatewayTimeout
+		// nolint: errorlint
 		switch err {
 		case ErrorInvalidDeviceName:
 			code = http.StatusBadRequest
@@ -270,9 +271,7 @@ func (lh *ListHandler) updateCache() []byte {
 
 			// nolint: typecheck
 			if data, err := d.MarshalJSON(); err != nil {
-				lh.cache.WriteString(
-					fmt.Sprintf(`{"id": "%s", "error": "%s"}`, d.ID(), err),
-				)
+				fmt.Fprintf(&lh.cache, `{"id": "%s", "error": "%s"}`, d.ID(), err)
 			} else {
 				lh.cache.Write(data)
 			}

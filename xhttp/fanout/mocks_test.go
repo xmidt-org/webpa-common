@@ -25,7 +25,7 @@ func (m *mockEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 // generateEndpoints creates a FixedEndpoints with generated base URLs
 func generateEndpoints(count int) FixedEndpoints {
 	fe := make(FixedEndpoints, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		fe[i] = &url.URL{
 			Scheme: "http",
 			Host:   fmt.Sprintf("host-%d.webpa.net:8080", i),

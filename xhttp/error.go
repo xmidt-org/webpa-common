@@ -30,7 +30,7 @@ func (e *Error) Error() string {
 }
 
 func (e *Error) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"code": %d, "text": "%s"}`, e.Code, e.Text)), nil
+	return fmt.Appendf(nil, `{"code": %d, "text": "%s"}`, e.Code, e.Text), nil
 }
 
 // WriteErrorf provides printf-style functionality for writing out the results of some operation.
@@ -40,7 +40,7 @@ func (e *Error) MarshalJSON() ([]byte, error) {
 //
 // Although the typical use case for this function is to return a JSON error, this function can be used
 // for non-error responses.
-func WriteErrorf(response http.ResponseWriter, code int, format string, parameters ...interface{}) (int, error) {
+func WriteErrorf(response http.ResponseWriter, code int, format string, parameters ...any) (int, error) {
 	response.Header().Set("Content-Type", "application/json")
 	response.WriteHeader(code)
 
@@ -54,7 +54,7 @@ func WriteErrorf(response http.ResponseWriter, code int, format string, paramete
 
 // WriteError provides print-style functionality for writing a JSON message as a response.  No format parameters
 // are used.  The value parameter is subjected to the default stringizing rules of the fmt package.
-func WriteError(response http.ResponseWriter, code int, value interface{}) (int, error) {
+func WriteError(response http.ResponseWriter, code int, value any) (int, error) {
 	response.Header().Set("Content-Type", "application/json")
 	response.WriteHeader(code)
 

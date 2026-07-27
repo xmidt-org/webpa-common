@@ -8,7 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
+
 	"net/http"
 
 	"github.com/xmidt-org/sallust"
@@ -115,7 +116,7 @@ func (gl GateLogger) LogFilters(next http.Handler) http.Handler {
 // check that a message body is can be read and unmarshalled
 func validateRequestBody(request *http.Request) (FilterRequest, error) {
 	var message FilterRequest
-	msgBytes, err := ioutil.ReadAll(request.Body)
+	msgBytes, err := io.ReadAll(request.Body)
 	request.Body.Close()
 
 	if err != nil {

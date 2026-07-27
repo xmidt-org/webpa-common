@@ -6,6 +6,7 @@ package health
 import (
 	"errors"
 	"github.com/c9s/goprocinfo/linux"
+	"maps"
 	"runtime"
 )
 
@@ -107,17 +108,13 @@ func NewStats(options []Option) (s Stats) {
 }
 
 func (s Stats) Set(stats Stats) {
-	for key, value := range s {
-		stats[key] = value
-	}
+	maps.Copy(stats, s)
 }
 
 // Clone returns a distinct copy of this Stats object
 func (s Stats) Clone() Stats {
 	clone := make(Stats, len(s))
-	for key, value := range s {
-		clone[key] = value
-	}
+	maps.Copy(clone, s)
 
 	return clone
 }

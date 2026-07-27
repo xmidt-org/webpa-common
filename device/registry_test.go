@@ -34,7 +34,7 @@ func testRegistryAdd(t *testing.T) {
 		p.Assert(t, DeviceLimitReachedCounter)(xmetricstest.Value(0.0))
 		p.Assert(t, DuplicatesCounter)(xmetricstest.Value(0.0))
 
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			d := newDevice(deviceOptions{
 				ID:     ID(strconv.Itoa(i)),
 				Logger: logger,

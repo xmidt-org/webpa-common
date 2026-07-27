@@ -11,9 +11,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/xmidt-org/sallust"
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/device"
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service"
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service/accessor"
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/service/monitor"
 )
 

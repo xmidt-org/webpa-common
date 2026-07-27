@@ -150,7 +150,7 @@ func TestSuccessfulAdd(t *testing.T) {
 			request:            httptest.NewRequest("POST", "/", bytes.NewBuffer([]byte(`{"key": "test", "values": ["test1", "test2"]}`))).WithContext(ctx),
 			newKey:             true,
 			expectedStatusCode: http.StatusCreated,
-			allowedFilters:     &FilterSet{Set: map[interface{}]bool{"test": true}},
+			allowedFilters:     &FilterSet{Set: map[any]bool{"test": true}},
 			allowedFiltersSet:  true,
 		},
 	}
@@ -213,7 +213,7 @@ func TestGateLogger(t *testing.T) {
 		gate   = &FilterGate{
 			FilterStore: FilterStore(map[string]Set{
 				"partner-id": &FilterSet{
-					Set: map[interface{}]bool{"comcast": true},
+					Set: map[any]bool{"comcast": true},
 				},
 			}),
 		}

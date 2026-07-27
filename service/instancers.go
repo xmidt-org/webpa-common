@@ -4,15 +4,17 @@
 package service
 
 import (
+	"maps"
+
 	"github.com/go-kit/kit/sd"
 )
 
 type ContextualInstancer struct {
 	sd.Instancer
-	m map[string]interface{}
+	m map[string]any
 }
 
-func (ci ContextualInstancer) Metadata() map[string]interface{} {
+func (ci ContextualInstancer) Metadata() map[string]any {
 	return ci.m
 }
 
@@ -21,7 +23,7 @@ func (ci ContextualInstancer) Metadata() map[string]interface{} {
 // across API boundaries so that it can be logged or otherwise processed.
 //
 // If m is empty, i is returned as is.
-func NewContextualInstancer(i sd.Instancer, m map[string]interface{}) sd.Instancer {
+func NewContextualInstancer(i sd.Instancer, m map[string]any) sd.Instancer {
 	if len(m) == 0 {
 		return i
 	}
@@ -57,9 +59,7 @@ func (is *Instancers) Set(key string, i sd.Instancer) {
 func (is Instancers) Copy() Instancers {
 	if len(is) > 0 {
 		clone := make(Instancers, len(is))
-		for k, v := range is {
-			clone[k] = v
-		}
+		maps.Copy(clone, is)
 
 		return clone
 	}

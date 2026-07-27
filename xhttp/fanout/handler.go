@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	errNoFanoutURLs  = errors.New("No fanout URLs")
-	errBadTransactor = errors.New("Transactor did not conform to stdlib API")
+	errNoFanoutURLs  = errors.New("no fanout URLs")
+	errBadTransactor = errors.New("transactor did not conform to stdlib API")
 )
 
 // Option provides a single configuration option for a fanout Handler
@@ -130,8 +130,9 @@ func WithClientFailure(failure ...gokithttp.ClientResponseFunc) Option {
 
 // WithConfiguration uses a set of (typically injected) fanout configuration options to configure a Handler.
 // Use of this option will not override the configured Endpoints instance.
-func WithConfiguration(c Configuration) Option {
+func WithConfiguration(c *Configuration) Option {
 	return func(h *Handler) {
+		// nolint: bodyclose
 		WithTransactor(NewTransactor(c))(h)
 
 		authorization := c.authorization()
@@ -180,7 +181,7 @@ func New(e Endpoints, options ...Option) *Handler {
 // FanoutRequestFunc options are used to build each request.  This method returns an error if no endpoints were returned
 // by the strategy or if an error reading the original request body occurred.
 func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Request) ([]*http.Request, error) {
-	body, err := ioutil.ReadAll(original.Body)
+	body, err := io.ReadAll(original.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +194,7 @@ func (h *Handler) newFanoutRequests(fanoutCtx context.Context, original *http.Re
 	}
 
 	requests := make([]*http.Request, len(urls))
-	for i := 0; i < len(urls); i++ {
+	for i := range urls {
 		fanout := &http.Request{
 			Method:     original.Method,
 			URL:        urls[i],
@@ -230,13 +231,17 @@ func (h *Handler) execute(logger *zap.Logger, spanner tracing.Spanner, results c
 	)
 
 	result.Response, result.Err = h.transactor(request)
+	if request.Body != nil {
+		defer request.Body.Close()
+	}
+
 	switch {
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
 		result.ContentType = result.Response.Header.Get("Content-Type")
 
 		var err error
-		if result.Body, err = ioutil.ReadAll(result.Response.Body); err != nil {
+		if result.Body, err = io.ReadAll(result.Response.Body); err != nil {
 			logger.Error("error reading fanout response body", zap.Error(err))
 		}
 
@@ -245,15 +250,16 @@ func (h *Handler) execute(logger *zap.Logger, spanner tracing.Spanner, results c
 		}
 
 	case result.Err != nil:
-		result.Body = []byte(fmt.Sprintf("%s", result.Err))
+		result.Body = fmt.Appendf(nil, "%s", result.Err)
 		result.ContentType = "text/plain"
 
+		// nolint: errorlint
 		if ue, ok := result.Err.(*url.Error); ok && ue.Err != nil {
 			// unwrap the URL error
 			result.Err = ue.Err
 		}
 
-		if result.Err == context.Canceled || result.Err == context.DeadlineExceeded {
+		if errors.Is(result.Err, context.Canceled) || errors.Is(result.Err, context.DeadlineExceeded) {
 			result.StatusCode = http.StatusGatewayTimeout
 		} else {
 			result.StatusCode = http.StatusServiceUnavailable
@@ -325,7 +331,7 @@ func (h *Handler) ServeHTTP(response http.ResponseWriter, original *http.Request
 
 	statusCode := 0
 	var latestResponse Result
-	for i := 0; i < len(requests); i++ {
+	for range requests {
 		select {
 		case <-fanoutCtx.Done():
 			logger.Error("fanout operation canceled or timed out", zap.Int("statusCode", http.StatusGatewayTimeout), zap.Any("url", original.URL), zap.Error(fanoutCtx.Err()))

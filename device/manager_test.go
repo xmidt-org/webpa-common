@@ -530,7 +530,7 @@ func testManagerConnectIncludesConvey(t *testing.T) {
 	assert.Equal(1, len(contents))
 
 	content := <-contents
-	convey := make(map[string]interface{})
+	convey := make(map[string]any)
 	err = json.Unmarshal(content, &convey)
 
 	assert.Nil(err)

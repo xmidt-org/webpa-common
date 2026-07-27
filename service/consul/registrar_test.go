@@ -328,7 +328,7 @@ func testNewRegistrarTTL(t *testing.T) {
 	now := time.Now()
 
 	// we have 3 pass updates expected for each TTL check above
-	for repeat := 0; repeat < 3; repeat++ {
+	for range 3 {
 		timer1 <- now
 		select {
 		case <-timer1Ack:

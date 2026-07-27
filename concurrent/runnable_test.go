@@ -16,13 +16,11 @@ import (
 func success(t *testing.T, runCount *uint32) Runnable {
 	return RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
 		atomic.AddUint32(runCount, 1)
-		waitGroup.Add(1)
 
 		// simulates some longrunning task ...
-		go func() {
-			defer waitGroup.Done()
+		waitGroup.Go(func() {
 			<-shutdown
-		}()
+		})
 
 		return nil
 	})
@@ -138,12 +136,10 @@ func TestAwaitSuccess(t *testing.T) {
 	testWaitGroup := &sync.WaitGroup{}
 	testWaitGroup.Add(1)
 	success := RunnableFunc(func(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error {
-		waitGroup.Add(1)
-		go func() {
-			defer waitGroup.Done()
+		waitGroup.Go(func() {
 			defer testWaitGroup.Done()
 			<-shutdown
-		}()
+		})
 
 		return nil
 	})

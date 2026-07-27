@@ -148,7 +148,8 @@ func NewManager(o *Options) Manager {
 		}),
 		conveyHWMetric: conveymetric.NewConveyMetric(measures.Models, []conveymetric.TagLabelPair{
 			{
-				Tag:   "hw-model",
+				Tag: "hw-model",
+				// nolint: goconst
 				Label: "model",
 			},
 			{
