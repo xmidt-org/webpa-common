@@ -1,8 +1,27 @@
 # SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
+---
 version: 2
 updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      # Check for updates to GitHub Actions every day
+      interval: "daily"
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 10
+
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: daily
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    open-pull-requests-limit: 10

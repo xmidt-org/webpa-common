@@ -14,7 +14,7 @@ on:
       - LICENSE
       - NOTICE
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - "v[0-9]+.[0-9]+.[0-9]+"
   pull_request:
   workflow_dispatch:
 
@@ -26,10 +26,8 @@ permissions:
 jobs:
   ci:
     # yamllint disable-line
-    uses: xmidt-org/shared-go/.github/workflows/ci.yml@aff0471aa7e2f96ddb059beb178f63747a7cc57e # v4.9.41
+    uses: xmidt-org/shared-go/.github/workflows/ci.yml@ef773fbb98140fe8752522f4c59013969ea51020 # v4.12.19
     with:
-      style-skip:     true
-      yaml-lint-skip: true
-      lint-skip:      true
-      release-type:   library
+      release-type: library
+      yaml-lint-skip: false
     secrets: inherit
