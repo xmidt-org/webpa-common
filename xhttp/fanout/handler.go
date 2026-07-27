@@ -230,11 +230,8 @@ func (h *Handler) execute(logger *zap.Logger, spanner tracing.Spanner, results c
 		}
 	)
 
+	// nolint: bodyclose
 	result.Response, result.Err = h.transactor(request)
-	if request.Body != nil {
-		defer request.Body.Close()
-	}
-
 	switch {
 	case result.Response != nil:
 		result.StatusCode = result.Response.StatusCode
