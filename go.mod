@@ -24,7 +24,7 @@ require (
 	github.com/xmidt-org/sallust v0.2.4
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa
 )
 
