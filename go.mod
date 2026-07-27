@@ -1,6 +1,6 @@
 module github.com/xmidt-org/webpa-common/v2
 
-go 1.26
+go 1.26.5
 
 require (
 	github.com/billhathaway/consistentHash v0.0.0-20140718022140-addea16d2229
