@@ -48,7 +48,7 @@ func (se *spanError) Spans() []Span {
 	return se.spans
 }
 
-func (se *spanError) WithSpans(spans ...Span) interface{} {
+func (se *spanError) WithSpans(spans ...Span) any {
 	if len(spans) > 0 {
 		return &spanError{
 			err:   se.err,

@@ -19,7 +19,7 @@ func generateAddresses(random io.Reader, count, length int) []string {
 		addresses []string
 	)
 
-	for i := 0; i < count; i++ {
+	for range count {
 		random.Read(buffer)
 		addresses = append(
 			addresses,

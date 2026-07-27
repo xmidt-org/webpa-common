@@ -66,7 +66,7 @@ func TestConfiguration(t *testing.T) {
 func TestNewTransactor(t *testing.T) {
 	assert := assert.New(t)
 	// nolint:bodyclose
-	assert.NotNil(NewTransactor(Configuration{}))
+	assert.NotNil(NewTransactor(&Configuration{}))
 }
 
 func TestNewChain(t *testing.T) {
@@ -81,7 +81,7 @@ func TestNewChain(t *testing.T) {
 			assert.True(ok)
 		})
 
-		chain = NewChain(Configuration{})
+		chain = NewChain(&Configuration{})
 	)
 
 	decorated := chain.Then(handler)

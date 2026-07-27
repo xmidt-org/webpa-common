@@ -109,28 +109,28 @@ func testNestedToMultiMapRaw(s string, t *testing.T) {
 		assert  = assert.New(t)
 		require = require.New(t)
 
-		raw = map[string]interface{}{
+		raw = map[string]any{
 			"scalar":   "scalar value",
 			"multi":    []string{"value1", "value2"},
-			"rawMulti": []interface{}{"raw1", "raw2"},
+			"rawMulti": []any{"raw1", "raw2"},
 			"simpleNested": map[string][]string{
 				"single": []string{"value"},
 				"double": []string{"value1", "value2"},
 			},
-			"complex": map[string]interface{}{
+			"complex": map[string]any{
 				"scalar":   "scalar value",
 				"multi":    []string{"value1", "value2"},
-				"rawMulti": []interface{}{"raw1", "raw2"},
+				"rawMulti": []any{"raw1", "raw2"},
 				"simpleNested": map[string][]string{
 					"single": []string{"value"},
 					"double": []string{"value1", "value2"},
 				},
-				"deep": map[string]interface{}{
-					"deeper": map[string]interface{}{
-						"deepest": map[string]interface{}{
+				"deep": map[string]any{
+					"deeper": map[string]any{
+						"deepest": map[string]any{
 							"scalar":   "scalar value",
 							"multi":    []string{"value1", "value2"},
-							"rawMulti": []interface{}{"raw1", "raw2"},
+							"rawMulti": []any{"raw1", "raw2"},
 							"simpleNested": map[string][]string{
 								"single": []string{"value"},
 								"double": []string{"value1", "value2"},
@@ -174,7 +174,7 @@ func testNestedToMultiMapViper(s string, t *testing.T) {
 		v       = viper.New()
 
 		configuration = struct {
-			Events map[string]interface{}
+			Events map[string]any
 		}{
 			Events: nil,
 		}
@@ -207,7 +207,7 @@ func testNestedToMultiMapViper(s string, t *testing.T) {
 
 func testNestedToMultiMapBadSeparator(t *testing.T) {
 	assert := assert.New(t)
-	m, err := NestedToMultiMap("", map[string]interface{}{})
+	m, err := NestedToMultiMap("", map[string]any{})
 	assert.Empty(m)
 	assert.Error(err)
 }
@@ -215,16 +215,16 @@ func testNestedToMultiMapBadSeparator(t *testing.T) {
 func testNestedToMultiMapBadEventValue(t *testing.T) {
 	var (
 		assert   = assert.New(t)
-		testData = []map[string]interface{}{
-			map[string]interface{}{
-				"bad": []interface{}{1234},
+		testData = []map[string]any{
+			map[string]any{
+				"bad": []any{1234},
 			},
-			map[string]interface{}{
-				"nested": map[string]interface{}{
-					"bad": []interface{}{1234},
+			map[string]any{
+				"nested": map[string]any{
+					"bad": []any{1234},
 				},
 			},
-			map[string]interface{}{
+			map[string]any{
 				"bad": -17.6,
 			},
 		}

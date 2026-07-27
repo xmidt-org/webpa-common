@@ -29,7 +29,7 @@ func KeyFromHeader(header string, parser service.KeyParser) gokithttp.DecodeRequ
 		Text: fmt.Sprintf("missing %s header", header),
 	}
 
-	return func(_ context.Context, r *http.Request) (interface{}, error) {
+	return func(_ context.Context, r *http.Request) (any, error) {
 		v := r.Header.Get(header)
 		if len(v) == 0 {
 			return nil, missingHeader
@@ -59,7 +59,7 @@ func KeyFromPath(variable string, parser service.KeyParser) gokithttp.DecodeRequ
 		Text: fmt.Sprintf("missing path variable %s", variable),
 	}
 
-	return func(_ context.Context, r *http.Request) (interface{}, error) {
+	return func(_ context.Context, r *http.Request) (any, error) {
 		vars := mux.Vars(r)
 		if len(vars) == 0 {
 			return nil, noPathVariables

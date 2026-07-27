@@ -98,7 +98,7 @@ func testNewConstructorFiltered(t *testing.T) {
 				f             []Interface
 			)
 
-			for n := 0; n < i; n++ {
+			for n := range i {
 				if n == failAt {
 					f = append(f, Func(func(*http.Request) error { filtersCalled++; return expectedErr }))
 				} else {
@@ -135,7 +135,7 @@ func testNewConstructorAllFiltersPass(t *testing.T) {
 				f             []Interface
 			)
 
-			for n := 0; n < i; n++ {
+			for range i {
 				f = append(f, Func(func(*http.Request) error { filtersCalled++; return nil }))
 			}
 

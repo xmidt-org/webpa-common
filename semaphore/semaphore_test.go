@@ -25,7 +25,7 @@ func ExampleMutex() {
 	)
 
 	wg.Add(routineCount)
-	for i := 0; i < routineCount; i++ {
+	for range routineCount {
 		go func() {
 			defer wg.Done()
 			defer s.Release()
@@ -86,7 +86,7 @@ func TestNew(t *testing.T) {
 
 func testSemaphoreTryAcquire(t *testing.T, s Interface, totalCount int) {
 	assert := assert.New(t)
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		assert.True(s.TryAcquire())
 	}
 
@@ -103,7 +103,7 @@ func testSemaphoreAcquire(t *testing.T, s Interface, totalCount int) {
 	)
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -160,7 +160,7 @@ func testSemaphoreAcquireWait(t *testing.T, s Interface, totalCount int) {
 	)
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		result := make(chan error)
 		go func() {
 			result <- s.AcquireWait(timer)
@@ -212,7 +212,7 @@ func testSemaphoreAcquireCtx(t *testing.T, s Interface, totalCount int) {
 	defer cancel()
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		result := make(chan error)
 		go func() {
 			result <- s.AcquireCtx(ctx)

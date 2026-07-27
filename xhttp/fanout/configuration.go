@@ -130,7 +130,7 @@ func (c *Configuration) checkRedirect() func(*http.Request, []*http.Request) err
 
 // NewTransactor constructs an HTTP client transaction function from a set of fanout options.
 // nolint:govet
-func NewTransactor(c Configuration) func(*http.Request) (*http.Response, error) {
+func NewTransactor(c *Configuration) func(*http.Request) (*http.Response, error) {
 	return (&http.Client{
 		Transport:     c.transport(),
 		CheckRedirect: c.checkRedirect(),
@@ -141,7 +141,7 @@ func NewTransactor(c Configuration) func(*http.Request) (*http.Response, error) 
 // NewChain constructs an Alice constructor Chain from a set of fanout options and zero or
 // more application-layer request functions.
 // nolint:govet
-func NewChain(c Configuration, rf ...gokithttp.RequestFunc) alice.Chain {
+func NewChain(c *Configuration, rf ...gokithttp.RequestFunc) alice.Chain {
 	return alice.New(
 		xtimeout.NewConstructor(xtimeout.Options{
 			Timeout: c.fanoutTimeout(),

@@ -40,7 +40,7 @@ func TestNewCloseable(t *testing.T) {
 
 func testCloseableTryAcquire(t *testing.T, cs Closeable, totalCount int) {
 	assert := assert.New(t)
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		assert.True(cs.TryAcquire())
 	}
 
@@ -65,7 +65,7 @@ func testCloseableAcquireSuccess(t *testing.T, cs Closeable, totalCount int) {
 	)
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -130,7 +130,7 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 
 	go func() {
 		defer close(acquiredAll)
-		for i := 0; i < totalCount; i++ {
+		for range totalCount {
 			assert.NoError(cs.Acquire())
 		}
 	}()
@@ -143,7 +143,7 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 	}
 
 	// block multiple routines waiting to acquire the semaphore
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		ready := make(chan struct{})
 		go func() {
 			close(ready)
@@ -169,7 +169,7 @@ func testCloseableAcquireClose(t *testing.T, cs Closeable, totalCount int) {
 
 	// nolint: typecheck
 	assert.NoError(cs.Close())
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		select {
 		case err := <-results:
 			assert.Equal(ErrClosed, err)
@@ -199,7 +199,7 @@ func testCloseableAcquireWaitSuccess(t *testing.T, cs Closeable, totalCount int)
 	)
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		result := make(chan error)
 		go func() {
 			result <- cs.AcquireWait(timer)
@@ -260,7 +260,7 @@ func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
 
 	go func() {
 		defer close(acquiredAll)
-		for i := 0; i < totalCount; i++ {
+		for range totalCount {
 			assert.NoError(cs.Acquire())
 		}
 	}()
@@ -273,7 +273,7 @@ func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
 	}
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		ready := make(chan struct{})
 		go func() {
 			close(ready)
@@ -299,7 +299,7 @@ func testCloseableAcquireWaitClose(t *testing.T, cs Closeable, totalCount int) {
 
 	// nolint: typecheck
 	assert.NoError(cs.Close())
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		select {
 		case err := <-results:
 			assert.Equal(ErrClosed, err)
@@ -331,7 +331,7 @@ func testCloseableAcquireCtxSuccess(t *testing.T, cs Closeable, totalCount int) 
 	defer cancel()
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		result := make(chan error)
 		go func() {
 			result <- cs.AcquireCtx(ctx)
@@ -388,7 +388,7 @@ func testCloseableAcquireCtxClose(t *testing.T, cs Closeable, totalCount int) {
 
 	go func() {
 		defer close(acquiredAll)
-		for i := 0; i < totalCount; i++ {
+		for range totalCount {
 			assert.NoError(cs.Acquire())
 		}
 	}()
@@ -401,7 +401,7 @@ func testCloseableAcquireCtxClose(t *testing.T, cs Closeable, totalCount int) {
 	}
 
 	// acquire all the things!
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		ready := make(chan struct{})
 		go func() {
 			close(ready)
@@ -427,7 +427,7 @@ func testCloseableAcquireCtxClose(t *testing.T, cs Closeable, totalCount int) {
 
 	// nolint: typecheck
 	assert.NoError(cs.Close())
-	for i := 0; i < totalCount; i++ {
+	for range totalCount {
 		select {
 		case err := <-results:
 			assert.Equal(ErrClosed, err)

@@ -18,7 +18,7 @@ const (
 type Labeled interface {
 	// Get returns the nested metric associated with a set of label/value pairs, creating one if no such metric exists.
 	// If the given key represents the root key, this same instance is returned.
-	Get(LVKey) interface{}
+	Get(LVKey) any
 }
 
 var rootKey LVKey = ""

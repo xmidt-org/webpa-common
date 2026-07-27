@@ -12,7 +12,7 @@ import (
 var (
 	// ErrTimeout is returned when a timeout occurs while waiting to acquire a semaphore resource.
 	// This error does not apply when using a context.  ctx.Err() is returned in that case.
-	ErrTimeout = errors.New("The semaphore could not be acquired within the timeout")
+	ErrTimeout = errors.New("the semaphore could not be acquired within the timeout")
 )
 
 // Interface represents a semaphore, either binary or counting.  When any acquire method is successful,

@@ -131,7 +131,7 @@ func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 		pauseVisit:      make(chan struct{}),
 	}
 
-	for mac := uint64(0); mac < count; mac++ {
+	for mac := range count {
 		var (
 			id = device.IntToMAC(mac)
 			d  = new(device.MockDevice)
@@ -147,7 +147,7 @@ func generateManager(assert *assert.Assertions, count uint64) *stubManager {
 	return sm
 }
 
-func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneClaims map[string]interface{}, deviceCountOne uint64, metadataTwoClaims map[string]interface{}, deviceCountTwo uint64) *stubManager {
+func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneClaims map[string]any, deviceCountOne uint64, metadataTwoClaims map[string]any, deviceCountTwo uint64) *stubManager {
 	totalCount := deviceCountOne + deviceCountTwo
 	sm := &stubManager{
 		assert:          assert,
@@ -158,7 +158,7 @@ func generateManagerWithDifferentDevices(assert *assert.Assertions, metadataOneC
 		pauseVisit:      make(chan struct{}),
 	}
 
-	for mac := uint64(0); mac < totalCount; mac++ {
+	for mac := range totalCount {
 		var (
 			id = device.IntToMAC(mac)
 			d  = new(device.MockDevice)

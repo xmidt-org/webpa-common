@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
 ---
-name: 'PROJ: xmidt-team'
+name: "PROJ: xmidt-team"
 
+# yamllint disable-line
 on:
   issues:
     types:
@@ -19,5 +20,5 @@ permissions:
 jobs:
   proj:
     # yamllint disable-line
-    uses: xmidt-org/shared-go/.github/workflows/proj.yml@aff0471aa7e2f96ddb059beb178f63747a7cc57e # v4.9.41
+    uses: xmidt-org/shared-go/.github/workflows/proj.yml@3ee264166a90ca457e80f94bc56d1099dbce2e8e # v4.12.20
     secrets: inherit

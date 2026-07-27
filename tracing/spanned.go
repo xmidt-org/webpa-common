@@ -18,16 +18,16 @@ type Mergeable interface {
 	// WithSpans returns an instance of this object with the new Spans, possibly
 	// merged into those returned by Spans.  This method should generally return
 	// a shallow copy of itself with the new spans, to preserve immutability.
-	WithSpans(...Span) interface{}
+	WithSpans(...Span) any
 }
 
 // Spans extracts the slice of Span instances from a container, if possible.
 //
-//   If container implements Spanned, then container.Spans() is returned with a true.
-//   If container is a Span, a slice of that one element is returned with a true.
-//   If container is a []Span, it's returned as is with a true.
-//   Otherwise, this function returns nil, false.
-func Spans(container interface{}) ([]Span, bool) {
+//	If container implements Spanned, then container.Spans() is returned with a true.
+//	If container is a Span, a slice of that one element is returned with a true.
+//	If container is a []Span, it's returned as is with a true.
+//	Otherwise, this function returns nil, false.
+func Spans(container any) ([]Span, bool) {
 	switch v := container.(type) {
 	case Span:
 		return []Span{v}, true
@@ -46,7 +46,7 @@ func Spans(container interface{}) ([]Span, bool) {
 // returned with a true.
 //
 // Similar to Spans, each element of spans may be of type Span, []Span, or Spanned.  Any other type is skipped without error.
-func MergeSpans(container interface{}, spans ...interface{}) (interface{}, bool) {
+func MergeSpans(container any, spans ...any) (any, bool) {
 	if len(spans) == 0 {
 		return container, false
 	}
@@ -73,6 +73,7 @@ func MergeSpans(container interface{}, spans ...interface{}) (interface{}, bool)
 		// if there are existing spans, preserve order by appending the collected spans we
 		// have so far.  also, allocate a copy to avoid polluting the spans of the original container.
 		if existingSpans := mergeable.Spans(); len(existingSpans) > 0 {
+			// nolint: prealloc
 			copyOf := make([]Span, len(existingSpans))
 			copy(copyOf, existingSpans)
 			mergedSpans = append(copyOf, mergedSpans...)
@@ -91,6 +92,6 @@ func (nm NopMergeable) Spans() []Span {
 	return nm
 }
 
-func (nm NopMergeable) WithSpans(spans ...Span) interface{} {
+func (nm NopMergeable) WithSpans(spans ...Span) any {
 	return NopMergeable(spans)
 }

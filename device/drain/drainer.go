@@ -17,6 +17,8 @@ import (
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webpa-common/v2/device"
 	"github.com/xmidt-org/webpa-common/v2/device/devicegate"
+
+	// nolint: staticcheck
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
@@ -133,8 +135,8 @@ type Job struct {
 
 // ToMap returns a map representation of this Job appropriate for marshaling to formats like JSON.
 // This method makes things a bit prettier, like the Tick.
-func (j Job) ToMap() map[string]interface{} {
-	m := map[string]interface{}{
+func (j Job) ToMap() map[string]any {
+	m := map[string]any{
 		"count": j.Count,
 	}
 

@@ -59,7 +59,7 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 	}
 
 	tp := &testProvider{
-		metrics:      make(map[string]interface{}),
+		metrics:      make(map[string]any),
 		expectations: make(map[string]map[LVKey][]expectation),
 	}
 
@@ -79,7 +79,7 @@ func NewProvider(o *xmetrics.Options, m ...xmetrics.Module) Provider {
 // with expect/assert functionality.
 type testProvider struct {
 	lock         sync.Mutex
-	metrics      map[string]interface{}
+	metrics      map[string]any
 	expectations map[string]map[LVKey][]expectation
 }
 

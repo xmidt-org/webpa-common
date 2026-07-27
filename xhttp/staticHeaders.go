@@ -4,6 +4,7 @@
 package xhttp
 
 import (
+	"maps"
 	"net/http"
 	"net/textproto"
 )
@@ -25,9 +26,7 @@ func StaticHeaders(extra http.Header) func(http.Handler) http.Handler {
 		return func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 				header := response.Header()
-				for k, v := range extra {
-					header[k] = v
-				}
+				maps.Copy(header, extra)
 
 				next.ServeHTTP(response, request)
 			})

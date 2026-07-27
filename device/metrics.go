@@ -29,44 +29,56 @@ func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		{
 			Name: DeviceCounter,
+			// nolint: goconst
 			Type: "gauge",
 		},
 		{
 			Name: DuplicatesCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
 			Name: RequestResponseCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
 			Name: PingCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
 			Name: PongCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
 			Name: ConnectCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
 			Name: DisconnectCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
 			Name: DeviceLimitReachedCounter,
+			// nolint: goconst
 			Type: "counter",
 		},
 		{
-			Name:       ModelGauge,
-			Type:       "gauge",
+			Name: ModelGauge,
+			// nolint: goconst
+			Type: "gauge",
+			// nolint: goconst
 			LabelNames: []string{"model", "partnerid", "firmware", "trust"},
 		},
 		{
-			Name:       WRPSourceCheck,
-			Type:       "counter",
+			Name: WRPSourceCheck,
+			// nolint: goconst
+			Type: "counter",
+			// nolint: goconst
 			LabelNames: []string{"outcome", "reason"},
 		},
 	}

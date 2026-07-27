@@ -16,21 +16,21 @@ func TestFilterGateAllowConnection(t *testing.T) {
 	assert := assert.New(t)
 
 	metadata := new(device.Metadata)
-	metadata.SetClaims(map[string]interface{}{
+	metadata.SetClaims(map[string]any{
 		"partner-id": "random-partner",
 	})
 	metadata.Store("random-key", "abc")
 
 	tests := []struct {
 		description string
-		filters     map[string]map[interface{}]bool
+		filters     map[string]map[any]bool
 		canPass     bool
 	}{
 		{
 			description: "Allow",
 			canPass:     true,
-			filters: map[string]map[interface{}]bool{
-				"partner-id": map[interface{}]bool{
+			filters: map[string]map[any]bool{
+				"partner-id": map[any]bool{
 					"comcast": true,
 				},
 			},
@@ -38,8 +38,8 @@ func TestFilterGateAllowConnection(t *testing.T) {
 		{
 			description: "Deny-Filter Match in Claims",
 			canPass:     false,
-			filters: map[string]map[interface{}]bool{
-				"partner-id": map[interface{}]bool{
+			filters: map[string]map[any]bool{
+				"partner-id": map[any]bool{
 					"comcast":        true,
 					"random-partner": true,
 				},
@@ -48,8 +48,8 @@ func TestFilterGateAllowConnection(t *testing.T) {
 		{
 			description: "Deny-Filter Match in Metadata Store",
 			canPass:     false,
-			filters: map[string]map[interface{}]bool{
-				"random-key": map[interface{}]bool{
+			filters: map[string]map[any]bool{
+				"random-key": map[any]bool{
 					"abc":    true,
 					"random": true,
 				},
@@ -99,7 +99,7 @@ func TestGetSetFilter(t *testing.T) {
 	tests := []struct {
 		description   string
 		keyToSet      string
-		valuesToSet   []interface{}
+		valuesToSet   []any
 		keyToGet      string
 		expectedSet   Set
 		expectedFound bool
@@ -107,17 +107,17 @@ func TestGetSetFilter(t *testing.T) {
 		{
 			description:   "Add",
 			keyToSet:      "test",
-			valuesToSet:   []interface{}{"test", "test1"},
+			valuesToSet:   []any{"test", "test1"},
 			keyToGet:      "test",
-			expectedSet:   &FilterSet{Set: map[interface{}]bool{"test": true, "test1": true}},
+			expectedSet:   &FilterSet{Set: map[any]bool{"test": true, "test1": true}},
 			expectedFound: true,
 		},
 		{
 			description:   "Update",
 			keyToSet:      "test",
-			valuesToSet:   []interface{}{"random-value"},
+			valuesToSet:   []any{"random-value"},
 			keyToGet:      "test",
-			expectedSet:   &FilterSet{Set: map[interface{}]bool{"random-value": true}},
+			expectedSet:   &FilterSet{Set: map[any]bool{"random-value": true}},
 			expectedFound: true,
 		},
 		{
@@ -164,8 +164,8 @@ func TestDeleteFilter(t *testing.T) {
 		},
 	}
 
-	fg.SetFilter("test", []interface{}{"test1", "test2"})
-	fg.SetFilter("key", []interface{}{123, 456})
+	fg.SetFilter("test", []any{"test1", "test2"})
+	fg.SetFilter("key", []any{123, 456})
 
 	for _, tc := range tests {
 		t.Run(tc.description, func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestGetAllowedFilters(t *testing.T) {
 	}{
 		{
 			description: "Non-empty allowed filters set",
-			allowedFilters: &FilterSet{Set: map[interface{}]bool{
+			allowedFilters: &FilterSet{Set: map[any]bool{
 				"test":          true,
 				"random-filter": true,
 			}},
@@ -195,7 +195,7 @@ func TestGetAllowedFilters(t *testing.T) {
 		},
 		{
 			description:    "Empty allowed filters set",
-			allowedFilters: &FilterSet{Set: map[interface{}]bool{}},
+			allowedFilters: &FilterSet{Set: map[any]bool{}},
 			setExists:      true,
 		},
 		{
@@ -230,8 +230,8 @@ func TestMetadataMatch(t *testing.T) {
 	assert := assert.New(t)
 	tests := []struct {
 		description         string
-		claims              map[string]interface{}
-		store               map[string]interface{}
+		claims              map[string]any
+		store               map[string]any
 		filterKey           string
 		filterValues        Set
 		expectedMatch       bool
@@ -239,12 +239,12 @@ func TestMetadataMatch(t *testing.T) {
 	}{
 		{
 			description: "claims match",
-			claims: map[string]interface{}{
+			claims: map[string]any{
 				"test":  "test1",
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: &FilterSet{Set: map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[any]bool{
 				"test1": true,
 				"test2": true,
 			}},
@@ -253,12 +253,12 @@ func TestMetadataMatch(t *testing.T) {
 		},
 		{
 			description: "store match",
-			store: map[string]interface{}{
+			store: map[string]any{
 				"test":  "test1",
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: &FilterSet{Set: map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[any]bool{
 				"test1": true,
 				"test2": true,
 			}},
@@ -267,12 +267,12 @@ func TestMetadataMatch(t *testing.T) {
 		},
 		{
 			description: "array match",
-			claims: map[string]interface{}{
-				"test":  []interface{}{"test1", "random"},
+			claims: map[string]any{
+				"test":  []any{"test1", "random"},
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: &FilterSet{Set: map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[any]bool{
 				"test1": true,
 				"test2": true,
 			}},
@@ -281,32 +281,32 @@ func TestMetadataMatch(t *testing.T) {
 		},
 		{
 			description: "no value match",
-			claims: map[string]interface{}{
-				"test":  []interface{}{"test1", "random"},
+			claims: map[string]any{
+				"test":  []any{"test1", "random"},
 				"test2": "random-value",
 			},
-			store: map[string]interface{}{
+			store: map[string]any{
 				"test":  "test1",
 				"test2": "random-value",
 			},
 			filterKey: "test",
-			filterValues: &FilterSet{Set: map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[any]bool{
 				"comcast": true,
 				"sky":     true,
 			}},
 		},
 		{
 			description: "no key match",
-			claims: map[string]interface{}{
-				"test":  []interface{}{"test1", "random"},
+			claims: map[string]any{
+				"test":  []any{"test1", "random"},
 				"test2": "random-value",
 			},
-			store: map[string]interface{}{
+			store: map[string]any{
 				"test":  "test1",
 				"test2": "random-value",
 			},
 			filterKey: "random-key",
-			filterValues: &FilterSet{Set: map[interface{}]bool{
+			filterValues: &FilterSet{Set: map[any]bool{
 				"test1":  true,
 				"random": true,
 			}},
@@ -343,7 +343,7 @@ func TestMarshalJSON(t *testing.T) {
 	}{
 		{
 			description: "Successful String Unmarshal",
-			filterSet: &FilterSet{Set: map[interface{}]bool{
+			filterSet: &FilterSet{Set: map[any]bool{
 				"test1": true,
 				"test2": true,
 			}},
@@ -351,7 +351,7 @@ func TestMarshalJSON(t *testing.T) {
 		},
 		{
 			description: "Successful Int Unmarshal",
-			filterSet: &FilterSet{Set: map[interface{}]bool{
+			filterSet: &FilterSet{Set: map[any]bool{
 				1: true,
 				2: true,
 				3: true,
@@ -360,7 +360,7 @@ func TestMarshalJSON(t *testing.T) {
 		},
 		{
 			description:    "Empty Set",
-			filterSet:      &FilterSet{Set: map[interface{}]bool{}},
+			filterSet:      &FilterSet{Set: map[any]bool{}},
 			expectedOutput: []byte(`[]`),
 		},
 		{

@@ -9,7 +9,7 @@ type mockTestingT struct {
 	mock.Mock
 }
 
-func (m *mockTestingT) Errorf(msg string, v ...interface{}) {
+func (m *mockTestingT) Errorf(msg string, v ...any) {
 	m.Called(msg, v)
 }
 
@@ -17,6 +17,6 @@ func AnyMessage(_ string) bool {
 	return true
 }
 
-func AnyArguments(_ []interface{}) bool {
+func AnyArguments(_ []any) bool {
 	return true
 }

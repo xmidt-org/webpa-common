@@ -5,7 +5,8 @@ package drain
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
+
 	"net/http"
 	"time"
 
@@ -42,7 +43,7 @@ func (s *Start) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	msgBytes, err := ioutil.ReadAll(request.Body)
+	msgBytes, err := io.ReadAll(request.Body)
 	defer request.Body.Close()
 
 	if err != nil {

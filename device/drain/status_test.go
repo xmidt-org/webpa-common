@@ -43,7 +43,7 @@ func TestStatus(t *testing.T) {
 		df = &drainFilter{
 			filter: &devicegate.FilterGate{
 				FilterStore: devicegate.FilterStore(map[string]devicegate.Set{
-					"test": &devicegate.FilterSet{Set: map[interface{}]bool{
+					"test": &devicegate.FilterSet{Set: map[any]bool{
 						"test1": true,
 						"test2": true,
 					}},
@@ -51,7 +51,7 @@ func TestStatus(t *testing.T) {
 			},
 			filterRequest: devicegate.FilterRequest{
 				Key:    "test",
-				Values: []interface{}{"test1", "test2"},
+				Values: []any{"test1", "test2"},
 			},
 		}
 

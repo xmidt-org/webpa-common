@@ -334,7 +334,7 @@ func testHandlerTimeout(t *testing.T, endpointCount int) {
 	)
 
 	require.NotNil(handler)
-	for i := 0; i < endpointCount; i++ {
+	for i := range endpointCount {
 		// nolint: typecheck
 		transactor.OnDo(
 			xhttptest.MatchMethod("GET"),
@@ -560,7 +560,7 @@ func testNewWithInjectedConfiguration(t *testing.T) {
 
 		handler = New(
 			expectedEndpoints,
-			WithConfiguration(Configuration{
+			WithConfiguration(&Configuration{
 				Endpoints:     []string{"localhost:1234"},
 				Authorization: "deadbeef",
 			}),

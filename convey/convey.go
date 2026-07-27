@@ -21,7 +21,7 @@ var (
 		// nolint:staticcheck
 		BasicHandle: codec.BasicHandle{
 			DecodeOptions: codec.DecodeOptions{
-				MapType: reflect.TypeOf((C)(nil)),
+				MapType: reflect.TypeFor[C](),
 			},
 		},
 		PreferFloat:     false,
@@ -35,19 +35,19 @@ type Interface interface {
 	wrpmeta.Source
 
 	// Get retrieves the raw value for a key, returning false if no such key exists
-	Get(key string) (interface{}, bool)
+	Get(key string) (any, bool)
 }
 
 // C represents an arbitrary block of JSON which base64-encoded and typically
 // transmitted as an HTTP header.  Access should normally be done through an instance
 // of Interface, which this type implements.
-type C map[string]interface{}
+type C map[string]any
 
 func (c C) GetString(key string) (string, bool) {
 	return wrpmeta.SourceMap(c).GetString(key)
 }
 
-func (c C) Get(key string) (interface{}, bool) {
+func (c C) Get(key string) (any, bool) {
 	if len(c) == 0 {
 		return nil, false
 	}

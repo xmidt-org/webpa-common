@@ -48,7 +48,7 @@ func NewEnvironment(l *adapter.Logger, u xviper.Unmarshaler, options ...service.
 					service.Instancers{
 						"fixed": service.NewContextualInstancer(
 							sd.FixedInstancer(o.Fixed),
-							map[string]interface{}{"fixed": o.Fixed},
+							map[string]any{"fixed": o.Fixed},
 						),
 					},
 				),

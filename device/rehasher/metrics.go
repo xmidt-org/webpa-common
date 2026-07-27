@@ -28,27 +28,32 @@ const (
 func Metrics() []xmetrics.Metric {
 	return []xmetrics.Metric{
 		{
-			Name:       RehashKeepDevice,
+			Name: RehashKeepDevice,
+			// nolint: goconst
 			Type:       "gauge",
 			LabelNames: []string{service.ServiceLabel},
 		},
 		{
-			Name:       RehashDisconnectDevice,
+			Name: RehashDisconnectDevice,
+			// nolint: goconst
 			Type:       "gauge",
 			LabelNames: []string{service.ServiceLabel},
 		},
 		{
-			Name:       RehashDisconnectAllCounter,
+			Name: RehashDisconnectAllCounter,
+			// nolint: goconst
 			Type:       "counter",
 			LabelNames: []string{service.ServiceLabel, ReasonLabel},
 		},
 		{
-			Name:       RehashTimestamp,
+			Name: RehashTimestamp,
+			// nolint: goconst
 			Type:       "gauge",
 			LabelNames: []string{service.ServiceLabel},
 		},
 		{
-			Name:       RehashDurationMilliseconds,
+			Name: RehashDurationMilliseconds,
+			// nolint: goconst
 			Type:       "gauge",
 			LabelNames: []string{service.ServiceLabel},
 		},

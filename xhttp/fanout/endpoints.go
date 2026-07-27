@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	errNoConfiguredEndpoints = errors.New("No configured endpoints")
+	errNoConfiguredEndpoints = errors.New("no configured endpoints")
 )
 
 // Endpoints is a strategy interface for determining the set of HTTP URL endpoints that a fanout
@@ -66,7 +66,7 @@ func MustParseURLs(urls ...string) FixedEndpoints {
 
 func (fe FixedEndpoints) FanoutURLs(original *http.Request) ([]*url.URL, error) {
 	endpoints := make([]*url.URL, len(fe))
-	for i := 0; i < len(fe); i++ {
+	for i := range fe {
 		endpoints[i] = new(url.URL)
 		*endpoints[i] = *fe[i]
 

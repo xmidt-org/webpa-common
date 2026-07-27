@@ -38,7 +38,7 @@ func testStatisticsInitialStateDefaultNow(t *testing.T) {
 	require.NotEmpty(data)
 	require.NoError(err)
 
-	var actualJSON map[string]interface{}
+	var actualJSON map[string]any
 	require.NoError(json.Unmarshal(data, &actualJSON))
 	assert.Equal(float64(0), actualJSON["bytesSent"])
 	assert.Equal(float64(0), actualJSON["messagesSent"])

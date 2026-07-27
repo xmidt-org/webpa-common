@@ -99,7 +99,7 @@ func (c *Client) servers() []string {
 
 	if c != nil {
 		if len(c.Connection) > 0 {
-			for _, server := range strings.Split(c.Connection, ",") {
+			for server := range strings.SplitSeq(c.Connection, ",") {
 				servers = append(servers, strings.TrimSpace(server))
 			}
 		}

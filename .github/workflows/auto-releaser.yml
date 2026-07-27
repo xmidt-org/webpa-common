@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
 ---
-name: 'Auto Release'
+name: "Auto Release"
 
+# yamllint disable-line
 on:
   schedule: # Run every day at 12:00 UTC
-    - cron: '0 12 * * *'
+    - cron: "0 12 * * *"
   workflow_dispatch:
 
 permissions:
@@ -14,5 +15,5 @@ permissions:
 jobs:
   release:
     # yamllint disable-line
-    uses: xmidt-org/shared-go/.github/workflows/auto-releaser.yml@aff0471aa7e2f96ddb059beb178f63747a7cc57e # v4.9.41
+    uses: xmidt-org/shared-go/.github/workflows/auto-releaser.yml@3ee264166a90ca457e80f94bc56d1099dbce2e8e # v4.12.20
     secrets: inherit

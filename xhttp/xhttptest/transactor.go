@@ -8,9 +8,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/stretchr/testify/mock"
@@ -36,9 +38,8 @@ func (dc *TransactCall) RespondWith(er ExpectedResponse) *TransactCall {
 	var response *http.Response
 	if er.Err == nil {
 		response = NewResponse(er.StatusCode, er.Body)
-		for key, values := range er.Header {
-			response.Header[key] = values
-		}
+		defer response.Body.Close()
+		maps.Copy(response.Header, er.Header)
 	}
 
 	return dc.Respond(response, er.Err)
@@ -160,7 +161,7 @@ func MatchBody(expected []byte) func(*http.Request) bool {
 
 		actual, err := io.ReadAll(r.Body)
 		if err != nil {
-			panic(fmt.Errorf("Error while read request body for matching: %s", err))
+			panic(fmt.Errorf("error while read request body for matching: %s", err))
 		}
 
 		// replace the body so other test code can reread it
@@ -170,7 +171,7 @@ func MatchBody(expected []byte) func(*http.Request) bool {
 			return false
 		}
 
-		for i := 0; i < len(actual); i++ {
+		for i := range actual {
 			if actual[i] != expected[i] {
 				return false
 			}
@@ -197,12 +198,6 @@ func MatchHeader(name, expected string) func(*http.Request) bool {
 			return len(expected) == 0
 		}
 
-		for _, actual := range values {
-			if actual == expected {
-				return true
-			}
-		}
-
-		return false
+		return slices.Contains(values, expected)
 	}
 }

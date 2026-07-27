@@ -115,7 +115,7 @@ func newInstancer(l *zap.Logger, c Client, w Watch) sd.Instancer {
 			PassingOnly:  w.PassingOnly,
 			QueryOptions: w.QueryOptions,
 		}),
-		map[string]interface{}{
+		map[string]any{
 			"service":     w.Service,
 			"tags":        w.Tags,
 			"passingOnly": w.PassingOnly,

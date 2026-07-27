@@ -30,13 +30,11 @@ func ExampleSpanner() {
 		firstDone = new(sync.WaitGroup)
 	)
 
-	firstDone.Add(1)
-	go func() {
-		defer firstDone.Done()
+	firstDone.Go(func() {
 		finisher := spanner.Start("success")
 		// a successful operation happens here ...
 		spans <- finisher(nil)
-	}()
+	})
 
 	go func() {
 		defer close(spans)

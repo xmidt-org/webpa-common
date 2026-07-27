@@ -16,7 +16,7 @@ import (
 
 // claims is a convenient base claims structurally repre to use in tests.
 // If you need to modify it, make a copy using deepCopyMap()
-var claims map[string]interface{}
+var claims map[string]any
 
 func init() {
 	// This is an easy way to catch unmarshalling surprises for claims
@@ -106,17 +106,17 @@ func TestDeviceMetadataUpdateCustomReferenceValue(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 	m := new(Metadata)
-	accountInfo := map[string]interface{}{
+	accountInfo := map[string]any{
 		"user-id":   4500,
 		"user-name": "Talaria XMiDT",
 	}
 	require.True(m.Store("account-info", accountInfo))
 
-	oldAccountInfo := m.Load("account-info").(map[string]interface{})
+	oldAccountInfo := m.Load("account-info").(map[string]any)
 	newAccountInfo := deepCopyMap(oldAccountInfo)
 	newAccountInfo["user-id"] = 4501
 	require.True(m.Store("account-info", newAccountInfo))
-	latestAccountInfo := m.Load("account-info").(map[string]interface{})
+	latestAccountInfo := m.Load("account-info").(map[string]any)
 	assert.Equal(newAccountInfo, latestAccountInfo)
 	assert.NotEqual(oldAccountInfo, latestAccountInfo)
 }
@@ -189,38 +189,38 @@ func benchmarkMetadataClaimsUsageParallel(readPercentage int, b *testing.B) {
 func TestDeepCopyMap(t *testing.T) {
 	testCases := []struct {
 		Name     string
-		Input    map[string]interface{}
-		Expected map[string]interface{}
+		Input    map[string]any
+		Expected map[string]any
 	}{
 		{
 			Name:     "Nil",
-			Expected: make(map[string]interface{}),
+			Expected: make(map[string]any),
 		},
 		{
 			Name:     "Empty",
-			Input:    make(map[string]interface{}),
-			Expected: make(map[string]interface{}),
+			Input:    make(map[string]any),
+			Expected: make(map[string]any),
 		},
 		{
 			Name:     "Simple",
-			Input:    map[string]interface{}{"k0": 0, "k1": 1},
-			Expected: map[string]interface{}{"k0": 0, "k1": 1},
+			Input:    map[string]any{"k0": 0, "k1": 1},
+			Expected: map[string]any{"k0": 0, "k1": 1},
 		},
 		{
 			Name: "Complex",
-			Input: map[string]interface{}{
-				"nested": map[string]interface{}{
+			Input: map[string]any{
+				"nested": map[string]any{
 					"nestedKey": "nestedVal",
 				},
-				"nestedToCast": map[interface{}]interface{}{
+				"nestedToCast": map[any]any{
 					3: "nestedVal3",
 				},
 			},
-			Expected: map[string]interface{}{
-				"nested": map[string]interface{}{
+			Expected: map[string]any{
+				"nested": map[string]any{
 					"nestedKey": "nestedVal",
 				},
-				"nestedToCast": map[string]interface{}{
+				"nestedToCast": map[string]any{
 					"3": "nestedVal3",
 				},
 			},

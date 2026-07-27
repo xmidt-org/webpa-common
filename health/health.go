@@ -119,9 +119,7 @@ func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error 
 	h.once.Do(func() {
 		h.logger.Info("Health Monitor Started")
 
-		waitGroup.Add(1)
-		go func() {
-			defer waitGroup.Done()
+		waitGroup.Go(func() {
 			ticker := time.NewTicker(h.statDumpInterval)
 			defer ticker.Stop()
 			defer h.logger.Info("Health Monitor Stopped")
@@ -141,7 +139,7 @@ func (h *Health) Run(waitGroup *sync.WaitGroup, shutdown <-chan struct{}) error 
 					}
 				}
 			}
-		}()
+		})
 	})
 
 	return nil

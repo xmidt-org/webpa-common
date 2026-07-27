@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-var errNotRewindable = errors.New("That request is not rewindable")
+var errNotRewindable = errors.New("that request is not rewindable")
 
 // ReadSeekerCloser combines the behavior of io.Reader, io.Seeker, and io.Closer.
 // This package uses this interface for basic optimizations.

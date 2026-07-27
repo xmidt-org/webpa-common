@@ -18,7 +18,7 @@ import (
 const DefaultRetryInterval = time.Second
 
 // temporaryError is the expected interface for a (possibly) temporary error.
-// Several of the error types in the net package implicitely implement this interface,
+// Several of the error types in the net package implicitly implement this interface,
 // for example net.DNSError.
 type temporaryError interface {
 	Temporary() bool

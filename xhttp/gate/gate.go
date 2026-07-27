@@ -136,8 +136,10 @@ func (g *gate) State() (bool, time.Time) {
 
 func (g *gate) String() string {
 	if g.Open() {
+		// nolint: goconst
 		return "open"
 	} else {
+		// nolint: goconst
 		return "closed"
 	}
 }

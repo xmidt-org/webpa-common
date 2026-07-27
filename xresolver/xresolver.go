@@ -109,12 +109,14 @@ func (resolve *resolver) DialContext(ctx context.Context, network, addr string) 
 
 func (resolve *resolver) createConnection(routes []Route, network, port string) (net.Conn, Route, error) {
 	for _, route := range routes {
-		portUsed := port
+		var portUsed string
 		if route.Port != 0 {
 			portUsed = strconv.Itoa(route.Port)
 		} else {
+			// nolint: staticcheck, goconst
 			if route.Scheme == "http" {
 				portUsed = "80"
+				// nolint: staticcheck, goconst
 			} else if route.Scheme == "https" {
 				portUsed = "443"
 			} else {

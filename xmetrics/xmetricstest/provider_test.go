@@ -216,13 +216,13 @@ func testProviderAssert(t *testing.T) {
 			require = require.New(t)
 
 			firstCalled = false
-			first       = func(testingT, string, interface{}) bool {
+			first       = func(testingT, string, any) bool {
 				firstCalled = true
 				return true
 			}
 
 			lastCalled = false
-			last       = func(testingT, string, interface{}) bool {
+			last       = func(testingT, string, any) bool {
 				lastCalled = true
 				return true
 			}
@@ -289,18 +289,18 @@ func testProviderAssert(t *testing.T) {
 			assert = assert.New(t)
 
 			firstCalled = false
-			first       = func(testingT, string, interface{}) bool {
+			first       = func(testingT, string, any) bool {
 				firstCalled = true
 				return true
 			}
 
 			lastCalled = false
-			last       = func(testingT, string, interface{}) bool {
+			last       = func(testingT, string, any) bool {
 				lastCalled = true
 				return true
 			}
 
-			nosuch = func(testingT, string, interface{}) bool {
+			nosuch = func(testingT, string, any) bool {
 				assert.Fail("nosuch should not have been called")
 				return false
 			}
@@ -336,13 +336,13 @@ func testProviderAssertExpectations(t *testing.T) {
 			require = require.New(t)
 
 			firstCalled = false
-			first       = func(testingT, string, interface{}) bool {
+			first       = func(testingT, string, any) bool {
 				firstCalled = true
 				return true
 			}
 
 			lastCalled = false
-			last       = func(testingT, string, interface{}) bool {
+			last       = func(testingT, string, any) bool {
 				lastCalled = true
 				return true
 			}
@@ -388,18 +388,18 @@ func testProviderAssertExpectations(t *testing.T) {
 			assert = assert.New(t)
 
 			firstCalled = false
-			first       = func(testingT, string, interface{}) bool {
+			first       = func(testingT, string, any) bool {
 				firstCalled = true
 				return true
 			}
 
 			lastCalled = false
-			last       = func(testingT, string, interface{}) bool {
+			last       = func(testingT, string, any) bool {
 				lastCalled = true
 				return true
 			}
 
-			nosuch = func(testingT, string, interface{}) bool {
+			nosuch = func(testingT, string, any) bool {
 				assert.Fail("nosuch should not have been called")
 				return true
 			}

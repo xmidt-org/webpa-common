@@ -25,7 +25,7 @@ func (m *mockDeviceGate) GetFilter(key string) (Set, bool) {
 	return set, args.Bool(1)
 }
 
-func (m *mockDeviceGate) SetFilter(key string, values []interface{}) (Set, bool) {
+func (m *mockDeviceGate) SetFilter(key string, values []any) (Set, bool) {
 	// nolint: typecheck
 	args := m.Called(key, values)
 	set, _ := args.Get(0).(Set)

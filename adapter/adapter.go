@@ -13,7 +13,7 @@ type Logger struct {
 }
 
 // this method makes Adapter implement log.Logger
-func (l Logger) Log(keyvals ...interface{}) error {
+func (l Logger) Log(keyvals ...any) error {
 	fields := make([]zap.Field, 0, len(keyvals))
 	for i := 0; i < len(keyvals); i += 2 {
 		fields = append(fields, zap.Any(keyvals[i].(string), keyvals[i+1]))
@@ -22,7 +22,7 @@ func (l Logger) Log(keyvals ...interface{}) error {
 	// ignore the case where there's an odd number of keyvals ... that would be a bug
 	// and we're deprecating webpa-common anyway
 
-	l.Logger.Info("", fields...)
+	l.Info("", fields...)
 	return nil
 }
 
