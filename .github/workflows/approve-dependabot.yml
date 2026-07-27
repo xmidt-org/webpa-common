@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2023 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
 ---
-name: 'Dependabot auto approval'
+name: "Dependabot auto approval"
 
+# yamllint disable-line
 on:
   pull_request_target:
 

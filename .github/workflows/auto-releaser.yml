@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
 # SPDX-License-Identifier: Apache-2.0
 ---
-name: 'Auto Release'
+name: "Auto Release"
 
+# yamllint disable-line
 on:
   schedule: # Run every day at 12:00 UTC
-    - cron: '0 12 * * *'
+    - cron: "0 12 * * *"
   workflow_dispatch:
 
 permissions:

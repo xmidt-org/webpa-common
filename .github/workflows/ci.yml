@@ -3,6 +3,7 @@
 ---
 name: CI
 
+# yamllint disable-line
 on:
   push:
     branches:
