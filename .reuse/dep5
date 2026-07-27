@@ -43,6 +43,42 @@ Files: docs/swagger.yaml
 Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
 License: Apache-2.0
 
-Files: REUSE.toml
+Files: .whitesource
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: AUTHORS
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: health/meminfo.test
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/applicationName.json
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/cert.pem
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/client_ca.pem
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/key.pem
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/invalidWebPA.json
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/invalidLog.json
+Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
+License: Apache-2.0
+
+Files: server/example.json
 Copyright: SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC
 License: Apache-2.0
