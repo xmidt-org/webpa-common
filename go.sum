@@ -227,8 +227,8 @@ github.com/ugorji/go/codec v1.2.14 h1:yOQvXCBc3Ij46LRkRoh4Yd5qK6LVOgi0bYOXfb7ifj
 github.com/ugorji/go/codec v1.2.14/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/xmidt-org/candlelight v0.2.17 h1:1fYNNK782/R1S/8aTisztGzRPubRw89IsFdVthECLBY=
 github.com/xmidt-org/candlelight v0.2.17/go.mod h1:nP5D99fWOGSBvI+2WvMV1thoZBVxie4arT61zuTXsss=
-github.com/xmidt-org/sallust v0.2.9 h1:R41iDzhq3RzDX3qTJVNZHBqByAmyER7m1rLtWv5Vtlg=
-github.com/xmidt-org/sallust v0.2.9/go.mod h1:FBDOmfGlAPihf8aND9tbDKHCWAW1jstfBtYj1BY6I+8=
+github.com/xmidt-org/sallust v0.2.10 h1:q5RR3zZ22+FHIGGLNTlARdSqGKYVIQeWL320NybHhxk=
+github.com/xmidt-org/sallust v0.2.10/go.mod h1:SWs5tDl0oyi1bBgvVU8ucxaR1qjPO66ecyLW8/cAzUk=
 github.com/xmidt-org/wrp-go/v3 v3.7.0 h1:m9ghdq79Zzb0WjomUJ02rzFpI0RK8KTjArYpNIwx1fc=
 github.com/xmidt-org/wrp-go/v3 v3.7.0/go.mod h1:eyMj+q/7LQ4SU6Z3s6VOwuTVSh6/DJBb2soBGBFSung=
 go.opentelemetry.io/auto/sdk v1.2.1 h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=
