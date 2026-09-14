@@ -19,7 +19,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
-	github.com/ugorji/go/codec v1.2.14
+	github.com/ugorji/go/codec v1.3.2
 	github.com/xmidt-org/candlelight v0.2.19
 	github.com/xmidt-org/sallust v0.2.10
 	github.com/xmidt-org/wrp-go/v3 v3.7.0
