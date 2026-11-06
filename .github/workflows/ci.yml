@@ -27,7 +27,7 @@ permissions:
 jobs:
   ci:
     # yamllint disable-line
-    uses: xmidt-org/shared-go/.github/workflows/ci.yml@d035e658095efa2e8df84fc31057cd2a9315321c # v4.13.17
+    uses: xmidt-org/shared-go/.github/workflows/ci.yml@53772ea233f1e896d84025a1c967720a16544b5b # v4.13.18
     with:
       release-type: library
       yaml-lint-skip: false
